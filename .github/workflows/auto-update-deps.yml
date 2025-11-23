@@ -2,7 +2,7 @@ name: 自动更新依赖
 
 on:
   schedule:
-    - cron: "0 21 * * *"  # 每天早上 5 点（UTC+8）= UTC 21 点
+    - cron: "0 21 * * *"
   workflow_dispatch:
 
 permissions:

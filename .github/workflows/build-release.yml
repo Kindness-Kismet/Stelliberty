@@ -133,8 +133,6 @@ jobs:
             echo ""
             echo "自 $previous_tag 以来的功能和修复："
             echo ""
-            echo "> 💡 已自动过滤 CI/Workflow/文档 相关的维护性提交"
-            echo ""
 
             # 获取所有提交并处理
             total_count=0
@@ -171,12 +169,11 @@ jobs:
               # 获取提交信息（分别获取避免分隔符问题）
               subject=$(git log -1 --pretty=format:"%s" "$hash")
               author=$(git log -1 --pretty=format:"%an" "$hash")
-              time=$(git log -1 --pretty=format:"%ar" "$hash")
               
               # 输出格式化的提交信息
               echo "### $subject"
               echo ""
-              echo "**提交**: \`${hash:0:7}\` | **作者**: $author | **时间**: $time"
+              echo "**提交**: \`${hash:0:7}\` | **作者**: $author"
               echo ""
               
               # 显示涉及的主要文件（排除忽略的文件）
@@ -193,8 +190,8 @@ jobs:
               
               if [ -n "$main_files" ]; then
                 echo "**涉及文件**: $main_files"
-                echo ""
               fi
+              echo ""
               
               # 获取提交正文（如果有的话）
               body=$(git log -1 --pretty=format:"%b" "$hash" | sed '/^$/d')
@@ -207,9 +204,8 @@ jobs:
               echo ""
             done
             
-            echo "---"
-            echo ""
             echo "**统计信息**"
+            echo ""
             echo "- 📊 总提交数: $total_count"
             echo "- ✅ 功能/修复提交: $included_count"
             echo "- 🔧 CI/维护提交: $filtered_count (已过滤)"
