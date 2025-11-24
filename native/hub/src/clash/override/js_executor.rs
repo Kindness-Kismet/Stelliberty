@@ -176,7 +176,6 @@ impl JsExecutor {
         // 匹配模式：键名: 数字+字母e/E+数字（可能有+/-）
         // 例如：short-id: 6314e825
         // 注意：此正则表达式是硬编码的字面量，编译时已验证正确性
-        #[allow(clippy::unwrap_used)]
         #[allow(clippy::expect_used)]
         let re = regex::Regex::new(r"(?m)^(\s*)(\S+):\s*([+-]?\d+[eE][+-]?\d+)\s*$")
             .expect("正则表达式编译失败：这是编译时错误，不应该在运行时发生");

@@ -4,7 +4,7 @@
 // 1. 直接进程管理模式 - 直接启动 Clash 核心进程
 // 2. 服务模式 - 通过系统服务以管理员权限运行 Clash 核心，支持 TUN 模式
 
-use rinf::DartSignal;
+use rinf::{DartSignal, RustSignal};
 use tokio::spawn;
 
 pub mod config;
@@ -34,11 +34,20 @@ pub fn init() {
         let receiver = StartClashProcess::get_dart_signal_receiver();
         while let Some(dart_signal) = receiver.recv().await {
             let message = dart_signal.message;
-            tokio::task::spawn_blocking(move || {
+            if let Err(e) = tokio::task::spawn_blocking(move || {
                 message.handle();
             })
             .await
-            .unwrap_or_else(|e| log::error!("处理启动进程请求失败：{}", e));
+            {
+                log::error!("启动进程的任务执行失败（可能线程池耗尽）：{}", e);
+                // 向 Dart 发送错误响应
+                messages::ClashProcessResult {
+                    success: false,
+                    error_message: Some(format!("任务执行失败：{}", e)),
+                    pid: None,
+                }
+                .send_signal_to_dart();
+            }
         }
     });
 
@@ -47,11 +56,20 @@ pub fn init() {
         let receiver = StopClashProcess::get_dart_signal_receiver();
         while let Some(dart_signal) = receiver.recv().await {
             let message = dart_signal.message;
-            tokio::task::spawn_blocking(move || {
+            if let Err(e) = tokio::task::spawn_blocking(move || {
                 message.handle();
             })
             .await
-            .unwrap_or_else(|e| log::error!("处理停止进程请求失败：{}", e));
+            {
+                log::error!("停止进程的任务执行失败（可能线程池耗尽）：{}", e);
+                // 向 Dart 发送错误响应
+                messages::ClashProcessResult {
+                    success: false,
+                    error_message: Some(format!("任务执行失败：{}", e)),
+                    pid: None,
+                }
+                .send_signal_to_dart();
+            }
         }
     });
 

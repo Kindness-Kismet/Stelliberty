@@ -47,7 +47,7 @@ impl IpcClient {
 
     // 发送命令并等待响应
     pub async fn send_command(&self, command: IpcCommand) -> Result<IpcResponse> {
-        let mut last_error = None;
+        let mut last_error: Option<IpcError> = None;
 
         for attempt in 0..=self.max_retries {
             if attempt > 0 {
@@ -75,7 +75,8 @@ impl IpcClient {
             }
         }
 
-        Err(last_error.unwrap_or(IpcError::ConnectionFailed("未知错误".to_string())))
+        // last_error 必定存在，因为循环至少执行一次且没有成功返回
+        Err(last_error.expect("last_error 必定存在：循环至少执行一次"))
     }
 
     // 尝试发送命令（单次）

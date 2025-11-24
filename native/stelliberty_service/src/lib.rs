@@ -140,7 +140,13 @@ pub fn handle_command(args: &[String]) -> Result<Option<()>> {
         "logs" => {
             if args.len() > 2 {
                 // 有参数：显示指定行数的日志
-                let lines = args[2].parse().unwrap_or(1000);
+                let lines = match args[2].parse::<usize>() {
+                    Ok(n) => n,
+                    Err(_) => {
+                        eprintln!("警告: 无效的行数参数 '{}', 使用默认值 1000", args[2]);
+                        1000
+                    }
+                };
                 tokio::runtime::Runtime::new()?.block_on(async { show_logs(lines).await })?;
             } else {
                 // 无参数：实时监控日志
