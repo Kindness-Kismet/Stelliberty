@@ -26,7 +26,7 @@ pub fn init() {
     spawn(async {
         let receiver = EnableSystemProxy::get_dart_signal_receiver();
         while let Some(dart_signal) = receiver.recv().await {
-            dart_signal.message.handle();
+            dart_signal.message.handle().await;
         }
         log::info!("启用代理消息通道已关闭，退出监听器");
     });
@@ -35,7 +35,7 @@ pub fn init() {
     spawn(async {
         let receiver = DisableSystemProxy::get_dart_signal_receiver();
         while let Some(dart_signal) = receiver.recv().await {
-            dart_signal.message.handle();
+            dart_signal.message.handle().await;
         }
         log::info!("禁用代理消息通道已关闭，退出监听器");
     });
@@ -44,7 +44,7 @@ pub fn init() {
     spawn(async {
         let receiver = GetSystemProxy::get_dart_signal_receiver();
         while let Some(dart_signal) = receiver.recv().await {
-            dart_signal.message.handle();
+            dart_signal.message.handle().await;
         }
         log::info!("获取系统代理状态消息通道已关闭，退出监听器");
     });

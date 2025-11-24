@@ -55,7 +55,7 @@ impl EnableSystemProxy {
     // 执行启用代理操作
     //
     // 目的：配置系统级代理设置，使所有网络流量经过指定代理服务器
-    pub fn handle(self) {
+    pub async fn handle(self) {
         if self.use_pac_mode {
             log::info!("收到启用代理请求 (PAC 模式)");
         } else {
@@ -69,7 +69,8 @@ impl EnableSystemProxy {
             self.use_pac_mode,
             &self.pac_script,
             &self.pac_file_path,
-        );
+        )
+        .await;
 
         let response = match result {
             proxy::ProxyResult::Success => SystemProxyResult {
@@ -93,10 +94,10 @@ impl DisableSystemProxy {
     // 执行禁用代理操作
     //
     // 目的：移除系统代理配置，恢复直连网络访问
-    pub fn handle(&self) {
+    pub async fn handle(&self) {
         log::info!("收到禁用代理请求");
 
-        let result = proxy::disable_proxy();
+        let result = proxy::disable_proxy().await;
 
         let response = match result {
             proxy::ProxyResult::Success => SystemProxyResult {
@@ -120,10 +121,10 @@ impl GetSystemProxy {
     // 查询当前系统代理状态
     //
     // 目的：获取系统代理的启用状态和配置信息
-    pub fn handle(&self) {
+    pub async fn handle(&self) {
         log::info!("收到获取系统代理状态请求");
 
-        let proxy_info = proxy::get_proxy_info();
+        let proxy_info = proxy::get_proxy_info().await;
 
         let response = SystemProxyInfo {
             enabled: proxy_info.enabled,

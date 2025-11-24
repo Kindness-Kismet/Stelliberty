@@ -273,8 +273,7 @@ SyslogIdentifier=stelliberty
 
 [Install]
 WantedBy=multi-user.target
-"#,
-        binary_path
+"#
     )
 }
 

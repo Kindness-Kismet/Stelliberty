@@ -7,6 +7,7 @@ use anyhow::Result;
 use std::sync::Arc;
 use tokio::sync::{RwLock, mpsc};
 
+#[cfg(windows)]
 const SERVICE_NAME: &str = "StellibertyService";
 
 // ============ Windows Service 实现 ============
@@ -161,6 +162,9 @@ fn run_service_windows() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 // ============ Linux systemd 实现 ============
+
+#[cfg(target_os = "linux")]
+use std::time::Duration;
 
 #[cfg(target_os = "linux")]
 pub async fn run_service() -> Result<()> {

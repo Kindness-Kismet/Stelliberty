@@ -17,10 +17,14 @@ use stelliberty_service::ipc::{IpcClient, IpcCommand, IpcResponse};
 #[derive(Debug, Clone)]
 pub enum ServiceStatus {
     // 服务已安装并运行
-    Running { pid: u32, uptime: u64 },
+    Running {
+        pid: u32,
+        uptime: u64,
+    },
     // 服务已安装但未运行
     Stopped,
     // 服务未安装
+    #[cfg(windows)]
     NotInstalled,
     // 无法检测（IPC 连接失败）
     Unknown,
@@ -638,6 +642,13 @@ impl ServiceManager {
             .open_service(SERVICE_NAME, ServiceAccess::QUERY_STATUS)
             .is_ok()
     }
+
+    #[cfg(not(windows))]
+    fn is_service_installed() -> bool {
+        // 非 Windows 平台：通过 IPC 检测服务是否运行来判断
+        // 这里返回 true 让后续逻辑通过 IPC 检测
+        true
+    }
 }
 
 impl Default for ServiceManager {
@@ -764,6 +775,7 @@ impl GetServiceStatus {
                 pid: None,
                 uptime: None,
             },
+            #[cfg(windows)]
             ServiceStatus::NotInstalled => ServiceStatusResponse {
                 status: "not_installed".to_string(),
                 pid: None,

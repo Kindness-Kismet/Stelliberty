@@ -42,7 +42,7 @@ impl ClashProcess {
                 .spawn()
                 .map_err(|e| format!("启动进程失败：{}", e))?;
 
-            Ok(ClashProcess { child: child })
+            Ok(ClashProcess { child })
         }
 
         #[cfg(windows)]
@@ -169,61 +169,63 @@ impl ClashProcess {
         }
     }
 
-    // 停止进程
+    // 停止进程 - Unix 实现
+    #[cfg(unix)]
+    fn stop(mut self) -> Result<(), String> {
+        let pid = self.pid();
+        log::info!("正在停止 Clash 进程，PID：{}", pid);
+
+        use nix::sys::signal::{Signal, kill};
+        use nix::unistd::Pid;
+
+        // 发送 SIGTERM 信号
+        let nix_pid = Pid::from_raw(pid as i32);
+        if let Err(e) = kill(nix_pid, Signal::SIGTERM) {
+            log::error!("发送 SIGTERM 失败：{}", e);
+        }
+
+        // 等待进程退出
+        match self.child.wait() {
+            Ok(status) => {
+                log::info!("进程已退出，状态：{:?}", status);
+                Ok(())
+            }
+            Err(e) => {
+                log::error!("等待进程退出失败：{}", e);
+                Err(format!("等待进程退出失败：{}", e))
+            }
+        }
+    }
+
+    // 停止进程 - Windows 实现
+    #[cfg(windows)]
     fn stop(self) -> Result<(), String> {
         let pid = self.pid();
         log::info!("正在停止 Clash 进程，PID：{}", pid);
 
-        #[cfg(unix)]
-        {
-            use nix::sys::signal::{Signal, kill};
-            use nix::unistd::Pid;
+        use std::time::Duration;
+        use winapi::um::handleapi::CloseHandle;
+        use winapi::um::synchapi::WaitForSingleObject;
+        use winapi::um::winbase::WAIT_OBJECT_0;
 
-            // 发送 SIGTERM 信号
-            let nix_pid = Pid::from_raw(pid as i32);
-            if let Err(e) = kill(nix_pid, Signal::SIGTERM) {
-                log::error!("发送 SIGTERM 失败：{}", e);
-            }
+        unsafe {
+            // 关闭 Job Object 触发子进程自动终止
+            CloseHandle(self.job_handle);
 
-            // 等待进程退出
-            match self.child.wait() {
-                Ok(status) => {
-                    log::info!("进程已退出，状态：{:?}", status);
+            // 等待进程退出（最多 5 秒）
+            let timeout_ms = Duration::from_secs(5).as_millis() as u32;
+            let wait_result = WaitForSingleObject(self.process_handle, timeout_ms);
+
+            match wait_result {
+                WAIT_OBJECT_0 => {
+                    log::info!("进程已安全退出");
+                    CloseHandle(self.process_handle);
                     Ok(())
                 }
-                Err(e) => {
-                    log::error!("等待进程退出失败：{}", e);
-                    Err(format!("等待进程退出失败：{}", e))
-                }
-            }
-        }
-
-        #[cfg(windows)]
-        {
-            use std::time::Duration;
-            use winapi::um::handleapi::CloseHandle;
-            use winapi::um::synchapi::WaitForSingleObject;
-            use winapi::um::winbase::WAIT_OBJECT_0;
-
-            unsafe {
-                // 关闭 Job Object 触发子进程自动终止
-                CloseHandle(self.job_handle);
-
-                // 等待进程退出（最多 5 秒）
-                let timeout_ms = Duration::from_secs(5).as_millis() as u32;
-                let wait_result = WaitForSingleObject(self.process_handle, timeout_ms);
-
-                match wait_result {
-                    WAIT_OBJECT_0 => {
-                        log::info!("进程已安全退出");
-                        CloseHandle(self.process_handle);
-                        Ok(())
-                    }
-                    _ => {
-                        log::warn!("进程在 5 秒后仍未退出");
-                        CloseHandle(self.process_handle);
-                        Ok(())
-                    }
+                _ => {
+                    log::warn!("进程在 5 秒后仍未退出");
+                    CloseHandle(self.process_handle);
+                    Ok(())
                 }
             }
         }

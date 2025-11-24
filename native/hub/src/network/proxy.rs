@@ -36,7 +36,7 @@ mod windows_impl {
     // 配置并启用系统代理
     //
     // 目的：将系统网络流量重定向到指定的代理服务器或使用 PAC 脚本
-    pub fn enable_proxy(
+    pub async fn enable_proxy(
         host: &str,
         port: u16,
         bypass_domains: Vec<String>,
@@ -209,7 +209,7 @@ mod windows_impl {
     // 移除系统代理配置
     //
     // 目的：恢复系统直连网络访问
-    pub fn disable_proxy() -> ProxyResult {
+    pub async fn disable_proxy() -> ProxyResult {
         log::info!("正在禁用系统代理");
 
         unsafe {
@@ -302,7 +302,7 @@ mod windows_impl {
     // 查询当前系统代理配置
     //
     // 目的：读取系统代理的启用状态和服务器地址
-    pub fn get_proxy_info() -> ProxyInfo {
+    pub async fn get_proxy_info() -> ProxyInfo {
         unsafe {
             // 准备查询选项
             let option_flags = INTERNET_PER_CONN_OPTIONW {
@@ -937,7 +937,7 @@ pub use linux_impl::{disable_proxy, enable_proxy, get_proxy_info};
 
 // Android/其他平台 stub
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-pub fn enable_proxy(
+pub async fn enable_proxy(
     _host: &str,
     _port: u16,
     _bypass_domains: Vec<String>,
@@ -949,12 +949,12 @@ pub fn enable_proxy(
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-pub fn disable_proxy() -> ProxyResult {
+pub async fn disable_proxy() -> ProxyResult {
     ProxyResult::Error("当前平台不支持系统代理设置".to_string())
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-pub fn get_proxy_info() -> ProxyInfo {
+pub async fn get_proxy_info() -> ProxyInfo {
     ProxyInfo {
         enabled: false,
         server: None,

@@ -9,6 +9,7 @@ use tokio::net::UnixStream;
 use tokio::net::windows::named_pipe::ClientOptions;
 
 // Named Pipe 连接最大重试次数（避免无限等待）
+#[cfg(windows)]
 const MAX_PIPE_BUSY_RETRIES: u32 = 10;
 
 // Windows：连接到 Named Pipe（带重试机制和超时保护）
