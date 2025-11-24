@@ -76,6 +76,10 @@ class TrayEventHandler with TrayListener {
     Logger.info('托盘菜单项被点击：${menuItem.key}');
 
     switch (menuItem.key) {
+      case 'close_menu':
+        // 关闭菜单，不执行任何操作
+        Logger.info('关闭菜单被点击，菜单将自动关闭');
+        break;
       case 'show_window':
         showWindow();
         break;

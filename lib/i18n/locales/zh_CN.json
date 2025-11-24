@@ -650,6 +650,7 @@
   },
   "tray": {
     "showWindow": "显示窗口",
+    "closeMenu": "关闭菜单",
     "toggleProxy": "开启代理",
     "toggleTun": "虚拟网卡模式",
     "outboundMode": "出站模式",

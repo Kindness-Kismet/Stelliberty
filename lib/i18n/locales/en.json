@@ -657,6 +657,7 @@
   },
   "tray": {
     "showWindow": "Show Window",
+    "closeMenu": "Close Menu",
     "toggleProxy": "Enable Proxy",
     "toggleTun": "Virtual Network Card",
     "outboundMode": "Outbound Mode",
