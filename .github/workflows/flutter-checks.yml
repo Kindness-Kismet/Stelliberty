@@ -3,6 +3,7 @@ name: Flutter 代码检查
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_dispatch:
 
 jobs:
   flutter-checks:
