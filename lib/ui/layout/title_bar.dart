@@ -114,8 +114,30 @@ class WindowButtons extends StatelessWidget {
     final minimizeToTray = AppPreferences.instance.getMinimizeToTray();
 
     if (minimizeToTray) {
-      // 最小化到托盘：隐藏窗口
+      // 最小化到托盘：先保存当前窗口状态，再隐藏窗口
       Logger.info('用户点击关闭按钮，最小化到托盘...');
+
+      // 保存当前窗口状态（包括最大化状态和尺寸位置）
+      try {
+        final isMaximized = await windowManager.isMaximized();
+        await AppPreferences.instance.setIsMaximized(isMaximized);
+
+        // 非最大化时保存尺寸和位置
+        if (!isMaximized) {
+          final size = await windowManager.getSize();
+          final position = await windowManager.getPosition();
+          await Future.wait([
+            AppPreferences.instance.setWindowSize(size),
+            AppPreferences.instance.setWindowPosition(position),
+          ]);
+        }
+
+        WindowStateManager.clearCache();
+        Logger.debug('最小化到托盘前已保存窗口状态: isMaximized=$isMaximized');
+      } catch (e) {
+        Logger.error('保存窗口状态失败：$e');
+      }
+
       await windowManager.setOpacity(0.0);
       await windowManager.hide();
       return;

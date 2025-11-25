@@ -116,20 +116,22 @@ class TrayEventHandler with TrayListener {
         return;
       }
 
-      // 检查窗口是否应该最大化
+      // 获取保存的窗口状态
       final shouldMaximize = AppPreferences.instance.getIsMaximized();
 
-      // 窗口隐藏，需要显示
-      if (shouldMaximize) {
-        await windowManager.maximize();
-      }
+      // 恢复透明度
       final opacity = await windowManager.getOpacity();
       if (opacity < 1.0) {
         await windowManager.setOpacity(1.0);
-        Logger.info('窗口透明度已恢复');
       }
 
+      // 先显示窗口，然后根据保存的状态决定是否最大化
       await windowManager.show();
+
+      // 根据保存的状态恢复窗口
+      if (shouldMaximize) {
+        await windowManager.maximize();
+      }
 
       Logger.info('窗口已显示 (最大化：$shouldMaximize)');
     } catch (e) {
