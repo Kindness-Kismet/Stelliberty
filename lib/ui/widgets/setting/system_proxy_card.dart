@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_dropdown_menu.dart';
-import 'package:stelliberty/ui/common/modern_dropdown_button.dart';
 import 'package:stelliberty/ui/common/modern_text_field.dart';
 import 'package:stelliberty/ui/widgets/modern_multiline_text_field.dart';
 import 'package:stelliberty/ui/notifiers/system_proxy_notifier.dart';
@@ -18,7 +17,6 @@ class SystemProxyCard extends StatefulWidget {
 
 class _SystemProxyCardState extends State<SystemProxyCard> {
   late SystemProxyNotifier _viewModel;
-  bool _isHoveringOnHostMenu = false;
 
   @override
   void initState() {
@@ -151,35 +149,21 @@ class _SystemProxyCardState extends State<SystemProxyCard> {
   // 构建真实内容
   List<Widget> _buildRealContent(ThemeData theme) {
     return [
-      // 代理主机
-      Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: ModernTextField(
-              controller: _viewModel.proxyHostController,
-              labelText: context.translate.systemProxy.proxyHost,
-              hintText: context.translate.systemProxy.proxyHostHint,
-              helperText: context.translate.systemProxy.proxyHostHelper,
-              onChanged: _viewModel.saveProxyHost,
-            ),
-          ),
-          const SizedBox(width: 12),
-          MouseRegion(
-            onEnter: (_) => setState(() => _isHoveringOnHostMenu = true),
-            onExit: (_) => setState(() => _isHoveringOnHostMenu = false),
-            child: ModernDropdownMenu<String>(
-              items: _viewModel.availableHosts,
-              selectedItem: _viewModel.selectedHost,
-              onSelected: _viewModel.selectHost,
-              itemToString: (host) => host,
-              child: CustomDropdownButton(
-                text: context.translate.systemProxy.select,
-                isHovering: _isHoveringOnHostMenu,
-              ),
-            ),
-          ),
-        ],
+      // 代理主机（输入框内嵌下拉按钮）
+      ModernDropdownMenu<String>(
+        items: _viewModel.availableHosts,
+        selectedItem: _viewModel.selectedHost,
+        onSelected: _viewModel.selectHost,
+        itemToString: (host) => host,
+        child: ModernTextField(
+          controller: _viewModel.proxyHostController,
+          labelText: context.translate.systemProxy.proxyHost,
+          hintText: context.translate.systemProxy.proxyHostHint,
+          helperText: context.translate.systemProxy.proxyHostHelper,
+          onChanged: _viewModel.saveProxyHost,
+          showDropdownIcon: true,
+  
+        ),
       ),
       const SizedBox(height: 16),
 

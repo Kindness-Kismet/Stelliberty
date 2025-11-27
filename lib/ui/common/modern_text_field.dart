@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-// 现代化的文本输入框组件
+// 现代化的文本输入框组件（基于原生 TextField 重构）
 //
-// 与 ModernDropdownButton 风格统一的输入框
+// 更简单、更稳定的实现，使用 Flutter 原生组件
 class ModernTextField extends StatefulWidget {
   final TextEditingController? controller;
   final String? labelText;
@@ -12,6 +12,9 @@ class ModernTextField extends StatefulWidget {
   final IconData? prefixIcon;
   final Widget? suffixIcon;
   final String? suffixText;
+  final Widget? suffixWidget;
+  final bool showDropdownIcon;
+  final VoidCallback? onDropdownTap;
   final TextInputType? keyboardType;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -31,6 +34,9 @@ class ModernTextField extends StatefulWidget {
     this.prefixIcon,
     this.suffixIcon,
     this.suffixText,
+    this.suffixWidget,
+    this.showDropdownIcon = false,
+    this.onDropdownTap,
     this.keyboardType,
     this.onChanged,
     this.onSubmitted,
@@ -52,37 +58,60 @@ class _ModernTextFieldState extends State<ModernTextField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
 
     // 计算背景颜色
     Color backgroundColor;
     if (!widget.enabled) {
-      backgroundColor = theme.colorScheme.surface.withAlpha(100);
+      backgroundColor = colorScheme.surface.withValues(alpha: 0.4);
     } else if (_isFocused) {
       backgroundColor = Color.alphaBlend(
-        theme.colorScheme.primary.withAlpha(10),
-        theme.colorScheme.surface.withAlpha(255),
+        colorScheme.primary.withValues(alpha: 0.04),
+        colorScheme.surface,
       );
     } else if (_isHovering) {
       backgroundColor = Color.alphaBlend(
-        theme.colorScheme.onSurface.withAlpha(10),
-        theme.colorScheme.surface.withAlpha(255),
+        colorScheme.onSurface.withValues(alpha: 0.04),
+        colorScheme.surface,
       );
     } else {
-      backgroundColor = theme.colorScheme.surface.withAlpha(255);
+      backgroundColor = colorScheme.surface;
     }
 
     // 边框颜色
     Color borderColor;
     if (widget.errorText != null) {
-      borderColor = theme.colorScheme.error;
+      borderColor = colorScheme.error;
     } else if (!widget.enabled) {
-      borderColor = theme.colorScheme.outline.withAlpha(50);
+      borderColor = colorScheme.outline.withValues(alpha: 0.2);
     } else if (_isFocused) {
-      borderColor = theme.colorScheme.primary.withAlpha(180);
+      borderColor = colorScheme.primary.withValues(alpha: 0.7);
     } else if (_isHovering) {
-      borderColor = theme.colorScheme.outline.withAlpha(150);
+      borderColor = colorScheme.outline.withValues(alpha: 0.6);
     } else {
-      borderColor = theme.colorScheme.outline.withAlpha(100);
+      borderColor = colorScheme.outline.withValues(alpha: 0.4);
+    }
+
+    // 构建后缀 widget
+    Widget? suffixWidget;
+    if (widget.suffixWidget != null) {
+      suffixWidget = widget.suffixWidget;
+    } else if (widget.showDropdownIcon) {
+      suffixWidget = GestureDetector(
+        onTap: widget.onDropdownTap,
+        child: Container(
+          width: 40,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.only(right: 20),
+          child: Icon(
+            Icons.keyboard_arrow_down,
+            size: 20,
+            color: colorScheme.onSurface.withValues(alpha: 0.7),
+          ),
+        ),
+      );
+    } else if (widget.suffixIcon != null) {
+      suffixWidget = widget.suffixIcon;
     }
 
     return MouseRegion(
@@ -100,75 +129,70 @@ class _ModernTextFieldState extends State<ModernTextField> {
                 widget.labelText!,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: _isFocused
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withAlpha(180),
+                      ? colorScheme.primary
+                      : colorScheme.onSurface.withValues(alpha: 0.7),
                   fontWeight: FontWeight.w500,
                 ),
               ),
             ),
           ],
-          // 输入框
+          // 输入框容器
           Focus(
             onFocusChange: (focused) => setState(() => _isFocused = focused),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              curve: Curves.easeInOut,
+            child: Container(
               height: widget.height,
               decoration: BoxDecoration(
                 color: backgroundColor,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: borderColor,
-                  width: _isFocused ? 2 : 1.5,
+                  width: 1.5,
                 ),
-                boxShadow: [
-                  if (_isFocused)
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withAlpha(30),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                ],
               ),
-              child: TextField(
-                controller: widget.controller,
-                keyboardType: widget.keyboardType,
-                onChanged: widget.onChanged,
-                onSubmitted: widget.onSubmitted,
-                maxLines: widget.maxLines,
-                enabled: widget.enabled,
-                obscureText: widget.obscureText,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: widget.enabled
-                      ? theme.colorScheme.onSurface
-                      : theme.colorScheme.onSurface.withAlpha(100),
-                ),
-                decoration: InputDecoration(
-                  hintText: widget.hintText,
-                  hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withAlpha(100),
-                  ),
-                  prefixIcon: widget.prefixIcon != null
-                      ? Icon(
-                          widget.prefixIcon,
-                          color: _isFocused
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.onSurface.withAlpha(150),
-                        )
-                      : null,
-                  suffixIcon: widget.suffixIcon,
-                  suffixText: widget.suffixText,
-                  suffixStyle: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withAlpha(150),
-                  ),
-                  border: InputBorder.none,
-                  contentPadding:
-                      widget.contentPadding ??
-                      EdgeInsets.symmetric(
-                        horizontal: widget.prefixIcon != null ? 12 : 16,
-                        vertical: 14,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: widget.controller,
+                      keyboardType: widget.keyboardType,
+                      onChanged: widget.onChanged,
+                      onSubmitted: widget.onSubmitted,
+                      maxLines: widget.maxLines,
+                      enabled: widget.enabled,
+                      obscureText: widget.obscureText,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: widget.enabled
+                            ? colorScheme.onSurface
+                            : colorScheme.onSurface.withValues(alpha: 0.4),
                       ),
-                ),
+                      decoration: InputDecoration(
+                        hintText: widget.hintText,
+                        hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                        prefixIcon: widget.prefixIcon != null
+                            ? Icon(
+                                widget.prefixIcon,
+                                color: _isFocused
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurface.withValues(alpha: 0.6),
+                              )
+                            : null,
+                        suffixText: widget.suffixText,
+                        suffixStyle: theme.textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: widget.contentPadding ??
+                            EdgeInsets.symmetric(
+                              horizontal: widget.prefixIcon != null ? 12 : 16,
+                              vertical: 14,
+                            ),
+                      ),
+                    ),
+                  ),
+                  if (suffixWidget != null) suffixWidget,
+                ],
               ),
             ),
           ),
@@ -179,7 +203,7 @@ class _ModernTextFieldState extends State<ModernTextField> {
               child: Text(
                 widget.errorText!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
+                  color: colorScheme.error,
                   fontSize: 11,
                 ),
               ),
@@ -190,7 +214,7 @@ class _ModernTextFieldState extends State<ModernTextField> {
               child: Text(
                 widget.helperText!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withAlpha(130),
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
                   fontSize: 11,
                 ),
               ),

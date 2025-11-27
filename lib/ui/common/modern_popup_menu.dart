@@ -320,9 +320,7 @@ class ModernPopupMenu extends StatelessWidget {
       child: IntrinsicWidth(
         child: Container(
           decoration: BoxDecoration(
-            color: isDark
-                ? colorScheme.surface.withValues(alpha: 0.95)
-                : colorScheme.surface.withValues(alpha: 0.98),
+            color: colorScheme.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: colorScheme.outline.withValues(alpha: isDark ? 0.3 : 0.2),
