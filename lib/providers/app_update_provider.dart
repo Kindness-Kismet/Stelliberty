@@ -168,9 +168,35 @@ class AppUpdateProvider extends ChangeNotifier {
     }
   }
 
-  // 手动检查更新（供UI调用）
+  // 手动检查更新（供 UI 调用）
+  // 手动检查不会设置 latestUpdateInfo，避免触发全局监听器
   Future<AppUpdateInfo?> checkForUpdate() async {
-    return await _performCheck(isAutoCheck: false);
+    if (_isChecking) {
+      Logger.debug('更新检查正在进行中，跳过本次请求');
+      return null;
+    }
+
+    _isChecking = true;
+    notifyListeners();
+
+    try {
+      Logger.info('开始手动检查应用更新...');
+
+      final updateInfo = await AppUpdateService.instance.checkForUpdate();
+
+      // 更新检查时间
+      _lastCheckTime = DateTime.now();
+      await AppPreferences.instance.setLastAppUpdateCheckTime(_lastCheckTime!);
+
+      // 手动检查：不设置 _latestUpdateInfo，由调用方直接处理
+      return updateInfo;
+    } catch (e) {
+      Logger.error('更新检查异常: $e');
+      return null;
+    } finally {
+      _isChecking = false;
+      notifyListeners();
+    }
   }
 
   // 清除更新信息
@@ -183,6 +209,7 @@ class AppUpdateProvider extends ChangeNotifier {
   // 标记对话框已显示
   void markDialogShown() {
     _dialogShown = true;
+    // 不触发 notifyListeners，避免重复触发监听器
   }
 
   // 忽略当前版本更新

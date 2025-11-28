@@ -89,17 +89,14 @@ class _AppUpdateSettingsPageState extends State<AppUpdateSettingsPage> {
   Future<void> _checkForUpdate() async {
     final updateProvider = context.read<AppUpdateProvider>();
 
-    // 使用 Provider 的方法检查更新
+    // 手动检查更新（不会触发全局监听器）
     final updateInfo = await updateProvider.checkForUpdate();
 
     if (!mounted) return;
 
     if (updateInfo != null) {
       if (updateInfo.hasUpdate) {
-        // 手动检查：先清除 Provider 状态以避免触发 BasicLayout 的监听器
-        updateProvider.clearUpdateInfo();
-
-        // 显示更新对话框
+        // 直接显示对话框，手动检查不会设置 Provider 的 latestUpdateInfo
         await AppUpdateDialog.show(context, updateInfo);
       } else {
         // 已是最新版本

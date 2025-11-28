@@ -64,12 +64,18 @@ class _BasicLayoutState extends State<BasicLayout> with WidgetsBindingObserver {
           // 使用 GlobalKey 访问 Navigator，避免 context 问题
           final navigator = ModernToast.navigatorKey.currentState;
           if (navigator != null) {
-            AppUpdateDialog.show(navigator.context, updateInfo).then((_) {
-              // 对话框关闭后清除更新信息
-              if (mounted) {
-                updateProvider.clearUpdateInfo();
-              }
-            });
+            // 使用 unawaited 避免持有 Future 引用
+            AppUpdateDialog.show(navigator.context, updateInfo)
+                .then((_) {
+                  // 对话框关闭后清除更新信息
+                  if (mounted) {
+                    updateProvider.clearUpdateInfo();
+                  }
+                })
+                .catchError((error) {
+                  // 捕获对话框显示过程中的异常，防止未处理的 Future 错误
+                  Logger.warning('更新对话框异常: $error');
+                });
           }
         }
       };
