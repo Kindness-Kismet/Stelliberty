@@ -60,43 +60,57 @@ class _DynamicContentArea extends StatelessWidget {
   }
 
   Widget _buildContent(ContentView view) {
+    // 为每个页面分配唯一 key，确保 AnimatedSwitcher 能正确识别页面切换
+    // 这样旧页面会立即 dispose，避免内存泄漏
     switch (view) {
       case ContentView.home:
-        return const HomePageContent();
+        return const HomePageContent(key: ValueKey('home'));
       case ContentView.proxy:
-        return const ProxyPage();
+        return const ProxyPage(key: ValueKey('proxy'));
       case ContentView.connections:
-        return const ConnectionPageContent();
+        return const ConnectionPageContent(key: ValueKey('connections'));
       case ContentView.subscriptions:
-        return const SubscriptionPage();
+        return const SubscriptionPage(key: ValueKey('subscriptions'));
       case ContentView.overrides:
-        return const OverridePage();
+        return const OverridePage(key: ValueKey('overrides'));
       case ContentView.logs:
-        return const LogPage();
+        return const LogPage(key: ValueKey('logs'));
       case ContentView.settingsOverview:
-        return const SettingsOverviewPage();
+        return const SettingsOverviewPage(key: ValueKey('settings_overview'));
       case ContentView.settingsAppearance:
-        return const AppearanceSettingsPage();
+        return const AppearanceSettingsPage(
+          key: ValueKey('settings_appearance'),
+        );
       case ContentView.settingsBehavior:
-        return const BehaviorSettingsPage();
+        return const BehaviorSettingsPage(key: ValueKey('settings_behavior'));
       case ContentView.settingsLanguage:
-        return const LanguageSettingsPage();
+        return const LanguageSettingsPage(key: ValueKey('settings_language'));
       case ContentView.settingsClashFeatures:
-        return const ClashFeaturesPage();
+        return const ClashFeaturesPage(
+          key: ValueKey('settings_clash_features'),
+        );
       case ContentView.settingsClashNetworkSettings:
-        return const NetworkSettingsPage();
+        return const NetworkSettingsPage(
+          key: ValueKey('settings_clash_network'),
+        );
       case ContentView.settingsClashPortControl:
-        return const PortControlPage();
+        return const PortControlPage(key: ValueKey('settings_clash_port'));
       case ContentView.settingsClashSystemIntegration:
-        return const SystemIntegrationPage();
+        return const SystemIntegrationPage(
+          key: ValueKey('settings_clash_system'),
+        );
       case ContentView.settingsClashDnsConfig:
-        return const DnsConfigPage();
+        return const DnsConfigPage(key: ValueKey('settings_clash_dns'));
       case ContentView.settingsClashPerformance:
-        return const PerformancePage();
+        return const PerformancePage(
+          key: ValueKey('settings_clash_performance'),
+        );
       case ContentView.settingsClashLogsDebug:
-        return const LogsDebugPage();
+        return const LogsDebugPage(key: ValueKey('settings_clash_logs'));
       case ContentView.settingsAppUpdate:
-        return const AppUpdateSettingsPage();
+        return const AppUpdateSettingsPage(
+          key: ValueKey('settings_app_update'),
+        );
     }
   }
 }

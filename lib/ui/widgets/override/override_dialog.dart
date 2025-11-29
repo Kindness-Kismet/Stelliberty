@@ -123,6 +123,10 @@ class _OverrideDialogState extends State<OverrideDialog> {
 
   @override
   void dispose() {
+    // 移除监听器
+    _nameController.removeListener(_checkForChanges);
+    _urlController.removeListener(_checkForChanges);
+    // 释放控制器
     _nameController.dispose();
     _urlController.dispose();
     super.dispose();

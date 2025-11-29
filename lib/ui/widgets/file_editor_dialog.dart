@@ -74,6 +74,9 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
   // 缓存的字符数（避免频繁计算）
   int _charCount = 0;
 
+  // 标记是否已 dispose（防止异步操作在 dispose 后执行）
+  bool _disposed = false;
+
   @override
   void initState() {
     super.initState();
@@ -90,43 +93,46 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
     // 等待对话框动画完成（300ms）+ 缓冲时间
     await Future.delayed(const Duration(milliseconds: 300));
 
-    if (!mounted) return;
+    if (_disposed || !mounted) return;
 
     // 加载文本内容
     await Future.microtask(() {
+      if (_disposed || !mounted) return;
       _controller.text = widget.initialContent;
       _updateStats();
     });
 
-    if (!mounted) return;
+    if (_disposed || !mounted) return;
 
     // 内容加载完成后，添加 listener 并显示编辑器
     SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _controller.addListener(_onContentChanged);
-        setState(() {
-          _editorReady = true;
-        });
-      }
+      if (_disposed || !mounted) return;
+      _controller.addListener(_onContentChanged);
+      setState(() {
+        _editorReady = true;
+      });
     });
   }
 
   @override
   void dispose() {
+    _disposed = true;
+    // 移除 listener 再 dispose
+    _controller.removeListener(_onContentChanged);
     _controller.dispose();
     super.dispose();
   }
 
   // 内容变化回调
   void _onContentChanged() {
+    if (_disposed) return;
     final isModified = _controller.text != widget.initialContent;
     if (isModified != _isModified) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _isModified = isModified;
-          });
-        }
+        if (_disposed || !mounted) return;
+        setState(() {
+          _isModified = isModified;
+        });
       });
     }
     _updateStats();
@@ -135,18 +141,18 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
   // 更新统计数据（字符数和行数）
   // 使用缓存避免频繁重新计算和不必要的 setState
   void _updateStats() {
+    if (_disposed) return;
     final text = _controller.text;
     final newCharCount = text.length;
     final newLineCount = text.split('\n').length;
 
     if (newCharCount != _charCount || newLineCount != _lineCount) {
       SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _charCount = newCharCount;
-            _lineCount = newLineCount;
-          });
-        }
+        if (_disposed || !mounted) return;
+        setState(() {
+          _charCount = newCharCount;
+          _lineCount = newLineCount;
+        });
       });
     }
   }

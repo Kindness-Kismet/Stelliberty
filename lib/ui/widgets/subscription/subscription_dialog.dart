@@ -171,6 +171,11 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
   @override
   void dispose() {
+    // 移除监听器
+    _nameController.removeListener(_checkForChanges);
+    _urlController.removeListener(_checkForChanges);
+    _intervalController.removeListener(_checkForChanges);
+    // 释放控制器
     _nameController.dispose();
     _urlController.dispose();
     _intervalController.dispose();
