@@ -151,19 +151,19 @@ pub mod loopback_messages {
     // Rust → Dart：单个应用容器信息
     #[derive(Serialize, RustSignal)]
     pub struct AppContainerInfo {
-        pub app_container_name: String,
+        pub container_name: String,
         pub display_name: String,
         pub package_family_name: String,
         pub sid: Vec<u8>,
         pub sid_string: String,
-        pub is_loopback_enabled: bool,
+        pub loopback_enabled: bool,
     }
 
     // Rust → Dart：设置回环豁免结果
     #[derive(Serialize, RustSignal)]
     pub struct SetLoopbackResult {
         pub success: bool,
-        pub message: String,
+        pub error_message: Option<String>,
     }
 
     // Rust → Dart：应用容器流传输完成信号
@@ -174,7 +174,7 @@ pub mod loopback_messages {
     #[derive(Serialize, RustSignal)]
     pub struct SaveLoopbackConfigurationResult {
         pub success: bool,
-        pub message: String,
+        pub error_message: Option<String>,
     }
 
     impl GetAppContainers {
@@ -191,12 +191,12 @@ pub mod loopback_messages {
 
                     for c in containers {
                         AppContainerInfo {
-                            app_container_name: c.app_container_name,
+                            container_name: c.app_container_name,
                             display_name: c.display_name,
                             package_family_name: c.package_family_name,
                             sid: c.sid,
                             sid_string: c.sid_string,
-                            is_loopback_enabled: c.is_loopback_enabled,
+                            loopback_enabled: c.is_loopback_enabled,
                         }
                         .send_signal_to_dart();
                     }
@@ -234,7 +234,7 @@ pub mod loopback_messages {
                     log::info!("回环豁免设置成功");
                     SetLoopbackResult {
                         success: true,
-                        message: "回环豁免设置成功".to_string(),
+                        error_message: None,
                     }
                     .send_signal_to_dart();
                 }
@@ -242,7 +242,7 @@ pub mod loopback_messages {
                     log::error!("回环豁免设置失败：{}", e);
                     SetLoopbackResult {
                         success: false,
-                        message: e,
+                        error_message: Some(e),
                     }
                     .send_signal_to_dart();
                 }
@@ -264,7 +264,7 @@ pub mod loopback_messages {
                     log::error!("枚举容器失败：{}", e);
                     SaveLoopbackConfigurationResult {
                         success: false,
-                        message: format!("无法枚举容器：{}", e),
+                        error_message: Some(format!("无法枚举容器：{}", e)),
                     }
                     .send_signal_to_dart();
                     return;
@@ -340,10 +340,10 @@ pub mod loopback_messages {
             if errors.is_empty() {
                 SaveLoopbackConfigurationResult {
                     success: true,
-                    message: if message_parts.is_empty() {
-                        "配置保存成功（无需修改）".to_string()
+                    error_message: if message_parts.is_empty() {
+                        Some("配置保存成功（无需修改）".to_string())
                     } else {
-                        message_parts.join("，")
+                        Some(message_parts.join("，"))
                     },
                 }
                 .send_signal_to_dart();
@@ -351,11 +351,11 @@ pub mod loopback_messages {
                 message_parts.push(format!("失败：{}个", errors.len()));
                 SaveLoopbackConfigurationResult {
                     success: false,
-                    message: format!(
+                    error_message: Some(format!(
                         "{}。\n错误详情：\n{}",
                         message_parts.join("，"),
                         errors.join("\n")
-                    ),
+                    )),
                 }
                 .send_signal_to_dart();
             }
@@ -386,7 +386,7 @@ pub struct AppUpdateResult {
     pub download_url: String,
     pub release_notes: String,
     pub html_url: String,
-    pub error: String,
+    pub error_message: Option<String>,
 }
 
 impl CheckAppUpdateRequest {
@@ -414,7 +414,7 @@ impl CheckAppUpdateRequest {
                         download_url: update_result.download_url.unwrap_or_default(),
                         release_notes: update_result.release_notes.unwrap_or_default(),
                         html_url: update_result.html_url.unwrap_or_default(),
-                        error: String::new(),
+                        error_message: None,
                     }
                     .send_signal_to_dart();
                 }
@@ -428,7 +428,7 @@ impl CheckAppUpdateRequest {
                         download_url: String::new(),
                         release_notes: String::new(),
                         html_url: String::new(),
-                        error: e,
+                        error_message: Some(e),
                     }
                     .send_signal_to_dart();
                 }

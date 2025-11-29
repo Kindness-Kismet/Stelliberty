@@ -49,8 +49,9 @@ class AppUpdateService {
       final result = await receiver.first;
 
       // 检查错误
-      if (result.message.error.isNotEmpty) {
-        Logger.error('Rust 更新检查失败: ${result.message.error}');
+      if (result.message.errorMessage != null &&
+          result.message.errorMessage!.isNotEmpty) {
+        Logger.error('Rust 更新检查失败: ${result.message.errorMessage}');
         return null;
       }
 

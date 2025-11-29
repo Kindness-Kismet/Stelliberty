@@ -17,7 +17,7 @@ class LogProvider extends ChangeNotifier {
   static const _batchUpdateInterval = Duration(milliseconds: 200);
   static const _maxBatchInterval = Duration(milliseconds: 500); // 最大间隔 500ms
   static const _batchThreshold = 1;
-  static const _maxLogsCount = 5000; // 最多保留 5000 条日志
+  static const _maxLogsCount = 2000; // 最多保留 2000 条日志
 
   // 过滤和控制状态
   bool _isPaused = false;
@@ -100,12 +100,9 @@ class LogProvider extends ChangeNotifier {
     // 使用 microtask 确保 UI 先渲染
     await Future.microtask(() {});
 
-    final history = ClashLogService.instance.getLogHistory();
-    if (history.isNotEmpty) {
-      _logs.addAll(history);
-      _invalidateCache(); // 清除缓存
-      Logger.info('LogProvider: 已加载 ${history.length} 条历史日志');
-    }
+    // LogService 不再维护历史缓存，直接标记加载完成
+    // 日志将在用户打开页面后实时接收
+    Logger.info('LogProvider: 初始化完成，等待实时日志');
 
     _isLoading = false;
     notifyListeners(); // 通知 UI 加载完成
@@ -170,7 +167,6 @@ class LogProvider extends ChangeNotifier {
     _logs.clear();
     _pendingLogs.clear();
     _invalidateCache(); // 清除缓存
-    ClashLogService.instance.clearHistory();
     notifyListeners();
     Logger.info('LogProvider: 日志已清空');
   }

@@ -28,12 +28,12 @@ class UwpApp {
   // 从 Rust 消息创建
   factory UwpApp.fromRust(AppContainerInfo info) {
     return UwpApp(
-      appContainerName: info.appContainerName,
+      appContainerName: info.containerName,
       displayName: info.displayName,
       packageFamilyName: info.packageFamilyName,
       sid: info.sid,
       sidString: info.sidString,
-      isLoopbackEnabled: info.isLoopbackEnabled,
+      isLoopbackEnabled: info.loopbackEnabled,
     );
   }
 }
@@ -791,7 +791,7 @@ class _UwpLoopbackDialogState extends State<UwpLoopbackDialog>
           });
         } else {
           // 失败，根据错误类型显示友好提示
-          final errorMsg = result.message.message;
+          final errorMsg = result.message.errorMessage ?? '';
           final t = context.translate.uwpLoopback;
           String userFriendlyMsg;
 

@@ -18,10 +18,6 @@ class ClashLogService {
   bool _isMonitoring = false;
   ClashLogLevel _currentLogLevel = ClashLogLevel.info;
 
-  // 日志历史缓存（最多保留 1000 条）
-  final List<ClashLogMessage> _logHistory = [];
-  static const int _maxHistorySize = 1000;
-
   // 日志数据流（供外部监听）
   Stream<ClashLogMessage> get logStream => _controller.stream;
 
@@ -30,17 +26,6 @@ class ClashLogService {
 
   // 当前日志级别
   ClashLogLevel get currentLogLevel => _currentLogLevel;
-
-  // 获取历史日志（返回副本，避免外部修改）
-  List<ClashLogMessage> getLogHistory() {
-    return List.unmodifiable(_logHistory);
-  }
-
-  // 清空历史日志
-  void clearHistory() {
-    _logHistory.clear();
-    Logger.info('日志历史已清空');
-  }
 
   // 开始监控日志（IPC 模式）
   // 注意：不再需要 baseUrl 参数，IPC 通信由 Rust 处理
@@ -134,13 +119,7 @@ class ClashLogService {
         payload: data.payload,
       );
 
-      // 添加到历史缓存（限制大小）
-      _logHistory.add(logMessage);
-      if (_logHistory.length > _maxHistorySize) {
-        _logHistory.removeAt(0); // 移除最旧的日志
-      }
-
-      // 推送到流
+      // 直接推送到流（由 LogProvider 负责缓存）
       _controller.add(logMessage);
     } catch (e) {
       Logger.error('处理日志数据失败：$e');
