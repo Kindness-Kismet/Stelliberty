@@ -153,44 +153,11 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // 构建标题文本（带修改状态标记）
-    final titleWidget = Row(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        Text(
-          context.translate.fileEditor.title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-        ),
-        if (_isModified) ...[
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Text(
-              context.translate.fileEditor.modified,
-              style: TextStyle(
-                fontSize: 10,
-                color: Theme.of(context).colorScheme.primary,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
-
     return ModernDialog(
-      titleWidget: titleWidget,
+      title: context.translate.fileEditor.title,
       subtitle: widget.fileName,
       titleIcon: Icons.code,
+      isModified: _isModified,
       maxWidth: 900,
       maxHeightRatio: 0.9,
       content: _buildEditor(),

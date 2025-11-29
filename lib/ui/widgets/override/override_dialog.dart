@@ -91,6 +91,34 @@ class _OverrideDialogState extends State<OverrideDialog> {
           ? OverrideAddMethod.remote
           : OverrideAddMethod.import; // 本地文件（已存在的）
     }
+
+    // 添加监听器以检测内容变化
+    _nameController.addListener(_checkForChanges);
+    _urlController.addListener(_checkForChanges);
+  }
+
+  // 检查内容是否发生变化
+  bool get _hasChanges {
+    // 添加模式：总是允许保存
+    if (widget.editingOverride == null) return true;
+
+    // 编辑模式：检查是否有任何字段发生变化
+    final nameChanged =
+        _nameController.text.trim() != (widget.editingOverride?.name ?? '');
+    final urlChanged =
+        widget.editingOverride?.type == OverrideType.remote &&
+        _urlController.text.trim() != (widget.editingOverride?.url ?? '');
+    final proxyModeChanged =
+        widget.editingOverride?.type == OverrideType.remote &&
+        _proxyMode !=
+            (widget.editingOverride?.proxyMode ?? SubscriptionProxyMode.direct);
+
+    return nameChanged || urlChanged || proxyModeChanged;
+  }
+
+  // 内容变化时触发重建以更新按钮状态
+  void _checkForChanges() {
+    setState(() {});
   }
 
   @override
@@ -109,6 +137,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
           ? context.translate.overrideDialog.editOverrideTitle
           : context.translate.overrideDialog.addOverrideTitle,
       titleIcon: isEditing ? Icons.edit : Icons.add_circle_outline,
+      isModified: isEditing && _hasChanges,
       maxWidth: 720,
       maxHeightRatio: 0.85,
       content: _buildContent(isEditing),
@@ -124,7 +153,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
               : context.translate.common.add,
           isPrimary: true,
           isLoading: _isLoading,
-          onPressed: _handleConfirm,
+          onPressed: (_isLoading || !_hasChanges) ? null : _handleConfirm,
         ),
       ],
       onClose: _isLoading ? null : () => Navigator.of(context).pop(),

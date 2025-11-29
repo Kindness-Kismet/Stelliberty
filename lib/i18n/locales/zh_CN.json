@@ -12,7 +12,8 @@
     "close": "关闭",
     "refresh": "刷新",
     "copy": "复制",
-    "pause": "暂停"
+    "pause": "暂停",
+    "modified": "已修改"
   },
   "sidebar": {
     "home": "主页",

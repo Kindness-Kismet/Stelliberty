@@ -12,7 +12,8 @@
     "close": "Close",
     "refresh": "Refresh",
     "copy": "Copy",
-    "pause": "Pause"
+    "pause": "Pause",
+    "modified": "Modified"
   },
   "sidebar": {
     "home": "Home",

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:stelliberty/i18n/i18n.dart';
 
 // 对话框样式常量
 class DialogConstants {
@@ -47,6 +48,12 @@ class ModernDialog extends StatefulWidget {
   // 标题图标颜色（默认使用 primary 色）
   final Color? titleIconColor;
 
+  // 是否显示"已修改"标签
+  final bool? isModified;
+
+  // "已修改"标签文本（可选，默认使用 context.translate.common.modified）
+  final String? modifiedLabel;
+
   // 内容区域（插槽）
   final Widget content;
 
@@ -79,6 +86,8 @@ class ModernDialog extends StatefulWidget {
     this.headerWidget,
     required this.titleIcon,
     this.titleIconColor,
+    this.isModified,
+    this.modifiedLabel,
     required this.content,
     this.actionsLeft,
     this.actionsLeftButtons,
@@ -288,17 +297,29 @@ class _ModernDialogState extends State<ModernDialog>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 优先使用 titleWidget，否则使用 title
-                if (widget.titleWidget != null)
-                  widget.titleWidget!
-                else
-                  Text(
-                    widget.title!,
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
+                // 标题行（包含标题和"已修改"标签）
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // 优先使用 titleWidget，否则使用 title
+                    if (widget.titleWidget != null)
+                      widget.titleWidget!
+                    else
+                      Text(
+                        widget.title!,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    // "已修改"标签
+                    if (widget.isModified == true) ...[
+                      const SizedBox(width: 8),
+                      _buildModifiedBadge(),
+                    ],
+                  ],
+                ),
                 if (widget.subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(
@@ -370,7 +391,11 @@ class _ModernDialogState extends State<ModernDialog>
                 final index = entry.key;
                 final action = entry.value;
                 return Padding(
-                  padding: EdgeInsets.only(right: index < widget.actionsLeftButtons!.length - 1 ? 8 : 0),
+                  padding: EdgeInsets.only(
+                    right: index < widget.actionsLeftButtons!.length - 1
+                        ? 8
+                        : 0,
+                  ),
                   child: _buildActionButtonWithIcon(action, isDark),
                 );
               })
@@ -508,6 +533,25 @@ class _ModernDialogState extends State<ModernDialog>
         ),
       );
     }
+  }
+
+  // 构建"已修改"标签
+  Widget _buildModifiedBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        widget.modifiedLabel ?? context.translate.common.modified,
+        style: TextStyle(
+          fontSize: 10,
+          color: Theme.of(context).colorScheme.primary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
   }
 
   // 默认关闭处理

@@ -129,6 +129,44 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     );
     _autoUpdate = widget.initialAutoUpdate ?? false;
     _proxyMode = widget.initialProxyMode ?? SubscriptionProxyMode.direct;
+
+    // 添加监听器以检测内容变化
+    _nameController.addListener(_checkForChanges);
+    _urlController.addListener(_checkForChanges);
+    _intervalController.addListener(_checkForChanges);
+  }
+
+  // 检查内容是否发生变化
+  bool get _hasChanges {
+    // 添加模式：总是允许保存
+    if (widget.isAddMode) return true;
+
+    // 编辑模式：检查是否有任何字段发生变化
+    final nameChanged =
+        _nameController.text.trim() != (widget.initialName ?? '');
+    final urlChanged =
+        !widget.isLocalFile &&
+        _urlController.text.trim() != (widget.initialUrl ?? '');
+    final autoUpdateChanged =
+        _autoUpdate != (widget.initialAutoUpdate ?? false);
+    final intervalChanged =
+        !widget.isLocalFile &&
+        int.tryParse(_intervalController.text.trim()) !=
+            (widget.initialAutoUpdateInterval?.inMinutes ?? 60);
+    final proxyModeChanged =
+        !widget.isLocalFile &&
+        _proxyMode != (widget.initialProxyMode ?? SubscriptionProxyMode.direct);
+
+    return nameChanged ||
+        urlChanged ||
+        autoUpdateChanged ||
+        intervalChanged ||
+        proxyModeChanged;
+  }
+
+  // 内容变化时触发重建以更新按钮状态
+  void _checkForChanges() {
+    setState(() {});
   }
 
   @override
@@ -144,6 +182,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     return ModernDialog(
       title: widget.title,
       titleIcon: widget.titleIcon,
+      isModified: !widget.isAddMode && _hasChanges,
       maxWidth: 720,
       maxHeightRatio: 0.85,
       content: _buildContent(),
@@ -176,7 +215,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
           label: widget.confirmText,
           isPrimary: true,
           isLoading: _isLoading,
-          onPressed: _handleConfirm,
+          onPressed: (_isLoading || !_hasChanges) ? null : _handleConfirm,
         ),
       ],
       onClose: _isLoading ? null : () => Navigator.of(context).pop(),
