@@ -6,7 +6,7 @@ import 'package:stelliberty/clash/providers/log_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/core_log/core_log_card.dart';
 import 'package:stelliberty/utils/logger.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
 
 // 日志页面 - 显示 Clash 核心的实时日志

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stelliberty/clash/data/connection_model.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 class ConnectionCard extends StatelessWidget {
   final ConnectionInfo connection;

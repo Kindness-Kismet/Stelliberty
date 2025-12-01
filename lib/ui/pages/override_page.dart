@@ -10,7 +10,7 @@ import 'package:stelliberty/ui/widgets/override/override_dialog.dart';
 import 'package:stelliberty/ui/widgets/override/override_card.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/utils/logger.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 class OverridePage extends StatefulWidget {
   const OverridePage({super.key});

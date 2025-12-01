@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 代理页面操作按钮栏
 class ProxyActionBar extends StatelessWidget {
-  final ClashProvider clashProvider;
   final String selectedGroupName;
   final VoidCallback onLocate;
   final int sortMode;
@@ -13,74 +13,85 @@ class ProxyActionBar extends StatelessWidget {
 
   const ProxyActionBar({
     super.key,
-    required this.clashProvider,
     required this.selectedGroupName,
     required this.onLocate,
     required this.sortMode,
     required this.onSortModeChanged,
   });
 
-  void _handleTestDelays() {
-    clashProvider.testGroupDelays(selectedGroupName);
+  @override
+  Widget build(BuildContext context) {
+    return Selector<ClashProvider, _ActionBarState>(
+      selector: (_, provider) => _ActionBarState(
+        isLoading: provider.isLoading,
+        isRunning: provider.isRunning,
+        isBatchTesting: provider.isBatchTesting,
+      ),
+      builder: (context, state, child) {
+        final clashProvider = context.read<ClashProvider>();
+
+        return Padding(
+          padding: const EdgeInsets.only(
+            left: 16.0,
+            right: 16.0,
+            top: 4.0,
+            bottom: 0.0,
+          ),
+          child: Row(
+            children: [
+              ModernTooltip(
+                message: context.translate.proxy.testAllDelays,
+                child: IconButton(
+                  onPressed: state.canTestDelays
+                      ? () => clashProvider.testGroupDelays(selectedGroupName)
+                      : null,
+                  icon: Icon(
+                    Icons.network_check,
+                    size: 18,
+                    color: state.isBatchTesting ? Colors.grey : null,
+                  ),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              ModernTooltip(
+                message: context.translate.proxy.locate,
+                child: IconButton(
+                  onPressed: state.canLocate ? onLocate : null,
+                  icon: const Icon(Icons.gps_fixed, size: 18),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+              ModernTooltip(
+                message: _getSortTooltip(context, sortMode),
+                child: IconButton(
+                  onPressed: _handleSortModeChange,
+                  icon: Icon(_getSortIcon(sortMode), size: 18),
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _handleSortModeChange() {
     const totalSortModes = 3;
     final nextMode = (sortMode + 1) % totalSortModes;
     onSortModeChanged(nextMode);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final canTestDelays =
-        !clashProvider.isLoading &&
-        clashProvider.isRunning &&
-        !clashProvider.isBatchTesting;
-    final canLocate = !clashProvider.isLoading;
-
-    return Padding(
-      padding: const EdgeInsets.only(
-        left: 16.0,
-        right: 16.0,
-        top: 4.0,
-        bottom: 0.0,
-      ),
-      child: Row(
-        children: [
-          ModernTooltip(
-            message: context.translate.proxy.testAllDelays,
-            child: IconButton(
-              onPressed: canTestDelays ? _handleTestDelays : null,
-              icon: Icon(
-                Icons.network_check,
-                size: 18,
-                color: clashProvider.isBatchTesting ? Colors.grey : null,
-              ),
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            ),
-          ),
-          ModernTooltip(
-            message: context.translate.proxy.locate,
-            child: IconButton(
-              onPressed: canLocate ? onLocate : null,
-              icon: const Icon(Icons.gps_fixed, size: 18),
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            ),
-          ),
-          ModernTooltip(
-            message: _getSortTooltip(context, sortMode),
-            child: IconButton(
-              onPressed: _handleSortModeChange,
-              icon: Icon(_getSortIcon(sortMode), size: 18),
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   IconData _getSortIcon(int mode) {
@@ -108,4 +119,33 @@ class ProxyActionBar extends StatelessWidget {
         return context.translate.proxy.defaultSort;
     }
   }
+}
+
+// 操作栏状态数据类
+class _ActionBarState {
+  final bool isLoading;
+  final bool isRunning;
+  final bool isBatchTesting;
+
+  _ActionBarState({
+    required this.isLoading,
+    required this.isRunning,
+    required this.isBatchTesting,
+  });
+
+  bool get canTestDelays => !isLoading && isRunning && !isBatchTesting;
+  bool get canLocate => !isLoading;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _ActionBarState &&
+          runtimeType == other.runtimeType &&
+          isLoading == other.isLoading &&
+          isRunning == other.isRunning &&
+          isBatchTesting == other.isBatchTesting;
+
+  @override
+  int get hashCode =>
+      isLoading.hashCode ^ isRunning.hashCode ^ isBatchTesting.hashCode;
 }

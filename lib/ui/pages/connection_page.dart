@@ -6,7 +6,7 @@ import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/connection/connection_card.dart';
 import 'package:stelliberty/ui/widgets/connection/connection_detail_dialog.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 连接页面 - 显示当前活跃的连接
 // 使用 Material Design 3 风格，与代理和订阅页面保持一致

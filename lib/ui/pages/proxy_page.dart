@@ -11,7 +11,7 @@ import 'package:stelliberty/ui/widgets/proxy/proxy_node_grid.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/clash/data/clash_model.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 代理页面状态数据类（用于优化 Selector）
 class _ProxyPageState {
@@ -62,7 +62,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
 
   // UI 状态
   int _currentGroupIndex = 0;
-  double _lastScrollOffset = 0.0;
+  double _scrollOffsetCache = 0.0;
 
   // 缓存 SharedPreferences 实例
   SharedPreferences? _prefs;
@@ -72,7 +72,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
   static const String _subscriptionPathKey = 'proxy_page_subscription_path';
 
   // 保存上次的订阅路径，用于检测订阅切换
-  String? _lastSubscriptionPath;
+  String? _subscriptionPathCache;
 
   // UI 常量
   static const double _mouseScrollSpeedMultiplier = 2.0;
@@ -123,7 +123,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
       final savedOffset = _prefs!.getDouble(_scrollOffsetKey);
 
       // 记录当前订阅路径
-      _lastSubscriptionPath = currentPath;
+      _subscriptionPathCache = currentPath;
 
       // 如果订阅路径匹配且有保存的偏移量，在构建完成后立即设置
       if (currentPath != null &&
@@ -180,7 +180,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
   void _updateScrollOffset() {
     if (!_nodeListScrollController.hasClients) return;
 
-    _lastScrollOffset = _nodeListScrollController.offset;
+    _scrollOffsetCache = _nodeListScrollController.offset;
   }
 
   void _saveScrollPositionSync() {
@@ -190,8 +190,8 @@ class _ProxyPageWidgetState extends State<ProxyPage>
     }
 
     try {
-      Logger.info('保存代理页面滚动位置：$_lastScrollOffset');
-      _prefs!.setDouble(_scrollOffsetKey, _lastScrollOffset);
+      Logger.info('保存代理页面滚动位置：$_scrollOffsetCache');
+      _prefs!.setDouble(_scrollOffsetKey, _scrollOffsetCache);
     } catch (e) {
       Logger.error('保存滚动位置失败：$e');
     }
@@ -301,11 +301,11 @@ class _ProxyPageWidgetState extends State<ProxyPage>
     // 检测订阅是否切换
     final subscriptionProvider = context.read<SubscriptionProvider>();
     final currentPath = subscriptionProvider.getSubscriptionConfigPath();
-    if (currentPath != _lastSubscriptionPath) {
+    if (currentPath != _subscriptionPathCache) {
       // 订阅已切换，重置代理组索引
-      Logger.info('检测到订阅切换：$_lastSubscriptionPath -> $currentPath');
+      Logger.info('检测到订阅切换：$_subscriptionPathCache -> $currentPath');
       _currentGroupIndex = 0;
-      _lastSubscriptionPath = currentPath;
+      _subscriptionPathCache = currentPath;
     }
 
     // 确保当前选中的代理组索引有效
@@ -333,7 +333,6 @@ class _ProxyPageWidgetState extends State<ProxyPage>
           listenable: _viewModel,
           builder: (context, _) {
             return ProxyActionBar(
-              clashProvider: clashProvider,
               selectedGroupName: selectedGroup.name,
               onLocate: () =>
                   _locateSelectedNode(context, clashProvider, selectedGroup),

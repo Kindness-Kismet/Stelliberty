@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stelliberty/clash/data/clash_model.dart';
-import 'package:stelliberty/ui/common/empty.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 /// 代理节点卡片组件 - 磨砂玻璃风格
 ///
@@ -172,7 +171,7 @@ class _ProxyNodeCardState extends State<ProxyNodeCard> {
                   width: 85,
                   child: widget.isClashRunning
                       ? _buildDelaySection(context, colorScheme, isDark)
-                      : empty,
+                      : const SizedBox.shrink(),
                 ),
               ],
             ),

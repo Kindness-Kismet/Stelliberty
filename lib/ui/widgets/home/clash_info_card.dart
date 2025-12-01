@@ -10,7 +10,7 @@ import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/widgets/home/base_card.dart';
 import 'package:stelliberty/ui/widgets/home/info_container.dart';
 import 'package:stelliberty/utils/logger.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 /// Clash 信息卡片
 ///

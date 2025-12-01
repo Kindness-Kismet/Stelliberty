@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 代理组选择器组件
 class ProxyGroupSelector extends StatelessWidget {

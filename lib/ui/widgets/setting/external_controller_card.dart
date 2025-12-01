@@ -8,7 +8,7 @@ import 'package:stelliberty/ui/common/modern_switch.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 class ExternalControllerCard extends StatefulWidget {
   const ExternalControllerCard({super.key});

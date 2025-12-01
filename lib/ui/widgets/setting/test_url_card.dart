@@ -6,7 +6,7 @@ import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/clash/storage/preferences.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_text_field.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 测速链接配置卡片
 class TestUrlCard extends StatefulWidget {

@@ -6,7 +6,7 @@ import 'package:stelliberty/clash/providers/subscription_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/common/modern_popup_menu.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 订阅卡片组件
 // 显示订阅的详细信息：
@@ -43,6 +43,9 @@ class SubscriptionCard extends StatelessWidget {
   // 管理规则覆写的回调
   final VoidCallback? onManageOverride;
 
+  // 查看运行配置的回调
+  final VoidCallback? onViewConfig;
+
   // 查看提供者的回调
   final VoidCallback? onViewProvider;
 
@@ -56,6 +59,7 @@ class SubscriptionCard extends StatelessWidget {
     this.onEditFile,
     this.onDelete,
     this.onManageOverride,
+    this.onViewConfig,
     this.onViewProvider,
   });
 
@@ -228,17 +232,19 @@ class SubscriptionCard extends StatelessWidget {
     final List<InlineSpan> children = [];
 
     // 自动更新状态
+    final isAutoUpdateEnabled =
+        subscription.autoUpdateMode != AutoUpdateMode.disabled;
     children.add(
       TextSpan(
         text: subscription.isLocalFile
             ? context.translate.subscription.localTypeLabel
-            : (subscription.autoUpdate
+            : (isAutoUpdateEnabled
                   ? context.translate.subscription.autoUpdateLabel
                   : context.translate.subscription.manualUpdateLabel),
         style: TextStyle(
           color: subscription.isLocalFile
               ? Colors.grey
-              : (subscription.autoUpdate ? Colors.green : Colors.grey),
+              : (isAutoUpdateEnabled ? Colors.green : Colors.grey),
           fontSize: 11,
         ),
       ),
@@ -246,7 +252,7 @@ class SubscriptionCard extends StatelessWidget {
 
     // 距下次更新时间（仅远程订阅+自动更新+有更新记录时显示）
     if (!subscription.isLocalFile &&
-        subscription.autoUpdate &&
+        isAutoUpdateEnabled &&
         subscription.lastUpdateTime != null) {
       children.add(
         const TextSpan(
@@ -294,6 +300,11 @@ class SubscriptionCard extends StatelessWidget {
             icon: Icons.code,
             label: context.translate.subscription.menu.fileEdit,
             onPressed: onEditFile,
+          ),
+          PopupMenuItemData(
+            icon: Icons.visibility,
+            label: context.translate.subscription.menu.configView,
+            onPressed: onViewConfig,
           ),
           PopupMenuItemData(
             icon: Icons.rule,
@@ -407,10 +418,17 @@ class SubscriptionCard extends StatelessWidget {
     }
 
     final trans = context.translate.subscription;
-    final nextUpdateTime = subscription.lastUpdateTime!.add(
-      subscription.autoUpdateInterval,
-    );
     final now = DateTime.now();
+
+    // 根据更新模式计算下次更新时间
+    DateTime? nextUpdateTime;
+    if (subscription.autoUpdateMode == AutoUpdateMode.interval) {
+      nextUpdateTime = subscription.lastUpdateTime!.add(
+        Duration(minutes: subscription.intervalMinutes),
+      );
+    } else {
+      return trans.pendingUpdate;
+    }
 
     // 如果已经过了更新时间
     if (now.isAfter(nextUpdateTime)) {

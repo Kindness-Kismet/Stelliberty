@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 信息行数据模型
 //

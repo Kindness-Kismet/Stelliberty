@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/core/service_state.dart';
 import 'package:stelliberty/services/permission_service.dart';
+import 'package:stelliberty/tray/tray_manager.dart';
 import 'package:stelliberty/ui/widgets/home/base_card.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 虚拟网卡模式控制卡片
 //
@@ -70,6 +71,8 @@ class _TunModeCardState extends State<TunModeCard> {
             ? null
             : (value) async {
                 await clashProvider.setTunMode(value);
+                // TUN 模式切换后手动更新托盘菜单
+                AppTrayManager().updateTrayMenuManually();
               },
       ),
       // 下方显示状态指示器

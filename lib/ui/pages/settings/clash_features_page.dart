@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:stelliberty/providers/content_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/utils/logger.dart';
-import 'package:stelliberty/ui/common/modern_tooltip.dart';
+import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 class ClashFeaturesPage extends StatefulWidget {
   const ClashFeaturesPage({super.key});
