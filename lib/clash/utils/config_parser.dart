@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:flutter/services.dart';
 import 'package:yaml/yaml.dart';
 import 'package:stelliberty/clash/data/clash_model.dart';
 import 'package:stelliberty/utils/logger.dart';
@@ -7,20 +6,6 @@ import 'package:stelliberty/utils/logger.dart';
 // Clash 配置文件解析器
 // 用于在 Clash 未启动时直接从配置文件读取代理信息
 class ConfigParser {
-  // 从资源文件加载配置
-  static Future<Map<String, dynamic>> loadConfigFromAssets(
-    String assetPath,
-  ) async {
-    try {
-      final yamlString = await rootBundle.loadString(assetPath);
-      final yamlMap = loadYaml(yamlString);
-      return _convertYamlToMap(yamlMap);
-    } catch (e) {
-      Logger.error('从资源加载配置失败：$e');
-      rethrow;
-    }
-  }
-
   // 从文件系统加载配置
   static Future<Map<String, dynamic>> loadConfigFromFile(
     String filePath,

@@ -290,22 +290,6 @@ class ClashManager extends ChangeNotifier {
     return success;
   }
 
-  Future<bool> refreshAllowLanStatus() async {
-    return allowLan;
-  }
-
-  Future<bool> refreshIpv6Status() async {
-    return ipv6;
-  }
-
-  Future<bool> refreshTcpConcurrentStatus() async {
-    return tcpConcurrent;
-  }
-
-  Future<bool> refreshUnifiedDelayStatus() async {
-    return unifiedDelay;
-  }
-
   Future<bool> setGeodataLoader(String mode) async {
     final success = await _configManager.setGeodataLoader(mode);
     if (success) {
@@ -337,10 +321,6 @@ class ClashManager extends ChangeNotifier {
     );
   }
 
-  Future<String> refreshGeodataLoaderStatus() async {
-    return geodataLoader;
-  }
-
   Future<bool> setFindProcessMode(String mode) async {
     final success = await _configManager.setFindProcessMode(mode);
     if (success) {
@@ -349,20 +329,12 @@ class ClashManager extends ChangeNotifier {
     return success;
   }
 
-  Future<String> refreshFindProcessModeStatus() async {
-    return findProcessMode;
-  }
-
   Future<bool> setClashCoreLogLevel(String level) async {
     final success = await _configManager.setClashCoreLogLevel(level);
     if (success) {
       _scheduleConfigReload('日志等级');
     }
     return success;
-  }
-
-  Future<String> refreshClashCoreLogLevelStatus() async {
-    return clashCoreLogLevel;
   }
 
   Future<bool> setExternalController(bool enabled) async {
@@ -374,10 +346,6 @@ class ClashManager extends ChangeNotifier {
     return await _configManager.setKeepAlive(enabled, () {
       restartToApplyConfig(reason: 'TCP 保持活动配置更改');
     });
-  }
-
-  Future<String?> refreshExternalControllerStatus() async {
-    return externalController;
   }
 
   Future<bool> setTestUrl(String url) async {

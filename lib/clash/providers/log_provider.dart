@@ -29,7 +29,7 @@ class LogProvider extends ChangeNotifier {
 
   // 过滤结果缓存
   List<ClashLogMessage>? _cachedFilteredLogs;
-  String? _lastCacheKey;
+  String? _cacheKey;
 
   // 上次刷新时间（用于动态批量更新）
   DateTime _lastFlushTime = DateTime.now();
@@ -47,7 +47,7 @@ class LogProvider extends ChangeNotifier {
     final cacheKey = '${_filterLevel}_${_searchKeyword}_${_logs.length}';
 
     // 如果缓存有效，直接返回
-    if (_cachedFilteredLogs != null && _lastCacheKey == cacheKey) {
+    if (_cachedFilteredLogs != null && _cacheKey == cacheKey) {
       return _cachedFilteredLogs!;
     }
 
@@ -66,14 +66,14 @@ class LogProvider extends ChangeNotifier {
       return true;
     }).toList();
 
-    _lastCacheKey = cacheKey;
+    _cacheKey = cacheKey;
     return _cachedFilteredLogs!;
   }
 
   // 清除缓存（在过滤条件变化时调用）
   void _invalidateCache() {
     _cachedFilteredLogs = null;
-    _lastCacheKey = null;
+    _cacheKey = null;
   }
 
   // 初始化 Provider

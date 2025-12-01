@@ -14,7 +14,7 @@ class ClashDefaults {
   static const int socksPort = 7779; // 单独 SOCKS5 端口（可选）
 
   // ==================== 超时配置 ====================
-  static const int apiReadyMaxRetries = 12; // API 就绪重试次数（总超时 2.4s）
+  static const int apiReadyMaxRetries = 30; // API 就绪重试次数（总超时 6s）
   static const int apiReadyCheckTimeout = 300; // API 单次检查超时（ms）
   static const int apiReadyRetryInterval = 200; // API 重试间隔（ms）
   static const int ipcReadyMaxRetries = 10; // IPC 就绪重试次数
@@ -29,13 +29,14 @@ class ClashDefaults {
   static const int delayTestConcurrency = 5; // 延迟测试并发数
   static const int subscriptionUpdateConcurrency = 3; // 订阅更新并发数
 
-  // 动态延迟测试并发数（CPU 核心数 × 4，上限 100）
+  // 动态延迟测试并发数（CPU 核心数 × 15，上限 300）
+  // 延迟测试是 I/O 密集型任务，可以使用较高并发
   static int get dynamicDelayTestConcurrency {
     try {
       final cpuCores = Platform.numberOfProcessors;
-      return (cpuCores * 4).clamp(delayTestConcurrency, 100);
+      return (cpuCores * 15).clamp(20, 300);
     } catch (e) {
-      return delayTestConcurrency;
+      return 50; // 异常时使用保守值
     }
   }
 

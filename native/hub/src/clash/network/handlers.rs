@@ -23,7 +23,7 @@ use tokio::net::UnixStream;
 use tokio::net::windows::named_pipe::NamedPipeClient;
 
 // 连接池配置
-const MAX_POOL_SIZE: usize = 100; // 匹配 Dart 层最大并发（CPU核心数*4，最高100）
+const MAX_POOL_SIZE: usize = 300; // 匹配 Dart 层最大并发（CPU核心数*15，最高300）
 const IDLE_TIMEOUT_MS: u64 = 500;
 
 // 连接包装器

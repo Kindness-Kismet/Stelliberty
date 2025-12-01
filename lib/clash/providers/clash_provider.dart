@@ -99,16 +99,18 @@ class ClashProvider extends ChangeNotifier {
   // 获取是否正在批量测试延迟
   bool get isBatchTesting => _isBatchTesting;
 
+  // UI 更新节流：记录上次通知时间
+  DateTime? _lastNotifyTime;
+  // UI 更新节流间隔（毫秒）
+  static const int _notifyThrottleMs = 100;
+
   // selectedMap 内存缓存：记录每个代理组当前选中的节点
   final Map<String, String> _selectedMap = {};
 
   Map<String, String> get selectedMap => _selectedMap;
 
-  // 当前选中的代理组
   String? _selectedGroupName;
   String? get selectedGroupName => _selectedGroupName;
-
-  // 当前选中的代理组
   ProxyGroup? get selectedGroup {
     if (_selectedGroupName == null) return null;
     return proxyGroups.firstWhere(
@@ -131,9 +133,9 @@ class ClashProvider extends ChangeNotifier {
   // 配置文件监听器
   ConfigWatcher? _configWatcher;
 
-  // 是否启用配置文件热重载
-  bool _enableConfigHotReload = true;
-  bool get enableConfigHotReload => _enableConfigHotReload;
+  // 是否启用配置文件重载
+  bool _enableConfigReload = true;
+  bool get enableConfigReload => _enableConfigReload;
 
   // 判断代理组类型是否支持手动选择
   static bool _isSelectableGroupType(String type) {
@@ -150,14 +152,9 @@ class ClashProvider extends ChangeNotifier {
 
     // 监听 ClashManager 的变化
     _clashManager.addListener(_onClashManagerChanged);
-
-    // 不再在构造函数中加载配置，改为从订阅加载
-    // 初始化时加载配置文件中的代理信息
-    // _loadProxiesFromConfig();
   }
 
-  // 初始化 ClashProvider（在应用启动时调用）
-  // 加载当前选中订阅的配置文件
+  // 初始化（加载配置文件中的代理信息）
   Future<void> initialize(String? configPath) async {
     if (configPath == null || configPath.isEmpty) {
       Logger.info('没有可用的配置文件，ClashProvider 初始化完成（空状态）');
@@ -264,7 +261,7 @@ class ClashProvider extends ChangeNotifier {
       );
 
       if (success) {
-        // 初始化 DelayTester 的 API 客户端，以支持统一延迟测试
+        // 初始化 DelayTester 的 API 客户端
         final apiClient = _clashManager.apiClient;
         if (apiClient != null) {
           DelayTester.setApiClient(apiClient);
@@ -272,13 +269,12 @@ class ClashProvider extends ChangeNotifier {
           Logger.error('无法获取 Clash API 客户端，统一延迟测试不可用');
         }
 
-        // 启动后必须从 Clash API 重新加载代理列表
-        // 原因：预加载的数据来自配置文件，缺少 GLOBAL 组等运行时信息
-        Logger.info('Clash 已启动，从 API 重新加载代理列表（包含 GLOBAL 组）');
+        // 启动后必须从 API 重新加载代理列表
+        Logger.info('Clash 已启动，从 API 重新加载代理列表');
         await loadProxies();
 
-        // 如果启用了热重载且指定了配置文件路径，启动配置文件监听
-        if (_enableConfigHotReload &&
+        // 如果启用了配置重载且指定了配置文件路径，启动配置文件监听
+        if (_enableConfigReload &&
             configPath != null &&
             configPath.isNotEmpty) {
           await _startConfigWatcher(configPath);
@@ -400,12 +396,8 @@ class ClashProvider extends ChangeNotifier {
     }
 
     Logger.debug(
-      '加载前状态：代理组=${_allProxyGroups.length}，节点=${_proxyNodes.length}，选中=$_selectedGroupName',
+      '加载前状态：代理组=${_allProxyGroups.length}，节点=${_proxyNodes.length}',
     );
-
-    // 保存加载前的状态，用于比较
-    final oldGroups = List<ProxyGroup>.from(_allProxyGroups);
-    final oldNodes = Map<String, ProxyNode>.from(_proxyNodes);
 
     _isLoading = true;
     _errorMessage = null;
@@ -458,38 +450,50 @@ class ClashProvider extends ChangeNotifier {
         '解析节点完成：${_proxyNodes.length} 个（耗时：${parseStopwatch.elapsedMilliseconds}ms）',
       );
 
-      // 从 GLOBAL 组获取代理组的顺序
       _allProxyGroups = [];
-      _invalidateCache(); // 清除缓存
+      _invalidateCache();
+
+      final addedGroups = <String>{};
       final globalGroup = proxies['GLOBAL'];
-      if (globalGroup != null && globalGroup['all'] != null) {
-        final orderedGroupNames = List<String>.from(globalGroup['all']);
-        Logger.debug('GLOBAL.all 包含 ${orderedGroupNames.length} 个项目');
+      final hasGlobalAll = globalGroup?['all'] != null;
 
-        // 按照 GLOBAL.all 的顺序解析代理组
-        for (final groupName in orderedGroupNames) {
-          final proxyData = proxies[groupName];
-          if (proxyData != null) {
-            final node = _proxyNodes[groupName];
-            // 只添加代理组类型（不包括实际节点）
-            if (node != null && node.isGroup) {
-              final group = ProxyGroup.fromJson(groupName, proxyData);
-              _allProxyGroups.add(group);
-            }
-          }
+      // 阶段 1：优先添加 GLOBAL 组（如果存在）
+      if (globalGroup != null) {
+        final globalNode = _proxyNodes['GLOBAL'];
+        if (globalNode != null && globalNode.isGroup) {
+          _allProxyGroups.add(ProxyGroup.fromJson('GLOBAL', globalGroup));
+          addedGroups.add('GLOBAL');
         }
-
-        // 调试：打印 GLOBAL 组的数据结构
-        Logger.debug(
-          'GLOBAL 组数据：type=${globalGroup['type']}，now=${globalGroup['now']}，all 长度=${globalGroup['all']?.length}',
-        );
-
-        // 添加 GLOBAL 组本身（无论是否有 type 字段）
-        // GLOBAL 是 Clash 核心的虚拟组，包含所有代理节点
-        final globalProxyGroup = ProxyGroup.fromJson('GLOBAL', globalGroup);
-        _allProxyGroups.insert(0, globalProxyGroup);
-        Logger.info('已添加 GLOBAL 组到代理组列表（位置 0）');
       }
+
+      // 阶段 2：按 GLOBAL.all 顺序添加其他代理组
+      if (hasGlobalAll) {
+        final orderedNames = List<String>.from(globalGroup!['all']);
+        for (final groupName in orderedNames) {
+          if (addedGroups.contains(groupName)) continue;
+
+          final proxyData = proxies[groupName];
+          if (proxyData == null) continue;
+
+          final node = _proxyNodes[groupName];
+          if (node == null || !node.isGroup) continue;
+
+          _allProxyGroups.add(ProxyGroup.fromJson(groupName, proxyData));
+          addedGroups.add(groupName);
+        }
+      }
+
+      // 阶段 3：补充遗漏的代理组
+      proxies.forEach((name, data) {
+        if (addedGroups.contains(name)) return;
+
+        final node = _proxyNodes[name];
+        if (node == null || !node.isGroup) return;
+
+        _allProxyGroups.add(ProxyGroup.fromJson(name, data));
+      });
+
+      Logger.debug('解析完成：${_allProxyGroups.length} 个代理组');
 
       // 【性能监控】恢复选择耗时
       final restoreStopwatch = Stopwatch()..start();
@@ -500,14 +504,6 @@ class ClashProvider extends ChangeNotifier {
       // 默认选中第一个可见的代理组
       if (_selectedGroupName == null && proxyGroups.isNotEmpty) {
         _selectedGroupName = proxyGroups.first.name;
-      }
-
-      // 检查数据变化（只在有变化时记录详细信息）
-      if (oldGroups.length != _allProxyGroups.length) {
-        Logger.info('代理组数量变化：${oldGroups.length} -> ${_allProxyGroups.length}');
-      }
-      if (oldNodes.length != _proxyNodes.length) {
-        Logger.info('节点数量变化：${oldNodes.length} -> ${_proxyNodes.length}');
       }
 
       Logger.info(
@@ -596,8 +592,6 @@ class ClashProvider extends ChangeNotifier {
   }
 
   // 恢复已保存的节点选择
-  // 在加载代理组后调用，将持久化的节点选择应用到代理组
-  // 同时构建 selectedMap 缓存
   Future<void> _restoreProxySelections() async {
     final currentSubscriptionId = ClashPreferences.instance
         .getCurrentSubscriptionId();
@@ -609,54 +603,41 @@ class ClashProvider extends ChangeNotifier {
     int restoredCount = 0;
     int defaultCount = 0;
 
-    // 清空 selectedMap 准备重建
     _selectedMap.clear();
-    final clashIsRunning = isRunning;
 
     for (int i = 0; i < _allProxyGroups.length; i++) {
       final group = _allProxyGroups[i];
 
-      // 检查代理组类型是否支持手动选择
       if (!_isSelectableGroupType(group.type)) {
-        continue; // 跳过不可选择的组
+        continue;
       }
 
       String? selected;
 
-      // 1. 优先从持久化存储恢复（用户保存的选择）
+      // 1. 优先从持久化存储恢复
       selected = ClashPreferences.instance.getProxySelection(
         currentSubscriptionId,
         group.name,
       );
 
-      // 2. 如果没有保存记录，且 Clash 正在运行，使用 Clash 当前状态
-      if (selected == null &&
-          clashIsRunning &&
-          group.now != null &&
-          group.now!.isNotEmpty) {
+      // 2. 如果没有保存记录，且核心正在运行，使用当前状态
+      if (selected == null && isRunning && group.now != null) {
         selected = group.now;
       }
 
-      // 3. 验证选择的有效性（必须在 group.all 中）
+      // 3. 验证选择的有效性
       if (selected != null && !group.all.contains(selected)) {
-        Logger.warning('保存的节点 $selected 在组 ${group.name} 中不存在，使用默认选择');
+        Logger.warning('保存的节点 $selected 在组 ${group.name} 中不存在');
         selected = null;
       }
 
-      // 4. 最后回退到默认值（第一个节点）
+      // 4. 回退到默认值
       if (selected == null && group.all.isNotEmpty) {
         selected = group.all.first;
         defaultCount++;
       } else if (selected != null) {
-        // 判断是否来自持久化存储
-        final savedSelection = ClashPreferences.instance.getProxySelection(
-          currentSubscriptionId,
-          group.name,
-        );
-        if (savedSelection == selected) {
-          restoredCount++;
-          Logger.debug('恢复节点选择: ${group.name} -> $selected');
-        }
+        restoredCount++;
+        Logger.debug('恢复节点选择: ${group.name} -> $selected');
       }
 
       // 更新代理组的 now 字段
@@ -673,9 +654,7 @@ class ClashProvider extends ChangeNotifier {
     _invalidateCache();
 
     if (restoredCount > 0 || defaultCount > 0) {
-      Logger.info(
-        '节点选择恢复完成：恢复=$restoredCount，默认=$defaultCount，selectedMap=${_selectedMap.length}',
-      );
+      Logger.info('节点选择恢复完成：恢复=$restoredCount，默认=$defaultCount');
     }
   }
 
@@ -685,10 +664,10 @@ class ClashProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 启用/禁用配置文件热重载
-  void setConfigHotReload(bool enabled) {
-    _enableConfigHotReload = enabled;
-    Logger.info('配置文件热重载：${enabled ? "已启用" : "已禁用"}');
+  // 启用/禁用配置文件重载
+  void setConfigReload(bool enabled) {
+    _enableConfigReload = enabled;
+    Logger.info('配置文件重载：${enabled ? "已启用" : "已禁用"}');
   }
 
   // 启动配置文件监听
@@ -701,7 +680,7 @@ class ClashProvider extends ChangeNotifier {
       onReload: () async {
         Logger.info('检测到配置文件变化，重新生成运行时配置并重载…');
 
-        // 1. 重新生成 runtime_config.yaml 并热重载 Clash 配置
+        // 1. 重新生成 runtime_config.yaml 并重载 Clash 配置
         final reloadSuccess = await _clashManager.reloadConfig(
           configPath: configPath,
         );
@@ -710,7 +689,7 @@ class ClashProvider extends ChangeNotifier {
           // 2. 重新加载代理列表（显示新节点）
           await loadProxies();
         } else {
-          Logger.error('配置热重载失败，跳过代理列表更新');
+          Logger.error('配置重载失败，跳过代理列表更新');
         }
       },
       debounceMs: 1000, // 1秒防抖
@@ -729,60 +708,11 @@ class ClashProvider extends ChangeNotifier {
     }
   }
 
-  // 获取所有代理组（用于 Clash 特性页面）
-  Future<List<Map<String, dynamic>>> getProxyGroups() async {
-    if (!isRunning) {
-      // 未运行时，从本地配置返回
-      return _allProxyGroups
-          .map(
-            (group) => {
-              'name': group.name,
-              'type': group.type,
-              'now': group.now,
-              'all': group.all,
-            },
-          )
-          .toList();
-    }
-
-    try {
-      final proxies = await _clashManager.getProxies();
-      final groups = <Map<String, dynamic>>[];
-
-      proxies.forEach((name, data) {
-        if (data['type'] != null) {
-          final typeStr = data['type'].toString().toLowerCase();
-          if (typeStr == 'selector' ||
-              typeStr == 'urltest' ||
-              typeStr == 'fallback' ||
-              typeStr == 'loadbalance' ||
-              typeStr == 'relay') {
-            groups.add({
-              'name': name,
-              'type': data['type'],
-              'now': data['now'],
-              'all': data['all'] ?? [],
-            });
-          }
-        }
-      });
-
-      return groups;
-    } catch (e) {
-      Logger.error('获取代理组失败：$e');
-      return [];
-    }
-  }
-
-  // 根据名称获取代理节点
   ProxyNode? getProxyNode(String name) {
     return _proxyNodes[name];
   }
 
-  // 配置管理方法已移除，UI 层请直接使用 configService
-  // 例如: clashProvider.configService.setAllowLan(true)
-
-  // ========== 延迟测试方法（使用 DelayTestService） ==========
+  // ========== 延迟测试方法 ==========
 
   // 递归解析代理节点名称
   String resolveProxyNodeName(
@@ -852,7 +782,11 @@ class ClashProvider extends ChangeNotifier {
     _isBatchTesting = true;
     _testingNodes.clear();
     _testingNodes.addAll(proxyNames);
+    _lastNotifyTime = null; // 重置节流计时器
     notifyListeners();
+
+    // 标记是否有待通知的更新
+    bool hasPendingUpdates = false;
 
     try {
       await DelayTestService.testGroupDelays(
@@ -870,21 +804,36 @@ class ClashProvider extends ChangeNotifier {
           final node = _proxyNodes[nodeName];
           if (node != null) {
             _proxyNodes[nodeName] = node.copyWith(delay: delay);
+            hasPendingUpdates = true; // 标记有更新
           }
 
           // 从测试集合中移除
           _testingNodes.remove(nodeName);
 
-          // 创建新的 Map 实例并通知 UI 更新
-          _proxyNodes = Map<String, ProxyNode>.from(_proxyNodes);
-          _proxyNodesUpdateCount++;
-          notifyListeners();
+          // 节流通知 UI 更新（每 100ms 最多一次）
+          final now = DateTime.now();
+          if (hasPendingUpdates &&
+              (_lastNotifyTime == null ||
+                  now.difference(_lastNotifyTime!).inMilliseconds >=
+                      _notifyThrottleMs)) {
+            // 仅在有更新时才创建新 Map（触发 Selector 重建）
+            _proxyNodes = Map<String, ProxyNode>.from(_proxyNodes);
+            _proxyNodesUpdateCount++;
+            notifyListeners();
+            _lastNotifyTime = now;
+            hasPendingUpdates = false; // 清除待更新标记
+          }
         },
       );
     } finally {
-      // 确保清空测试集合并标记测试结束
+      // 确保最后一次更新（包含所有节点的最终结果）
+      if (hasPendingUpdates) {
+        _proxyNodes = Map<String, ProxyNode>.from(_proxyNodes);
+        _proxyNodesUpdateCount++;
+      }
       _testingNodes.clear();
       _isBatchTesting = false;
+      _lastNotifyTime = null;
       notifyListeners();
     }
   }

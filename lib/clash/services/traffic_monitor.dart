@@ -20,7 +20,7 @@ class TrafficMonitor {
   DateTime? _lastTimestamp;
 
   // 缓存最后一次的流量数据，避免组件重建时显示零值
-  TrafficData? _lastTrafficData;
+  TrafficData? _trafficDataCache;
 
   // 波形图历史数据（全局存储，避免页面切换时重置）
   final List<double> _uploadHistory = List.generate(30, (_) => 0.0);
@@ -41,14 +41,14 @@ class TrafficMonitor {
   int get totalDownload => _totalDownload;
 
   // 获取最后一次的流量数据（用于组件初始化）
-  TrafficData? get lastTrafficData => _lastTrafficData;
+  TrafficData? get lastTrafficData => _trafficDataCache;
 
   // 重置累计流量
   void resetTotalTraffic() {
     _totalUpload = 0;
     _totalDownload = 0;
     _lastTimestamp = null;
-    _lastTrafficData = null;
+    _trafficDataCache = null;
     // 清空波形图历史数据
     _uploadHistory.fillRange(0, _uploadHistory.length, 0);
     _downloadHistory.fillRange(0, _downloadHistory.length, 0);
@@ -132,7 +132,7 @@ class TrafficMonitor {
       _downloadHistory.add(downloadInt / 1024.0); // KB/s
 
       // 缓存最后的数据
-      _lastTrafficData = trafficData;
+      _trafficDataCache = trafficData;
 
       // 推送到流
       _controller?.add(trafficData);

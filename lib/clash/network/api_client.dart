@@ -6,7 +6,7 @@ import 'package:stelliberty/clash/network/ipc_request_helper.dart';
 
 // Clash RESTful API 客户端
 //
-// 使用 IPC 模式通信（Named Pipe on Windows / Unix Socket on Unix）
+// 使用 IPC 模式通信
 class ClashApiClient {
   ClashApiClient();
 
@@ -75,23 +75,33 @@ class ClashApiClient {
       milliseconds: ClashDefaults.apiReadyCheckTimeout,
     ),
   }) async {
-    for (int i = 0; i < maxRetries; i++) {
-      if (await checkHealth(timeout: checkTimeout)) {
-        return;
-      }
+    Object? lastError;
 
-      // 简化日志：只在第 1 次、每 5 次、最后 3 次打印
-      final shouldLog = i == 0 || (i + 1) % 5 == 0 || i >= maxRetries - 3;
-      if (shouldLog) {
-        Logger.debug('等待 Clash API 就绪…（${i + 1}/$maxRetries）');
+    for (int i = 0; i < maxRetries; i++) {
+      try {
+        await _internalGet('/version').timeout(checkTimeout);
+        return;
+      } catch (e) {
+        lastError = e;
+        // 简化日志：只在第 1 次、每 5 次、最后 3 次打印
+        final shouldLog = i == 0 || (i + 1) % 5 == 0 || i >= maxRetries - 3;
+        if (shouldLog) {
+          Logger.debug('等待 Clash API 就绪…（${i + 1}/$maxRetries）- 错误: $e');
+        }
       }
 
       await Future.delayed(retryInterval);
     }
 
-    throw TimeoutException(
-      'Clash API 在 ${(maxRetries * (checkTimeout.inMilliseconds + retryInterval.inMilliseconds) / 1000).toStringAsFixed(1)} 秒后仍未就绪',
-    );
+    final totalTime =
+        (maxRetries *
+                (checkTimeout.inMilliseconds + retryInterval.inMilliseconds) /
+                1000)
+            .toStringAsFixed(1);
+
+    Logger.error('Clash API 等待超时，最后一次错误: $lastError');
+
+    throw TimeoutException('Clash API 在 $totalTime 秒后仍未就绪。最后错误: $lastError');
   }
 
   // 获取代理列表
@@ -208,7 +218,7 @@ class ClashApiClient {
     }
   }
 
-  // 热重载配置文件（不重启进程）
+  // 重载配置文件（不重启进程）
   // [configPath] 配置文件路径
   // [force] 是否强制重载
   Future<bool> reloadConfig({String? configPath, bool force = true}) async {
@@ -220,12 +230,12 @@ class ClashApiClient {
           : <String, dynamic>{};
 
       await _internalPut(path, body);
-      Logger.info('配置文件热重载成功');
+      Logger.info('配置文件重载成功');
       // 配置已修改，清除缓存
       _clearConfigCache();
       return true;
     } catch (e) {
-      Logger.error('热重载配置出错：$e');
+      Logger.error('配置重载出错：$e');
       rethrow;
     }
   }
@@ -415,7 +425,7 @@ class ClashApiClient {
       }
 
       await _internalPatch('/configs', {'mode': mode});
-      Logger.info('出站模式（支持热重载）：$mode');
+      Logger.info('出站模式（支持配置重载）：$mode');
       return true;
     } catch (e) {
       Logger.error('设置出站模式出错：$e');
@@ -459,7 +469,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置混合端口（热更新，无需重启）
+  // 设置混合端口（配置重载，无需重启）
   Future<bool> setMixedPort(int port) async {
     try {
       await _internalPatch('/configs', {'mixed-port': port});
@@ -472,7 +482,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置 SOCKS 端口（热更新，无需重启）
+  // 设置 SOCKS 端口（配置重载，无需重启）
   Future<bool> setSocksPort(int port) async {
     try {
       await _internalPatch('/configs', {'socks-port': port});
@@ -485,7 +495,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置 HTTP 端口（热更新，无需重启）
+  // 设置 HTTP 端口（配置重载，无需重启）
   Future<bool> setHttpPort(int port) async {
     try {
       await _internalPatch('/configs', {'port': port});
@@ -498,7 +508,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡模式启用状态（热更新，无需重启）
+  // 设置虚拟网卡模式启用状态（配置重载，无需重启）
   Future<bool> setTunEnable(bool enable) async {
     try {
       await _internalPatch('/configs', {
@@ -513,7 +523,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡网络栈（热更新，无需重启）
+  // 设置虚拟网卡网络栈（配置重载，无需重启）
   Future<bool> setTunStack(String stack) async {
     try {
       await _internalPatch('/configs', {
@@ -528,7 +538,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置 TCP Keep-Alive 间隔（热更新，无需重启）
+  // 设置 TCP Keep-Alive 间隔（配置重载，无需重启）
   Future<bool> setKeepAliveInterval(int interval) async {
     try {
       await _internalPatch('/configs', {'keep-alive-interval': interval});
@@ -541,7 +551,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡设备名称（热更新，无需重启）
+  // 设置虚拟网卡设备名称（配置重载，无需重启）
   Future<bool> setTunDevice(String device) async {
     try {
       await _internalPatch('/configs', {
@@ -556,7 +566,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡自动路由（热更新，无需重启）
+  // 设置虚拟网卡自动路由（配置重载，无需重启）
   Future<bool> setTunAutoRoute(bool enable) async {
     try {
       await _internalPatch('/configs', {
@@ -571,7 +581,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡自动检测接口（热更新，无需重启）
+  // 设置虚拟网卡自动检测接口（配置重载，无需重启）
   Future<bool> setTunAutoDetectInterface(bool enable) async {
     try {
       await _internalPatch('/configs', {
@@ -586,7 +596,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡 DNS 劫持列表（热更新，无需重启）
+  // 设置虚拟网卡 DNS 劫持列表（配置重载，无需重启）
   Future<bool> setTunDnsHijack(List<String> hijackList) async {
     try {
       await _internalPatch('/configs', {
@@ -601,7 +611,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡 MTU（热更新，无需重启）
+  // 设置虚拟网卡 MTU（配置重载，无需重启）
   Future<bool> setTunMtu(int mtu) async {
     try {
       await _internalPatch('/configs', {
@@ -616,7 +626,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡严格路由（热更新，无需重启）
+  // 设置虚拟网卡严格路由（配置重载，无需重启）
   Future<bool> setTunStrictRoute(bool enable) async {
     try {
       await _internalPatch('/configs', {
@@ -631,7 +641,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡自动TCP重定向（热更新，无需重启）
+  // 设置虚拟网卡自动TCP重定向（配置重载，无需重启）
   Future<bool> setTunAutoRedirect(bool enable) async {
     try {
       await _internalPatch('/configs', {
@@ -646,7 +656,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡排除网段列表（热更新，无需重启）
+  // 设置虚拟网卡排除网段列表（配置重载，无需重启）
   Future<bool> setTunRouteExcludeAddress(List<String> addresses) async {
     try {
       await _internalPatch('/configs', {
@@ -661,7 +671,7 @@ class ClashApiClient {
     }
   }
 
-  // 设置虚拟网卡禁用ICMP转发（热更新，无需重启）
+  // 设置虚拟网卡禁用ICMP转发（配置重载，无需重启）
   Future<bool> setTunDisableIcmpForwarding(bool disabled) async {
     try {
       await _internalPatch('/configs', {
@@ -797,116 +807,3 @@ class ClashApiClient {
     }
   }
 }
-
-// ============================================================================
-// 死代码区域：HTTP 模式实现（已废弃，仅保留以备未来需求）
-// ============================================================================
-// ignore_for_file: unused_element, dead_code
-
-/*
-import 'package:http/http.dart' as http;
-
-// API 通信模式（已废弃）
-enum ApiMode {
-  // HTTP API（传统模式，通过 TCP 端口通信）
-  http,
-
-  // IPC 模式（Named Pipe/Unix Socket，更安全更高效）
-  ipc,
-}
-
-// HTTP 模式的 ClashApiClient 实现（已废弃）
-class _HttpModeClashApiClient {
-  final String host;
-  final int port;
-  final String secret;
-
-  _HttpModeClashApiClient({
-    this.host = '127.0.0.1',
-    this.port = 19090,
-    this.secret = '',
-  });
-
-  // API 基础 URL
-  String get baseUrl => 'http://$host:$port';
-
-  // 构建 HTTP 请求头
-  Map<String, String> _buildHeaders() {
-    final headers = <String, String>{'Content-Type': 'application/json'};
-
-    if (secret.isNotEmpty) {
-      headers['Authorization'] = 'Bearer $secret';
-    }
-
-    return headers;
-  }
-
-  // HTTP GET 请求
-  Future<Map<String, dynamic>> httpGet(String path) async {
-    final response = await http
-        .get(Uri.parse('$baseUrl$path'), headers: _buildHeaders())
-        .timeout(const Duration(seconds: ClashDefaults.apiRequestTimeout));
-
-    if (response.statusCode == 200) {
-      return json.decode(response.body) as Map<String, dynamic>;
-    } else {
-      throw Exception('HTTP ${response.statusCode}');
-    }
-  }
-
-  // HTTP PATCH 请求
-  Future<bool> httpPatch(
-    String path,
-    Map<String, dynamic> body,
-  ) async {
-    final response = await http
-        .patch(
-          Uri.parse('$baseUrl$path'),
-          headers: _buildHeaders(),
-          body: json.encode(body),
-        )
-        .timeout(const Duration(seconds: ClashDefaults.apiRequestTimeout));
-
-    if (response.statusCode == 204 || response.statusCode == 200) {
-      return true;
-    } else {
-      throw Exception('HTTP ${response.statusCode}');
-    }
-  }
-
-  // HTTP PUT 请求
-  Future<bool> httpPut(
-    String path,
-    Map<String, dynamic> body,
-  ) async {
-    final response = await http
-        .put(
-          Uri.parse('$baseUrl$path'),
-          headers: _buildHeaders(),
-          body: json.encode(body),
-        )
-        .timeout(
-          const Duration(seconds: ClashDefaults.apiLongRequestTimeout),
-        );
-
-    if (response.statusCode == 204 || response.statusCode == 200) {
-      return true;
-    } else {
-      throw Exception('HTTP ${response.statusCode}');
-    }
-  }
-
-  // HTTP DELETE 请求
-  Future<bool> httpDelete(String path) async {
-    final response = await http
-        .delete(Uri.parse('$baseUrl$path'), headers: _buildHeaders())
-        .timeout(const Duration(seconds: ClashDefaults.apiRequestTimeout));
-
-    if (response.statusCode == 204 || response.statusCode == 200) {
-      return true;
-    } else {
-      throw Exception('HTTP ${response.statusCode}');
-    }
-  }
-}
-*/
