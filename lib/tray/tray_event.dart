@@ -18,6 +18,9 @@ class TrayEventHandler with TrayListener {
   DateTime? _lastClickTime;
   static const _doubleClickThreshold = Duration(milliseconds: 300);
 
+  // 状态切换标志（切换期间禁用托盘交互）
+  bool _isSwitching = false;
+
   // 设置 ClashProvider 用于控制代理
   void setClashProvider(ClashProvider provider) {
     _clashProvider = provider;
@@ -31,6 +34,12 @@ class TrayEventHandler with TrayListener {
   // 托盘图标左键点击事件,实现双击检测(300ms 内两次点击视为双击)
   @override
   void onTrayIconMouseDown() {
+    // 状态切换期间禁用托盘交互
+    if (_isSwitching) {
+      Logger.debug('状态切换中，忽略托盘左键点击');
+      return;
+    }
+
     final now = DateTime.now();
 
     if (_lastClickTime != null) {
@@ -53,6 +62,12 @@ class TrayEventHandler with TrayListener {
   // 托盘图标右键点击事件
   @override
   void onTrayIconRightMouseDown() {
+    // 状态切换期间禁用托盘交互
+    if (_isSwitching) {
+      Logger.debug('状态切换中，忽略托盘右键点击');
+      return;
+    }
+
     Logger.info('托盘图标被右键点击，弹出菜单');
     // 使用 bringAppToFront 参数改善菜单焦点行为
     // ignore: deprecated_member_use
@@ -82,24 +97,40 @@ class TrayEventHandler with TrayListener {
         Logger.info('关闭菜单被点击，菜单将自动关闭');
         break;
       case 'show_window':
-        showWindow();
+        // Fire-and-forget，内部已有错误处理
+        showWindow().catchError((e) {
+          Logger.error('从托盘显示窗口失败：$e');
+        });
         break;
       case 'toggle_proxy':
-        toggleProxy();
+        // Fire-and-forget，内部已有完整的错误处理和状态管理
+        toggleProxy().catchError((e) {
+          Logger.error('从托盘切换代理异常：$e');
+        });
         break;
       case 'toggle_tun':
-        toggleTun();
+        // Fire-and-forget，内部已有完整的错误处理和状态管理
+        toggleTun().catchError((e) {
+          Logger.error('从托盘切换虚拟网卡异常：$e');
+        });
         break;
       case 'outbound_mode_rule':
-        switchOutboundMode('rule');
+        switchOutboundMode('rule').catchError((e) {
+          Logger.error('从托盘切换出站模式异常：$e');
+        });
         break;
       case 'outbound_mode_global':
-        switchOutboundMode('global');
+        switchOutboundMode('global').catchError((e) {
+          Logger.error('从托盘切换出站模式异常：$e');
+        });
         break;
       case 'outbound_mode_direct':
-        switchOutboundMode('direct');
+        switchOutboundMode('direct').catchError((e) {
+          Logger.error('从托盘切换出站模式异常：$e');
+        });
         break;
       case 'exit':
+        // 退出操作不需要 catchError，内部已处理
         exitApp();
         break;
     }
@@ -136,6 +167,9 @@ class TrayEventHandler with TrayListener {
       await windowManager.focus();
 
       Logger.info('窗口已显示 (最大化：$shouldMaximize)');
+
+      // 窗口显示后立即更新托盘菜单，禁用"显示窗口"选项
+      AppTrayManager().updateTrayMenuManually();
     } catch (e) {
       Logger.error('显示窗口失败：$e');
     }
@@ -152,6 +186,9 @@ class TrayEventHandler with TrayListener {
       Logger.warning('SubscriptionProvider 未设置，无法获取配置文件路径');
       return;
     }
+
+    // 设置切换标志，禁用托盘交互
+    _isSwitching = true;
 
     // 托盘菜单勾选状态基于系统代理,切换逻辑也基于系统代理
     final manager = ClashManager.instance;
@@ -174,6 +211,8 @@ class TrayEventHandler with TrayListener {
           final configPath = _subscriptionProvider!.getSubscriptionConfigPath();
           if (configPath == null) {
             Logger.warning('没有可用的订阅配置文件，无法启动代理');
+            // 提前返回前必须恢复 _isSwitching
+            _isSwitching = false;
             return;
           }
           await _clashProvider!.start(configPath: configPath);
@@ -187,29 +226,42 @@ class TrayEventHandler with TrayListener {
     } catch (e) {
       Logger.error('从托盘切换代理失败：$e');
       // 错误已记录,托盘菜单会在下次状态更新时恢复到正确状态
+    } finally {
+      // 恢复托盘交互
+      _isSwitching = false;
+      // 切换完成后手动更新托盘菜单
+      AppTrayManager().updateTrayMenuManually();
     }
   }
 
   // 切换虚拟网卡模式
   Future<void> toggleTun() async {
+    // 设置切换标志，禁用托盘交互
+    _isSwitching = true;
+
     final manager = ClashManager.instance;
     final isTunEnabled = manager.tunEnable;
 
     Logger.info('从托盘切换虚拟网卡模式 - 当前状态：${isTunEnabled ? "已启用" : "未启用"}');
 
     try {
-      // 切换虚拟网卡模式(乐观更新,不等待结果)
-      manager.setTunEnable(!isTunEnabled).catchError((e) {
-        Logger.error('从托盘切换虚拟网卡模式失败：$e');
-        return false;
-      });
+      // 切换虚拟网卡模式（等待结果）
+      await manager.setTunEnable(!isTunEnabled);
     } catch (e) {
       Logger.error('从托盘切换虚拟网卡模式失败：$e');
+    } finally {
+      // 恢复托盘交互
+      _isSwitching = false;
+      // 切换完成后手动更新托盘菜单
+      AppTrayManager().updateTrayMenuManually();
     }
   }
 
   // 切换出站模式
   Future<void> switchOutboundMode(String mode) async {
+    // 设置切换标志，禁用托盘交互
+    _isSwitching = true;
+
     final manager = ClashManager.instance;
     final isRunning = _clashProvider?.isRunning ?? false;
     final currentMode = manager.mode;
@@ -217,6 +269,9 @@ class TrayEventHandler with TrayListener {
     // 如果已经是当前模式，直接返回
     if (currentMode == mode) {
       Logger.debug('出站模式已经是 $mode，无需切换');
+      _isSwitching = false;
+      // 即使无需切换，也更新托盘菜单确保状态一致
+      AppTrayManager().updateTrayMenuManually();
       return;
     }
 
@@ -247,6 +302,11 @@ class TrayEventHandler with TrayListener {
       }
     } catch (e) {
       Logger.error('从托盘切换出站模式失败：$e');
+    } finally {
+      // 恢复托盘交互
+      _isSwitching = false;
+      // 切换完成后手动更新托盘菜单
+      AppTrayManager().updateTrayMenuManually();
     }
   }
 

@@ -68,8 +68,14 @@ void main(List<String> args) async {
   // 初始化 Rust 后端通信
   await initializeRust(assignRustSignal);
 
-  // 初始化所有应用服务
-  final appDataPath = await initializeAllServices();
+  // 【关键】先初始化基础服务（路径、配置），再初始化语言
+  await initializeBaseServices();
+
+  // 加载语言设置（必须在托盘初始化之前，避免托盘显示英文）
+  await initializeLanguage();
+
+  // 初始化其它应用服务（日志、窗口、托盘等，此时语言已就绪）
+  final appDataPath = await initializeOtherServices();
 
   // 创建并初始化所有 Providers
   final providers = await createProvidersWithErrorHandling();
@@ -86,9 +92,6 @@ void main(List<String> args) async {
 
   // 设置托盘管理器
   setupTrayManager(providers.clashProvider, providers.subscriptionProvider);
-
-  // 加载语言设置
-  await initializeLanguage();
 
   // Windows 平台：注入键盘事件修复器（修复 Win+V 剪贴板历史问题）
   if (Platform.isWindows) {
@@ -161,15 +164,19 @@ class ProviderBundle {
 // 应用服务初始化（路径、日志、配置、窗口、业务服务等）
 // ============================================================================
 
-// 初始化应用所需的所有服务（基础服务、业务服务、UI 服务）
-Future<String> initializeAllServices() async {
-  // 初始化基础服务（路径、配置存储）
+// 初始化基础服务（路径、配置存储）
+// 必须最先执行，其他服务依赖这些基础服务
+Future<void> initializeBaseServices() async {
   await Future.wait([
     PathService.instance.initialize(),
     AppPreferences.instance.init(),
     ClashPreferences.instance.init(),
   ]);
+}
 
+// 初始化其他应用服务（日志、窗口、托盘、DNS等）
+// 在语言初始化之后执行，确保托盘等 UI 组件能使用正确的多语言
+Future<String> initializeOtherServices() async {
   final appDataPath = PathService.instance.appDataPath;
 
   // 初始化日志系统（依赖路径服务）
@@ -185,6 +192,7 @@ Future<String> initializeAllServices() async {
   Logger.info('状态中枢已初始化，开始全局状态协调');
 
   // 并行初始化其他服务（窗口、DNS）
+  // 窗口服务包含托盘初始化，此时语言已就绪
   await Future.wait([
     initializeWindowServices(),
     DnsService.instance.initialize(appDataPath),
