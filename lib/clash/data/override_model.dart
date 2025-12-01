@@ -20,7 +20,7 @@ enum OverrideType {
 
 // 覆写格式
 enum OverrideFormat {
-  yaml('yaml', 'YAML'),
+  yaml('yaml', 'Yaml'),
   js('js', 'JavaScript');
 
   const OverrideFormat(this.value, this.displayName);
