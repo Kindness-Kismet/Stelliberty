@@ -301,11 +301,13 @@ class SubscriptionCard extends StatelessWidget {
             label: context.translate.subscription.menu.fileEdit,
             onPressed: onEditFile,
           ),
-          PopupMenuItemData(
-            icon: Icons.visibility,
-            label: context.translate.subscription.menu.configView,
-            onPressed: onViewConfig,
-          ),
+          // 只有当前选中的订阅才显示运行配置查看
+          if (isSelected)
+            PopupMenuItemData(
+              icon: Icons.visibility,
+              label: context.translate.subscription.menu.configView,
+              onPressed: onViewConfig,
+            ),
           PopupMenuItemData(
             icon: Icons.rule,
             label: context.translate.subscription.menu.overrideManage,

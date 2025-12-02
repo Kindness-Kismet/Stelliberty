@@ -56,7 +56,72 @@ Future<Map<String, String>> readVersionInfo(String projectRoot) async {
   return {'name': name, 'version': versionNumber};
 }
 
+// 终止 Rust 编译进程 (跨平台支持, 成功时静默)
+Future<void> _killRustProcesses() async {
+  try {
+    if (Platform.isWindows) {
+      // Windows: 终止 rustc.exe
+      final result = await Process.run('taskkill', [
+        '/F',
+        '/IM',
+        'rustc.exe',
+        '/T',
+      ]);
+      if (result.exitCode != 0 && result.exitCode != 128) {
+        // exitCode 128 表示进程不存在,这是正常的
+        log('⚠️  终止 Rust 进程时出现警告: ${result.stderr}');
+      }
+    } else if (Platform.isLinux || Platform.isMacOS) {
+      // Linux/macOS: 终止 rustc
+      final result = await Process.run('pkill', ['-9', 'rustc']);
+      if (result.exitCode != 0 && result.exitCode != 1) {
+        // exitCode 1 表示进程不存在,这是正常的
+        log('⚠️  终止 Rust 进程时出现警告: ${result.stderr}');
+      }
+    }
+    await Future.delayed(Duration(milliseconds: 500));
+  } catch (e) {
+    log('⚠️  终止 Rust 进程失败: $e');
+  }
+}
+
 // 运行 flutter clean
+Future<void> _runFlutterClean(String projectRoot, String flutterCmd) async {
+  final result = await Process.run(flutterCmd, [
+    'clean',
+  ], workingDirectory: projectRoot);
+
+  if (result.exitCode != 0) {
+    log('⚠️  flutter clean 执行失败');
+    log(result.stderr.toString().trim());
+    // 不抛出异常,继续执行其他清理任务
+  }
+}
+
+// 运行 cargo clean
+Future<void> _runCargoClean(String projectRoot) async {
+  // 检查是否有 Cargo.toml 文件
+  final cargoToml = File(p.join(projectRoot, 'Cargo.toml'));
+  if (!await cargoToml.exists()) {
+    log('⏭️  跳过 cargo clean (未找到 Cargo.toml)');
+    return;
+  }
+
+  // 在执行 cargo clean 前先终止 Rust 编译进程
+  await _killRustProcesses();
+
+  final result = await Process.run('cargo', [
+    'clean',
+  ], workingDirectory: projectRoot);
+
+  if (result.exitCode != 0) {
+    log('⚠️  cargo clean 执行失败 (可能 cargo 未安装或进程被占用)');
+    log(result.stderr.toString().trim());
+    // 不抛出异常,继续执行其他清理任务
+  }
+}
+
+// 运行完整清理流程
 Future<void> runFlutterClean(
   String projectRoot, {
   bool skipClean = false,
@@ -68,20 +133,18 @@ Future<void> runFlutterClean(
 
   final flutterCmd = await resolveFlutterCmd();
 
-  log('🧹 正在清理构建缓存...');
+  log('🧹 开始清理构建缓存...');
 
-  final result = await Process.run(flutterCmd, [
-    'clean',
-  ], workingDirectory: projectRoot);
+  // 静默终止 Rust 编译进程,避免文件占用
+  await _killRustProcesses();
 
-  if (result.exitCode != 0) {
-    log('❌ 清理失败');
-    log(result.stdout);
-    log(result.stderr);
-    throw Exception('Flutter clean 失败');
-  }
+  // Flutter 缓存清理
+  await _runFlutterClean(projectRoot, flutterCmd);
 
-  log('✅ 清理完成');
+  // Rust 缓存清理
+  await _runCargoClean(projectRoot);
+
+  log('✅ 所有清理任务已完成');
 }
 
 // 获取当前平台名称
@@ -786,23 +849,17 @@ Future<void> packZip({
   final sourceDirectory = Directory(sourceDir);
   final files = sourceDirectory.listSync(recursive: true);
 
-  // 移除压缩包时间戳
-  final fixedTimestamp = 0;
-
   for (final entity in files) {
     if (entity is File) {
       final relativePath = p.relative(entity.path, from: sourceDir);
       final bytes = await entity.readAsBytes();
 
-      // 添加文件到归档，设置固定时间戳
+      // 添加文件到归档
       final archiveFile = ArchiveFile(
         relativePath.replaceAll('\\', '/'), // 统一使用 / 作为路径分隔符
         bytes.length,
         bytes,
       );
-
-      // 移除 ZIP 内文件的时间信息：设置为固定时间戳
-      archiveFile.lastModTime = fixedTimestamp;
 
       archive.addFile(archiveFile);
 
@@ -819,14 +876,6 @@ Future<void> packZip({
 
   // 写入 ZIP 文件
   await File(outputPath).writeAsBytes(zipData);
-
-  // 移除 ZIP 文件本身的时间戳
-  log('🧹 正在移除 ZIP 文件时间戳...');
-  final fixedTime = DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
-  final zipFile = File(outputPath);
-  await zipFile.setLastModified(fixedTime);
-  await zipFile.setLastAccessed(fixedTime);
-  log('✅ ZIP 文件时间戳已清除');
 
   // 显示文件大小
   final fileSize = await File(outputPath).length();

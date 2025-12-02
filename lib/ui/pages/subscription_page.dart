@@ -25,58 +25,10 @@ class SubscriptionPage extends StatefulWidget {
 }
 
 class _SubscriptionPageState extends State<SubscriptionPage> {
-  bool _hasPerformedStartupUpdate = false;
-
   @override
   void initState() {
     super.initState();
     Logger.info('初始化 SubscriptionPage');
-
-    // 延迟执行启动时更新，避免阻塞 UI 初始化
-    Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) {
-        _performStartupUpdate();
-      }
-    });
-  }
-
-  // 执行启动时更新（并发执行，提升性能）
-  Future<void> _performStartupUpdate() async {
-    // 防止重复执行
-    if (_hasPerformedStartupUpdate) return;
-    _hasPerformedStartupUpdate = true;
-
-    final provider = context.read<SubscriptionProvider>();
-
-    // 找到所有启用了"启动时更新"的订阅（排除本地文件）
-    final startupUpdateSubscriptions = provider.subscriptions
-        .where((s) => s.updateOnStartup && !s.isLocalFile)
-        .toList();
-
-    if (startupUpdateSubscriptions.isEmpty) {
-      Logger.info('没有启用启动时更新的订阅');
-      return;
-    }
-
-    Logger.info('发现 ${startupUpdateSubscriptions.length} 个启用启动时更新的订阅');
-
-    // 使用并发更新提升性能，限制并发数为 3
-    const concurrency = 3;
-
-    for (int i = 0; i < startupUpdateSubscriptions.length; i += concurrency) {
-      final batch = startupUpdateSubscriptions.skip(i).take(concurrency);
-
-      // 并发更新一批订阅
-      final batchFutures = batch.map((subscription) async {
-        Logger.info('启动时更新订阅：${subscription.name}');
-        await provider.updateSubscription(subscription.id);
-      });
-
-      // 等待当前批次完成后再处理下一批
-      await Future.wait(batchFutures);
-    }
-
-    Logger.info('启动时更新完成');
   }
 
   @override

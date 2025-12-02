@@ -42,6 +42,9 @@ class SubscriptionProvider extends ChangeNotifier {
   // 自动更新定时器
   Timer? _autoUpdateTimer;
 
+  // 启动时更新标志
+  bool _hasPerformedStartupUpdate = false;
+
   // 获取 OverrideService
   OverrideService get overrideService => _overrideService;
 
@@ -566,76 +569,38 @@ class SubscriptionProvider extends ChangeNotifier {
     return errors;
   }
 
-  // 计算下次检查的间隔时间
-  // 返回所有启用自动更新的订阅中最短的更新间隔
-  // 如果没有启用自动更新的订阅，返回 null
-  Duration? _calculateNextCheckInterval() {
-    // 过滤出启用间隔更新的订阅（不包括本地文件）
-    final intervalUpdateSubscriptions = _subscriptions
-        .where(
-          (s) => s.autoUpdateMode == AutoUpdateMode.interval && !s.isLocalFile,
-        )
-        .toList();
-
-    if (intervalUpdateSubscriptions.isEmpty) {
-      Logger.debug('没有启用间隔自动更新的订阅');
-      return null;
-    }
-
-    // 找出最短的更新间隔（转换为 Duration）
-    int shortestMinutes = intervalUpdateSubscriptions.first.intervalMinutes;
-    for (final subscription in intervalUpdateSubscriptions) {
-      if (subscription.intervalMinutes < shortestMinutes) {
-        shortestMinutes = subscription.intervalMinutes;
-      }
-    }
-
-    final shortestInterval = Duration(minutes: shortestMinutes);
-
-    Logger.debug(
-      '找到 ${intervalUpdateSubscriptions.length} 个间隔自动更新订阅，最短间隔: $shortestMinutes 分钟',
+  // 检查是否有启用间隔更新的订阅
+  bool _hasIntervalUpdateSubscriptions() {
+    return _subscriptions.any(
+      (s) => s.autoUpdateMode == AutoUpdateMode.interval && !s.isLocalFile,
     );
-    return shortestInterval;
   }
 
-  // 启动/重启自动更新定时器（动态间隔）
+  // 启动/重启自动更新定时器（固定 1 分钟检查间隔）
   void _restartAutoUpdateTimer() {
     // 取消现有定时器
     _autoUpdateTimer?.cancel();
     _autoUpdateTimer = null;
 
-    // 计算最短更新间隔
-    final shortestInterval = _calculateNextCheckInterval();
-
     // 如果没有需要自动更新的订阅，停止定时器
-    if (shortestInterval == null) {
-      Logger.info('无启用自动更新的订阅，定时器已停止');
+    if (!_hasIntervalUpdateSubscriptions()) {
+      Logger.info('无启用间隔更新的订阅，定时器已停止');
       return;
     }
 
-    // 使用动态检查间隔：取最短更新间隔和 1 小时中的较小值
-    // 这样既能尊重用户设置的更新间隔，又能在应用频繁重启时及时触发更新
-    final checkInterval = shortestInterval < const Duration(hours: 1)
-        ? shortestInterval
-        : const Duration(hours: 1);
-
-    // 创建周期性定时器
-    _autoUpdateTimer = Timer.periodic(checkInterval, (_) {
+    // 固定每分钟检查一次（简单高效）
+    _autoUpdateTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _checkAndAutoUpdate();
     });
 
-    // 延迟启动时的立即检查，避免与定时器首次触发重叠
-    // 使用 2 秒延迟不会影响冷启动速度（异步执行，不阻塞 UI）
+    // 2 秒后立即检查一次，避免错过已过期的订阅
     Future.delayed(const Duration(seconds: 2), () {
-      // 检查定时器是否仍然存在（可能已被取消）
       if (_autoUpdateTimer != null) {
         _checkAndAutoUpdate();
       }
     });
 
-    Logger.info(
-      '自动更新定时器已启动（检查间隔：${checkInterval.inMinutes} 分钟，订阅最短更新间隔：${shortestInterval.inMinutes} 分钟）',
-    );
+    Logger.info('自动更新定时器已启动（固定检查间隔：1 分钟）');
   }
 
   // 检查并执行自动更新
@@ -706,6 +671,45 @@ class SubscriptionProvider extends ChangeNotifier {
 
     // 批量更新完成后重新计算定时器（避免单个更新时频繁重启）
     _restartAutoUpdateTimer();
+  }
+
+  // 执行启动时更新（确保只执行一次）
+  Future<void> performStartupUpdate() async {
+    if (_hasPerformedStartupUpdate) {
+      Logger.debug('启动时更新已执行过，跳过');
+      return;
+    }
+    _hasPerformedStartupUpdate = true;
+
+    // 找到所有启用了"启动时更新"的订阅（排除本地文件）
+    final startupUpdateSubscriptions = _subscriptions
+        .where((s) => s.updateOnStartup && !s.isLocalFile)
+        .toList();
+
+    if (startupUpdateSubscriptions.isEmpty) {
+      Logger.info('没有启用启动时更新的订阅');
+      return;
+    }
+
+    Logger.info('发现 ${startupUpdateSubscriptions.length} 个启用启动时更新的订阅');
+
+    // 使用并发更新提升性能，限制并发数为 3
+    const concurrency = 3;
+
+    for (int i = 0; i < startupUpdateSubscriptions.length; i += concurrency) {
+      final batch = startupUpdateSubscriptions.skip(i).take(concurrency);
+
+      // 并发更新一批订阅
+      final batchFutures = batch.map((subscription) async {
+        Logger.info('启动时更新订阅：${subscription.name}');
+        await updateSubscription(subscription.id);
+      });
+
+      // 等待当前批次完成后再处理下一批
+      await Future.wait(batchFutures);
+    }
+
+    Logger.info('启动时更新完成');
   }
 
   // 添加本地订阅
