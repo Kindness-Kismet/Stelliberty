@@ -1,0 +1,34 @@
+# Flutter/Dart/Pub related
+flutter/ephemeral/
+
+# Native build artifacts
+*.o
+*.so
+*.so.*
+*.a
+*.d
+
+# CMake generated files
+CMakeFiles/
+cmake_install.cmake
+CMakeCache.txt
+Makefile
+CTestTestfile.cmake
+*.cmake.in
+
+# Build directories
+build/
+bundle/
+intermediates_do_not_run/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiled executables
+stelliberty
+

@@ -619,13 +619,6 @@ impl ServiceManager {
             .open_service(SERVICE_NAME, ServiceAccess::QUERY_STATUS)
             .is_ok()
     }
-
-    #[cfg(not(windows))]
-    fn is_service_installed() -> bool {
-        // 非 Windows 平台：通过 IPC 检测服务是否运行来判断
-        // 这里返回 true 让后续逻辑通过 IPC 检测
-        true
-    }
 }
 
 impl Default for ServiceManager {

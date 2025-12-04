@@ -329,8 +329,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
           builder: (context, _) {
             return ProxyActionBar(
               selectedGroupName: selectedGroup.name,
-              onLocate: () =>
-                  _locateSelectedNode(context, clashProvider),
+              onLocate: () => _locateSelectedNode(context, clashProvider),
               sortMode: _viewModel.sortMode,
               onSortModeChanged: _viewModel.changeSortMode,
             );
@@ -436,10 +435,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
     );
   }
 
-  void _locateSelectedNode(
-    BuildContext context,
-    ClashProvider clashProvider,
-  ) {
+  void _locateSelectedNode(BuildContext context, ClashProvider clashProvider) {
     // 实时从 ClashProvider 获取最新的代理组数据
     if (_currentGroupIndex >= clashProvider.proxyGroups.length) {
       Logger.warning('代理组索引越界，无法定位');

@@ -83,16 +83,18 @@ app.*.map.json
 # ============================================================
 # 项目特定文件
 # ============================================================
-# Clash Core 数据文件（由 prebuild.dart 自动下载）
-/assets/clash-core/data/
+# Clash Core 可执行文件和数据文件（由 prebuild.dart 自动下载）
+/assets/clash-core/
+
+# Stelliberty Service 可执行文件（由 prebuild.dart 自动编译）
+/assets/service/
 
 # 托盘图标（由 prebuild.dart 自动复制）
 /assets/icons/
 /assets/*.png
 /assets/*.ico
 
-# 测试文件
-/assets/test/*
+/assets/
 
 # 环境变量和配置文件
 .env

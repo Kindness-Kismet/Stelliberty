@@ -76,8 +76,14 @@ class PathService {
     // 初始化缓存路径，一次性计算避免重复拼接
     _subscriptionsDirCache = path.join(appDataPath, _subscriptionsDirName);
     _overridesDirCache = path.join(appDataPath, _overridesDirName);
-    _subscriptionListPathCache = path.join(_subscriptionsDirCache, _subscriptionListFileName);
-    _overrideListPathCache = path.join(_overridesDirCache, _overrideListFileName);
+    _subscriptionListPathCache = path.join(
+      _subscriptionsDirCache,
+      _subscriptionListFileName,
+    );
+    _overrideListPathCache = path.join(
+      _overridesDirCache,
+      _overrideListFileName,
+    );
     _dnsConfigPathCache = path.join(appDataPath, _dnsConfigName);
     _pacFilePathCache = path.join(appDataPath, _pacFileName);
 
@@ -87,7 +93,11 @@ class PathService {
 
   // 创建所有必要的目录结构
   Future<void> _createDirectories() async {
-    final directories = [appDataPath, _subscriptionsDirCache, _overridesDirCache];
+    final directories = [
+      appDataPath,
+      _subscriptionsDirCache,
+      _overridesDirCache,
+    ];
 
     for (final dirPath in directories) {
       final dir = Directory(dirPath);
