@@ -161,7 +161,7 @@ jobs:
         run: |
           echo "📦 正在安装 Linux 构建依赖..."
           sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libappindicator3-dev librust-appindicator3-dev adwaita-icon-theme-full
+          sudo apt-get install -y libgtk-3-dev libappindicator3-dev adwaita-icon-theme-full
           echo "✅ Linux 依赖安装完成"
 
       - name: 安装项目依赖
