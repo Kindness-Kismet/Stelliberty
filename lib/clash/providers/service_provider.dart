@@ -3,6 +3,7 @@ import 'package:stelliberty/clash/core/service_state.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/tray/tray_manager.dart';
 
 // Clash 服务模式业务逻辑管理
 // 专注于业务逻辑，不继承 ChangeNotifier
@@ -101,6 +102,9 @@ class ServiceProvider {
         // 等待服务完全就绪后刷新状态
         await Future.delayed(const Duration(seconds: 2));
         await refreshStatus();
+
+        // 手动触发托盘菜单更新（服务安装后 TUN 菜单应变为可用）
+        AppTrayManager().updateTrayMenuManually();
 
         // 如果安装前核心在运行，以服务模式重启
         Logger.debug(
@@ -202,6 +206,9 @@ class ServiceProvider {
 
         // 立即更新本地状态并通知 UI
         stateManager.setNotInstalled(reason: '服务卸载成功');
+
+        // 手动触发托盘菜单更新（服务卸载后 TUN 菜单应变为不可用）
+        AppTrayManager().updateTrayMenuManually();
 
         // 如果卸载前核心在运行，以普通模式重启
         if (wasRunningBefore && currentConfigPath != null) {

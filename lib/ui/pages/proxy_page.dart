@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
+import 'package:stelliberty/storage/preferences.dart';
 import 'package:stelliberty/ui/notifiers/proxy_notifier.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_action_bar.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_empty_state.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_node_grid.dart';
+import 'package:stelliberty/ui/widgets/proxy/proxy_group_selector.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/clash/data/clash_model.dart';
-import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 // 代理页面状态数据类（用于优化 Selector）
 class _ProxyPageState {
@@ -64,19 +63,12 @@ class _ProxyPageWidgetState extends State<ProxyPage>
   int _currentGroupIndex = 0;
   double _scrollOffsetCache = 0.0;
 
-  // 缓存 SharedPreferences 实例
-  SharedPreferences? _prefs;
-
   // 持久化键值
   static const String _scrollOffsetKey = 'proxy_page_scroll_offset';
   static const String _subscriptionPathKey = 'proxy_page_subscription_path';
 
   // 保存上次的订阅路径，用于检测订阅切换
   String? _subscriptionPathCache;
-
-  // UI 常量
-  static const double _mouseScrollSpeedMultiplier = 2.0;
-  static const double _tabScrollDistance = 200.0;
 
   @override
   void initState() {
@@ -112,15 +104,16 @@ class _ProxyPageWidgetState extends State<ProxyPage>
   // 初始化并立即恢复滚动位置（在首帧渲染前）
   Future<void> _initializeWithScrollPosition() async {
     try {
-      _prefs = await SharedPreferences.getInstance();
+      // 使用 AppPreferences 而不是直接使用 SharedPreferences
+      final prefs = AppPreferences.instance;
 
       // 在 await 之后检查 mounted
       if (!mounted) return;
 
       final subscriptionProvider = context.read<SubscriptionProvider>();
       final currentPath = subscriptionProvider.getSubscriptionConfigPath();
-      final savedPath = _prefs!.getString(_subscriptionPathKey);
-      final savedOffset = _prefs!.getDouble(_scrollOffsetKey);
+      final savedPath = prefs.getString(_subscriptionPathKey);
+      final savedOffset = prefs.getDouble(_scrollOffsetKey);
 
       // 记录当前订阅路径
       _subscriptionPathCache = currentPath;
@@ -184,14 +177,16 @@ class _ProxyPageWidgetState extends State<ProxyPage>
   }
 
   void _saveScrollPositionSync() {
-    if (_prefs == null) {
-      Logger.warning('SharedPreferences 未初始化，无法保存滚动位置');
-      return;
-    }
-
     try {
+      // 使用 AppPreferences 保存滚动位置
+      final prefs = AppPreferences.instance;
       Logger.info('保存代理页面滚动位置：$_scrollOffsetCache');
-      _prefs!.setDouble(_scrollOffsetKey, _scrollOffsetCache);
+      prefs.setDouble(_scrollOffsetKey, _scrollOffsetCache);
+
+      // 同时保存当前订阅路径
+      if (_subscriptionPathCache != null) {
+        prefs.setString(_subscriptionPathKey, _subscriptionPathCache!);
+      }
     } catch (e) {
       Logger.error('保存滚动位置失败：$e');
     }
@@ -335,7 +330,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
             return ProxyActionBar(
               selectedGroupName: selectedGroup.name,
               onLocate: () =>
-                  _locateSelectedNode(context, clashProvider, selectedGroup),
+                  _locateSelectedNode(context, clashProvider),
               sortMode: _viewModel.sortMode,
               onSortModeChanged: _viewModel.changeSortMode,
             );
@@ -366,151 +361,16 @@ class _ProxyPageWidgetState extends State<ProxyPage>
     await clashProvider.testProxyDelay(proxyName);
   }
 
-  void _scrollTabByDistance(double distance) {
-    if (!_tabScrollController.hasClients) return;
-
-    final offset = _tabScrollController.offset + distance;
-    _tabScrollController.animateTo(
-      offset.clamp(0.0, _tabScrollController.position.maxScrollExtent),
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOut,
-    );
-  }
-
   Widget _buildGroupSelectorHeader(
     BuildContext context,
     ClashProvider clashProvider,
     dynamic selectedGroup,
   ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Listener(
-              onPointerSignal: (pointerSignal) {
-                if (pointerSignal is PointerScrollEvent &&
-                    _tabScrollController.hasClients) {
-                  final offset =
-                      _tabScrollController.offset +
-                      pointerSignal.scrollDelta.dy *
-                          _mouseScrollSpeedMultiplier;
-                  _tabScrollController.animateTo(
-                    offset.clamp(
-                      0.0,
-                      _tabScrollController.position.maxScrollExtent,
-                    ),
-                    duration: const Duration(milliseconds: 100),
-                    curve: Curves.easeOut,
-                  );
-                }
-              },
-              child: SingleChildScrollView(
-                controller: _tabScrollController,
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: List.generate(clashProvider.proxyGroups.length, (
-                    index,
-                  ) {
-                    final group = clashProvider.proxyGroups[index];
-                    final isSelected = index == _currentGroupIndex;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: GestureDetector(
-                        onTap: () => _switchToGroup(index),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.primary
-                                : Theme.of(
-                                    context,
-                                  ).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Theme.of(context).colorScheme.outline
-                                        .withValues(alpha: 0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              group.name,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.onPrimary
-                                    : Theme.of(context).colorScheme.onSurface,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                                fontSize: 13,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                              maxLines: 1,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          ListenableBuilder(
-            listenable: _tabScrollController,
-            builder: (context, _) {
-              final canScrollLeft =
-                  _tabScrollController.hasClients &&
-                  _tabScrollController.position.hasContentDimensions &&
-                  _tabScrollController.offset > 0;
-
-              final canScrollRight =
-                  _tabScrollController.hasClients &&
-                  _tabScrollController.position.hasContentDimensions &&
-                  _tabScrollController.offset <
-                      _tabScrollController.position.maxScrollExtent;
-
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ModernTooltip(
-                    message: context.translate.proxy.scrollLeft,
-                    child: IconButton(
-                      onPressed: canScrollLeft
-                          ? () => _scrollTabByDistance(-_tabScrollDistance)
-                          : null,
-                      icon: const Icon(Icons.chevron_left),
-                      iconSize: 20,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                  ModernTooltip(
-                    message: context.translate.proxy.scrollRight,
-                    child: IconButton(
-                      onPressed: canScrollRight
-                          ? () => _scrollTabByDistance(_tabScrollDistance)
-                          : null,
-                      icon: const Icon(Icons.chevron_right),
-                      iconSize: 20,
-                      visualDensity: VisualDensity.compact,
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
+    return ProxyGroupSelector(
+      clashProvider: clashProvider,
+      currentGroupIndex: _currentGroupIndex,
+      scrollController: _tabScrollController,
+      onGroupChanged: _switchToGroup,
     );
   }
 
@@ -579,10 +439,20 @@ class _ProxyPageWidgetState extends State<ProxyPage>
   void _locateSelectedNode(
     BuildContext context,
     ClashProvider clashProvider,
-    dynamic selectedGroup,
   ) {
+    // 实时从 ClashProvider 获取最新的代理组数据
+    if (_currentGroupIndex >= clashProvider.proxyGroups.length) {
+      Logger.warning('代理组索引越界，无法定位');
+      return;
+    }
+
+    final selectedGroup = clashProvider.proxyGroups[_currentGroupIndex];
     final currentNodeName = selectedGroup.now;
-    if (currentNodeName == null || currentNodeName.isEmpty) return;
+
+    if (currentNodeName == null || currentNodeName.isEmpty) {
+      Logger.warning('当前代理组未选择节点，无法定位');
+      return;
+    }
 
     if (!_nodeListScrollController.hasClients) return;
 

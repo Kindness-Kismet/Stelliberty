@@ -168,6 +168,9 @@ class ThemeProvider extends ChangeNotifier {
 
     _updateBrightness();
 
+    // 如果使用系统强调色，重新加载以获取适配当前主题的颜色
+    await _reloadSystemAccentColorIfNeeded();
+
     notifyListeners();
   }
 
@@ -177,6 +180,9 @@ class ThemeProvider extends ChangeNotifier {
 
     _colorIndex = index.clamp(0, colorOptions.length - 1);
     await AppPreferences.instance.setThemeColorIndex(_colorIndex);
+
+    // 如果切换到系统强调色，重新加载以获取适配当前主题的颜色
+    await _reloadSystemAccentColorIfNeeded();
 
     notifyListeners();
   }
@@ -188,10 +194,14 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   // 当系统主题发生变化时调用此方法更新亮度
-  void updateBrightness(Brightness brightness) {
+  Future<void> updateBrightness(Brightness brightness) async {
     if (_brightness == brightness) return;
 
     _brightness = brightness;
+
+    // 如果使用系统强调色，重新加载以获取适配当前亮度的颜色
+    await _reloadSystemAccentColorIfNeeded();
+
     notifyListeners();
   }
 
@@ -241,6 +251,13 @@ class ThemeProvider extends ChangeNotifier {
         _brightness =
             WidgetsBinding.instance.platformDispatcher.platformBrightness;
         break;
+    }
+  }
+
+  // 如果使用系统强调色，重新加载以获取最新颜色
+  Future<void> _reloadSystemAccentColorIfNeeded() async {
+    if (selectedColorOption is SystemAccentThemeColor) {
+      await SystemTheme.accentColor.load();
     }
   }
 }

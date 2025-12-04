@@ -96,6 +96,9 @@ class AppTrayManager {
       final isSystemProxyEnabled = manager.isSystemProxyEnabled;
       final isTunEnabled = manager.tunEnable;
 
+      // 清除 TUN 可用性缓存，强制重新检查（用于服务安装/卸载后）
+      _tunAvailableCache = null;
+
       // 强制更新托盘菜单和图标，不检查缓存
       await _updateTrayMenu(isRunning, hasSubscription);
       await _updateTrayIcon(isSystemProxyEnabled, isTunEnabled);
@@ -269,7 +272,7 @@ class AppTrayManager {
             key: 'toggle_tun',
             label: translate.tray.toggleTun,
             checked: isTunEnabled,
-            disabled: !isTunAvailable || !isProxyRunning, // 权限不足或核心未运行时禁用
+            disabled: !isTunAvailable, // 仅在权限不足时禁用,服务模式下可独立工作
           ),
           MenuItem.separator(),
           MenuItem(key: 'exit', label: translate.tray.exit),
