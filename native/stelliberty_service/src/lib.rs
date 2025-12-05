@@ -64,7 +64,7 @@ pub fn print_privilege_error() {
 
     #[cfg(not(windows))]
     {
-        eprintln!("请使用 sudo 运行:");
+        eprintln!("请手动使用 sudo 运行:");
         if let Some(ref path) = binary_path {
             eprintln!("sudo {} install", path.display());
         } else {
