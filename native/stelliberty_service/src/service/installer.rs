@@ -268,6 +268,7 @@ After=network.target
 
 [Service]
 Type=simple
+UMask=0000
 ExecStart={binary_path}
 Restart=on-failure
 RestartSec=5s
