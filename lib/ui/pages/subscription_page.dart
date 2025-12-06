@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
 import 'package:stelliberty/clash/data/subscription_model.dart';
 import 'package:stelliberty/ui/widgets/subscription/subscription_card.dart';
@@ -16,6 +17,26 @@ import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
+
+// 订阅页布局常量
+class _SubscriptionGridSpacing {
+  _SubscriptionGridSpacing._();
+
+  static const gridLeftEdge = 16.0;
+  static const gridTopEdge = 16.0;
+  static const gridRightEdge =
+      16.0 - SpacingConstants.scrollbarRightCompensation;
+  static const gridBottomEdge = 10.0;
+  static const cardColumnSpacing = 16.0;
+  static const cardRowSpacing = 16.0;
+
+  static const gridPadding = EdgeInsets.fromLTRB(
+    gridLeftEdge,
+    gridTopEdge,
+    gridRightEdge,
+    gridBottomEdge,
+  );
+}
 
 class SubscriptionPage extends StatefulWidget {
   const SubscriptionPage({super.key});
@@ -241,55 +262,79 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       );
     }
 
-    // 显示订阅列表（支持拖动排序）
-    return ReorderableListView.builder(
-      padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
-      itemCount: data.subscriptions.length,
-      buildDefaultDragHandles: false,
-      // 优化：添加缓存范围，预渲染可见区域外的项
-      cacheExtent: 500,
-      proxyDecorator: (child, index, animation) {
-        return ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width - 32,
-          ),
-          child: child,
-        );
-      },
-      onReorder: (oldIndex, newIndex) {
-        provider.reorderSubscriptions(oldIndex, newIndex);
-      },
-      itemBuilder: (context, index) {
-        final subscription = data.subscriptions[index];
-        final isSelected = subscription.id == data.currentSubscriptionId;
+    // 显示订阅列表（支持拖动排序，响应式布局）
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 当宽度超过 600 时显示两列，否则一列
+        final crossAxisCount = constraints.maxWidth >= 800 ? 2 : 1;
 
-        return ReorderableDragStartListener(
-          key: ValueKey(subscription.id),
-          index: index,
-          // 使用 RepaintBoundary 隔离每个卡片的重绘
-          child: RepaintBoundary(
-            child: SubscriptionCard(
-              subscription: subscription,
-              isSelected: isSelected,
-              onTap: () => provider.selectSubscription(subscription.id),
-              onUpdate: () =>
-                  _updateSubscription(context, provider, subscription),
-              onEdit: () =>
-                  _showEditSubscriptionDialog(context, provider, subscription),
-              onEditFile: () =>
-                  _showFileEditorDialog(context, provider, subscription),
-              onViewConfig: () =>
-                  _showViewConfigDialog(context, provider, subscription),
-              onDelete: () =>
-                  _deleteSubscription(context, provider, subscription),
-              onManageOverride: () => _showOverrideManagementDialog(
-                context,
-                provider,
-                subscription,
-              ),
-              onViewProvider: () => _showProviderViewerDialog(context),
-            ),
+        return ReorderableGridView.builder(
+          padding: _SubscriptionGridSpacing.gridPadding,
+          itemCount: data.subscriptions.length,
+          dragEnabled: true,
+          onReorder: (oldIndex, newIndex) {
+            provider.reorderSubscriptions(oldIndex, newIndex);
+          },
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: _SubscriptionGridSpacing.cardColumnSpacing,
+            mainAxisSpacing: _SubscriptionGridSpacing.cardRowSpacing,
+            mainAxisExtent: 110,
           ),
+          dragWidgetBuilder: (index, child) {
+            final subscription = data.subscriptions[index];
+            final isSelected = subscription.id == data.currentSubscriptionId;
+
+            return Material(
+              color: Colors.transparent,
+              elevation: 0,
+              child: SubscriptionCard(
+                key: ValueKey(subscription.id),
+                subscription: subscription,
+                isSelected: isSelected,
+                onTap: null,
+                onUpdate: null,
+                onEdit: null,
+                onEditFile: null,
+                onViewConfig: null,
+                onDelete: null,
+                onManageOverride: null,
+                onViewProvider: null,
+              ),
+            );
+          },
+          itemBuilder: (context, index) {
+            final subscription = data.subscriptions[index];
+            final isSelected = subscription.id == data.currentSubscriptionId;
+
+            return RepaintBoundary(
+              key: ValueKey(subscription.id),
+              child: SubscriptionCard(
+                subscription: subscription,
+                isSelected: isSelected,
+                onTap: () => provider.selectSubscription(subscription.id),
+                onUpdate: () =>
+                    _updateSubscription(context, provider, subscription),
+                onEdit: () => _showEditSubscriptionDialog(
+                  context,
+                  provider,
+                  subscription,
+                ),
+                onEditFile: () =>
+                    _showFileEditorDialog(context, provider, subscription),
+                onViewConfig: () =>
+                    _showViewConfigDialog(context, provider, subscription),
+                onDelete: () =>
+                    _deleteSubscription(context, provider, subscription),
+                onManageOverride: () => _showOverrideManagementDialog(
+                  context,
+                  provider,
+                  subscription,
+                ),
+                onViewProvider: () => _showProviderViewerDialog(context),
+              ),
+            );
+          },
         );
       },
     );

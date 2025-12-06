@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-// 间距常量定义
+// 全局间距常量定义
 class SpacingConstants {
   SpacingConstants._(); // 私有构造函数，防止实例化
 

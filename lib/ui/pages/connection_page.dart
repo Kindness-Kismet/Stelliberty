@@ -7,6 +7,27 @@ import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/connection/connection_card.dart';
 import 'package:stelliberty/ui/widgets/connection/connection_detail_dialog.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
+import 'package:stelliberty/ui/constants/spacing.dart';
+
+// 连接页布局常量
+class _ConnectionGridSpacing {
+  _ConnectionGridSpacing._();
+
+  static const gridLeftEdge = 16.0;
+  static const gridTopEdge = 16.0;
+  static const gridRightEdge =
+      16.0 - SpacingConstants.scrollbarRightCompensation;
+  static const gridBottomEdge = 10.0;
+  static const cardColumnSpacing = 16.0;
+  static const cardRowSpacing = 16.0;
+
+  static const gridPadding = EdgeInsets.fromLTRB(
+    gridLeftEdge,
+    gridTopEdge,
+    gridRightEdge,
+    gridBottomEdge,
+  );
+}
 
 // 连接页面 - 显示当前活跃的连接
 // 使用 Material Design 3 风格，与代理和订阅页面保持一致
@@ -285,11 +306,11 @@ class _ConnectionPageContentState extends State<ConnectionPageContent> {
 
     // 固定每行两个卡片
     return GridView.builder(
-      padding: const EdgeInsets.all(16.0),
+      padding: _ConnectionGridSpacing.gridPadding,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2, // 固定每行两个
-        crossAxisSpacing: 12.0,
-        mainAxisSpacing: 12.0,
+        crossAxisSpacing: _ConnectionGridSpacing.cardColumnSpacing,
+        mainAxisSpacing: _ConnectionGridSpacing.cardRowSpacing,
         mainAxisExtent: 120.0, // 更紧凑的卡片高度
       ),
       itemCount: connections.length,

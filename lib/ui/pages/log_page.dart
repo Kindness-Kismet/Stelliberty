@@ -9,6 +9,27 @@ import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
 
+// 日志页布局常量
+class _LogListSpacing {
+  _LogListSpacing._();
+
+  static const listLeftEdge = 16.0;
+  static const listTopEdge = 16.0;
+  static const listRightEdge =
+      16.0 - SpacingConstants.scrollbarRightCompensation;
+  static const listBottomEdge = 10.0;
+
+  static const cardHeight = 72.0; // 日志卡片高度
+  static const cardSpacing = 16.0; // 日志卡片间距
+
+  static const listPadding = EdgeInsets.fromLTRB(
+    listLeftEdge,
+    listTopEdge,
+    listRightEdge,
+    listBottomEdge,
+  );
+}
+
 // 日志页面 - 显示 Clash 核心的实时日志
 // 使用 Material Design 3 风格，与连接页面保持一致
 // 使用 Provider 管理状态，避免切换页面时丢失日志
@@ -373,11 +394,15 @@ class _LogPageState extends State<LogPage> {
 
         return Scrollbar(
           controller: _scrollController,
-          child: ListView.builder(
+          child: GridView.builder(
             controller: _scrollController,
-            padding: const EdgeInsets.all(16.0),
+            padding: _LogListSpacing.listPadding,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 1, // 单列显示
+              mainAxisSpacing: _LogListSpacing.cardSpacing,
+              mainAxisExtent: _LogListSpacing.cardHeight,
+            ),
             itemCount: filteredLogs.length,
-            itemExtent: 80.0, // 固定高度：72px 卡片 + 8px 间距
             addAutomaticKeepAlives: false, // 减少内存占用
             addRepaintBoundaries: true, // 优化重绘性能
             itemBuilder: (context, index) {

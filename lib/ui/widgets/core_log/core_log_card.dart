@@ -22,7 +22,6 @@ class LogCard extends StatelessWidget {
     final mixOpacity = 0.1;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4.0),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
         // 半透明背景，并混入白色/黑色

@@ -81,7 +81,6 @@ class SubscriptionCard extends StatelessWidget {
             Opacity(
               opacity: isUpdating ? 0.5 : 1.0,
               child: Container(
-                margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   color: Color.alphaBlend(
@@ -114,19 +113,20 @@ class SubscriptionCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     onTap: isUpdating ? null : onTap,
                     child: Padding(
-                      padding: const EdgeInsets.all(12.0),
+                      padding: const EdgeInsets.all(10.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // 标题行
                           _buildTitleRow(context, isUpdating, isBatchUpdating),
 
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 4),
 
                           // URL
                           _buildUrlText(),
 
-                          const SizedBox(height: 8),
+                          // 弹性空间，让状态标签推到底部
+                          const Spacer(),
 
                           // 状态标签与流量进度条并排（只有真正有流量数据时才显示进度条）
                           if (subscription.info != null &&
