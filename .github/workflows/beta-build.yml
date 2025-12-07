@@ -172,6 +172,11 @@ jobs:
             sudo apt-get install -y libgtk-3-dev libappindicator3-dev adwaita-icon-theme-full
             echo "  ✅ Linux 依赖安装完成"
           fi
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            echo "  ➤ 启用 macOS 桌面支持..."
+            flutter config --enable-macos-desktop
+            echo "  ✅ macOS 桌面支持已启用"
+          fi
           echo "  ➤ 安装 Flutter 主项目依赖"
           flutter pub get
           echo "  ➤ 安装 rinf_cli"
