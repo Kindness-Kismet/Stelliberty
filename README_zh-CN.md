@@ -13,7 +13,7 @@
 
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows11&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)
-![macOS](https://img.shields.io/badge/macOS-未经验证-gray?style=flat-square&logo=apple&logoColor=white)
+![macOS](https://img.shields.io/badge/macOS-实验性-gray?style=flat-square&logo=apple&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-暂不支持-lightgray?style=flat-square&logo=android&logoColor=white)
 
 基于 Flutter 和 Rust 构建的现代跨平台 Clash 客户端
@@ -63,9 +63,9 @@
 
 - **Windows**: Windows 10/11 (x64 / arm64)
 - **Linux**: 主流发行版 (x64 / arm64)
-- **macOS**: 未经验证
+- **macOS**: 实验性
 
-> ⚠️ **平台状态**：目前已在 Windows 和 Linux 上完整测试。macOS 支持未经验证，部分功能可能不完整。
+> ⚠️ **平台状态**：目前已在 Windows 和 Linux 上完整测试。macOS 支持为实验性，部分功能可能不完整。
 
 ### 安装方法
 
@@ -263,7 +263,7 @@ dart run scripts/build.dart --android
 
 - ✅ **Windows**：完整测试和支持
 - ⚠️ **Linux**：核心功能可用，但系统集成（服务、自启动）未经验证
-- ⚠️ **macOS**：核心功能可用，但系统集成未经验证
+- ⚠️ **macOS**：核心功能可用，但系统集成为实验性
 - ❌ **Android**：尚未实现
 
 ⚠️ **不可用的参数**：

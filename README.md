@@ -12,7 +12,7 @@
 ![License](https://img.shields.io/badge/license-Stelliberty-green?style=flat-square)
 
 ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows11&logoColor=white)
-![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) ![macOS](https://img.shields.io/badge/macOS-unverified-gray?style=flat-square&logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black) ![macOS](https://img.shields.io/badge/macOS-experimental-gray?style=flat-square&logo=apple&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-not_supported-lightgray?style=flat-square&logo=android&logoColor=white)
 
 A modern cross-platform Clash client built with Flutter and Rust
@@ -62,9 +62,9 @@ This might be one of the most detail-oriented Flutter desktop applications:
 
 - **Windows**: Windows 10/11 (x64 / arm64)
 - **Linux**: Mainstream distributions (x64 / arm64)
-- **macOS**: Unverified
+- **macOS**: Experimental
 
-> ⚠️ **Platform Status**: Fully tested on Windows and Linux. macOS support is unverified and may have incomplete functionality.
+> ⚠️ **Platform Status**: Fully tested on Windows and Linux. macOS support is experimental and may have incomplete functionality.
 
 ### Installation
 
@@ -262,7 +262,7 @@ Built packages will be in `build/packages/`
 
 - ✅ **Windows**: Fully tested and supported
 - ⚠️ **Linux**: Core functionality works, but system integration (service, auto-start) is unverified
-- ⚠️ **macOS**: Core functionality works, but system integration is unverified
+- ⚠️ **macOS**: Core functionality works, but system integration is experimental
 - ❌ **Android**: Not implemented yet
 
 ⚠️ **Unsupported Parameters**:
