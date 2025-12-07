@@ -279,7 +279,7 @@ jobs:
       - name: 配置 Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: master
+          channel: ${{ matrix.os == 'windows-11-arm' && 'master' || 'stable' }}
 
       - name: 配置 Rust
         uses: dtolnay/rust-toolchain@stable
