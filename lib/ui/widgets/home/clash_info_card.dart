@@ -29,108 +29,119 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
 
   @override
   Widget build(BuildContext context) {
-    final clashManager = context.watch<ClashManager>();
     final serviceStateManager = context.watch<ServiceStateManager>();
-
     final runMode = _determineRunMode(context, serviceStateManager);
-    final isRunning = clashManager.isRunning;
-    final mixedPort = clashManager.mixedPort;
     final proxyHost = ClashPreferences.instance.getProxyHost();
-    final proxyAddress = '$proxyHost:$mixedPort';
-    final version = clashManager.version;
 
-    return BaseCard(
-      icon: Icons.info_outline,
-      title: context.translate.home.clashInfo,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 更新核心按钮
-          ModernTooltip(
-            message: context.translate.home.updateCore,
-            child: IconButton(
-              icon: _isUpdating
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    )
-                  : const Icon(Icons.system_update_alt, size: 18),
-              onPressed: (_isUpdating || _isRestarting)
-                  ? null
-                  : () => _updateCore(context),
-              style: IconButton.styleFrom(
-                minimumSize: const Size(32, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          // 重启核心按钮
-          ModernTooltip(
-            message: context.translate.proxy.restartCore,
-            child: IconButton(
-              icon: _isRestarting
-                  ? SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    )
-                  : const Icon(Icons.restart_alt, size: 18),
-              onPressed: (isRunning && !_isUpdating && !_isRestarting)
-                  ? () => _restartCore(context)
-                  : null,
-              style: IconButton.styleFrom(
-                minimumSize: const Size(32, 32),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ),
-          ),
-        ],
+    // 使用 Selector 只监听需要的属性，避免不必要的重建
+    return Selector<
+      ClashManager,
+      ({bool isCoreRunning, int mixedPort, String version})
+    >(
+      selector: (_, manager) => (
+        isCoreRunning: manager.isCoreRunning,
+        mixedPort: manager.mixedPort,
+        version: manager.version,
       ),
-      child: InfoContainer(
-        rows: [
-          // 运行模式
-          InfoRow.text(
-            label: context.translate.home.coreRunMode,
-            value: runMode,
+      builder: (context, state, child) {
+        final isCoreRunning = state.isCoreRunning;
+        final proxyAddress = '$proxyHost:${state.mixedPort}';
+        final version = state.version;
+
+        return BaseCard(
+          icon: Icons.info_outline,
+          title: context.translate.home.clashInfo,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 更新核心按钮
+              ModernTooltip(
+                message: context.translate.home.updateCore,
+                child: IconButton(
+                  icon: _isUpdating
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        )
+                      : const Icon(Icons.system_update_alt, size: 18),
+                  onPressed: (_isUpdating || _isRestarting)
+                      ? null
+                      : () => _updateCore(context),
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(32, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              // 重启核心按钮
+              ModernTooltip(
+                message: context.translate.proxy.restartCore,
+                child: IconButton(
+                  icon: _isRestarting
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        )
+                      : const Icon(Icons.restart_alt, size: 18),
+                  onPressed: (isCoreRunning && !_isUpdating && !_isRestarting)
+                      ? () => _restartCore(context)
+                      : null,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size(32, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ),
+            ],
           ),
-          // 代理地址
-          InfoRow.text(
-            label: context.translate.home.proxyAddress,
-            value: proxyAddress,
-            valueStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontFeatures: [const FontFeature.tabularFigures()],
-              color: isRunning
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
+          child: InfoContainer(
+            rows: [
+              // 运行模式
+              InfoRow.text(
+                label: context.translate.home.coreRunMode,
+                value: runMode,
+              ),
+              // 代理地址
+              InfoRow.text(
+                label: context.translate.home.proxyAddress,
+                value: proxyAddress,
+                valueStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: [const FontFeature.tabularFigures()],
+                  color: isCoreRunning
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+              // 核心版本
+              InfoRow.text(
+                label: context.translate.home.coreVersion,
+                value: isCoreRunning ? version : '--',
+                valueStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  fontFeatures: [const FontFeature.tabularFigures()],
+                  color: isCoreRunning
+                      ? Theme.of(context).colorScheme.onSurface
+                      : Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.4),
+                ),
+              ),
+            ],
           ),
-          // 核心版本
-          InfoRow.text(
-            label: context.translate.home.coreVersion,
-            value: isRunning ? version : '--',
-            valueStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontFeatures: [const FontFeature.tabularFigures()],
-              color: isRunning
-                  ? Theme.of(context).colorScheme.onSurface
-                  : Theme.of(
-                      context,
-                    ).colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -153,7 +164,7 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
     }
 
     // 记录核心状态（用于更新后恢复）
-    final wasRunning = clashManager.isRunning;
+    final wasRunning = clashManager.isCoreRunning;
     final currentConfigPath = clashManager.currentConfigPath;
 
     try {
@@ -230,7 +241,9 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
 
       // 只有在文件替换阶段失败（核心已停止但更新未完成）时才需要重启
       // 下载阶段失败时核心从未停止，无需重启
-      if (wasRunning && !clashManager.isRunning && currentConfigPath != null) {
+      if (wasRunning &&
+          !clashManager.isCoreRunning &&
+          currentConfigPath != null) {
         try {
           Logger.info('文件替换失败，重新启动旧核心');
           await Future.delayed(const Duration(milliseconds: 500));

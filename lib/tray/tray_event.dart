@@ -194,7 +194,7 @@ class TrayEventHandler with TrayListener {
     // 托盘菜单勾选状态基于系统代理,切换逻辑也基于系统代理
     final manager = ClashManager.instance;
     final isSystemProxyEnabled = manager.isSystemProxyEnabled;
-    final isRunning = _clashProvider!.isRunning;
+    final isRunning = _clashProvider!.isCoreRunning;
 
     Logger.info(
       '从托盘切换代理开关 - 核心状态: ${isRunning ? "运行中" : "已停止"}, 系统代理: ${isSystemProxyEnabled ? "已启用" : "未启用"}',
@@ -228,10 +228,7 @@ class TrayEventHandler with TrayListener {
       Logger.error('从托盘切换代理失败：$e');
       // 错误已记录,托盘菜单会在下次状态更新时恢复到正确状态
     } finally {
-      // 恢复托盘交互
       _isSwitching = false;
-      // 切换完成后手动更新托盘菜单
-      AppTrayManager().updateTrayMenuManually();
     }
   }
 
@@ -251,63 +248,49 @@ class TrayEventHandler with TrayListener {
     } catch (e) {
       Logger.error('从托盘切换虚拟网卡模式失败：$e');
     } finally {
-      // 恢复托盘交互
       _isSwitching = false;
-      // 切换完成后手动更新托盘菜单
-      AppTrayManager().updateTrayMenuManually();
     }
   }
 
   // 切换出站模式
-  Future<void> switchOutboundMode(String mode) async {
+  Future<void> switchOutboundMode(String outboundMode) async {
     // 设置切换标志，禁用托盘交互
     _isSwitching = true;
 
     final manager = ClashManager.instance;
-    final isRunning = _clashProvider?.isRunning ?? false;
-    final currentMode = manager.mode;
+    final currentOutboundMode = manager.outboundMode;
 
     // 如果已经是当前模式，直接返回
-    if (currentMode == mode) {
-      Logger.debug('出站模式已经是 $mode，无需切换');
+    if (currentOutboundMode == outboundMode) {
+      Logger.debug('出站模式已经是 $outboundMode，无需切换');
       _isSwitching = false;
       // 即使无需切换，也更新托盘菜单确保状态一致
       AppTrayManager().updateTrayMenuManually();
       return;
     }
 
-    Logger.info('从托盘切换出站模式: $currentMode → $mode (核心运行: $isRunning)');
+    Logger.info('从托盘切换出站模式: $currentOutboundMode → $outboundMode');
 
     try {
-      bool success;
-      if (isRunning) {
-        // 核心运行时，直接设置模式
-        success = await manager.setMode(mode);
-      } else {
-        // 核心未运行时，离线设置模式
-        success = await manager.setModeOffline(mode);
-      }
+      final success = await manager.setOutboundMode(outboundMode);
 
       if (success) {
-        Logger.info('出站模式已从托盘切换到: $mode');
+        Logger.info('出站模式已从托盘切换到: $outboundMode');
         // 确保状态同步：强制触发一次状态更新通知
         // 这样主页卡片和其他监听器都能收到更新
         Future.microtask(() {
           // 延迟一个微任务确保状态已完全更新
-          if (manager.mode == mode) {
+          if (manager.outboundMode == outboundMode) {
             Logger.debug('托盘出站模式切换完成，触发状态同步通知');
           }
         });
       } else {
-        Logger.warning('从托盘切换出站模式失败，保持原模式: $currentMode');
+        Logger.warning('从托盘切换出站模式失败，保持原模式: $currentOutboundMode');
       }
     } catch (e) {
       Logger.error('从托盘切换出站模式失败：$e');
     } finally {
-      // 恢复托盘交互
       _isSwitching = false;
-      // 切换完成后手动更新托盘菜单
-      AppTrayManager().updateTrayMenuManually();
     }
   }
 
@@ -320,7 +303,7 @@ class TrayEventHandler with TrayListener {
 
     try {
       // 1. 先停止 Clash 进程(若正在运行)
-      if (_clashProvider != null && _clashProvider!.isRunning) {
+      if (_clashProvider != null && _clashProvider!.isCoreRunning) {
         Logger.info('正在停止 Clash 进程...');
         // 先禁用系统代理,再停止核心（使用 ClashManager 统一管理，自动检测服务模式）
         await ClashManager.instance.disableSystemProxy();

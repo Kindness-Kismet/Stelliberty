@@ -10,6 +10,9 @@ class ConfigWatcher {
   Timer? _debounceTimer;
   DateTime? _lastModified;
 
+  // 暂停标志：为 true 时忽略文件变化事件
+  bool _isPaused = false;
+
   // 重载回调函数
   final Future<void> Function() onReload;
 
@@ -17,6 +20,28 @@ class ConfigWatcher {
   final int debounceMs;
 
   ConfigWatcher({required this.onReload, this.debounceMs = 1000});
+
+  // 暂停监听（不停止订阅，只是忽略事件）
+  void pause() {
+    _isPaused = true;
+    _debounceTimer?.cancel();
+    Logger.debug('配置文件监听已暂停');
+  }
+
+  // 恢复监听
+  Future<void> resume() async {
+    _isPaused = false;
+    // 更新最后修改时间，避免恢复后立即触发
+    await _updateLastModified();
+    Logger.debug('配置文件监听已恢复');
+  }
+
+  // 更新最后修改时间
+  Future<void> _updateLastModified() async {
+    if (_configFile != null && await _configFile!.exists()) {
+      _lastModified = await _configFile!.lastModified();
+    }
+  }
 
   // 开始监听配置文件
   Future<void> watch(String configPath) async {
@@ -66,6 +91,11 @@ class ConfigWatcher {
 
   // 文件变化处理（带防抖）
   void _onFileChanged() {
+    // 暂停期间忽略文件变化
+    if (_isPaused) {
+      return;
+    }
+
     // 取消之前的定时器
     _debounceTimer?.cancel();
 

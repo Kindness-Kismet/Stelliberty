@@ -39,7 +39,7 @@ class ClashManager extends ChangeNotifier {
   // 懒惰模式：标记是否为应用启动后的首次核心启动
   static bool _isFirstStartAfterAppLaunch = true;
 
-  ClashApiClient? get apiClient => isRunning ? _apiClient : null;
+  ClashApiClient? get apiClient => isCoreRunning ? _apiClient : null;
   Stream<TrafficData>? get trafficStream => _trafficMonitor.trafficStream;
 
   // 获取当前累计流量
@@ -57,7 +57,7 @@ class ClashManager extends ChangeNotifier {
     _trafficMonitor.resetTotalTraffic();
   }
 
-  bool get isRunning => _lifecycleManager.isRunning;
+  bool get isCoreRunning => _lifecycleManager.isCoreRunning;
   bool get isRestarting => _lifecycleManager.isRestarting;
   String? get currentConfigPath => _lifecycleManager.currentConfigPath;
   String get version => _lifecycleManager.version;
@@ -88,7 +88,7 @@ class ClashManager extends ChangeNotifier {
   int get mixedPort => _configManager.mixedPort; // 混合端口
   int? get socksPort => _configManager.socksPort; // SOCKS 端口
   int? get httpPort => _configManager.httpPort; // HTTP 端口
-  String get mode => _configManager.mode;
+  String get outboundMode => _configManager.outboundMode;
 
   bool get isSystemProxyEnabled => _systemProxyManager.isSystemProxyEnabled;
 
@@ -136,7 +136,7 @@ class ClashManager extends ChangeNotifier {
     _configManager = ConfigManager(
       apiClient: _apiClient,
       notifyListeners: notifyListeners,
-      isRunning: () => isRunning,
+      isCoreRunning: () => isCoreRunning,
     );
 
     _lifecycleManager = LifecycleManager(
@@ -150,17 +150,17 @@ class ClashManager extends ChangeNotifier {
 
     _proxyManager = ProxyManager(
       apiClient: _apiClient,
-      isRunning: () => isRunning,
+      isCoreRunning: () => isCoreRunning,
       getTestUrl: () => testUrl,
     );
 
     _connectionManager = ConnectionManager(
       apiClient: _apiClient,
-      isRunning: () => isRunning,
+      isCoreRunning: () => isCoreRunning,
     );
 
     _systemProxyManager = SystemProxyManager(
-      isRunning: () => isRunning,
+      isCoreRunning: () => isCoreRunning,
       getHttpPort: () => mixedPort, // 系统代理使用混合端口
       notifyListeners: notifyListeners,
     );
@@ -206,7 +206,7 @@ class ClashManager extends ChangeNotifier {
       clashCoreLogLevel: _configManager.clashCoreLogLevel,
       externalController: _configManager.externalController,
       unifiedDelay: _configManager.unifiedDelay,
-      mode: _configManager.mode,
+      outboundMode: _configManager.outboundMode,
       socksPort: _configManager.socksPort,
       httpPort: _configManager.httpPort, // 单独 HTTP 端口
     );
@@ -308,7 +308,7 @@ class ClashManager extends ChangeNotifier {
   // 调度配置热重载（使用防抖机制）
   // 在指定时间内的多次配置修改只会触发一次热重载
   void _scheduleConfigReload(String reason) {
-    if (!isRunning || currentConfigPath == null) return;
+    if (!isCoreRunning || currentConfigPath == null) return;
 
     // 取消之前的定时器
     _configReloadDebounceTimer?.cancel();
@@ -379,7 +379,7 @@ class ClashManager extends ChangeNotifier {
 
     // 如果核心正在运行且更新成功，重新生成配置并热重载
     // 即使 currentConfigPath 为 null（无订阅），也支持热重载（使用默认配置）
-    if (success && isRunning) {
+    if (success && isCoreRunning) {
       Logger.debug(
         'TUN 状态已更新，重新生成配置文件并热重载（${currentConfigPath != null ? "使用订阅配置" : "使用默认配置"}）…',
       );
@@ -467,7 +467,7 @@ class ClashManager extends ChangeNotifier {
   }
 
   Future<String> getMode() async {
-    if (!isRunning) {
+    if (!isCoreRunning) {
       Logger.warning('Clash 未运行，返回默认模式');
       return ClashDefaults.defaultOutboundMode;
     }
@@ -480,12 +480,8 @@ class ClashManager extends ChangeNotifier {
     }
   }
 
-  Future<bool> setMode(String mode) async {
-    return await _configManager.setMode(mode);
-  }
-
-  Future<bool> setModeOffline(String mode) async {
-    return await _configManager.setModeOffline(mode);
+  Future<bool> setOutboundMode(String outboundMode) async {
+    return await _configManager.setOutboundMode(outboundMode);
   }
 
   Future<void> updateSystemProxySettings() async {

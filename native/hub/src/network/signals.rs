@@ -59,7 +59,7 @@ impl EnableSystemProxy {
         if self.use_pac_mode {
             log::info!("收到启用代理请求 (PAC 模式)");
         } else {
-            log::info!("收到启用代理请求：{}：{}", self.host, self.port);
+            log::info!("收到启用代理请求：{}:{}", self.host, self.port);
         }
 
         let result = proxy::enable_proxy(

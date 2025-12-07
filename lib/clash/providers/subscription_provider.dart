@@ -312,7 +312,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
         // 如果核心正在运行（使用 default.yaml），需要应用真实配置
         final clashProvider = _clashProvider;
-        if (clashProvider != null && clashProvider.isRunning) {
+        if (clashProvider != null && clashProvider.isCoreRunning) {
           Logger.info('首个订阅已添加，准备应用配置...');
           final configPath = getSubscriptionConfigPath();
           if (configPath != null) {
@@ -447,7 +447,13 @@ class SubscriptionProvider extends ChangeNotifier {
       // 如果更新的是当前订阅，则重新加载配置
       if (subscriptionId == _currentSubscriptionId) {
         Logger.info('当前订阅已更新，开始重新加载配置...');
-        await _reloadCurrentSubscriptionConfig(reason: '订阅更新');
+        // 暂停 ConfigWatcher，避免重复触发重载
+        _clashProvider?.pauseConfigWatcher();
+        try {
+          await _reloadCurrentSubscriptionConfig(reason: '订阅更新');
+        } finally {
+          await _clashProvider?.resumeConfigWatcher();
+        }
       }
       Logger.info('更新订阅成功：${subscription.name}');
 
@@ -749,7 +755,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
         // 如果核心正在运行（使用 default.yaml），需要应用真实配置
         final clashProvider = _clashProvider;
-        if (clashProvider != null && clashProvider.isRunning) {
+        if (clashProvider != null && clashProvider.isCoreRunning) {
           Logger.info('首个本地订阅已添加，准备应用配置...');
           final configPath = getSubscriptionConfigPath();
           if (configPath != null) {
@@ -801,7 +807,7 @@ class SubscriptionProvider extends ChangeNotifier {
       // 检查是否删除的是当前选中的订阅
       final isDeletingCurrentSubscription =
           _currentSubscriptionId == subscriptionId;
-      final wasRunning = ClashManager.instance.isRunning;
+      final wasRunning = ClashManager.instance.isCoreRunning;
 
       // 删除配置文件
       await _service.deleteSubscription(subscription);
@@ -1014,7 +1020,12 @@ class SubscriptionProvider extends ChangeNotifier {
       // 如果是当前选中的订阅，重新加载配置以应用新的覆写
       if (subscriptionId == _currentSubscriptionId) {
         Logger.info('当前订阅的覆写已更新，重新加载配置以应用覆写...');
-        await _reloadCurrentSubscriptionConfig(reason: '覆写配置更新');
+        _clashProvider?.pauseConfigWatcher();
+        try {
+          await _reloadCurrentSubscriptionConfig(reason: '覆写配置更新');
+        } finally {
+          await _clashProvider?.resumeConfigWatcher();
+        }
       } else {
         Logger.info('覆写配置已更新，将在下次选择该订阅时生效');
       }
@@ -1045,7 +1056,12 @@ class SubscriptionProvider extends ChangeNotifier {
       // 如果是当前选中的订阅，重新加载配置
       if (subscriptionId == _currentSubscriptionId) {
         Logger.info('当前订阅文件已修改，重新加载配置');
-        await _reloadCurrentSubscriptionConfig(reason: '订阅文件编辑');
+        _clashProvider?.pauseConfigWatcher();
+        try {
+          await _reloadCurrentSubscriptionConfig(reason: '订阅文件编辑');
+        } finally {
+          await _clashProvider?.resumeConfigWatcher();
+        }
       }
 
       return true;
@@ -1199,7 +1215,7 @@ class SubscriptionProvider extends ChangeNotifier {
     }
 
     // 如果 Clash 正在运行，尝试热重载配置
-    if (clashProvider.isRunning) {
+    if (clashProvider.isCoreRunning) {
       Logger.info('Clash 正在运行，尝试热重载配置');
 
       // 【性能监控】记录热重载总耗时

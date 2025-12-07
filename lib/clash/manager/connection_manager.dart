@@ -6,17 +6,17 @@ import 'package:stelliberty/utils/logger.dart';
 // 负责连接的查询和关闭
 class ConnectionManager {
   final ClashApiClient _apiClient;
-  final bool Function() _isRunning;
+  final bool Function() _isCoreRunning;
 
   ConnectionManager({
     required ClashApiClient apiClient,
-    required bool Function() isRunning,
+    required bool Function() isCoreRunning,
   }) : _apiClient = apiClient,
-       _isRunning = isRunning;
+       _isCoreRunning = isCoreRunning;
 
   // 获取当前所有连接
   Future<List<ConnectionInfo>> getConnections() async {
-    if (!_isRunning()) {
+    if (!_isCoreRunning()) {
       Logger.warning('Clash 未运行，无法获取连接列表');
       return [];
     }
@@ -31,7 +31,7 @@ class ConnectionManager {
 
   // 关闭指定连接
   Future<bool> closeConnection(String connectionId) async {
-    if (!_isRunning()) {
+    if (!_isCoreRunning()) {
       Logger.warning('Clash 未运行，无法关闭连接');
       return false;
     }
@@ -46,7 +46,7 @@ class ConnectionManager {
 
   // 关闭所有连接
   Future<bool> closeAllConnections() async {
-    if (!_isRunning()) {
+    if (!_isCoreRunning()) {
       Logger.warning('Clash 未运行，无法关闭所有连接');
       return false;
     }

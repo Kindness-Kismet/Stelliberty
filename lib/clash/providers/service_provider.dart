@@ -77,7 +77,7 @@ class ServiceProvider {
       Logger.info('开始安装服务...');
 
       // 记录安装前的核心运行状态（用于安装成功后自动重启）
-      final wasRunningBefore = ClashManager.instance.isRunning;
+      final wasRunningBefore = ClashManager.instance.isCoreRunning;
       final currentConfigPath = ClashManager.instance.currentConfigPath;
 
       // 发送安装请求（Rust 端会处理停止核心的逻辑）
@@ -173,7 +173,7 @@ class ServiceProvider {
       Logger.info('开始卸载服务...');
 
       // 记录卸载前的核心运行状态（用于卸载成功后自动重启）
-      final wasRunningBefore = ClashManager.instance.isRunning;
+      final wasRunningBefore = ClashManager.instance.isCoreRunning;
       final currentConfigPath = ClashManager.instance.currentConfigPath;
 
       // 检查并禁用虚拟网卡（普通模式不支持虚拟网卡，需提前禁用并持久化）

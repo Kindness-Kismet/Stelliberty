@@ -246,7 +246,7 @@ class _DnsConfigCardState extends State<DnsConfigCard> {
       await ClashPreferences.instance.setDnsOverrideEnabled(_enableDns);
 
       // 如果 Clash 正在运行，热重载配置文件
-      if (ClashManager.instance.isRunning) {
+      if (ClashManager.instance.isCoreRunning) {
         final currentConfigPath = ClashManager.instance.currentConfigPath;
         if (currentConfigPath != null) {
           await ClashManager.instance.reloadConfig(

@@ -77,7 +77,7 @@ class SystemProxy {
         signal.sendSignalToRust();
       },
       operationName: usePacMode ? '设置系统代理 (PAC 模式)' : '设置系统代理',
-      successMessage: usePacMode ? '系统代理设置成功 (PAC 模式)' : '系统代理设置成功：$host:$port',
+      successMessage: null,
     );
   }
 
@@ -91,7 +91,7 @@ class SystemProxy {
         signal.sendSignalToRust();
       },
       operationName: '禁用系统代理',
-      successMessage: '系统代理已禁用',
+      successMessage: null,
     );
   }
 

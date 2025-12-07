@@ -57,7 +57,7 @@ class ConfigInjector {
     required String externalController,
     String? externalControllerSecret,
     required bool unifiedDelay,
-    required String mode,
+    required String outboundMode,
   }) async {
     try {
       // 1. 获取配置内容（优先级：configContent > configPath > 默认配置）
@@ -95,7 +95,7 @@ class ConfigInjector {
         allowLan: allowLan,
         tcpConcurrent: tcpConcurrent,
         unifiedDelay: unifiedDelay,
-        mode: mode,
+        outboundMode: outboundMode,
         tunEnable: tunEnable,
         tunStack: tunStack,
         tunDevice: tunDevice,

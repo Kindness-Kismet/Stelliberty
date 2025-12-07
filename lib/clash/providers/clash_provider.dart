@@ -29,10 +29,10 @@ class ClashProvider extends ChangeNotifier {
   ConfigManagementService get configService => _configService;
 
   // 运行状态
-  bool get isRunning => _clashManager.isRunning;
+  bool get isCoreRunning => _clashManager.isCoreRunning;
 
   // 当前出站模式
-  String get mode => _clashManager.mode;
+  String get outboundMode => _clashManager.outboundMode;
 
   // 流量数据流（转发自 ClashManager）
   Stream<TrafficData>? get trafficStream => _clashManager.trafficStream;
@@ -53,10 +53,10 @@ class ClashProvider extends ChangeNotifier {
     }
 
     // 获取当前出站模式
-    final mode = _clashManager.mode;
+    final outboundMode = _clashManager.outboundMode;
 
     // 根据模式过滤代理组
-    _cachedProxyGroups = switch (mode) {
+    _cachedProxyGroups = switch (outboundMode) {
       'direct' => [], // 直连模式：不显示任何代理组
       'global' =>
         _allProxyGroups // 全局模式：显示所有非隐藏组 + GLOBAL 组
@@ -94,10 +94,10 @@ class ClashProvider extends ChangeNotifier {
   Set<String> get testingNodes => _testingNodes;
 
   // 是否正在批量测试延迟
-  bool _isBatchTesting = false;
+  bool _isBatchTestingDelay = false;
 
   // 获取是否正在批量测试延迟
-  bool get isBatchTesting => _isBatchTesting;
+  bool get isBatchTestingDelay => _isBatchTestingDelay;
 
   // UI 更新节流：记录上次通知时间
   DateTime? _lastNotifyTime;
@@ -119,9 +119,9 @@ class ClashProvider extends ChangeNotifier {
     );
   }
 
-  // 加载状态
-  bool _isLoading = false;
-  bool get isLoading => _isLoading;
+  // 代理列表加载状态
+  bool _isLoadingProxies = false;
+  bool get isLoadingProxies => _isLoadingProxies;
 
   // 并发保护：使用 Completer 确保同一时间只有一个加载操作
   Completer<void>? _loadProxiesCompleter;
@@ -233,7 +233,7 @@ class ClashProvider extends ChangeNotifier {
 
   // 获取延迟测试状态描述（用于调试和用户提示）
   String getDelayTestStatus() {
-    if (!isRunning) {
+    if (!isCoreRunning) {
       return 'Clash 未运行，请先启动 Clash';
     }
 
@@ -247,7 +247,7 @@ class ClashProvider extends ChangeNotifier {
   // 启动 Clash 核心（不触碰系统代理）
   // 调用者需要自行决定是否启用系统代理
   Future<bool> start({String? configPath}) async {
-    _isLoading = true;
+    _isLoadingProxies = true;
     _errorMessage = null;
     notifyListeners();
 
@@ -288,7 +288,7 @@ class ClashProvider extends ChangeNotifier {
       Logger.error(_errorMessage!);
       return false;
     } finally {
-      _isLoading = false;
+      _isLoadingProxies = false;
       notifyListeners();
     }
   }
@@ -296,7 +296,7 @@ class ClashProvider extends ChangeNotifier {
   // 停止 Clash 核心（不触碰系统代理）
   // 调用者需要自行决定是否禁用系统代理
   Future<bool> stop({String? configPath}) async {
-    _isLoading = true;
+    _isLoadingProxies = true;
     _errorMessage = null;
     notifyListeners();
 
@@ -315,7 +315,7 @@ class ClashProvider extends ChangeNotifier {
       Logger.error(_errorMessage!);
       return false;
     } finally {
-      _isLoading = false;
+      _isLoadingProxies = false;
       notifyListeners();
     }
   }
@@ -323,7 +323,7 @@ class ClashProvider extends ChangeNotifier {
   // 同步本地选择到 Clash（启动时调用）
   // 将本地状态中的所有代理选择应用到 Clash API
   Future<void> _syncProxyGroupSelections() async {
-    if (!isRunning) return;
+    if (!isCoreRunning) return;
 
     try {
       Logger.info('应用本地代理选择到 Clash...');
@@ -390,7 +390,7 @@ class ClashProvider extends ChangeNotifier {
     // 【性能监控】总耗时
     final totalStopwatch = Stopwatch()..start();
 
-    if (!isRunning) {
+    if (!isCoreRunning) {
       Logger.info('Clash 未在运行，无法加载代理列表');
       return;
     }
@@ -399,7 +399,7 @@ class ClashProvider extends ChangeNotifier {
       '加载前状态：代理组=${_allProxyGroups.length}，节点=${_proxyNodes.length}',
     );
 
-    _isLoading = true;
+    _isLoadingProxies = true;
     _errorMessage = null;
     notifyListeners();
 
@@ -519,7 +519,7 @@ class ClashProvider extends ChangeNotifier {
       _errorMessage = '加载代理列表失败：$e';
       Logger.error(_errorMessage!);
     } finally {
-      _isLoading = false;
+      _isLoadingProxies = false;
       notifyListeners();
 
       totalStopwatch.stop();
@@ -571,7 +571,7 @@ class ClashProvider extends ChangeNotifier {
     }
 
     // 2. 如果 Clash 在运行，异步同步到 Clash（不阻塞 UI）
-    if (isRunning) {
+    if (isCoreRunning) {
       try {
         final success = await _clashManager.changeProxy(groupName, proxyName);
         if (success) {
@@ -621,7 +621,7 @@ class ClashProvider extends ChangeNotifier {
       );
 
       // 2. 如果没有保存记录，且核心正在运行，使用当前状态
-      if (selected == null && isRunning && group.now != null) {
+      if (selected == null && isCoreRunning && group.now != null) {
         selected = group.now;
       }
 
@@ -708,6 +708,16 @@ class ClashProvider extends ChangeNotifier {
     }
   }
 
+  // 暂停配置文件监听（用于订阅更新期间避免重复触发）
+  void pauseConfigWatcher() {
+    _configWatcher?.pause();
+  }
+
+  // 恢复配置文件监听
+  Future<void> resumeConfigWatcher() async {
+    await _configWatcher?.resume();
+  }
+
   ProxyNode? getProxyNode(String name) {
     return _proxyNodes[name];
   }
@@ -762,7 +772,7 @@ class ClashProvider extends ChangeNotifier {
 
   // 批量测试代理组中所有节点的延迟
   Future<void> testGroupDelays(String groupName, [String? testUrl]) async {
-    if (_isBatchTesting) {
+    if (_isBatchTestingDelay) {
       Logger.warning('批量测试正在进行中，忽略重复请求');
       return;
     }
@@ -779,7 +789,7 @@ class ClashProvider extends ChangeNotifier {
     }).toList();
 
     // 标记批量测试开始
-    _isBatchTesting = true;
+    _isBatchTestingDelay = true;
     _testingNodes.clear();
     _testingNodes.addAll(proxyNames);
     _lastNotifyTime = null; // 重置节流计时器
@@ -832,7 +842,7 @@ class ClashProvider extends ChangeNotifier {
         _proxyNodesUpdateCount++;
       }
       _testingNodes.clear();
-      _isBatchTesting = false;
+      _isBatchTestingDelay = false;
       _lastNotifyTime = null;
       notifyListeners();
     }

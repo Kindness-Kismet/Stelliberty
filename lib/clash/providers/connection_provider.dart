@@ -66,14 +66,14 @@ class ConnectionProvider extends ChangeNotifier {
     _clashProvider.addListener(_onClashStateChanged);
 
     // 如果 Clash 已经在运行，立即开始刷新
-    if (_clashProvider.isRunning) {
+    if (_clashProvider.isCoreRunning) {
       startAutoRefresh();
     }
   }
 
   // 当 Clash 状态改变时
   void _onClashStateChanged() {
-    if (_clashProvider.isRunning) {
+    if (_clashProvider.isCoreRunning) {
       // Clash 启动，开始自动刷新
       startAutoRefresh();
     } else {
@@ -189,7 +189,7 @@ class ConnectionProvider extends ChangeNotifier {
 
   // 刷新连接列表
   Future<void> refreshConnections() async {
-    if (!_clashProvider.isRunning) {
+    if (!_clashProvider.isCoreRunning) {
       return;
     }
 
@@ -266,7 +266,7 @@ class ConnectionProvider extends ChangeNotifier {
     String operationName,
     String successMessage,
   ) async {
-    if (!_clashProvider.isRunning) {
+    if (!_clashProvider.isCoreRunning) {
       Logger.warning('Clash 未运行，无法$operationName');
       return false;
     }

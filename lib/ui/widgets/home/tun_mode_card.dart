@@ -41,10 +41,7 @@ class _TunModeCardState extends State<TunModeCard> {
 
   @override
   Widget build(BuildContext context) {
-    final clashProvider = context.watch<ClashProvider>();
     final serviceStateManager = context.watch<ServiceStateManager>();
-    final tunEnabled = clashProvider.tunEnabled;
-    final isLoading = clashProvider.isLoading;
     final isServiceInstalled = serviceStateManager.isInstalled;
 
     // TUN 模式可用条件：服务已安装 或 以管理员/root 权限运行
@@ -61,22 +58,28 @@ class _TunModeCardState extends State<TunModeCard> {
       );
     }
 
-    return BaseCard(
-      icon: Icons.router_outlined,
-      title: context.translate.proxy.tunMode,
-      // 右边只有开关
-      trailing: ModernSwitch(
-        value: tunEnabled,
-        onChanged: (isLoading || !canEnableTun)
-            ? null
-            : (value) async {
-                await clashProvider.setTunMode(value);
-                // TUN 模式切换后手动更新托盘菜单
-                AppTrayManager().updateTrayMenuManually();
-              },
-      ),
-      // 下方显示状态指示器
-      child: _buildStatusIndicator(context, canEnableTun),
+    // 使用 Selector 只在 tunEnabled 变化时重建，避免 isLoadingProxies 变化导致的闪烁
+    return Selector<ClashProvider, bool>(
+      selector: (_, provider) => provider.tunEnabled,
+      builder: (context, tunEnabled, child) {
+        return BaseCard(
+          icon: Icons.router_outlined,
+          title: context.translate.proxy.tunMode,
+          // 右边只有开关
+          trailing: ModernSwitch(
+            value: tunEnabled,
+            onChanged: !canEnableTun
+                ? null
+                : (value) async {
+                    await context.read<ClashProvider>().setTunMode(value);
+                    // TUN 模式切换后手动更新托盘菜单
+                    AppTrayManager().updateTrayMenuManually();
+                  },
+          ),
+          // 下方显示状态指示器
+          child: _buildStatusIndicator(context, canEnableTun),
+        );
+      },
     );
   }
 

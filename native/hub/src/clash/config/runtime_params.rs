@@ -16,7 +16,7 @@ pub struct RuntimeConfigParams {
     pub allow_lan: bool,
     pub tcp_concurrent: bool,
     pub unified_delay: bool,
-    pub mode: String, // "rule" | "global" | "direct"
+    pub outbound_mode: String, // "rule" | "global" | "direct"
 
     // TUN 配置
     pub tun_enable: bool,

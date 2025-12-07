@@ -10,8 +10,8 @@ import 'package:stelliberty/utils/logger.dart';
 // Clash 进程管理服务
 // Dart 端负责业务逻辑和端口检查，Rust 端负责实际进程管理
 class ProcessService {
-  bool _isRunning = false;
-  bool get isRunning => _isRunning;
+  bool _isCoreRunning = false;
+  bool get isCoreRunning => _isCoreRunning;
 
   // netstat 输出缓存（优化性能，避免频繁调用）
   String? _netstatCache;
@@ -26,7 +26,7 @@ class ProcessService {
     required int apiPort,
     List<int>? portsToCheck, // 启动前需要检查的端口列表
   }) async {
-    if (_isRunning) {
+    if (_isCoreRunning) {
       throw StateError('进程已在运行');
     }
 
@@ -71,7 +71,7 @@ class ProcessService {
       throw Exception('启动 Clash 进程失败：$error');
     }
 
-    _isRunning = true;
+    _isCoreRunning = true;
   }
 
   // 停止 Clash 进程（通过 Rust）
@@ -79,7 +79,7 @@ class ProcessService {
     Duration timeout = const Duration(seconds: 5),
     List<int>? portsToRelease, // 停止后需要等待释放的端口列表
   }) async {
-    if (!_isRunning) {
+    if (!_isCoreRunning) {
       return;
     }
 
@@ -95,7 +95,7 @@ class ProcessService {
       Logger.warning('Clash 进程停止失败：$error');
     }
 
-    _isRunning = false;
+    _isCoreRunning = false;
 
     // 等待端口释放（如果需要）
     if (portsToRelease != null && portsToRelease.isNotEmpty) {

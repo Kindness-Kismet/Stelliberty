@@ -67,7 +67,7 @@ class LifecycleManager {
   String get version => _version;
 
   // 运行状态（通过状态管理器获取）
-  bool get isRunning => _coreStateManager.currentState.isRunning;
+  bool get isCoreRunning => _coreStateManager.currentState.isRunning;
   bool get isRestarting =>
       _coreStateManager.currentState == CoreState.restarting;
   bool get isStarting => _coreStateManager.currentState == CoreState.starting;
@@ -119,7 +119,7 @@ class LifecycleManager {
     required String clashCoreLogLevel,
     required String externalController,
     required bool unifiedDelay,
-    required String mode,
+    required String outboundMode,
     int? socksPort,
     int? httpPort, // 单独 HTTP 端口（可选）
   }) async {
@@ -133,7 +133,7 @@ class LifecycleManager {
       return false;
     }
 
-    if (isRunning) {
+    if (isCoreRunning) {
       Logger.info('Clash 已在运行');
       return true;
     }
@@ -187,7 +187,7 @@ class LifecycleManager {
         externalControllerSecret: ClashPreferences.instance
             .getExternalControllerSecret(),
         unifiedDelay: unifiedDelay,
-        mode: mode,
+        outboundMode: outboundMode,
       );
 
       if (generatedConfigPath == null) {
@@ -248,7 +248,7 @@ class LifecycleManager {
         _isFallbackRetry = true;
 
         // 确保核心已停止（可能已经停止或根本没启动成功）
-        if (isRunning) {
+        if (isCoreRunning) {
           await stopCore();
         }
 
@@ -289,7 +289,7 @@ class LifecycleManager {
           clashCoreLogLevel: clashCoreLogLevel,
           externalController: externalController,
           unifiedDelay: unifiedDelay,
-          mode: mode,
+          outboundMode: outboundMode,
           socksPort: socksPort,
           httpPort: httpPort, // 单独 HTTP 端口
           enableFallback: false, // 禁用回退以避免递归
@@ -598,7 +598,7 @@ class LifecycleManager {
       return false;
     }
 
-    if (!isRunning) {
+    if (!isCoreRunning) {
       Logger.info('Clash 未在运行');
       return true;
     }
@@ -723,7 +723,7 @@ class LifecycleManager {
       return;
     }
 
-    if (!isRunning) {
+    if (!isCoreRunning) {
       Logger.info('Clash 未在运行，无需重启');
       return;
     }

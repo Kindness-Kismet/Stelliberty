@@ -18,7 +18,7 @@ class OutboundModeCard extends StatefulWidget {
 }
 
 class _OutboundModeCardState extends State<OutboundModeCard> {
-  String _selectedMode = 'rule';
+  String _selectedOutboundMode = 'rule';
 
   @override
   void initState() {
@@ -38,29 +38,29 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
   // ClashManager 状态变化回调
   void _onClashManagerChanged() {
     if (mounted) {
-      final currentMode = ClashManager.instance.mode;
-      if (_selectedMode != currentMode) {
+      final currentOutboundMode = ClashManager.instance.outboundMode;
+      if (_selectedOutboundMode != currentOutboundMode) {
         setState(() {
-          _selectedMode = currentMode;
+          _selectedOutboundMode = currentOutboundMode;
         });
-        Logger.debug('主页出站模式卡片已同步到: $currentMode');
+        Logger.debug('主页出站模式卡片已同步到: $currentOutboundMode');
       }
     }
   }
 
   Future<void> _loadCurrentMode() async {
     try {
-      final mode = ClashManager.instance.mode;
+      final outboundMode = ClashManager.instance.outboundMode;
       if (mounted) {
         setState(() {
-          _selectedMode = mode;
+          _selectedOutboundMode = outboundMode;
         });
       }
     } catch (e) {
       Logger.warning('获取当前模式失败: $e，使用默认值');
       if (mounted) {
         setState(() {
-          _selectedMode = 'rule';
+          _selectedOutboundMode = 'rule';
         });
       }
     }
@@ -68,49 +68,48 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
 
   @override
   Widget build(BuildContext context) {
-    final clashProvider = context.watch<ClashProvider>();
-    final isRunning = clashProvider.isRunning;
-    final isLoading = clashProvider.isLoading;
+    // 使用 Selector 只监听 isRunning，避免 isLoadingProxies 变化导致的重建
+    return Selector<ClashProvider, bool>(
+      selector: (_, provider) => provider.isCoreRunning,
+      builder: (context, isRunning, child) {
+        return BaseCard(
+          icon: Icons.alt_route_rounded,
+          title: context.translate.proxy.outboundMode,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildModeOption(
+                context,
+                icon: Icons.rule_rounded,
+                title: context.translate.proxy.ruleMode,
+                outboundMode: 'rule',
+                isRunning: isRunning,
+              ),
 
-    return BaseCard(
-      icon: Icons.alt_route_rounded,
-      title: context.translate.proxy.outboundMode,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildModeOption(
-            context,
-            icon: Icons.rule_rounded,
-            title: context.translate.proxy.ruleMode,
-            mode: 'rule',
-            isRunning: isRunning,
-            isLoading: isLoading,
+              const SizedBox(height: 8),
+
+              _buildModeOption(
+                context,
+                icon: Icons.public_rounded,
+                title: context.translate.proxy.globalMode,
+                outboundMode: 'global',
+                isRunning: isRunning,
+              ),
+
+              const SizedBox(height: 8),
+
+              _buildModeOption(
+                context,
+                icon: Icons.phonelink_rounded,
+                title: context.translate.proxy.directMode,
+                outboundMode: 'direct',
+                isRunning: isRunning,
+              ),
+            ],
           ),
-
-          const SizedBox(height: 8),
-
-          _buildModeOption(
-            context,
-            icon: Icons.public_rounded,
-            title: context.translate.proxy.globalMode,
-            mode: 'global',
-            isRunning: isRunning,
-            isLoading: isLoading,
-          ),
-
-          const SizedBox(height: 8),
-
-          _buildModeOption(
-            context,
-            icon: Icons.phonelink_rounded,
-            title: context.translate.proxy.directMode,
-            mode: 'direct',
-            isRunning: isRunning,
-            isLoading: isLoading,
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -118,18 +117,17 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
     BuildContext context, {
     required IconData icon,
     required String title,
-    required String mode,
+    required String outboundMode,
     required bool isRunning,
-    required bool isLoading,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isSelected = _selectedMode == mode;
+    final isSelected = _selectedOutboundMode == outboundMode;
 
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: (!isLoading && !isSelected)
-            ? () => _switchOutboundMode(context, mode, isRunning)
+        onTap: !isSelected
+            ? () => _switchOutboundMode(context, outboundMode, isRunning)
             : null,
         borderRadius: BorderRadius.circular(12),
         child: AnimatedContainer(
@@ -172,32 +170,20 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
 
   Future<void> _switchOutboundMode(
     BuildContext context,
-    String mode,
+    String outboundMode,
     bool isRunning,
   ) async {
-    Logger.info('用户切换出站模式: $mode (核心运行: $isRunning)');
+    Logger.info('用户切换出站模式: $outboundMode (核心运行: $isRunning)');
 
     setState(() {
-      _selectedMode = mode;
+      _selectedOutboundMode = outboundMode;
     });
 
     try {
-      if (isRunning) {
-        final success = await ClashManager.instance.setMode(mode);
+      final success = await ClashManager.instance.setOutboundMode(outboundMode);
 
-        if (context.mounted) {
-          if (!success) {
-            await _loadCurrentMode();
-          }
-        }
-      } else {
-        final success = await ClashManager.instance.setModeOffline(mode);
-
-        if (context.mounted) {
-          if (!success) {
-            await _loadCurrentMode();
-          }
-        }
+      if (context.mounted && !success) {
+        await _loadCurrentMode();
       }
       // 出站模式切换后手动更新托盘菜单
       AppTrayManager().updateTrayMenuManually();

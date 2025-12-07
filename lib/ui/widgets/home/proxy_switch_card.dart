@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
-import 'package:stelliberty/tray/tray_manager.dart';
 import 'package:stelliberty/ui/widgets/home/base_card.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 
@@ -30,79 +29,84 @@ class ProxySwitchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final clashProvider = context.watch<ClashProvider>();
-    final isRunning = clashProvider.isRunning;
-    final isProxyEnabled = clashProvider.isSystemProxyEnabled;
-    final isLoading = clashProvider.isLoading;
+    // 使用 Selector 只在相关状态变化时重建，避免 isLoadingProxies 变化导致的闪烁
+    return Selector<ClashProvider, ({bool isCoreRunning, bool isProxyEnabled})>(
+      selector: (_, provider) => (
+        isCoreRunning: provider.isCoreRunning,
+        isProxyEnabled: provider.isSystemProxyEnabled,
+      ),
+      builder: (context, state, child) {
+        final isCoreRunning = state.isCoreRunning;
+        final isProxyEnabled = state.isProxyEnabled;
 
-    return BaseCard(
-      icon: Icons.shield_outlined,
-      title: context.translate.proxy.proxyControl,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: isProxyEnabled ? Colors.green : Colors.grey,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Text(
-            isProxyEnabled
-                ? context.translate.proxy.running
-                : context.translate.proxy.stopped,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: isProxyEnabled ? Colors.green : Colors.grey,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 代理开关按钮
-          ElevatedButton(
-            onPressed: (isLoading || !isRunning)
-                ? null
-                : () async {
-                    try {
-                      if (isProxyEnabled) {
-                        await clashProvider.disableSystemProxy();
-                      } else {
-                        await clashProvider.enableSystemProxy();
-                      }
-                      // 系统代理切换后手动更新托盘菜单
-                      AppTrayManager().updateTrayMenuManually();
-                    } catch (e) {
-                      // 错误已经在 Provider 中记录
-                    }
-                  },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isProxyEnabled
-                  ? Colors.red.shade400
-                  : _getStartButtonColor(context),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+        return BaseCard(
+          icon: Icons.shield_outlined,
+          title: context.translate.proxy.proxyControl,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isProxyEnabled ? Colors.green : Colors.grey,
+                ),
               ),
-              minimumSize: const Size(double.infinity, 48),
-            ),
-            child: Text(
-              isProxyEnabled
-                  ? context.translate.proxy.stopProxy
-                  : context.translate.proxy.startProxy,
-              style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
-            ),
+              const SizedBox(width: 6),
+              Text(
+                isProxyEnabled
+                    ? context.translate.proxy.running
+                    : context.translate.proxy.stopped,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: isProxyEnabled ? Colors.green : Colors.grey,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 代理开关按钮
+              ElevatedButton(
+                onPressed: !isCoreRunning
+                    ? null
+                    : () async {
+                        final provider = context.read<ClashProvider>();
+                        if (isProxyEnabled) {
+                          await provider.disableSystemProxy();
+                        } else {
+                          await provider.enableSystemProxy();
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isProxyEnabled
+                      ? Colors.red.shade400
+                      : _getStartButtonColor(context),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: Text(
+                  isProxyEnabled
+                      ? context.translate.proxy.stopProxy
+                      : context.translate.proxy.startProxy,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w500,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -51,9 +51,9 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
   Widget build(BuildContext context) {
     return Selector<ClashProvider, _ActionBarState>(
       selector: (_, provider) => _ActionBarState(
-        isLoading: provider.isLoading,
-        isRunning: provider.isRunning,
-        isBatchTesting: provider.isBatchTesting,
+        isLoadingProxies: provider.isLoadingProxies,
+        isCoreRunning: provider.isCoreRunning,
+        isBatchTestingDelay: provider.isBatchTestingDelay,
       ),
       builder: (context, state, child) {
         final clashProvider = context.read<ClashProvider>();
@@ -79,7 +79,7 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
                             widget.selectedGroupName,
                           )
                         : null,
-                    isLoading: state.isBatchTesting,
+                    isLoading: state.isBatchTestingDelay,
                   ),
                   const SizedBox(width: 8),
                   // 定位按钮
@@ -342,29 +342,32 @@ class _ActionButtonState extends State<_ActionButton> {
 
 // 操作栏状态数据类
 class _ActionBarState {
-  final bool isLoading;
-  final bool isRunning;
-  final bool isBatchTesting;
+  final bool isLoadingProxies;
+  final bool isCoreRunning;
+  final bool isBatchTestingDelay;
 
   _ActionBarState({
-    required this.isLoading,
-    required this.isRunning,
-    required this.isBatchTesting,
+    required this.isLoadingProxies,
+    required this.isCoreRunning,
+    required this.isBatchTestingDelay,
   });
 
-  bool get canTestDelays => !isLoading && isRunning && !isBatchTesting;
-  bool get canLocate => !isLoading;
+  bool get canTestDelays =>
+      !isLoadingProxies && isCoreRunning && !isBatchTestingDelay;
+  bool get canLocate => !isLoadingProxies;
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is _ActionBarState &&
           runtimeType == other.runtimeType &&
-          isLoading == other.isLoading &&
-          isRunning == other.isRunning &&
-          isBatchTesting == other.isBatchTesting;
+          isLoadingProxies == other.isLoadingProxies &&
+          isCoreRunning == other.isCoreRunning &&
+          isBatchTestingDelay == other.isBatchTestingDelay;
 
   @override
   int get hashCode =>
-      isLoading.hashCode ^ isRunning.hashCode ^ isBatchTesting.hashCode;
+      isLoadingProxies.hashCode ^
+      isCoreRunning.hashCode ^
+      isBatchTestingDelay.hashCode;
 }

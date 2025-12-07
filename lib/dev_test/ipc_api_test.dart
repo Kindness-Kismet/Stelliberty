@@ -56,7 +56,7 @@ class IpcApiTest {
         externalController: '',
         externalControllerSecret: '',
         unifiedDelay: false,
-        mode: 'rule',
+        outboundMode: 'rule',
       );
 
       if (runtimeConfigPath == null) {

@@ -44,21 +44,21 @@ class AppTrayManager {
 
     // 立即同步当前状态到托盘
     if (_isInitialized) {
-      Logger.info('设置托盘 ClashProvider，当前代理状态：${provider.isRunning}');
+      Logger.info('设置托盘 ClashProvider，当前代理状态：${provider.isCoreRunning}');
 
       // 缓存 ClashManager 实例减少重复访问
       final manager = ClashManager.instance;
-      _proxyStateCache = provider.isRunning; // 初始化缓存
+      _proxyStateCache = provider.isCoreRunning; // 初始化缓存
       _systemProxyStateCache = manager.isSystemProxyEnabled;
       _tunStateCache = manager.tunEnable;
-      _outboundModeCache = manager.mode; // 初始化出站模式缓存
+      _outboundModeCache = manager.outboundMode; // 初始化出站模式缓存
 
       // 获取订阅状态
       final hasSubscription =
           _subscriptionProvider?.getSubscriptionConfigPath() != null;
       _subscriptionStateCache = hasSubscription;
 
-      _updateTrayMenu(provider.isRunning, hasSubscription);
+      _updateTrayMenu(provider.isCoreRunning, hasSubscription);
       _updateTrayIcon(manager.isSystemProxyEnabled, manager.tunEnable);
     }
   }
@@ -80,14 +80,14 @@ class AppTrayManager {
     if (_isInitialized && _clashProvider != null) {
       final hasSubscription = provider.getSubscriptionConfigPath() != null;
       _subscriptionStateCache = hasSubscription;
-      _updateTrayMenu(_clashProvider!.isRunning, hasSubscription);
+      _updateTrayMenu(_clashProvider!.isCoreRunning, hasSubscription);
     }
   }
 
   // 手动触发托盘菜单更新（供外部调用，例如窗口显示/隐藏后）
   Future<void> updateTrayMenuManually() async {
     if (_clashProvider != null && _subscriptionProvider != null) {
-      final isRunning = _clashProvider!.isRunning;
+      final isRunning = _clashProvider!.isCoreRunning;
       final hasSubscription =
           _subscriptionProvider!.getSubscriptionConfigPath() != null;
 
@@ -115,13 +115,13 @@ class AppTrayManager {
     if (_isInitialized &&
         _clashProvider != null &&
         _subscriptionProvider != null) {
-      final currentProxyState = _clashProvider!.isRunning;
+      final currentProxyState = _clashProvider!.isCoreRunning;
 
       // 缓存 ClashManager 实例减少重复访问
       final manager = ClashManager.instance;
       final currentSystemProxyState = manager.isSystemProxyEnabled;
       final currentTunState = manager.tunEnable;
-      final currentOutboundMode = manager.mode;
+      final currentOutboundMode = manager.outboundMode;
       final currentSubscriptionState =
           _subscriptionProvider!.getSubscriptionConfigPath() != null;
 
@@ -218,7 +218,7 @@ class AppTrayManager {
       final isTunAvailable = await _checkTunAvailable();
 
       // 获取当前出站模式
-      final currentMode = manager.mode;
+      final currentOutboundMode = manager.outboundMode;
 
       // 检查窗口是否可见
       bool isWindowVisible = false;
@@ -246,17 +246,17 @@ class AppTrayManager {
                 MenuItem.checkbox(
                   key: 'outbound_mode_rule',
                   label: translate.tray.ruleMode,
-                  checked: currentMode == 'rule',
+                  checked: currentOutboundMode == 'rule',
                 ),
                 MenuItem.checkbox(
                   key: 'outbound_mode_global',
                   label: translate.tray.globalMode,
-                  checked: currentMode == 'global',
+                  checked: currentOutboundMode == 'global',
                 ),
                 MenuItem.checkbox(
                   key: 'outbound_mode_direct',
                   label: translate.tray.directMode,
-                  checked: currentMode == 'direct',
+                  checked: currentOutboundMode == 'direct',
                 ),
               ],
             ),

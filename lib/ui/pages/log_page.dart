@@ -93,7 +93,7 @@ class _LogPageState extends State<LogPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isRunning = ClashManager.instance.isRunning;
+    final isRunning = ClashManager.instance.isCoreRunning;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

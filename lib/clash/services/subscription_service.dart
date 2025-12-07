@@ -66,7 +66,7 @@ class SubscriptionService {
     Logger.info('开始下载订阅：${subscription.name} (${subscription.url})');
 
     // 判断 Clash 是否运行
-    final isClashRunning = ClashManager.instance.isRunning;
+    final isClashRunning = ClashManager.instance.isCoreRunning;
 
     // 确定实际使用的代理模式
     final effectiveProxyMode = isClashRunning

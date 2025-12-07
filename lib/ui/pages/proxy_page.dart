@@ -16,14 +16,14 @@ import 'package:stelliberty/clash/data/clash_model.dart';
 class _ProxyPageState {
   final int proxyGroupsLength;
   final String? errorMessage;
-  final bool isRunning;
-  final String mode;
+  final bool isCoreRunning;
+  final String outboundMode;
 
   const _ProxyPageState({
     required this.proxyGroupsLength,
     required this.errorMessage,
-    required this.isRunning,
-    required this.mode,
+    required this.isCoreRunning,
+    required this.outboundMode,
   });
 
   @override
@@ -33,15 +33,15 @@ class _ProxyPageState {
           runtimeType == other.runtimeType &&
           proxyGroupsLength == other.proxyGroupsLength &&
           errorMessage == other.errorMessage &&
-          isRunning == other.isRunning &&
-          mode == other.mode;
+          isCoreRunning == other.isCoreRunning &&
+          outboundMode == other.outboundMode;
 
   @override
   int get hashCode =>
       proxyGroupsLength.hashCode ^
       errorMessage.hashCode ^
-      isRunning.hashCode ^
-      mode.hashCode;
+      isCoreRunning.hashCode ^
+      outboundMode.hashCode;
 }
 
 // 代理控制页面
@@ -156,10 +156,11 @@ class _ProxyPageWidgetState extends State<ProxyPage>
     final subscriptionProvider = context.read<SubscriptionProvider>();
 
     // 根据 Clash 运行状态加载代理列表
-    if (clashProvider.isRunning && clashProvider.proxyGroups.isEmpty) {
+    if (clashProvider.isCoreRunning && clashProvider.proxyGroups.isEmpty) {
       Logger.info('Clash 正在运行，加载代理列表');
       await clashProvider.loadProxies();
-    } else if (!clashProvider.isRunning && clashProvider.proxyGroups.isEmpty) {
+    } else if (!clashProvider.isCoreRunning &&
+        clashProvider.proxyGroups.isEmpty) {
       final configPath = subscriptionProvider.getSubscriptionConfigPath();
       Logger.info('Clash 未运行，尝试加载订阅配置预览：$configPath');
       if (configPath != null) {
@@ -225,8 +226,8 @@ class _ProxyPageWidgetState extends State<ProxyPage>
             selector: (_, clash) => _ProxyPageState(
               proxyGroupsLength: clash.proxyGroups.length,
               errorMessage: clash.errorMessage,
-              isRunning: clash.isRunning,
-              mode: clash.mode,
+              isCoreRunning: clash.isCoreRunning,
+              outboundMode: clash.outboundMode,
             ),
             builder: (context, state, child) {
               final clashProvider = context.read<ClashProvider>();
@@ -265,7 +266,8 @@ class _ProxyPageWidgetState extends State<ProxyPage>
     }
 
     if (clashProvider.proxyGroups.isEmpty) {
-      if (clashProvider.isRunning && clashProvider.mode == 'direct') {
+      if (clashProvider.isCoreRunning &&
+          clashProvider.outboundMode == 'direct') {
         return ProxyEmptyState(
           type: ProxyEmptyStateType.directMode,
           message: context.translate.proxy.directModeEnabled,
@@ -276,7 +278,7 @@ class _ProxyPageWidgetState extends State<ProxyPage>
       return ProxyEmptyState(
         type: ProxyEmptyStateType.noProxyGroups,
         message: context.translate.proxy.noProxyGroups,
-        subtitle: !clashProvider.isRunning
+        subtitle: !clashProvider.isCoreRunning
             ? context.translate.proxy.loadAfterStart
             : null,
       );

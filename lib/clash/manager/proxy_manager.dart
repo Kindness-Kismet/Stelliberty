@@ -4,20 +4,20 @@ import 'package:stelliberty/clash/network/api_client.dart';
 // 负责代理节点的切换、延迟测试
 class ProxyManager {
   final ClashApiClient _apiClient;
-  final bool Function() _isRunning;
+  final bool Function() _isCoreRunning;
   final String Function() _getTestUrl;
 
   ProxyManager({
     required ClashApiClient apiClient,
-    required bool Function() isRunning,
+    required bool Function() isCoreRunning,
     required String Function() getTestUrl,
   }) : _apiClient = apiClient,
-       _isRunning = isRunning,
+       _isCoreRunning = isCoreRunning,
        _getTestUrl = getTestUrl;
 
   // 获取代理列表
   Future<Map<String, dynamic>> getProxies() async {
-    if (!_isRunning()) {
+    if (!_isCoreRunning()) {
       throw Exception('Clash 未在运行');
     }
 
@@ -26,7 +26,7 @@ class ProxyManager {
 
   // 切换代理节点
   Future<bool> changeProxy(String groupName, String proxyName) async {
-    if (!_isRunning()) {
+    if (!_isCoreRunning()) {
       throw Exception('Clash 未在运行');
     }
 
@@ -43,7 +43,7 @@ class ProxyManager {
 
   // 测试代理延迟
   Future<int> testProxyDelay(String proxyName, {String? testUrl}) async {
-    if (!_isRunning()) {
+    if (!_isCoreRunning()) {
       throw Exception('Clash 未在运行');
     }
 

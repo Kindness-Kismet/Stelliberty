@@ -31,7 +31,9 @@ class _TrafficStatsCardState extends State<TrafficStatsCard> {
     final manager = context.read<ClashManager>();
 
     // 使用 select 精确监听 isRunning 状态，避免不必要的重建
-    final isRunning = context.select<ClashManager, bool>((m) => m.isRunning);
+    final isRunning = context.select<ClashManager, bool>(
+      (m) => m.isCoreRunning,
+    );
 
     return isRunning
         ? StreamBuilder<TrafficData>(

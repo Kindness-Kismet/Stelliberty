@@ -123,7 +123,7 @@ pub fn inject_runtime_params(
     // 6. 注入出站模式
     config_map.insert(
         YamlValue::String("mode".to_string()),
-        YamlValue::String(params.mode.clone()),
+        YamlValue::String(params.outbound_mode.clone()),
     );
 
     // 7. 注入统一延迟

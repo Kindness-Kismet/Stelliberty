@@ -200,7 +200,7 @@ class SystemProxyNotifier extends ChangeNotifier {
     }
 
     // 如果 Clash 正在运行，更新系统代理设置
-    if (_clashManager.isRunning) {
+    if (_clashManager.isCoreRunning) {
       await _clashManager.updateSystemProxySettings();
     }
 
@@ -225,7 +225,7 @@ class SystemProxyNotifier extends ChangeNotifier {
     await ClashPreferences.instance.setUseDefaultBypass(value);
 
     // 如果 Clash 正在运行，更新系统代理设置
-    if (_clashManager.isRunning) {
+    if (_clashManager.isCoreRunning) {
       await _clashManager.updateSystemProxySettings();
     }
 
@@ -241,7 +241,7 @@ class SystemProxyNotifier extends ChangeNotifier {
     await ClashPreferences.instance.setSystemProxyPacMode(value);
 
     // 如果 Clash 正在运行，更新系统代理设置
-    if (_clashManager.isRunning) {
+    if (_clashManager.isCoreRunning) {
       await _clashManager.updateSystemProxySettings();
     }
 

@@ -156,7 +156,7 @@ class WindowButtons extends StatelessWidget {
 
     // 1. 先停止 Clash 进程（最重要）
     try {
-      if (ClashManager.instance.isRunning) {
+      if (ClashManager.instance.isCoreRunning) {
         Logger.info('正在停止 Clash 进程...');
         // 先禁用系统代理，再停止核心
         await ClashManager.instance.disableSystemProxy();

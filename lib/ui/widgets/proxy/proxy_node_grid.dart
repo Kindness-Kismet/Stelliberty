@@ -32,14 +32,14 @@ class _ProxyGridSpacing {
 class _ProxyNodeGridState {
   final Map<String, dynamic> proxyNodes;
   final Set<String> testingNodes;
-  final bool isBatchTesting;
+  final bool isBatchTestingDelay;
   final int updateCount;
   final String? selectedProxyName; // 关键：选中的节点名称
 
   const _ProxyNodeGridState({
     required this.proxyNodes,
     required this.testingNodes,
-    required this.isBatchTesting,
+    required this.isBatchTestingDelay,
     required this.updateCount,
     required this.selectedProxyName,
   });
@@ -51,7 +51,7 @@ class _ProxyNodeGridState {
           runtimeType == other.runtimeType &&
           proxyNodes.length == other.proxyNodes.length &&
           testingNodes.length == other.testingNodes.length &&
-          isBatchTesting == other.isBatchTesting &&
+          isBatchTestingDelay == other.isBatchTestingDelay &&
           updateCount == other.updateCount &&
           selectedProxyName == other.selectedProxyName;
 
@@ -59,7 +59,7 @@ class _ProxyNodeGridState {
   int get hashCode =>
       proxyNodes.length.hashCode ^
       testingNodes.length.hashCode ^
-      isBatchTesting.hashCode ^
+      isBatchTestingDelay.hashCode ^
       updateCount.hashCode ^
       selectedProxyName.hashCode;
 }
@@ -113,7 +113,7 @@ class _ProxyNodeGridWidgetState extends State<ProxyNodeGrid> {
                 return _ProxyNodeGridState(
                   proxyNodes: clash.proxyNodes,
                   testingNodes: clash.testingNodes,
-                  isBatchTesting: clash.isBatchTesting,
+                  isBatchTestingDelay: clash.isBatchTestingDelay,
                   updateCount: clash.proxyNodesUpdateCount,
                   selectedProxyName: selectedGroup.now, // 关键：传递选中节点名
                 );
@@ -192,7 +192,7 @@ class _ProxyNodeGridWidgetState extends State<ProxyNodeGrid> {
                           child: ProxyNodeCard(
                             node: node,
                             isSelected: isSelected,
-                            isClashRunning: widget.clashProvider.isRunning,
+                            isClashRunning: widget.clashProvider.isCoreRunning,
                             isWaitingTest: isWaitingTest,
                             onTap: () => widget.onSelectProxy(
                               sortedGroup.name,
