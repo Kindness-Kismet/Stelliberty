@@ -46,6 +46,7 @@ class ClashDefaults {
   static const String defaultOutboundMode =
       'rule'; // 默认出站模式（rule/global/direct）
   static const int defaultKeepAliveInterval = 30; // TCP Keep-Alive 间隔（s）
+  static const String defaultUserAgent = 'clash.meta'; // 默认 User-Agent
 
   // ==================== TUN 配置默认值 ====================
   static const String defaultGeodataLoader = 'memconservative'; // GEO 数据加载模式

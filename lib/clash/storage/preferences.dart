@@ -167,9 +167,6 @@ class ClashPreferences {
   // 出站模式配置键
   static const String _kOutboundMode = 'clash_outbound_mode';
 
-  // User-Agent 配置键
-  static const String _kUserAgent = 'clash_user_agent';
-
   // 代理节点排序模式键
   static const String _kProxyNodeSortMode = 'clash_proxy_node_sort_mode';
 
@@ -643,14 +640,10 @@ class ClashPreferences {
     }
   }
 
-  // ==================== User-Agent 配置 ====================
+  // ==================== 全局默认 User-Agent ====================
 
-  // 获取 User-Agent
-  String getUserAgent() => _getString(_kUserAgent, 'clash.meta');
-
-  // 设置 User-Agent
-  Future<void> setUserAgent(String userAgent) =>
-      _setString(_kUserAgent, userAgent);
+  // 获取全局默认 User-Agent（用于覆写下载和新订阅的初始值）
+  String getDefaultUserAgent() => ClashDefaults.defaultUserAgent;
 
   // ==================== 代理节点排序配置 ====================
 

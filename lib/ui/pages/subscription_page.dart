@@ -377,6 +377,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           intervalMinutes: result.intervalMinutes,
           updateOnStartup: result.updateOnStartup,
           proxyMode: result.proxyMode,
+          userAgent: result.userAgent,
         );
       },
     );
@@ -421,6 +422,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         intervalMinutes: result.intervalMinutes,
         updateOnStartup: result.updateOnStartup,
         proxyMode: result.proxyMode,
+        userAgent: result.userAgent,
       );
     }
   }

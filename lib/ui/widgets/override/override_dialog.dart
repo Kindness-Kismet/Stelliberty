@@ -186,7 +186,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
               const SizedBox(height: _dialogItemSpacing),
             ],
 
-            _buildTextField(
+            TextInputField(
               controller: _nameController,
               label: context.translate.kOverride.nameLabel,
               hint: context.translate.kOverride.nameHint,
@@ -202,7 +202,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
             // 远程模式显示覆写链接
             if (_addMethod == OverrideAddMethod.remote) ...[
               const SizedBox(height: _dialogItemSpacing),
-              _buildTextField(
+              TextInputField(
                 controller: _urlController,
                 label: context.translate.kOverride.urlLabel,
                 hint: 'https://example.com/override.yaml',
@@ -240,27 +240,6 @@ class _OverrideDialogState extends State<OverrideDialog> {
           ],
         ),
       ),
-    );
-  }
-
-  // 构建输入框
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    int? minLines,
-    int? maxLines = 1,
-    String? Function(String?)? validator,
-  }) {
-    return TextInputField(
-      controller: controller,
-      label: label,
-      hint: hint,
-      icon: icon,
-      minLines: minLines,
-      maxLines: maxLines,
-      validator: validator,
     );
   }
 

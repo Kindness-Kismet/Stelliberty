@@ -1,3 +1,5 @@
+import '../config/clash_defaults.dart';
+
 // 订阅更新代理模式
 enum SubscriptionProxyMode {
   // 直连，不使用代理
@@ -15,10 +17,10 @@ enum SubscriptionProxyMode {
   final String displayName;
 
   static SubscriptionProxyMode fromString(String value) {
-    for (final mode in SubscriptionProxyMode.values) {
-      if (mode.value == value) return mode;
-    }
-    return SubscriptionProxyMode.direct;
+    return SubscriptionProxyMode.values.firstWhere(
+      (mode) => mode.value == value,
+      orElse: () => SubscriptionProxyMode.direct,
+    );
   }
 }
 
@@ -35,10 +37,10 @@ enum AutoUpdateMode {
   final String value;
 
   static AutoUpdateMode fromString(String value) {
-    for (final mode in AutoUpdateMode.values) {
-      if (mode.value == value) return mode;
-    }
-    return AutoUpdateMode.disabled;
+    return AutoUpdateMode.values.firstWhere(
+      (mode) => mode.value == value,
+      orElse: () => AutoUpdateMode.disabled,
+    );
   }
 }
 
@@ -63,13 +65,13 @@ class SubscriptionInfo {
       return const SubscriptionInfo();
     }
 
-    final parts = header.split(';');
-    final Map<String, int> data = {};
-
-    for (final part in parts) {
+    final data = <String, int>{};
+    for (final part in header.split(';')) {
       final keyValue = part.trim().split('=');
       if (keyValue.length == 2) {
-        data[keyValue[0].trim()] = int.tryParse(keyValue[1].trim()) ?? 0;
+        final key = keyValue[0].trim();
+        final value = int.tryParse(keyValue[1].trim());
+        if (value != null) data[key] = value;
       }
     }
 
@@ -88,7 +90,7 @@ class SubscriptionInfo {
   int get remaining => total > 0 ? total - used : 0;
 
   // 流量使用百分比（0-100）
-  double get usagePercentage => total > 0 ? (used / total * 100) : 0;
+  double get usagePercentage => total > 0 ? used / total * 100 : 0;
 
   // 是否已过期
   bool get isExpired {
@@ -105,10 +107,10 @@ class SubscriptionInfo {
 
   factory SubscriptionInfo.fromJson(Map<String, dynamic> json) {
     return SubscriptionInfo(
-      upload: json['upload'] ?? 0,
-      download: json['download'] ?? 0,
-      total: json['total'] ?? 0,
-      expire: json['expire'] ?? 0,
+      upload: json['upload'] as int? ?? 0,
+      download: json['download'] as int? ?? 0,
+      total: json['total'] as int? ?? 0,
+      expire: json['expire'] as int? ?? 0,
     );
   }
 }
@@ -129,6 +131,7 @@ class Subscription {
   final String? lastError; // 最后一次更新错误信息
   final List<String> overrideIds; // 规则覆写ID列表
   final List<String> failedOverrideIds; // 失败的覆写ID列表(启动失败时记录)
+  final String userAgent; // User-Agent（仅远程订阅有效，默认为 clash.meta）
 
   const Subscription({
     required this.id,
@@ -145,6 +148,7 @@ class Subscription {
     this.lastError,
     this.overrideIds = const [],
     this.failedOverrideIds = const [],
+    this.userAgent = ClashDefaults.defaultUserAgent,
   });
 
   // 创建新订阅
@@ -202,6 +206,7 @@ class Subscription {
     String? lastError,
     List<String>? overrideIds,
     List<String>? failedOverrideIds,
+    String? userAgent,
   }) {
     return Subscription(
       id: id ?? this.id,
@@ -218,6 +223,7 @@ class Subscription {
       lastError: lastError,
       overrideIds: overrideIds ?? this.overrideIds,
       failedOverrideIds: failedOverrideIds ?? this.failedOverrideIds,
+      userAgent: userAgent ?? this.userAgent,
     );
   }
 
@@ -235,32 +241,38 @@ class Subscription {
     'lastError': lastError,
     'overrideIds': overrideIds,
     'failedOverrideIds': failedOverrideIds,
+    'userAgent': userAgent,
   };
 
   factory Subscription.fromJson(Map<String, dynamic> json) {
     return Subscription(
-      id: json['id'],
-      name: json['name'],
-      url: json['url'],
+      id: json['id'] as String,
+      name: json['name'] as String,
+      url: json['url'] as String,
       autoUpdateMode: AutoUpdateMode.fromString(
-        json['autoUpdateMode'] ?? 'disabled',
+        json['autoUpdateMode'] as String? ?? 'disabled',
       ),
-      intervalMinutes: json['intervalMinutes'] ?? 60,
-      updateOnStartup: json['updateOnStartup'] ?? false,
+      intervalMinutes: json['intervalMinutes'] as int? ?? 60,
+      updateOnStartup: json['updateOnStartup'] as bool? ?? false,
       lastUpdateTime: json['lastUpdateTime'] != null
-          ? DateTime.parse(json['lastUpdateTime'])
+          ? DateTime.parse(json['lastUpdateTime'] as String)
           : null,
       info: json['info'] != null
-          ? SubscriptionInfo.fromJson(json['info'])
+          ? SubscriptionInfo.fromJson(json['info'] as Map<String, dynamic>)
           : null,
-      isLocalFile: json['isLocalFile'] ?? false,
+      isLocalFile: json['isLocalFile'] as bool? ?? false,
       proxyMode: SubscriptionProxyMode.fromString(
-        json['proxyMode'] ?? 'direct',
+        json['proxyMode'] as String? ?? 'direct',
       ),
-      lastError: json['lastError'],
-      overrideIds: (json['overrideIds'] as List?)?.cast<String>() ?? [],
-      failedOverrideIds:
-          (json['failedOverrideIds'] as List?)?.cast<String>() ?? [],
+      lastError: json['lastError'] as String?,
+      overrideIds: json['overrideIds'] != null
+          ? List<String>.from(json['overrideIds'] as List)
+          : const [],
+      failedOverrideIds: json['failedOverrideIds'] != null
+          ? List<String>.from(json['failedOverrideIds'] as List)
+          : const [],
+      userAgent:
+          json['userAgent'] as String? ?? ClashDefaults.defaultUserAgent,
     );
   }
 

@@ -93,8 +93,8 @@ class OverrideService {
       final client = _createHttpClient(effectiveProxyMode);
 
       try {
-        // 获取配置的 User-Agent
-        final userAgent = ClashPreferences.instance.getUserAgent();
+        // 覆写下载使用全局默认 User-Agent
+        final userAgent = ClashPreferences.instance.getDefaultUserAgent();
 
         final response = await client
             .get(Uri.parse(config.url!), headers: {'User-Agent': userAgent})

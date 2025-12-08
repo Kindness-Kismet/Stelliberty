@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stelliberty/clash/data/subscription_model.dart';
+import 'package:stelliberty/clash/config/clash_defaults.dart';
+import 'package:stelliberty/clash/storage/preferences.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/common/modern_dialog.dart';
@@ -33,6 +35,7 @@ class SubscriptionDialog extends StatefulWidget {
   final int? initialIntervalMinutes;
   final bool? initialUpdateOnStartup;
   final SubscriptionProxyMode? initialProxyMode;
+  final String? initialUserAgent;
   final String confirmText;
   final IconData titleIcon;
   final bool isAddMode;
@@ -48,6 +51,7 @@ class SubscriptionDialog extends StatefulWidget {
     this.initialIntervalMinutes,
     this.initialUpdateOnStartup,
     this.initialProxyMode,
+    this.initialUserAgent,
     this.confirmText = 'Confirm',
     this.titleIcon = Icons.rss_feed,
     this.isAddMode = false,
@@ -89,6 +93,7 @@ class SubscriptionDialog extends StatefulWidget {
         initialIntervalMinutes: subscription.intervalMinutes,
         initialUpdateOnStartup: subscription.updateOnStartup,
         initialProxyMode: subscription.proxyMode,
+        initialUserAgent: subscription.userAgent,
         confirmText: context.translate.subscriptionDialog.saveButton,
         titleIcon: Icons.edit_outlined,
         isLocalFile: subscription.isLocalFile,
@@ -104,9 +109,13 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _urlController;
   late final TextEditingController _intervalController;
+  late final TextEditingController _userAgentController;
   late AutoUpdateMode _autoUpdateMode;
   late bool _updateOnStartup;
   late SubscriptionProxyMode _proxyMode;
+
+  // 缓存的全局默认 UA，避免重复调用
+  late final String _defaultUserAgent;
 
   // 导入方式选择
   SubscriptionImportMethod _importMethod = SubscriptionImportMethod.link;
@@ -124,11 +133,18 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
   void initState() {
     super.initState();
 
+    // 缓存全局默认 UA，避免重复调用
+    _defaultUserAgent = ClashPreferences.instance.getDefaultUserAgent();
+
     // 初始化控制器
     _nameController = TextEditingController(text: widget.initialName ?? '');
     _urlController = TextEditingController(text: widget.initialUrl ?? '');
     _intervalController = TextEditingController(
       text: (widget.initialIntervalMinutes ?? 60).toString(),
+    );
+    // 编辑模式：使用订阅的 UA；添加模式：使用全局默认 UA
+    _userAgentController = TextEditingController(
+      text: widget.initialUserAgent ?? _defaultUserAgent,
     );
 
     // 初始化自动更新模式和启动时更新
@@ -140,40 +156,45 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     _nameController.addListener(_checkForChanges);
     _urlController.addListener(_checkForChanges);
     _intervalController.addListener(_checkForChanges);
+    _userAgentController.addListener(_checkForChanges);
   }
 
   // 检查内容是否发生变化
   bool get _hasChanges {
-    // 添加模式：总是允许保存
     if (widget.isAddMode) return true;
 
-    // 编辑模式：检查是否有任何字段发生变化
-    final nameChanged =
-        _nameController.text.trim() != (widget.initialName ?? '');
-    final urlChanged =
-        !widget.isLocalFile &&
-        _urlController.text.trim() != (widget.initialUrl ?? '');
-    final autoUpdateModeChanged =
-        _autoUpdateMode !=
-        (widget.initialAutoUpdateMode ?? AutoUpdateMode.disabled);
-    final intervalChanged =
-        !widget.isLocalFile &&
-        _autoUpdateMode == AutoUpdateMode.interval &&
-        int.tryParse(_intervalController.text.trim()) !=
-            (widget.initialIntervalMinutes ?? 60);
-    final updateOnStartupChanged =
-        !widget.isLocalFile &&
-        _updateOnStartup != (widget.initialUpdateOnStartup ?? false);
-    final proxyModeChanged =
-        !widget.isLocalFile &&
-        _proxyMode != (widget.initialProxyMode ?? SubscriptionProxyMode.direct);
+    if (_nameController.text.trim() != (widget.initialName ?? '')) return true;
 
-    return nameChanged ||
-        urlChanged ||
-        autoUpdateModeChanged ||
-        intervalChanged ||
-        updateOnStartupChanged ||
-        proxyModeChanged;
+    if (!widget.isLocalFile) {
+      if (_urlController.text.trim() != (widget.initialUrl ?? '')) return true;
+
+      if (_autoUpdateMode !=
+          (widget.initialAutoUpdateMode ?? AutoUpdateMode.disabled)) {
+        return true;
+      }
+
+      if (_autoUpdateMode == AutoUpdateMode.interval &&
+          int.tryParse(_intervalController.text.trim()) !=
+              (widget.initialIntervalMinutes ?? 60)) {
+        return true;
+      }
+
+      if (_updateOnStartup != (widget.initialUpdateOnStartup ?? false)) {
+        return true;
+      }
+
+      if (_proxyMode !=
+          (widget.initialProxyMode ?? SubscriptionProxyMode.direct)) {
+        return true;
+      }
+
+      if (_userAgentController.text.trim() !=
+          (widget.initialUserAgent ?? _defaultUserAgent)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   // 内容变化时标记需要重建，延迟到下一帧执行
@@ -196,10 +217,12 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     _nameController.removeListener(_checkForChanges);
     _urlController.removeListener(_checkForChanges);
     _intervalController.removeListener(_checkForChanges);
+    _userAgentController.removeListener(_checkForChanges);
     // 释放控制器
     _nameController.dispose();
     _urlController.dispose();
     _intervalController.dispose();
+    _userAgentController.dispose();
     super.dispose();
   }
 
@@ -263,7 +286,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
               const SizedBox(height: _dialogItemSpacing),
             ],
 
-            _buildTextField(
+            TextInputField(
               controller: _nameController,
               label: context.translate.subscriptionDialog.configNameLabel,
               hint: context.translate.subscriptionDialog.configNameHint,
@@ -283,7 +306,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
                     _importMethod == SubscriptionImportMethod.link ||
                 !widget.isAddMode && !widget.isLocalFile) ...[
               const SizedBox(height: _dialogItemSpacing),
-              _buildTextField(
+              TextInputField(
                 controller: _urlController,
                 label:
                     context.translate.subscriptionDialog.subscriptionLinkLabel,
@@ -333,6 +356,8 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
                   return null;
                 },
               ),
+              const SizedBox(height: _dialogItemSpacing),
+              _buildUserAgentField(),
             ] else if (widget.isAddMode &&
                 _importMethod == SubscriptionImportMethod.localFile) ...[
               const SizedBox(height: _dialogItemSpacing),
@@ -351,66 +376,6 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
               _buildProxyModeSection(),
             ],
           ],
-        ),
-      ),
-    );
-  }
-
-  // 构建输入框
-  // 关键参数：
-  // - minLines/maxLines: 控制多行输入
-  //   - 单行：maxLines = 1
-  //   - 动态高度：minLines = 1, maxLines = null（自动扩展）
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    int? minLines,
-    int? maxLines = 1,
-    String? Function(String?)? validator,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.04)
-              : Colors.white.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: isDark ? 0.1 : 0.2),
-          ),
-        ),
-        child: TextFormField(
-          controller: controller,
-          minLines: minLines,
-          maxLines: maxLines,
-          validator: validator,
-          decoration: InputDecoration(
-            labelText: label,
-            hintText: hint,
-            prefixIcon: Icon(icon, size: 16),
-            border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            labelStyle: TextStyle(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.7),
-              fontSize: 14,
-            ),
-            hintStyle: TextStyle(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
-              fontSize: 14,
-            ),
-          ),
         ),
       ),
     );
@@ -659,6 +624,22 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     );
   }
 
+  // 构建 User-Agent 输入字段
+  Widget _buildUserAgentField() {
+    return TextInputField(
+      controller: _userAgentController,
+      label: 'User-Agent',
+      hint: ClashDefaults.defaultUserAgent,
+      icon: Icons.badge,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'User-Agent 不能为空';
+        }
+        return null;
+      },
+    );
+  }
+
   // 构建导入方式选择器
   Widget _buildImportModeSelector() {
     final trans = context.translate.subscriptionDialog;
@@ -739,6 +720,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
         isLocalImport: _importMethod == SubscriptionImportMethod.localFile,
         localFilePath: _selectedFile?.file.path,
         proxyMode: _proxyMode,
+        userAgent: _userAgentController.text.trim(),
       );
 
       // 如果有确认回调，调用它并等待结果
@@ -812,6 +794,7 @@ class SubscriptionDialogResult {
   final bool isLocalImport;
   final String? localFilePath;
   final SubscriptionProxyMode proxyMode;
+  final String userAgent;
 
   const SubscriptionDialogResult({
     required this.name,
@@ -822,5 +805,6 @@ class SubscriptionDialogResult {
     this.isLocalImport = false,
     this.localFilePath,
     this.proxyMode = SubscriptionProxyMode.direct,
-  });
+    String? userAgent,
+  }) : userAgent = userAgent ?? ClashDefaults.defaultUserAgent;
 }

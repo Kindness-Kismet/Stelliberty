@@ -86,8 +86,8 @@ class SubscriptionService {
     final client = _createHttpClient(effectiveProxyMode);
 
     try {
-      // 获取配置的 User-Agent
-      final userAgent = ClashPreferences.instance.getUserAgent();
+      // 获取订阅的 User-Agent
+      final userAgent = subscription.userAgent;
 
       // 发送 HTTP GET 请求
       final response = await client

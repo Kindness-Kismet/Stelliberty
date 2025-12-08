@@ -267,6 +267,7 @@ class SubscriptionProvider extends ChangeNotifier {
     bool updateOnStartup = false,
     bool downloadNow = true,
     SubscriptionProxyMode proxyMode = SubscriptionProxyMode.direct,
+    String? userAgent,
   }) async {
     // 不清除全局错误，单个订阅操作不影响全局状态
 
@@ -279,6 +280,10 @@ class SubscriptionProvider extends ChangeNotifier {
         return false;
       }
 
+      // 如果未指定 userAgent，使用全局默认值
+      final effectiveUserAgent =
+          userAgent ?? ClashPreferences.instance.getDefaultUserAgent();
+
       final subscription = Subscription(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: name,
@@ -287,6 +292,7 @@ class SubscriptionProvider extends ChangeNotifier {
         intervalMinutes: intervalMinutes,
         updateOnStartup: updateOnStartup,
         proxyMode: proxyMode,
+        userAgent: effectiveUserAgent,
       );
 
       // 如果需要立即下载
@@ -921,6 +927,7 @@ class SubscriptionProvider extends ChangeNotifier {
     int? intervalMinutes,
     bool? updateOnStartup,
     SubscriptionProxyMode? proxyMode,
+    String? userAgent,
   }) async {
     // 不清除全局错误，单个操作不影响全局状态
     final index = _subscriptions.indexWhere((s) => s.id == subscriptionId);
@@ -940,6 +947,7 @@ class SubscriptionProvider extends ChangeNotifier {
         intervalMinutes: intervalMinutes ?? subscription.intervalMinutes,
         updateOnStartup: updateOnStartup ?? subscription.updateOnStartup,
         proxyMode: proxyMode ?? subscription.proxyMode,
+        userAgent: userAgent ?? subscription.userAgent,
       );
 
       await _service.saveSubscriptionList(_subscriptions);
