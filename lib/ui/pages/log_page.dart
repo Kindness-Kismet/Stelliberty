@@ -272,7 +272,9 @@ class _LogPageState extends State<LogPage> {
                   ModernIconTooltip(
                     message: context.translate.logs.clearLogs,
                     icon: Icons.delete_outline_rounded,
-                    onPressed: provider.logs.isEmpty ? null : provider.clearLogs,
+                    onPressed: provider.logs.isEmpty
+                        ? null
+                        : provider.clearLogs,
                     iconSize: 20,
                   ),
                 ],

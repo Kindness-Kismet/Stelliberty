@@ -271,8 +271,7 @@ class Subscription {
       failedOverrideIds: json['failedOverrideIds'] != null
           ? List<String>.from(json['failedOverrideIds'] as List)
           : const [],
-      userAgent:
-          json['userAgent'] as String? ?? ClashDefaults.defaultUserAgent,
+      userAgent: json['userAgent'] as String? ?? ClashDefaults.defaultUserAgent,
     );
   }
 

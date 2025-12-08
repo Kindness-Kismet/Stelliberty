@@ -195,7 +195,11 @@ class _OverridePageState extends State<OverridePage> {
               ),
               itemCount: provider.overrides.length,
               onReorder: (oldIndex, newIndex) {
-                provider.reorderOverrides(oldIndex, newIndex, autoAdjust: false);
+                provider.reorderOverrides(
+                  oldIndex,
+                  newIndex,
+                  autoAdjust: false,
+                );
               },
               dragWidgetBuilder: (index, child) {
                 final override = provider.overrides[index];

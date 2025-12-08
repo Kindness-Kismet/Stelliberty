@@ -163,47 +163,48 @@ class _ProxyNodeGridWidgetState extends State<ProxyNodeGrid> {
                         addAutomaticKeepAlives: true,
                         addRepaintBoundaries: true,
                         itemBuilder: (context, index) {
-                        final proxyName = sortedGroup.all[index];
-                        final node = state.proxyNodes[proxyName];
+                          final proxyName = sortedGroup.all[index];
+                          final node = state.proxyNodes[proxyName];
 
-                        if (node == null) {
-                          // 简化日志输出，避免滚动时性能问题
-                          Logger.warning('节点信息不可用: $proxyName');
+                          if (node == null) {
+                            // 简化日志输出，避免滚动时性能问题
+                            Logger.warning('节点信息不可用: $proxyName');
 
-                          return Card(
-                            child: ListTile(
-                              title: Text(
+                            return Card(
+                              child: ListTile(
+                                title: Text(
+                                  proxyName,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                subtitle: Text(
+                                  context.translate.proxy.nodeInfoUnavailable,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final isSelected = sortedGroup.now == proxyName;
+                          final isWaitingTest = state.testingNodes.contains(
+                            proxyName,
+                          );
+
+                          // 使用 RepaintBoundary 隔离重绘，优化渲染性能
+                          return RepaintBoundary(
+                            child: ProxyNodeCard(
+                              node: node,
+                              isSelected: isSelected,
+                              isClashRunning:
+                                  widget.clashProvider.isCoreRunning,
+                              isWaitingTest: isWaitingTest,
+                              onTap: () => widget.onSelectProxy(
+                                sortedGroup.name,
                                 proxyName,
-                                style: const TextStyle(fontSize: 14),
                               ),
-                              subtitle: Text(
-                                context.translate.proxy.nodeInfoUnavailable,
-                                style: const TextStyle(fontSize: 12),
-                              ),
+                              onTestDelay: () => widget.onTestDelay(proxyName),
                             ),
                           );
-                        }
-
-                        final isSelected = sortedGroup.now == proxyName;
-                        final isWaitingTest = state.testingNodes.contains(
-                          proxyName,
-                        );
-
-                        // 使用 RepaintBoundary 隔离重绘，优化渲染性能
-                        return RepaintBoundary(
-                          child: ProxyNodeCard(
-                            node: node,
-                            isSelected: isSelected,
-                            isClashRunning: widget.clashProvider.isCoreRunning,
-                            isWaitingTest: isWaitingTest,
-                            onTap: () => widget.onSelectProxy(
-                              sortedGroup.name,
-                              proxyName,
-                            ),
-                            onTestDelay: () => widget.onTestDelay(proxyName),
-                          ),
-                        );
-                      },
+                        },
                       ),
                     );
                   },
