@@ -880,6 +880,7 @@
     "coreSwitchSuccess": "Switched to {channel}",
     "coreSwitchFailed": "Failed to switch core: {error}",
     "customCoreUpdateUnsupported": "Custom core cannot be updated automatically",
+    "stopCoreFailed": "Failed to stop core",
     "serviceMode": "Service Mode",
     "adminMode": "Admin Mode",
     "normalMode": "Normal Mode",

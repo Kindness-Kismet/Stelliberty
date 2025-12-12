@@ -297,8 +297,20 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
 
       if (wasRunning) {
         await clashProvider.stop();
-        await Future.delayed(const Duration(milliseconds: 300));
-        await clashProvider.start(configPath: currentConfigPath);
+        final stopped = await clashProvider.stop();
+        if (!stopped) {
+          Logger.error('停止核心失败，取消切换核心');
+          if (mounted) {
+            ModernToast.error(
+              context,
+              context.translate.home.coreSwitchFailed.replaceAll(
+                '{error}',
+                context.translate.home.stopCoreFailed,
+              ),
+            );
+          }
+          return;
+        }
       }
 
       if (mounted) {
