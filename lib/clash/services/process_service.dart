@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
+import 'package:stelliberty/clash/core/core_channel.dart';
+import 'package:stelliberty/clash/services/core_update_service.dart';
 import 'package:stelliberty/clash/services/geo_service.dart';
+import 'package:stelliberty/clash/storage/preferences.dart';
 import 'package:stelliberty/src/bindings/bindings.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/utils/logger.dart';
@@ -111,39 +113,20 @@ class ProcessService {
   // 获取 Clash 可执行文件路径
   // 直接返回 flutter_assets 中的可执行文件路径
   static Future<String> getExecutablePath() async {
-    final String fileName;
-    if (Platform.isWindows) {
-      fileName = 'clash-core.exe';
-    } else if (Platform.isMacOS || Platform.isLinux) {
-      fileName = 'clash-core';
-    } else if (Platform.isAndroid) {
+    if (Platform.isAndroid || Platform.isIOS) {
       throw UnsupportedError('移动端不支持这个方式');
-    } else {
-      throw UnsupportedError('不支持的平台: ${Platform.operatingSystem}');
     }
 
-    // 获取可执行文件所在目录
-    final exeDir = p.dirname(Platform.resolvedExecutable);
+    final prefs = ClashPreferences.instance;
+    final channel = prefs.getCoreChannel();
+    final customPath = prefs.getCoreCustomPath();
 
-    // 构建 flutter_assets/assets/clash-core 路径
-    final executablePath = p.join(
-      exeDir,
-      'data',
-      'flutter_assets',
-      'assets',
-      'clash-core',
-      fileName,
+    final executablePath = await CoreUpdateService.ensureCorePath(
+      channel: channel,
+      customPath: customPath,
     );
 
-    final executableFile = File(executablePath);
-
-    // 验证文件存在
-    if (!await executableFile.exists()) {
-      Logger.error('Clash 可执行文件不存在：$executablePath');
-      throw Exception('Clash 可执行文件不存在，请检查应用打包是否正确');
-    }
-
-    Logger.info('使用内置 Clash 可执行文件：$executablePath');
+    Logger.info('使用 ${channel.storageValue} 核心：$executablePath');
     return executablePath;
   }
 

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stelliberty/storage/dev_preferences.dart';
 import '../config/clash_defaults.dart';
+import '../core/core_channel.dart';
 import '../utils/system_proxy.dart';
 
 // Clash 专用持久化配置管理
@@ -118,6 +119,8 @@ class ClashPreferences {
   static const String _kGeodataLoader = 'clash_geodata_loader';
   static const String _kFindProcessMode = 'clash_find_process_mode';
   static const String _kCoreLogLevel = 'clash_core_log_level';
+  static const String _kCoreChannel = 'clash_core_channel';
+  static const String _kCoreCustomPath = 'clash_core_custom_path';
   static const String _kTestUrl = 'clash_test_url';
   static const String _kUnifiedDelayEnabled = 'clash_unified_delay_enabled';
   static const String _kMixedPort = 'clash_mixed_port';
@@ -225,6 +228,20 @@ class ClashPreferences {
   // 保存核心日志等级
   Future<void> setCoreLogLevel(String level) =>
       _setString(_kCoreLogLevel, level);
+
+  // ==================== 核心渠道与路径 ====================
+
+  CoreChannel getCoreChannel() => CoreChannelX.fromStorage(
+    _getString(_kCoreChannel, CoreChannel.stable.storageValue),
+  );
+
+  Future<void> setCoreChannel(CoreChannel channel) =>
+      _setString(_kCoreChannel, channel.storageValue);
+
+  String? getCoreCustomPath() => _getStringNullable(_kCoreCustomPath);
+
+  Future<void> setCoreCustomPath(String? path) =>
+      _setStringNullable(_kCoreCustomPath, path);
 
   // ==================== 测速链接 ====================
 
@@ -483,6 +500,8 @@ class ClashPreferences {
       _kGeodataLoader,
       _kFindProcessMode,
       _kCoreLogLevel,
+      _kCoreChannel,
+      _kCoreCustomPath,
       _kTestUrl,
       _kMixedPort,
       _kSocksPort,
@@ -524,6 +543,8 @@ class ClashPreferences {
       _kGeodataLoader,
       _kFindProcessMode,
       _kCoreLogLevel,
+      _kCoreChannel,
+      _kCoreCustomPath,
       _kTestUrl,
       _kMixedPort,
       _kSocksPort,

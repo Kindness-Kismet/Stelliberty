@@ -258,8 +258,14 @@ class InfoContainer extends StatelessWidget {
             ],
           ),
         ),
-        // 右侧内容
-        _buildTrailing(context, row),
+        // 右侧内容，使用 Flexible 防止溢出
+        Flexible(
+          fit: FlexFit.loose,
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: _buildTrailing(context, row),
+          ),
+        ),
       ],
     );
   }
@@ -279,14 +285,27 @@ class InfoContainer extends StatelessWidget {
       );
     } else {
       // 普通文本行
-      content = Text(
+      final text = Text(
         row.value ?? '',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style:
             row.valueStyle ??
             Theme.of(context).textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w600,
               color: Theme.of(context).colorScheme.onSurface,
             ),
+      );
+
+      content = ModernTooltip(
+        message: row.value ?? '',
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            // 限制值区域最大宽度，避免超出行宽
+            maxWidth: MediaQuery.of(context).size.width * 0.55,
+          ),
+          child: text,
+        ),
       );
     }
 
