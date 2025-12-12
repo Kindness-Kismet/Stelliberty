@@ -275,6 +275,7 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
     final clashManager = context.read<ClashManager>();
     final wasRunning = clashManager.isCoreRunning;
     final currentConfigPath = clashManager.currentConfigPath;
+    final shouldStartAfterSwitch = wasRunning || currentConfigPath != null;
 
     try {
       final resolvedPath = await CoreUpdateService.ensureCorePath(
@@ -296,7 +297,6 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
       }
 
       if (wasRunning) {
-        await clashProvider.stop();
         final stopped = await clashProvider.stop();
         if (!stopped) {
           Logger.error('停止核心失败，取消切换核心');
@@ -306,6 +306,23 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
               context.translate.home.coreSwitchFailed.replaceAll(
                 '{error}',
                 context.translate.home.stopCoreFailed,
+              ),
+            );
+          }
+          return;
+        }
+      }
+
+      if (shouldStartAfterSwitch) {
+        final started = await clashProvider.start(configPath: currentConfigPath);
+        if (!started) {
+          Logger.error('切换核心后启动失败');
+          if (mounted) {
+            ModernToast.error(
+              context,
+              context.translate.home.coreSwitchFailed.replaceAll(
+                '{error}',
+                context.translate.home.restartCoreFailed,
               ),
             );
           }

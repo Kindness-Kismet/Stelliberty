@@ -874,6 +874,7 @@
     "coreSwitchFailed": "切换内核失败：{error}",
     "customCoreUpdateUnsupported": "自定义内核不支持自动更新",
     "stopCoreFailed": "停止核心失败",
+    "restartCoreFailed": "重启核心失败",
     "serviceMode": "服务模式",
     "adminMode": "管理员模式",
     "normalMode": "普通模式",
