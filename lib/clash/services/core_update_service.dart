@@ -418,6 +418,10 @@ class CoreUpdateService {
       if (await bundledFile.exists()) {
         await Directory(coreDir).create(recursive: true);
         await bundledFile.copy(targetPath);
+        // Ensure the copied file is executable on non-Windows platforms
+        if (!Platform.isWindows) {
+          await File(targetPath).setExecutable(true);
+        }
         return targetPath;
       }
     }
