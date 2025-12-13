@@ -23,8 +23,8 @@ class SystemProxyManager {
        _getHttpPort = getHttpPort,
        _notifyListeners = notifyListeners;
 
-  // 更新系统代理设置（使用当前配置）
-  Future<void> updateSystemProxy() async {
+  // 重启系统代理（先禁用再启用，应用当前配置）
+  Future<void> restartSystemProxy() async {
     if (!_isCoreRunning()) {
       Logger.debug('Clash 未运行，跳过系统代理更新');
       return;
@@ -39,7 +39,6 @@ class SystemProxyManager {
       final pacScript = prefs.getSystemProxyPacScript();
 
       await SystemProxy.disable();
-      await Future.delayed(const Duration(milliseconds: 100));
 
       await SystemProxy.enable(
         host: proxyHost,

@@ -428,7 +428,7 @@ class ClashManager extends ChangeNotifier {
 
   Future<bool> setMixedPort(int port) async {
     return await _configManager.setMixedPort(port, () {
-      unawaited(_systemProxyManager.updateSystemProxy());
+      unawaited(_systemProxyManager.restartSystemProxy());
     });
   }
 
@@ -535,8 +535,9 @@ class ClashManager extends ChangeNotifier {
     _configManager.reloadFromPreferences();
   }
 
-  Future<void> updateSystemProxySettings() async {
-    await _systemProxyManager.updateSystemProxy();
+  // 重启系统代理（先禁用再启用，应用当前配置）
+  Future<void> restartSystemProxy() async {
+    await _systemProxyManager.restartSystemProxy();
   }
 
   Future<bool> enableSystemProxy() async {

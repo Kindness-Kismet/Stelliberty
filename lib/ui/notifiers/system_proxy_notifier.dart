@@ -199,9 +199,9 @@ class SystemProxyNotifier extends ChangeNotifier {
       await prefs.setSystemProxyPacScript(pacScriptController.text);
     }
 
-    // 如果 Clash 正在运行，更新系统代理设置
+    // 如果 Clash 正在运行，重启系统代理以应用新配置
     if (_clashManager.isCoreRunning) {
-      await _clashManager.updateSystemProxySettings();
+      await _clashManager.restartSystemProxy();
     }
 
     Logger.info('系统代理配置已保存');
@@ -224,9 +224,9 @@ class SystemProxyNotifier extends ChangeNotifier {
     notifyListeners();
     await ClashPreferences.instance.setUseDefaultBypass(value);
 
-    // 如果 Clash 正在运行，更新系统代理设置
+    // 如果 Clash 正在运行，重启系统代理以应用新配置
     if (_clashManager.isCoreRunning) {
-      await _clashManager.updateSystemProxySettings();
+      await _clashManager.restartSystemProxy();
     }
 
     Logger.info('默认绕过规则：$value');
@@ -240,9 +240,9 @@ class SystemProxyNotifier extends ChangeNotifier {
     notifyListeners();
     await ClashPreferences.instance.setSystemProxyPacMode(value);
 
-    // 如果 Clash 正在运行，更新系统代理设置
+    // 如果 Clash 正在运行，重启系统代理以应用新配置
     if (_clashManager.isCoreRunning) {
-      await _clashManager.updateSystemProxySettings();
+      await _clashManager.restartSystemProxy();
     }
 
     Logger.info('PAC 模式：${value ? "启用" : "禁用"}');
