@@ -216,15 +216,8 @@ jobs:
               
               echo "**提交**: [\`${hash:0:7}\`](https://github.com/${{ github.repository }}/commit/$hash) | **作者**: $author"
               echo ""
-              echo "---"
-              echo ""
             done
             
-            echo "**统计信息**"
-            echo ""
-            echo "- 📊 总提交数: $total_count"
-            echo "- ✅ 功能/修复提交: $included_count"
-            echo "- 🔧 CI/维护提交: $filtered_count (已过滤)"
 
           } > changelog.md
           

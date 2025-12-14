@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:stelliberty/services/app_update_service.dart';
 import 'package:stelliberty/providers/app_update_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
@@ -213,7 +214,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                 child: SingleChildScrollView(
                   controller: _releaseNotesScrollController,
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Text(
+                  child: GptMarkdown(
                     widget.updateInfo.releaseNotes!,
                     style: TextStyle(
                       fontSize: 13,

@@ -71,6 +71,9 @@ dependencies:
   # 可拖动排序的网格视图
   reorderable_grid_view: ^2.2.8
 
+  # Markdown 渲染支持
+  gpt_markdown: ^1.1.4
+
 dev_dependencies:
   flutter_lints: ^6.0.0
 

@@ -2,11 +2,15 @@
 
 # 🌟 Stelliberty
 
-[![简体中文](https://img.shields.io/badge/简体中文-red)](./README_zh-CN.md)
-[![English](https://img.shields.io/badge/English-blue)](./README.md)
+[![简体中文](https://img.shields.io/badge/简体中文-red)](README.zh-CN.md)
+[![English](https://img.shields.io/badge/English-blue)](../../README.md)
+[![日本語](https://img.shields.io/badge/日本語-blue)](README.ja.md)
+[![한국어](https://img.shields.io/badge/한국어-blue)](README.ko.md)
+[![Deutsch](https://img.shields.io/badge/Deutsch-blue)](README.de.md)
+[![Français](https://img.shields.io/badge/Français-blue)](README.fr.md)
 
 ![正式版](https://img.shields.io/github/v/release/Kindness-Kismet/Stelliberty?style=flat-square&label=正式版)
-![最新版](https://img.shields.io/github/v/release/Kindness-Kismet/Stelliberty?include_prereleases&style=flat-square&label=最新版&color=orange)
+![最新版](https://img.shields.io/github/v/tag/Kindness-Kismet/Stelliberty?style=flat-square&label=最新版&color=orange)
 ![Flutter](https://img.shields.io/badge/Flutter-3.38%2B-02569B?style=flat-square&logo=flutter)
 ![Rust](https://img.shields.io/badge/Rust-1.91%2B-orange?style=flat-square&logo=rust)
 ![License](https://img.shields.io/badge/license-Stelliberty-green?style=flat-square)
@@ -25,8 +29,8 @@
 
 <table>
   <tr>
-    <td width="50%"><img src=".github/screenshots/home-page.jpg" alt="主页"/></td>
-    <td width="50%"><img src=".github/screenshots/uwp-loopback-manager.jpg" alt="UWP 回环管理器"/></td>
+    <td width="50%"><img src="../../.github/screenshots/home-page.jpg" alt="主页"/></td>
+    <td width="50%"><img src="../../.github/screenshots/uwp-loopback-manager.jpg" alt="UWP 回环管理器"/></td>
   </tr>
   <tr>
     <td align="center"><b>主页</b></td>
@@ -426,7 +430,7 @@ taskkill /F /PID XXX
 
 ## 📄 许可证
 
-本项目采用 **Stelliberty License（星辰自由许可证）** - 详见 [LICENSE](LICENSE) 文件。
+本项目采用 **Stelliberty License（星辰自由许可证）** - 详见 [LICENSE](../../LICENSE) 文件。
 
 **简而言之**：你可以随心所欲地使用本软件，没有任何限制，无需署名。
 
