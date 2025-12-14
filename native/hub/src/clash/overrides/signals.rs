@@ -147,3 +147,64 @@ impl ParseSubscriptionRequest {
         }
     }
 }
+
+// ============================================================================
+// 覆写文件下载消息协议
+// ============================================================================
+
+// Dart → Rust：下载覆写文件请求
+#[derive(Deserialize, DartSignal)]
+pub struct DownloadOverrideRequest {
+    pub url: String,
+    pub proxy_mode: crate::clash::subscription::signals::ProxyMode,
+    pub user_agent: String,
+    pub timeout_seconds: u64,
+    pub mixed_port: u16, // Clash 混合端口（用于 Core 代理模式）
+}
+
+// Rust → Dart：下载覆写文件响应
+#[derive(Serialize, RustSignal)]
+pub struct DownloadOverrideResponse {
+    pub success: bool,
+    pub content: String, // 下载的覆写文件内容
+    pub error_message: Option<String>,
+}
+
+impl DownloadOverrideRequest {
+    // 处理下载覆写文件请求
+    pub async fn handle(self) {
+        log::info!("收到下载覆写文件请求：{}", self.url);
+
+        // 调用下载器
+        let result = super::downloader::download_override(
+            &self.url,
+            self.proxy_mode,
+            &self.user_agent,
+            self.timeout_seconds,
+            self.mixed_port,
+        )
+        .await;
+
+        let response = match result {
+            Ok(content) => {
+                log::info!("覆写文件下载成功，内容长度：{} 字节", content.len());
+                DownloadOverrideResponse {
+                    success: true,
+                    content,
+                    error_message: None,
+                }
+            }
+            Err(e) => {
+                log::error!("覆写文件下载失败：{}", e);
+                DownloadOverrideResponse {
+                    success: false,
+                    content: String::new(),
+                    error_message: Some(e.to_string()),
+                }
+            }
+        };
+
+        response.send_signal_to_dart();
+    }
+}
+

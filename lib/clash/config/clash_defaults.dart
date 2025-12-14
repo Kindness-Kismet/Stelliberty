@@ -23,6 +23,7 @@ class ClashDefaults {
   static const int ipcReadyRetryInterval = 200; // IPC 重试间隔（ms）
   static const int processKillTimeout = 5; // 进程停止超时（s）
   static const int subscriptionDownloadTimeout = 10; // 订阅下载超时（s）
+  static const int overrideDownloadTimeout = 10; // 覆写文件下载超时（s）
   static const int proxyDelayTestTimeout = 8000; // 延迟测试超时（ms）
   static const int apiRequestTimeout = 10; // API 请求超时（s）
   static const int apiLongRequestTimeout = 15; // API 长请求超时（s）
@@ -36,7 +37,7 @@ class ClashDefaults {
   static int get dynamicDelayTestConcurrency {
     try {
       final cpuCores = Platform.numberOfProcessors;
-      return (cpuCores * 15).clamp(20, 300);
+      return ((cpuCores * 15).clamp(20, 300)).toInt();
     } catch (e) {
       return 50; // 异常时使用保守值
     }

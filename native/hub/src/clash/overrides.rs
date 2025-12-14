@@ -2,12 +2,13 @@
 //
 // 目的：提供 YAML 和 JavaScript 格式的配置覆写功能
 
+pub mod downloader;
 pub mod js_executor;
 pub mod processor;
 pub mod signals;
 pub mod yaml_merger;
 
-pub use signals::{ApplyOverridesRequest, ParseSubscriptionRequest};
+pub use signals::{ApplyOverridesRequest, DownloadOverrideRequest, ParseSubscriptionRequest};
 
 use rinf::DartSignal;
 use tokio::spawn;
@@ -33,4 +34,16 @@ pub fn init_message_listeners() {
         }
         log::info!("订阅解析消息通道已关闭，退出监听器");
     });
+
+    // 覆写文件下载请求监听器
+    spawn(async {
+        let receiver = DownloadOverrideRequest::get_dart_signal_receiver();
+        while let Some(dart_signal) = receiver.recv().await {
+            spawn(async move {
+                dart_signal.message.handle().await;
+            });
+        }
+        log::info!("覆写文件下载消息通道已关闭，退出监听器");
+    });
 }
+

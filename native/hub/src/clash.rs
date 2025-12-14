@@ -9,6 +9,7 @@ use tokio::spawn;
 
 pub mod config;
 pub mod core_update;
+pub mod delay_test;
 pub mod network;
 pub mod overrides;
 pub mod process;
@@ -155,4 +156,7 @@ pub fn init() {
 
     // 启动核心更新监听器
     core_update::init_message_listeners();
+
+    // 启动延迟测试监听器
+    delay_test::init_message_listeners();
 }

@@ -4,12 +4,14 @@ import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/clash/data/clash_model.dart';
 import 'package:stelliberty/clash/data/traffic_data_model.dart';
 import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/clash/utils/config_parser.dart';
 import 'package:stelliberty/clash/services/config_watcher.dart';
 import 'package:stelliberty/clash/services/config_management_service.dart';
 import 'package:stelliberty/clash/services/delay_test_service.dart';
 import 'package:stelliberty/clash/utils/delay_tester.dart';
+import 'package:stelliberty/src/bindings/signals/signals.dart' as signals;
 
 // Clash 状态 Provider
 // 管理 Clash 的运行状态、代理列表等
@@ -1059,84 +1061,97 @@ class ClashProvider extends ChangeNotifier {
     bool hasPendingUpdates = false;
 
     try {
-      Logger.info('开始测试所有节点延迟，共 ${allProxyNames.length} 个节点');
-
-      // 直接批量测试所有去重后的节点（不遍历代理组，避免重复测试）
+      // 使用 Rust 层批量测试
       final proxyNamesList = allProxyNames.toList();
 
-      // 使用滑动窗口并发测试
-      const windowSize = 300;
+      // 使用动态并发数
+      final concurrency = ClashDefaults.dynamicDelayTestConcurrency;
+      final timeoutMs = ClashDefaults.proxyDelayTestTimeout;
+      final url = testUrl ?? ClashDefaults.defaultTestUrl;
+
+      Logger.info(
+        '开始批量测试所有节点延迟，共 ${proxyNamesList.length} 个节点，并发数：$concurrency',
+      );
+
+      // 订阅 Rust 层进度信号
+      StreamSubscription? progressSubscription;
+      StreamSubscription? completeSubscription;
       final completer = Completer<void>();
-      int activeTests = 0;
-      int currentIndex = 0;
-      int successCount = 0;
 
-      Future<void> testNext() async {
-        if (currentIndex >= proxyNamesList.length) {
-          if (activeTests == 0) {
-            completer.complete();
-          }
-          return;
-        }
+      try {
+        // 订阅进度信号（流式更新）
+        progressSubscription = signals.DelayTestProgress.rustSignalStream
+            .listen((result) {
+              final nodeName = result.message.nodeName;
+              final delayMs = result.message.delayMs;
 
-        final nodeName = proxyNamesList[currentIndex];
-        currentIndex++;
-        activeTests++;
+              // 更新节点延迟
+              final node = _proxyNodes[nodeName];
+              if (node != null) {
+                _proxyNodes[nodeName] = node.copyWith(delay: delayMs);
+                hasPendingUpdates = true;
+              }
 
-        try {
-          final delay = await DelayTestService.testProxyDelay(
-            nodeName,
-            _proxyNodes,
-            _allProxyGroups,
-            _selectedMap,
-            testUrl: testUrl,
-          );
+              // 从测试集合中移除
+              _testingNodes.remove(nodeName);
 
-          // 节点测试完成，立即更新延迟值
-          final node = _proxyNodes[nodeName];
-          if (node != null) {
-            _proxyNodes[nodeName] = node.copyWith(delay: delay);
-            hasPendingUpdates = true;
+              // 节流通知 UI 更新（每 100ms 最多一次）
+              final now = DateTime.now();
+              if (hasPendingUpdates &&
+                  (_lastNotifyTime == null ||
+                      now.difference(_lastNotifyTime!).inMilliseconds >=
+                          _notifyThrottleMs)) {
+                // 仅在有更新时才创建新 Map（触发 Selector 重建）
+                _proxyNodes = Map<String, ProxyNode>.from(_proxyNodes);
+                _proxyNodesUpdateCount++;
+                notifyListeners();
+                _lastNotifyTime = now;
+                hasPendingUpdates = false;
+              }
+            });
 
-            if (delay > 0) {
-              successCount++;
-            }
-          }
+        // 订阅完成信号
+        completeSubscription = signals.BatchDelayTestComplete.rustSignalStream
+            .listen((result) {
+              final message = result.message;
+              if (message.success) {
+                Logger.info(
+                  '所有节点延迟测试完成，成功：${message.successCount}/${message.totalCount}',
+                );
+                completer.complete();
+              } else {
+                Logger.error(
+                  '批量延迟测试失败（Rust 层）：${message.errorMessage ?? "未知错误"}',
+                );
+                completer.completeError(
+                  Exception(message.errorMessage ?? '批量延迟测试失败'),
+                );
+              }
+            });
 
-          // 从测试集合中移除
-          _testingNodes.remove(nodeName);
+        // 发送批量测试请求到 Rust 层
+        signals.BatchDelayTestRequest(
+          nodeNames: proxyNamesList,
+          testUrl: url,
+          timeoutMs: timeoutMs,
+          concurrency: concurrency,
+        ).sendSignalToRust();
 
-          // 节流通知 UI 更新（每 100ms 最多一次）
-          final now = DateTime.now();
-          if (hasPendingUpdates &&
-              (_lastNotifyTime == null ||
-                  now.difference(_lastNotifyTime!).inMilliseconds >=
-                      _notifyThrottleMs)) {
-            // 仅在有更新时才创建新 Map（触发 Selector 重建）
-            _proxyNodes = Map<String, ProxyNode>.from(_proxyNodes);
-            _proxyNodesUpdateCount++;
-            notifyListeners();
-            _lastNotifyTime = now;
-            hasPendingUpdates = false;
-          }
-        } catch (e) {
-          Logger.error('测试节点 $nodeName 失败：$e');
-          _testingNodes.remove(nodeName);
-        } finally {
-          activeTests--;
-          // 继续测试下一个
-          testNext();
-        }
+        // 等待测试完成（最多等待：节点数 × 单个超时 + 10秒缓冲）
+        final maxWaitTime = Duration(
+          milliseconds: (proxyNamesList.length * timeoutMs) + 10000,
+        );
+        await completer.future.timeout(
+          maxWaitTime,
+          onTimeout: () {
+            throw Exception('批量延迟测试超时');
+          },
+        );
+      } finally {
+        // 取消订阅
+        await progressSubscription?.cancel();
+        await completeSubscription?.cancel();
       }
-
-      // 启动初始批次
-      for (int i = 0; i < windowSize && i < proxyNamesList.length; i++) {
-        testNext();
-      }
-
-      // 等待所有测试完成
-      await completer.future;
-      Logger.info('所有节点延迟测试完成，成功：$successCount/${proxyNamesList.length}');
     } finally {
       // 确保最后一次更新（包含所有节点的最终结果）
       if (hasPendingUpdates) {

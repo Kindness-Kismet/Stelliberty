@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:stelliberty/clash/data/clash_model.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/clash/utils/delay_tester.dart';
 import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/src/bindings/signals/signals.dart' as signals;
 
 // 延迟测试服务
 class DelayTestService {
@@ -38,7 +38,7 @@ class DelayTestService {
   }
 
   // 批量测试代理组中所有节点的延迟
-  // 使用滑动窗口并发策略，保持固定并发数，一个完成立即启动下一个
+  // 使用 Rust 层批量测试（通过滑动窗口并发策略）
   // 每个节点测试完成后立即回调，实现真正的流式更新
   static Future<Map<String, int>> testGroupDelays(
     String groupName,
@@ -65,117 +65,80 @@ class DelayTestService {
       return {};
     }
 
+    // 关键：检查 DelayTester 是否可用（即 Clash API 客户端是否已设置）
+    if (!DelayTester.isAvailable) {
+      Logger.error('Clash 未运行或 API 未就绪，无法进行延迟测试');
+      return {};
+    }
+
     // 使用动态并发数（基于 CPU 核心数）
     final concurrency = ClashDefaults.dynamicDelayTestConcurrency;
-    Logger.info(
-      '开始测试代理组 $groupName 中的 ${proxyNames.length} 个项目（滑动窗口并发数：$concurrency）',
-    );
+    final timeoutMs = ClashDefaults.proxyDelayTestTimeout;
+    final url = testUrl ?? ClashDefaults.defaultTestUrl;
 
     // 存储所有节点的延迟结果
     final delayResults = <String, int>{};
-    int successCount = 0;
-    int completedCount = 0;
+    final completer = Completer<void>();
 
-    // 滑动窗口并发：使用 Completer 跟踪任务完成状态
-    final inProgress = <Completer<void>>[];
-    int nextIndex = 0;
+    // 监听进度信号（流式更新）
+    StreamSubscription? progressSubscription;
+    StreamSubscription? completeSubscription;
 
-    // 启动初始批次的任务（最多 concurrency 个）
-    while (nextIndex < proxyNames.length && inProgress.length < concurrency) {
-      final proxyName = proxyNames[nextIndex];
-      nextIndex++;
+    try {
+      // 订阅进度信号
+      progressSubscription = signals.DelayTestProgress.rustSignalStream.listen((
+        result,
+      ) {
+        final nodeName = result.message.nodeName;
+        final delayMs = result.message.delayMs;
 
-      final completer = Completer<void>();
-      _testSingleNode(
-        proxyName,
-        proxyNodes,
-        allProxyGroups,
-        selectedMap,
-        testUrl,
-        onNodeStart,
-        onNodeComplete,
-        delayResults,
-        () => successCount++,
-        () => completedCount++,
-        proxyNames.length,
-      ).then((_) => completer.complete()).catchError(completer.completeError);
+        // 触发节点测试完成回调
+        onNodeComplete?.call(nodeName, delayMs);
 
-      inProgress.add(completer);
+        // 保存延迟结果
+        delayResults[nodeName] = delayMs;
+      });
+
+      // 订阅完成信号
+      completeSubscription =
+          signals.BatchDelayTestComplete.rustSignalStream.listen((result) {
+        final message = result.message;
+        if (message.success) {
+          completer.complete();
+        } else {
+          Logger.error(
+            '批量延迟测试失败（Rust 层）：${message.errorMessage ?? "未知错误"}',
+          );
+          completer.completeError(
+            Exception(message.errorMessage ?? '批量延迟测试失败'),
+          );
+        }
+      });
+
+      // 发送批量测试请求到 Rust 层
+      signals.BatchDelayTestRequest(
+        nodeNames: proxyNames,
+        testUrl: url,
+        timeoutMs: timeoutMs,
+        concurrency: concurrency,
+      ).sendSignalToRust();
+
+      // 等待测试完成（最多等待：节点数 × 单个超时 + 10秒缓冲）
+      final maxWaitTime = Duration(
+        milliseconds: proxyNames.length * timeoutMs + 10000,
+      );
+      await completer.future.timeout(
+        maxWaitTime,
+        onTimeout: () {
+          throw Exception('批量延迟测试超时');
+        },
+      );
+
+      return delayResults;
+    } finally {
+      // 取消订阅
+      await progressSubscription?.cancel();
+      await completeSubscription?.cancel();
     }
-
-    // 持续监控并启动新任务（滑动窗口核心逻辑）
-    while (inProgress.isNotEmpty) {
-      // 等待任意一个任务完成（非阻塞等待，保持窗口满载）
-      await Future.any(inProgress.map((c) => c.future));
-
-      // 移除所有已完成的任务
-      inProgress.removeWhere((completer) => completer.isCompleted);
-
-      // 如果还有待测试的节点，启动新任务补充窗口
-      while (nextIndex < proxyNames.length && inProgress.length < concurrency) {
-        final proxyName = proxyNames[nextIndex];
-        nextIndex++;
-
-        final completer = Completer<void>();
-        _testSingleNode(
-          proxyName,
-          proxyNodes,
-          allProxyGroups,
-          selectedMap,
-          testUrl,
-          onNodeStart,
-          onNodeComplete,
-          delayResults,
-          () => successCount++,
-          () => completedCount++,
-          proxyNames.length,
-        ).then((_) => completer.complete()).catchError(completer.completeError);
-
-        inProgress.add(completer);
-      }
-    }
-
-    Logger.info('延迟测试完成，成功：$successCount/${proxyNames.length}');
-
-    return delayResults;
-  }
-
-  // 测试单个节点（内部方法）
-  static Future<void> _testSingleNode(
-    String proxyName,
-    Map<String, ProxyNode> proxyNodes,
-    List<ProxyGroup> allProxyGroups,
-    Map<String, String> selectedMap,
-    String? testUrl,
-    Function(String nodeName)? onNodeStart,
-    Function(String nodeName, int delay)? onNodeComplete,
-    Map<String, int> delayResults,
-    VoidCallback onSuccess,
-    VoidCallback onComplete,
-    int totalCount,
-  ) async {
-    // 通知节点开始测试
-    onNodeStart?.call(proxyName);
-
-    // 执行测试
-    final delay = await testProxyDelay(
-      proxyName,
-      proxyNodes,
-      allProxyGroups,
-      selectedMap,
-      testUrl: testUrl,
-    );
-
-    // 保存延迟结果
-    delayResults[proxyName] = delay;
-
-    // 更新计数
-    if (delay > 0) {
-      onSuccess();
-    }
-    onComplete();
-
-    // 通知节点测试完成
-    onNodeComplete?.call(proxyName, delay);
   }
 }

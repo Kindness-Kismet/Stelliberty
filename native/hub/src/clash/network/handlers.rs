@@ -864,3 +864,27 @@ impl StopLogStream {
         .send_signal_to_dart();
     }
 }
+
+
+// 公开的 IPC GET 请求接口（供 Rust 内部模块使用）
+//
+// 用于批量延迟测试等场景，直接使用连接池发送 IPC GET 请求
+pub async fn internal_ipc_get(path: &str) -> Result<String, String> {
+    // 从连接池获取连接
+    let ipc_conn = acquire_connection().await?;
+
+    // 使用连接发送请求
+    match IpcClient::request_with_connection("GET", path, None, ipc_conn).await {
+        Ok((response, ipc_conn)) => {
+            // 归还连接
+            release_connection(ipc_conn).await;
+
+            if response.status_code >= 200 && response.status_code < 300 {
+                Ok(response.body)
+            } else {
+                Err(format!("HTTP {}", response.status_code))
+            }
+        }
+        Err(e) => Err(e),
+    }
+}

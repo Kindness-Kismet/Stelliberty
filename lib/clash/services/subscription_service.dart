@@ -98,9 +98,7 @@ class SubscriptionService {
         url: subscription.url,
         proxyMode: rustProxyMode,
         userAgent: subscription.userAgent,
-        timeoutSeconds: Uint64.fromBigInt(
-          BigInt.from(ClashDefaults.subscriptionDownloadTimeout),
-        ),
+        timeoutSeconds: Uint64(BigInt.from(ClashDefaults.subscriptionDownloadTimeout)),
         mixedPort: ClashPreferences.instance.getMixedPort(),
       );
       downloadRequest.sendSignalToRust();
@@ -169,7 +167,7 @@ class SubscriptionService {
         await configFile.parent.create(recursive: true);
         await configFile.writeAsString(parsedConfigContent);
 
-        Logger.info('订阅下载成功（已保存原始配置）：${subscription.name}');
+        Logger.debug('订阅已保存至：$configPath');
 
         // 返回更新后的订阅
         return subscription.copyWith(

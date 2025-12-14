@@ -1,12 +1,12 @@
 import 'dart:io';
-import 'package:http/http.dart' as http;
-import 'package:http/io_client.dart';
 import 'package:stelliberty/clash/data/override_model.dart';
 import 'package:stelliberty/clash/data/subscription_model.dart';
 import 'package:stelliberty/clash/storage/preferences.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/src/bindings/signals/signals.dart' as signals;
+import 'package:stelliberty/clash/config/clash_defaults.dart';
 
 // 覆写文件服务
 class OverrideService {
@@ -84,70 +84,57 @@ class OverrideService {
     }
 
     try {
-      Logger.info('开始下载远程覆写：${config.name} (${config.url})');
-      Logger.info('代理模式：${effectiveProxyMode.value}');
+      // 获取默认 User-Agent
+      final userAgent = ClashPreferences.instance.getDefaultUserAgent();
+      final mixedPort = ClashPreferences.instance.getMixedPort();
 
-      // 根据代理模式创建 HTTP 客户端
-      final client = _createHttpClient(effectiveProxyMode);
+      // 转换代理模式
+      final proxyMode = _convertProxyMode(effectiveProxyMode);
 
-      try {
-        // 覆写下载使用全局默认 User-Agent
-        final userAgent = ClashPreferences.instance.getDefaultUserAgent();
+      // 发送下载请求到 Rust 层
+      signals.DownloadOverrideRequest(
+        url: config.url!,
+        proxyMode: proxyMode,
+        userAgent: userAgent,
+        timeoutSeconds: signals.Uint64(BigInt.from(ClashDefaults.overrideDownloadTimeout)),
+        mixedPort: mixedPort,
+      ).sendSignalToRust();
 
-        final response = await client
-            .get(Uri.parse(config.url!), headers: {'User-Agent': userAgent})
-            .timeout(const Duration(seconds: 30));
+      // 等待 Rust 响应
+      final responseStream = signals.DownloadOverrideResponse.rustSignalStream;
+      final response = await responseStream.first;
 
-        if (response.statusCode != 200) {
-          throw Exception('HTTP ${response.statusCode}');
-        }
-
-        final content = response.body;
-        if (content.isEmpty) {
-          throw Exception('下载的内容为空');
-        }
-
-        // 保存到本地
-        final targetPath = _getOverridePath(config.id, config.format);
-        final targetFile = File(targetPath);
-        await targetFile.writeAsString(content);
-
-        Logger.info('远程覆写已下载：${config.name} -> $targetPath');
-        return content;
-      } finally {
-        // 确保客户端被关闭
-        client.close();
+      if (!response.message.success) {
+        throw Exception(response.message.errorMessage ?? '下载失败');
       }
+
+      final content = response.message.content;
+      if (content.isEmpty) {
+        throw Exception('下载的内容为空');
+      }
+
+      // 保存到本地
+      final targetPath = _getOverridePath(config.id, config.format);
+      final targetFile = File(targetPath);
+      await targetFile.writeAsString(content);
+
+      Logger.debug('覆写已保存至：$targetPath');
+      return content;
     } catch (e) {
       Logger.error('下载远程覆写失败：${config.name} - $e');
       rethrow;
     }
   }
 
-  // 根据代理模式创建 HTTP 客户端
-  http.Client _createHttpClient(SubscriptionProxyMode proxyMode) {
-    switch (proxyMode) {
+  // 转换代理模式枚举
+  signals.ProxyMode _convertProxyMode(SubscriptionProxyMode mode) {
+    switch (mode) {
       case SubscriptionProxyMode.direct:
-        // 直连：使用默认客户端
-        Logger.debug('使用直连模式');
-        return http.Client();
-
+        return signals.ProxyMode.direct;
       case SubscriptionProxyMode.system:
-        // 系统代理：使用系统环境变量配置的代理
-        Logger.debug('使用系统代理模式');
-        final httpClient = HttpClient();
-        httpClient.findProxy = HttpClient.findProxyFromEnvironment;
-        return IOClient(httpClient);
-
+        return signals.ProxyMode.system;
       case SubscriptionProxyMode.core:
-        // 核心代理：使用 Clash 的混合端口作为代理
-        final mixedPort = ClashPreferences.instance.getMixedPort();
-        final proxyUrl = 'PROXY 127.0.0.1:$mixedPort';
-        Logger.debug('使用核心代理模式：$proxyUrl');
-
-        final httpClient = HttpClient();
-        httpClient.findProxy = (uri) => proxyUrl;
-        return IOClient(httpClient);
+        return signals.ProxyMode.core;
     }
   }
 
