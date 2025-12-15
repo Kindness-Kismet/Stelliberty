@@ -5,10 +5,33 @@ use chrono::Local;
 use env_logger;
 use log;
 use once_cell::sync::Lazy;
+use rinf::{DartSignal, RustSignal};
+use serde::{Deserialize, Serialize};
 use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use tokio::spawn;
+
+// Dart → Rust：设置应用日志开关请求
+#[derive(Deserialize, DartSignal)]
+pub struct SetAppLogEnabled {
+    pub enabled: bool,
+}
+
+// Rust → Dart：设置应用日志开关响应
+#[derive(Serialize, RustSignal)]
+pub struct SetAppLogEnabledResult {
+    pub success: bool,
+}
+
+impl SetAppLogEnabled {
+    // 处理设置应用日志开关请求
+    pub fn handle(&self) {
+        set_app_log_enabled(self.enabled);
+        SetAppLogEnabledResult { success: true }.send_signal_to_dart();
+    }
+}
 
 const MAX_LOG_FILE_SIZE: u64 = 10 * 1024 * 1024; // 10MB 轮转阈值
 
@@ -174,4 +197,16 @@ pub fn set_app_log_enabled(enabled: bool) {
 /// 初始化日志系统（幂等、懒加载、线程安全）
 pub fn setup_logger() {
     Lazy::force(&LOGGER);
+}
+
+/// 初始化消息监听器
+pub fn init_message_listener() {
+    spawn(async {
+        let receiver = SetAppLogEnabled::get_dart_signal_receiver();
+        while let Some(dart_signal) = receiver.recv().await {
+            let message = dart_signal.message;
+            message.handle();
+        }
+        log::info!("应用日志开关消息通道已关闭，退出监听器");
+    });
 }

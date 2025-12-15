@@ -8,38 +8,24 @@ pub mod auto_start;
 pub mod backup;
 #[cfg(target_os = "windows")]
 pub mod loopback;
-pub mod signals;
 pub mod url_launcher;
 
 #[allow(unused_imports)]
-pub use auto_start::{get_auto_start_status, set_auto_start_status};
+pub use auto_start::{get_auto_start_status, set_auto_start_status, AutoStartStatusResult, GetAutoStartStatus, SetAutoStartStatus};
 #[allow(unused_imports)]
-pub use signals::{
-    // 应用更新消息
-    AppUpdateResult,
-    // 自启动消息
-    AutoStartStatusResult,
-    // 备份与还原消息
-    BackupOperationResult,
-    CheckAppUpdateRequest,
-    CreateBackupRequest,
-    GetAutoStartStatus,
-    // URL 启动消息
-    OpenUrl,
-    OpenUrlResult,
-    RestoreBackupRequest,
-    SetAutoStartStatus,
-};
+pub use url_launcher::{open_url, OpenUrl, OpenUrlResult};
+#[allow(unused_imports)]
+pub use app_update::{AppUpdateResult, CheckAppUpdateRequest};
+#[allow(unused_imports)]
+pub use backup::{BackupOperationResult, CreateBackupRequest, RestoreBackupRequest};
 
 // UWP 回环豁免消息（仅 Windows）
 #[cfg(target_os = "windows")]
 #[allow(unused_imports)]
-pub use signals::{
+pub use loopback::{
     AppContainerInfo, AppContainersComplete, AppContainersList, GetAppContainers,
     SaveLoopbackConfiguration, SaveLoopbackConfigurationResult, SetLoopback, SetLoopbackResult,
 };
-#[allow(unused_imports)]
-pub use url_launcher::open_url;
 
 // 启动消息监听器
 fn init_message_listeners() {

@@ -3,6 +3,112 @@
 // 处理 Dart 层发送的 IPC 请求，通过 IpcClient 转发给 Clash 核心
 
 use super::ipc_client::IpcClient;
+use super::ws_client::WebSocketClient;
+use once_cell::sync::Lazy;
+use rinf::{DartSignal, RustSignal};
+use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::{Duration, Instant};
+use tokio::sync::{RwLock, Semaphore};
+
+#[cfg(unix)]
+use tokio::net::UnixStream;
+
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::NamedPipeClient;
+
+// Dart → Rust：通过 IPC 发送 GET 请求
+#[derive(Deserialize, DartSignal)]
+pub struct IpcGetRequest {
+    pub request_id: i64,
+    pub path: String,
+}
+
+// Dart → Rust：通过 IPC 发送 POST 请求
+#[derive(Deserialize, DartSignal)]
+pub struct IpcPostRequest {
+    pub request_id: i64,
+    pub path: String,
+    pub body: Option<String>,
+}
+
+// Dart → Rust：通过 IPC 发送 PUT 请求
+#[derive(Deserialize, DartSignal)]
+pub struct IpcPutRequest {
+    pub request_id: i64,
+    pub path: String,
+    pub body: Option<String>,
+}
+
+// Dart → Rust：通过 IPC 发送 PATCH 请求
+#[derive(Deserialize, DartSignal)]
+pub struct IpcPatchRequest {
+    pub request_id: i64,
+    pub path: String,
+    pub body: Option<String>,
+}
+
+// Dart → Rust：通过 IPC 发送 DELETE 请求
+#[derive(Deserialize, DartSignal)]
+pub struct IpcDeleteRequest {
+    pub request_id: i64,
+    pub path: String,
+}
+
+// Rust → Dart：IPC 请求响应
+#[derive(Serialize, RustSignal)]
+pub struct IpcResponse {
+    // 请求 ID（用于匹配请求和响应）
+    pub request_id: i64,
+    // HTTP 状态码
+    pub status_code: u16,
+    // 响应体（JSON 字符串）
+    pub body: String,
+    // 是否成功
+    pub success: bool,
+    // 错误消息（如果有）
+    pub error_message: Option<String>,
+}
+
+// WebSocket 流式数据
+
+// Dart → Rust：开始监听 Clash 日志
+#[derive(Deserialize, DartSignal)]
+pub struct StartLogStream;
+
+// Dart → Rust：停止监听 Clash 日志
+#[derive(Deserialize, DartSignal)]
+pub struct StopLogStream;
+
+// Rust → Dart：Clash 日志数据
+#[derive(Serialize, RustSignal)]
+pub struct IpcLogData {
+    pub log_type: String,
+    pub payload: String,
+}
+
+// Dart → Rust：开始监听流量数据
+#[derive(Deserialize, DartSignal)]
+pub struct StartTrafficStream;
+
+// Dart → Rust：停止监听流量数据
+#[derive(Deserialize, DartSignal)]
+pub struct StopTrafficStream;
+
+// Rust → Dart：流量数据
+#[derive(Serialize, RustSignal)]
+pub struct IpcTrafficData {
+    pub upload: u64,
+    pub download: u64,
+}
+
+// Rust → Dart：流操作结果
+#[derive(Serialize, RustSignal)]
+pub struct StreamResult {
+    pub success: bool,
+    pub error_message: Option<String>,
+}
 
 // 检查错误是否为 IPC 尚未就绪（启动时的正常情况）
 fn is_ipc_not_ready_error(error_msg: &str) -> bool {
@@ -16,24 +122,6 @@ fn is_ipc_not_ready_error(error_msg: &str) -> bool {
         || error_msg.contains("os error 61")
         || error_msg.contains("Connection refused")
 }
-use super::signals::{
-    IpcDeleteRequest, IpcGetRequest, IpcLogData, IpcPatchRequest, IpcPostRequest, IpcPutRequest,
-    IpcResponse, IpcTrafficData, StartLogStream, StartTrafficStream, StopLogStream,
-    StopTrafficStream, StreamResult,
-};
-use super::ws_client::WebSocketClient;
-use once_cell::sync::Lazy;
-use rinf::{DartSignal, RustSignal};
-use std::collections::VecDeque;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-use tokio::sync::{RwLock, Semaphore};
-
-#[cfg(unix)]
-use tokio::net::UnixStream;
-
-#[cfg(windows)]
-use tokio::net::windows::named_pipe::NamedPipeClient;
 
 // 连接池配置
 const MAX_POOL_SIZE: usize = 300; // 匹配 Dart 层最大并发（CPU核心数*15，最高300）

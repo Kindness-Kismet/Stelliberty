@@ -2,7 +2,8 @@
 //
 // 目的：为 Flutter 应用提供 Windows 回环豁免的完整管理能力
 
-use rinf::DartSignal;
+use rinf::{DartSignal, RustSignal};
+use serde::{Deserialize, Serialize};
 use tokio::spawn;
 
 #[cfg(windows)]
@@ -10,21 +11,257 @@ use std::collections::HashSet;
 #[cfg(windows)]
 use std::ptr;
 #[cfg(windows)]
-use windows::Win32::Foundation::{HLOCAL, LocalFree};
+use windows::core::PWSTR;
+#[cfg(windows)]
+use windows::Win32::Foundation::{LocalFree, HLOCAL};
 #[cfg(windows)]
 use windows::Win32::NetworkManagement::WindowsFirewall::{
-    INET_FIREWALL_APP_CONTAINER, NetworkIsolationEnumAppContainers,
-    NetworkIsolationFreeAppContainers, NetworkIsolationGetAppContainerConfig,
-    NetworkIsolationSetAppContainerConfig,
+    NetworkIsolationEnumAppContainers, NetworkIsolationFreeAppContainers,
+    NetworkIsolationGetAppContainerConfig, NetworkIsolationSetAppContainerConfig,
+    INET_FIREWALL_APP_CONTAINER,
 };
 #[cfg(windows)]
 use windows::Win32::Security::{PSID, SID, SID_AND_ATTRIBUTES};
-#[cfg(windows)]
-use windows::core::PWSTR;
 
-// ============================================================================
-// API 类型定义
-// ============================================================================
+// Dart → Rust：获取所有应用容器
+#[derive(Deserialize, DartSignal)]
+pub struct GetAppContainers;
+
+// Dart → Rust：设置回环豁免
+#[derive(Deserialize, DartSignal)]
+pub struct SetLoopback {
+    pub package_family_name: String,
+    pub enabled: bool,
+}
+
+// Dart → Rust：保存配置（使用 SID 字符串）
+#[derive(Deserialize, DartSignal)]
+pub struct SaveLoopbackConfiguration {
+    pub sid_strings: Vec<String>,
+}
+
+// Rust → Dart：应用容器列表（用于初始化）
+#[derive(Serialize, RustSignal)]
+pub struct AppContainersList {
+    pub containers: Vec<String>,
+}
+
+// Rust → Dart：单个应用容器信息
+#[derive(Serialize, RustSignal)]
+pub struct AppContainerInfo {
+    pub container_name: String,
+    pub display_name: String,
+    pub package_family_name: String,
+    pub sid: Vec<u8>,
+    pub sid_string: String,
+    pub loopback_enabled: bool,
+}
+
+// Rust → Dart：设置回环豁免结果
+#[derive(Serialize, RustSignal)]
+pub struct SetLoopbackResult {
+    pub success: bool,
+    pub error_message: Option<String>,
+}
+
+// Rust → Dart：应用容器流传输完成信号
+#[derive(Serialize, RustSignal)]
+pub struct AppContainersComplete;
+
+// Rust → Dart：保存配置结果
+#[derive(Serialize, RustSignal)]
+pub struct SaveLoopbackConfigurationResult {
+    pub success: bool,
+    pub error_message: Option<String>,
+}
+
+impl GetAppContainers {
+    // 处理获取应用容器请求
+    //
+    // 目的：枚举所有 UWP 应用并返回其回环状态
+    pub fn handle(&self) {
+        log::info!("处理获取应用容器请求");
+
+        match enumerate_app_containers() {
+            Ok(containers) => {
+                log::info!("发送{}个容器信息到 Dart", containers.len());
+                AppContainersList {
+                    containers: vec![],
+                }
+                .send_signal_to_dart();
+
+                for c in containers {
+                    AppContainerInfo {
+                        container_name: c.app_container_name,
+                        display_name: c.display_name,
+                        package_family_name: c.package_family_name,
+                        sid: c.sid,
+                        sid_string: c.sid_string,
+                        loopback_enabled: c.is_loopback_enabled,
+                    }
+                    .send_signal_to_dart();
+                }
+
+                // 发送流传输完成信号
+                AppContainersComplete.send_signal_to_dart();
+                log::info!("应用容器流传输完成");
+            }
+            Err(e) => {
+                log::error!("获取应用容器失败：{}", e);
+                AppContainersList {
+                    containers: vec![],
+                }
+                .send_signal_to_dart();
+                // 即使失败也发送完成信号，避免 Dart 端无限等待
+                AppContainersComplete.send_signal_to_dart();
+            }
+        }
+    }
+}
+
+impl SetLoopback {
+    // 处理设置回环豁免请求
+    //
+    // 目的：为单个应用启用或禁用回环豁免
+    pub fn handle(self) {
+        log::info!(
+            "处理设置回环豁免请求：{} - {}",
+            self.package_family_name,
+            self.enabled
+        );
+
+        match set_loopback_exemption(&self.package_family_name, self.enabled) {
+            Ok(()) => {
+                log::info!("回环豁免设置成功");
+                SetLoopbackResult {
+                    success: true,
+                    error_message: None,
+                }
+                .send_signal_to_dart();
+            }
+            Err(e) => {
+                log::error!("回环豁免设置失败：{}", e);
+                SetLoopbackResult {
+                    success: false,
+                    error_message: Some(e),
+                }
+                .send_signal_to_dart();
+            }
+        }
+    }
+}
+
+impl SaveLoopbackConfiguration {
+    // 处理保存配置请求
+    //
+    // 目的：批量设置多个应用的回环豁免状态
+    pub fn handle(self) {
+        log::info!(
+            "处理保存配置请求，期望启用{}个容器",
+            self.sid_strings.len()
+        );
+
+        // 获取所有容器
+        let containers = match enumerate_app_containers() {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("枚举容器失败：{}", e);
+                SaveLoopbackConfigurationResult {
+                    success: false,
+                    error_message: Some(format!("无法枚举容器：{}", e)),
+                }
+                .send_signal_to_dart();
+                return;
+            }
+        };
+
+        // 性能优化：使用 HashSet 进行 O(1) 查找，避免 O(n²) 复杂度
+        use std::collections::HashSet as StdHashSet;
+        let enabled_sids: StdHashSet<&str> = self.sid_strings.iter().map(|s| s.as_str()).collect();
+
+        let mut errors = Vec::new();
+        let mut skipped = Vec::new();
+        let mut success_count = 0;
+        let mut skipped_count = 0;
+
+        // 对每个容器，检查是否应该启用（现在是 O(1) 查找）
+        for container in containers {
+            let should_enable = enabled_sids.contains(container.sid_string.as_str());
+
+            if container.is_loopback_enabled != should_enable {
+                log::info!(
+                    "修改容器：{}(SID：{}) | {} -> {}",
+                    container.display_name,
+                    container.sid_string,
+                    container.is_loopback_enabled,
+                    should_enable
+                );
+
+                if let Err(e) = set_loopback_exemption_by_sid(&container.sid, should_enable) {
+                    // 检查是否是系统保护的应用（ERROR_ACCESS_DENIED）
+                    if e.contains("0x80070005")
+                        || e.contains("0x00000005")
+                        || e.contains("ERROR_ACCESS_DENIED")
+                    {
+                        log::info!("跳过系统保护的应用：{}", container.display_name);
+                        skipped.push(container.display_name.clone());
+                        skipped_count += 1;
+                    } else {
+                        log::error!("设置容器失败：{} - {}", container.display_name, e);
+                        errors.push(format!("{}：{}", container.display_name, e));
+                    }
+                } else {
+                    success_count += 1;
+                }
+            }
+        }
+
+        log::info!(
+            "配置保存完成，成功：{}，跳过：{}，错误：{}",
+            success_count,
+            skipped_count,
+            errors.len()
+        );
+
+        // 构建结果消息
+        let mut message_parts = Vec::new();
+
+        if success_count > 0 {
+            message_parts.push(format!("成功修改：{}个", success_count));
+        }
+
+        if skipped_count > 0 {
+            message_parts.push(format!("跳过系统保护应用：{}个", skipped_count));
+            if skipped.len() <= 3 {
+                // 如果跳过的应用少于等于3个，显示具体名称
+                message_parts.push(format!("（{}）", skipped.join("、")));
+            }
+        }
+
+        if errors.is_empty() {
+            SaveLoopbackConfigurationResult {
+                success: true,
+                error_message: if message_parts.is_empty() {
+                    Some("配置保存成功（无需修改）".to_string())
+                } else {
+                    Some(message_parts.join("，"))
+                },
+            }
+            .send_signal_to_dart();
+        } else {
+            message_parts.push(format!("失败：{}个", errors.len()));
+            SaveLoopbackConfigurationResult {
+                success: false,
+                error_message: Some(format!(
+                    "{}。\n错误详情：\n{}",
+                    message_parts.join("，"),
+                    errors.join("\n")
+                )),
+            }
+            .send_signal_to_dart();
+        }
+    }
+}
 
 // UWP 应用容器结构
 #[derive(Debug, Clone)]
@@ -36,10 +273,6 @@ pub struct AppContainer {
     pub sid_string: String,
     pub is_loopback_enabled: bool,
 }
-
-// ============================================================================
-// API 辅助函数
-// ============================================================================
 
 // 将 PWSTR 转换为 String
 #[cfg(windows)]
@@ -122,10 +355,6 @@ unsafe fn sid_to_string(sid: *mut SID) -> String {
 
     sid_string
 }
-
-// ============================================================================
-// API 核心函数
-// ============================================================================
 
 // 枚举所有 UWP 应用容器
 //
@@ -398,14 +627,8 @@ pub fn set_loopback_exemption(package_family_name: &str, enabled: bool) -> Resul
     }
 }
 
-// ============================================================================
-// 消息监听初始化
-// ============================================================================
-
 // 初始化 UWP 回环豁免消息监听器
 pub fn init() {
-    use crate::system::signals::{GetAppContainers, SaveLoopbackConfiguration, SetLoopback};
-
     // 修复：避免嵌套 spawn，直接在监听循环中处理消息
     spawn(async {
         let receiver = GetAppContainers::get_dart_signal_receiver();

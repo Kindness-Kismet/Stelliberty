@@ -2,12 +2,74 @@
 
 use once_cell::sync::Lazy;
 use reqwest;
+use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
-// ============================================================================
-// 数据结构
-// ============================================================================
+// Dart → Rust：检查应用更新请求
+#[derive(Debug, Clone, Serialize, Deserialize, DartSignal)]
+pub struct CheckAppUpdateRequest {
+    pub current_version: String,
+    pub github_repo: String,
+}
+
+// Rust → Dart：应用更新检查响应
+#[derive(Debug, Clone, Serialize, Deserialize, RustSignal)]
+pub struct AppUpdateResult {
+    pub current_version: String,
+    pub latest_version: String,
+    pub has_update: bool,
+    pub download_url: String,
+    pub release_notes: String,
+    pub html_url: String,
+    pub error_message: Option<String>,
+}
+
+impl CheckAppUpdateRequest {
+    pub fn handle(&self) {
+        let current_version = self.current_version.clone();
+        let github_repo = self.github_repo.clone();
+
+        // 使用 tokio::spawn 异步处理更新检查
+        // 任务会独立运行，完成后自动清理
+        tokio::spawn(async move {
+            log::info!("检查更新: {} (当前版本: {})", github_repo, current_version);
+
+            let result = check_github_update(&current_version, &github_repo).await;
+
+            match result {
+                Ok(update_result) => {
+                    log::info!("更新检查成功: 最新版本 {}", update_result.latest_version);
+
+                    AppUpdateResult {
+                        current_version: update_result.current_version,
+                        latest_version: update_result.latest_version,
+                        has_update: update_result.has_update,
+                        download_url: update_result.download_url.unwrap_or_default(),
+                        release_notes: update_result.release_notes.unwrap_or_default(),
+                        html_url: update_result.html_url.unwrap_or_default(),
+                        error_message: None,
+                    }
+                    .send_signal_to_dart();
+                }
+                Err(e) => {
+                    log::error!("更新检查失败: {}", e);
+
+                    AppUpdateResult {
+                        current_version,
+                        latest_version: String::new(),
+                        has_update: false,
+                        download_url: String::new(),
+                        release_notes: String::new(),
+                        html_url: String::new(),
+                        error_message: Some(e),
+                    }
+                    .send_signal_to_dart();
+                }
+            }
+        });
+    }
+}
 
 // GitHub Release API 响应
 #[derive(Debug, Deserialize)]
@@ -46,10 +108,6 @@ static HTTP_CLIENT: Lazy<Result<reqwest::Client, String>> = Lazy::new(|| {
 fn get_http_client() -> Result<&'static reqwest::Client, String> {
     HTTP_CLIENT.as_ref().map_err(|e| e.clone())
 }
-
-// ============================================================================
-// 核心功能
-// ============================================================================
 
 // 检查 GitHub Release 更新
 pub async fn check_github_update(

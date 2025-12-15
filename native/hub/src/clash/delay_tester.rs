@@ -1,12 +1,39 @@
-// Clash 延迟批量测试器
+// Clash 延迟测试模块
 //
-// 目的：通过 IPC 批量测试节点延迟，支持滑动窗口并发
+// 目的：提供批量延迟测试功能
 
 use futures_util::stream::{self, StreamExt};
+use rinf::{DartSignal, RustSignal};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tokio::sync::Semaphore;
+use tokio::{spawn, sync::Semaphore};
 
 use crate::clash::network::internal_ipc_get;
+
+// Dart → Rust：批量延迟测试请求
+#[derive(Deserialize, DartSignal)]
+pub struct BatchDelayTestRequest {
+    pub node_names: Vec<String>, // 要测试的节点名称列表
+    pub test_url: String,         // 测试 URL
+    pub timeout_ms: u32,          // 超时时间（毫秒）
+    pub concurrency: u32,         // 并发数
+}
+
+// Rust → Dart：单个节点测试完成（流式进度更新）
+#[derive(Serialize, RustSignal)]
+pub struct DelayTestProgress {
+    pub node_name: String,
+    pub delay_ms: i32, // -1 表示失败
+}
+
+// Rust → Dart：批量测试完成
+#[derive(Serialize, RustSignal)]
+pub struct BatchDelayTestComplete {
+    pub success: bool,
+    pub total_count: u32,
+    pub success_count: u32,
+    pub error_message: Option<String>,
+}
 
 // 批量测试结果
 #[derive(Debug, Clone)]
@@ -14,6 +41,74 @@ use crate::clash::network::internal_ipc_get;
 pub struct BatchTestResult {
     pub node_name: String,
     pub delay_ms: i32, // -1 表示测试失败
+}
+
+// 初始化延迟测试消息监听器
+//
+// 目的：建立延迟测试请求的响应通道
+pub fn init_message_listeners() {
+    // 批量延迟测试请求监听器
+    spawn(async {
+        let receiver = BatchDelayTestRequest::get_dart_signal_receiver();
+        while let Some(dart_signal) = receiver.recv().await {
+            spawn(async move {
+                handle_batch_delay_test_request(dart_signal.message).await;
+            });
+        }
+        log::info!("批量延迟测试消息通道已关闭，退出监听器");
+    });
+}
+
+// 处理批量延迟测试请求
+async fn handle_batch_delay_test_request(request: BatchDelayTestRequest) {
+    log::info!(
+        "收到批量延迟测试请求，节点数：{}，并发数：{}",
+        request.node_names.len(),
+        request.concurrency
+    );
+
+    let total_count = request.node_names.len() as u32;
+    let node_names = request.node_names;
+    let test_url = request.test_url;
+    let timeout_ms = request.timeout_ms;
+    let concurrency = request.concurrency as usize;
+
+    // 进度回调：每个节点测试完成后发送进度信号
+    let progress_callback = Arc::new(move |node_name: String, delay_ms: i32| {
+        DelayTestProgress {
+            node_name,
+            delay_ms,
+        }
+        .send_signal_to_dart();
+    });
+
+    // 执行批量测试
+    let results = batch_test_delays(
+        node_names,
+        test_url,
+        timeout_ms,
+        concurrency,
+        progress_callback,
+    )
+    .await;
+
+    // 统计成功数量
+    let success_count = results.iter().filter(|r| r.delay_ms > 0).count() as u32;
+
+    // 发送完成信号
+    BatchDelayTestComplete {
+        success: true,
+        total_count,
+        success_count,
+        error_message: None,
+    }
+    .send_signal_to_dart();
+
+    log::info!(
+        "批量延迟测试完成，成功：{}/{}",
+        success_count,
+        total_count
+    );
 }
 
 // 批量测试延迟
@@ -25,7 +120,7 @@ pub struct BatchTestResult {
 // [progress_callback] 进度回调（每个节点测试完成后调用）
 //
 // 返回：所有节点的测试结果 Vec
-pub async fn batch_test_delays(
+async fn batch_test_delays(
     node_names: Vec<String>,
     test_url: String,
     timeout_ms: u32,

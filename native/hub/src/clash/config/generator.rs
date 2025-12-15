@@ -1,14 +1,14 @@
-// Clash 配置生成消息定义
+// Clash 配置生成器
 //
-// 定义 Dart 与 Rust 之间的配置生成消息
+// 目的：生成运行时配置（应用覆写 + 注入运行时参数）
 
 use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 
 use super::runtime_params::RuntimeConfigParams;
-use crate::clash::overrides::signals::OverrideConfig;
+use crate::clash::overrides::processor::OverrideConfig;
 
-// 生成运行时配置请求
+// Dart → Rust：生成运行时配置请求
 #[derive(Debug, Clone, Serialize, Deserialize, DartSignal)]
 pub struct GenerateRuntimeConfigRequest {
     // 基础配置内容（来自订阅）
@@ -21,7 +21,7 @@ pub struct GenerateRuntimeConfigRequest {
     pub runtime_params: RuntimeConfigParams,
 }
 
-// 生成运行时配置响应
+// Rust → Dart：生成运行时配置响应
 #[derive(Debug, Clone, Serialize, Deserialize, RustSignal)]
 pub struct GenerateRuntimeConfigResponse {
     pub success: bool,

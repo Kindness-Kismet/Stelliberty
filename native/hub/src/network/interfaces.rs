@@ -2,7 +2,72 @@
 //
 // 目的：提供跨平台的系统网络信息获取能力
 
+use rinf::{DartSignal, RustSignal};
+use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
+
+// Dart → Rust：获取网络接口信息
+#[derive(Deserialize, DartSignal)]
+pub struct GetNetworkInterfaces;
+
+// Rust → Dart：网络接口信息
+#[derive(Serialize, RustSignal)]
+pub struct NetworkInterfacesInfo {
+    pub addresses: Vec<String>,
+    pub hostname: Option<String>,
+}
+
+impl GetNetworkInterfaces {
+    // 收集系统网络接口信息
+    //
+    // 目的：为前端提供可用的网络地址列表，用于显示本机访问地址
+    pub fn handle(&self) {
+        log::info!("收到获取网络接口请求");
+
+        let mut addresses = vec!["127.0.0.1".to_string(), "localhost".to_string()];
+
+        let hostname = get_hostname();
+
+        if let Some(ref host) = hostname
+            && host != "localhost"
+            && host != "127.0.0.1"
+        {
+            addresses.push(format!("{}.local", host));
+        }
+
+        match get_network_addresses() {
+            Ok(mut addrs) => {
+                addresses.append(&mut addrs);
+            }
+            Err(e) => {
+                log::warn!("获取网络接口失败：{}", e);
+            }
+        }
+
+        addresses.sort();
+        addresses.dedup();
+
+        let clean_addresses = addresses
+            .iter()
+            .map(|addr| {
+                if let Some(percent_pos) = addr.find('%') {
+                    addr[..percent_pos].to_string()
+                } else {
+                    addr.clone()
+                }
+            })
+            .collect();
+
+        log::debug!("最终地址列表：{:?}", clean_addresses);
+
+        let response = NetworkInterfacesInfo {
+            addresses: clean_addresses,
+            hostname,
+        };
+
+        response.send_signal_to_dart();
+    }
+}
 
 // 获取系统主机名
 //

@@ -4,10 +4,9 @@
 
 pub mod downloader;
 pub mod parser;
-pub mod signals;
 
 pub use parser::ProxyParser;
-pub use signals::DownloadSubscriptionRequest;
+pub use downloader::DownloadSubscriptionRequest;
 
 use rinf::DartSignal;
 use tokio::spawn;

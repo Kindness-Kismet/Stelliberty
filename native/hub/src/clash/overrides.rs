@@ -5,10 +5,11 @@
 pub mod downloader;
 pub mod js_executor;
 pub mod processor;
-pub mod signals;
 pub mod yaml_merger;
 
-pub use signals::{ApplyOverridesRequest, DownloadOverrideRequest, ParseSubscriptionRequest};
+pub use processor::{
+    ApplyOverridesRequest, DownloadOverrideRequest, ParseSubscriptionRequest,
+};
 
 use rinf::DartSignal;
 use tokio::spawn;

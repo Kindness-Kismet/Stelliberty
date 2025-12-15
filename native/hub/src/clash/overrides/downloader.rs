@@ -3,7 +3,7 @@
 // 目的：处理覆写文件的 HTTP 下载，支持多种代理模式
 // 复用订阅下载的 HTTP 客户端逻辑
 
-use crate::clash::subscription::signals::ProxyMode;
+use crate::clash::subscription::downloader::ProxyMode;
 use reqwest::Client;
 use std::time::Duration;
 

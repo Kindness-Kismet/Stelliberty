@@ -2,12 +2,12 @@
 //
 // 负责统一生成 Clash 运行时配置
 
+pub mod generator;
 pub mod injector;
 pub mod runtime_params;
-pub mod signals;
 
 use rinf::{DartSignal, RustSignal};
-use signals::GenerateRuntimeConfigRequest;
+use generator::GenerateRuntimeConfigRequest;
 use tokio::spawn;
 
 // 初始化配置生成消息监听器

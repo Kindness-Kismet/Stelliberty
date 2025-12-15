@@ -2,10 +2,29 @@
 //
 // 负责启动、停止和管理 Clash 核心进程
 
-use super::signals::{ClashProcessResult, StartClashProcess, StopClashProcess};
 use once_cell::sync::Lazy;
-use rinf::RustSignal;
+use rinf::{DartSignal, RustSignal};
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
+
+// Dart → Rust：启动 Clash 进程
+#[derive(Deserialize, DartSignal)]
+pub struct StartClashProcess {
+    pub executable_path: String,
+    pub args: Vec<String>,
+}
+
+// Dart → Rust：停止 Clash 进程
+#[derive(Deserialize, DartSignal)]
+pub struct StopClashProcess;
+
+// Rust → Dart：Clash 进程操作结果
+#[derive(Serialize, RustSignal)]
+pub struct ClashProcessResult {
+    pub success: bool,
+    pub error_message: Option<String>,
+    pub pid: Option<u32>,
+}
 
 // 全局进程管理器
 static PROCESS_MANAGER: Lazy<Mutex<Option<ClashProcess>>> = Lazy::new(|| Mutex::new(None));

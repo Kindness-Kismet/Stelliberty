@@ -2,12 +2,96 @@
 //
 // 目的：处理应用数据的备份和还原操作
 
-use base64::{Engine as _, engine::general_purpose};
+use base64::{engine::general_purpose, Engine as _};
+use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 use serde_json;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::fs as async_fs;
+
+// Dart → Rust：创建备份请求
+#[derive(Deserialize, DartSignal)]
+pub struct CreateBackupRequest {
+    pub target_path: String,
+    pub app_data_path: String,
+    pub app_version: String,
+}
+
+// Dart → Rust：还原备份请求
+#[derive(Deserialize, DartSignal)]
+pub struct RestoreBackupRequest {
+    pub backup_path: String,
+    pub app_data_path: String,
+}
+
+// Rust → Dart：备份操作响应
+#[derive(Serialize, RustSignal)]
+pub struct BackupOperationResult {
+    pub success: bool,
+    pub message: String,
+    pub error_message: Option<String>,
+}
+
+impl CreateBackupRequest {
+    // 处理创建备份请求
+    pub async fn handle(self) {
+        log::info!("收到创建备份请求：{}", self.target_path);
+
+        let result = create_backup(&self.target_path, &self.app_data_path, &self.app_version).await;
+
+        let response = match result {
+            Ok(path) => {
+                log::info!("备份创建成功：{}", path);
+                BackupOperationResult {
+                    success: true,
+                    message: path,
+                    error_message: None,
+                }
+            }
+            Err(e) => {
+                log::error!("备份创建失败：{}", e);
+                BackupOperationResult {
+                    success: false,
+                    message: String::new(),
+                    error_message: Some(e.to_string()),
+                }
+            }
+        };
+
+        response.send_signal_to_dart();
+    }
+}
+
+impl RestoreBackupRequest {
+    // 处理还原备份请求
+    pub async fn handle(self) {
+        log::info!("收到还原备份请求：{}", self.backup_path);
+
+        let result = restore_backup(&self.backup_path, &self.app_data_path).await;
+
+        let response = match result {
+            Ok(()) => {
+                log::info!("备份还原成功");
+                BackupOperationResult {
+                    success: true,
+                    message: "备份还原成功".to_string(),
+                    error_message: None,
+                }
+            }
+            Err(e) => {
+                log::error!("备份还原失败：{}", e);
+                BackupOperationResult {
+                    success: false,
+                    message: String::new(),
+                    error_message: Some(e.to_string()),
+                }
+            }
+        };
+
+        response.send_signal_to_dart();
+    }
+}
 
 // 备份版本
 const BACKUP_VERSION: &str = "1.0.0";

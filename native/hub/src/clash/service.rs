@@ -2,7 +2,7 @@
 //
 // 通过 Windows Service/systemd 以管理员权限运行 Clash 核心
 
-use crate::clash::signals::ClashProcessResult;
+use crate::clash::process::ClashProcessResult;
 use anyhow::{Context, Result};
 use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};

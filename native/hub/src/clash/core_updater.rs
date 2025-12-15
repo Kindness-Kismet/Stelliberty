@@ -17,14 +17,14 @@ const GITHUB_REPO: &str = "MetaCubeX/mihomo";
 const API_BASE_URL: &str = "https://api.github.com/repos";
 
 // ============================================================================
-// 消息协议
+// 消息定义
 // ============================================================================
 
-// Dart → Rust：获取最新版本信息请求
+// Dart → Rust：获取最新核心版本信息请求
 #[derive(Deserialize, DartSignal)]
 pub struct GetLatestCoreVersionRequest {}
 
-// Rust → Dart：获取最新版本信息响应
+// Rust → Dart：获取最新核心版本信息响应
 #[derive(Serialize, RustSignal)]
 pub struct GetLatestCoreVersionResponse {
     pub success: bool,
