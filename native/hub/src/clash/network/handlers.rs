@@ -248,8 +248,9 @@ async fn handle_ipc_request_with_retry(
 }
 
 // 连接池配置
-const MAX_POOL_SIZE: usize = 300; // 匹配 Dart 层最大并发（CPU核心数*15，最高300）
-const IDLE_TIMEOUT_MS: u64 = 500;
+const MAX_POOL_SIZE: usize = 30; // 连接池上限
+const IDLE_TIMEOUT_MS: u64 = 35000; // 35 秒空闲超时（大于健康检查周期 30 秒，避免批量延迟测试期间连接被误删）
+const MAX_CONCURRENT_CONNECTIONS: usize = 20; // IPC 最大并发连接创建数（限制新连接创建速度，避免冲击 IPC 服务器）
 
 // 连接包装器
 struct PooledConnection {
@@ -265,26 +266,12 @@ impl PooledConnection {
     fn is_valid(&self) -> bool {
         use std::io::ErrorKind;
 
-        #[cfg(windows)]
-        {
-            let mut buf = [0u8; 1];
-            match self.conn.try_read(&mut buf) {
-                Ok(0) => false,                                      // 连接已关闭
-                Ok(_) => true, // 有数据可读（不应发生，但连接有效）
-                Err(e) if e.kind() == ErrorKind::WouldBlock => true, // 无数据但连接正常
-                Err(_) => false, // 其他错误表示连接失效
-            }
-        }
-
-        #[cfg(unix)]
-        {
-            let mut buf = [0u8; 1];
-            match self.conn.try_read(&mut buf) {
-                Ok(0) => false,                                      // 连接已关闭
-                Ok(_) => true, // 有数据可读（不应发生，但连接有效）
-                Err(e) if e.kind() == ErrorKind::WouldBlock => true, // 无数据但连接正常
-                Err(_) => false, // 其他错误表示连接失效
-            }
+        let mut buf = [0u8; 1];
+        match self.conn.try_read(&mut buf) {
+            Ok(0) => false,                                      // 连接已关闭
+            Ok(_) => true, // 有数据可读（不应发生，但连接有效）
+            Err(e) if e.kind() == ErrorKind::WouldBlock => true, // 无数据但连接正常
+            Err(_) => false, // 其他错误表示连接失效
         }
     }
 }
@@ -292,6 +279,10 @@ impl PooledConnection {
 // 全局 IPC 连接池（使用 VecDeque 实现 FIFO）
 static IPC_CONNECTION_POOL: Lazy<Arc<RwLock<VecDeque<PooledConnection>>>> =
     Lazy::new(|| Arc::new(RwLock::new(VecDeque::new())));
+
+// 连接创建信号量（限制并发连接数，避免 Named Pipe 服务器过载）
+static CONNECTION_SEMAPHORE: Lazy<Arc<Semaphore>> =
+    Lazy::new(|| Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS)));
 
 // 配置更新信号量（限制并发为 1，防止竞态条件）
 static CONFIG_UPDATE_SEMAPHORE: Lazy<Arc<Semaphore>> = Lazy::new(|| Arc::new(Semaphore::new(1)));
@@ -306,33 +297,36 @@ pub fn start_connection_pool_health_check() {
             interval.tick().await;
 
             // 健康检查（使用 try_write 避免阻塞）
-            if let Ok(mut pool) = IPC_CONNECTION_POOL.try_write() {
-                let initial_count = pool.len();
-
-                if initial_count == 0 {
-                    continue; // 连接池为空，跳过
+            let mut pool = match IPC_CONNECTION_POOL.try_write() {
+                Ok(pool) => pool,
+                Err(_) => {
+                    log::trace!("健康检查：连接池繁忙，跳过本轮");
+                    continue;
                 }
+            };
 
-                log::trace!("开始连接池健康检查（当前 {} 个连接）", initial_count);
+            let initial_count = pool.len();
+            if initial_count == 0 {
+                continue; // 连接池为空，跳过
+            }
 
-                // 检查并移除失效连接（时间过期 + 连接状态检查）
-                pool.retain(|pooled_conn| {
-                    pooled_conn.last_used.elapsed() < Duration::from_millis(IDLE_TIMEOUT_MS)
-                        && pooled_conn.is_valid()
-                });
+            log::trace!("开始连接池健康检查（当前 {} 个连接）", initial_count);
 
-                let removed = initial_count - pool.len();
-                if removed > 0 {
-                    log::info!(
-                        "健康检查：移除{}个过期连接（剩余{}个）",
-                        removed,
-                        pool.len()
-                    );
-                } else {
-                    log::trace!("健康检查完成：所有连接正常（{}个）", pool.len());
-                }
+            // 检查并移除失效连接（时间过期 + 连接状态检查）
+            pool.retain(|pooled_conn| {
+                pooled_conn.last_used.elapsed() < Duration::from_millis(IDLE_TIMEOUT_MS)
+                    && pooled_conn.is_valid()
+            });
+
+            let removed = initial_count - pool.len();
+            if removed > 0 {
+                log::info!(
+                    "健康检查：移除{}个过期连接（剩余{}个）",
+                    removed,
+                    pool.len()
+                );
             } else {
-                log::trace!("健康检查：连接池繁忙，跳过本轮");
+                log::trace!("健康检查完成：所有连接正常（{}个）", pool.len());
             }
         }
     });
@@ -340,94 +334,118 @@ pub fn start_connection_pool_health_check() {
     log::info!("连接池健康检查已启动（30秒间隔）");
 }
 
+// 连接获取通用逻辑宏（消除 Windows 和 Unix 平台的重复代码）
+macro_rules! acquire_connection_with_retry {
+    ($connect_fn:expr, $conn_type:literal) => {{
+        // 1. 尝试从池中获取（FIFO + 有效性检查）
+        loop {
+            let mut pool = IPC_CONNECTION_POOL.write().await;
+
+            if let Some(pooled) = pool.pop_front() {
+                // 检查连接是否过期或失效
+                if pooled.last_used.elapsed() < Duration::from_millis(IDLE_TIMEOUT_MS)
+                    && pooled.is_valid()
+                {
+                    log::trace!("从连接池获取连接（剩余{}）", pool.len());
+                    return Ok(pooled.conn);
+                }
+                // 连接已过期或失效，丢弃并继续尝试下一个
+                log::trace!("连接失效，丢弃并尝试下一个");
+                continue;
+            }
+
+            // 连接池为空，释放锁后创建新连接
+            drop(pool);
+            break;
+        }
+
+        // 2. 获取连接创建信号量（限制并发连接数）
+        let _permit = CONNECTION_SEMAPHORE
+            .acquire()
+            .await
+            .map_err(|e| format!("获取连接信号量失败：{}", e))?;
+
+        log::trace!("连接池为空，创建新连接（信号量已获取）");
+
+        // 3. 带重试的连接创建（最多 3 次尝试，每次间隔 50ms）
+        const MAX_CONNECT_RETRIES: usize = 3;
+        const RETRY_DELAY_MS: u64 = 50;
+
+        for attempt in 0..MAX_CONNECT_RETRIES {
+            match $connect_fn.await {
+                Ok(conn) => {
+                    if attempt > 0 {
+                        log::debug!("{} 连接成功（第 {} 次尝试）", $conn_type, attempt + 1);
+                    }
+                    return Ok(conn);
+                }
+                Err(e) if attempt < MAX_CONNECT_RETRIES - 1 => {
+                    log::debug!(
+                        "{} 连接失败（第 {} 次），{}ms 后重试：{}",
+                        $conn_type,
+                        attempt + 1,
+                        RETRY_DELAY_MS,
+                        e
+                    );
+                    tokio::time::sleep(Duration::from_millis(RETRY_DELAY_MS)).await;
+                    continue;
+                }
+                Err(e) => {
+                    return Err(format!(
+                        "{} 连接失败（已重试 {} 次）：{}",
+                        $conn_type, MAX_CONNECT_RETRIES, e
+                    ));
+                }
+            }
+        }
+
+        unreachable!()
+    }};
+}
+
 // 从连接池获取连接（如果没有则创建新的）
 #[cfg(windows)]
 async fn acquire_connection() -> Result<NamedPipeClient, String> {
-    // 1. 尝试从池中获取（FIFO + 有效性检查）
-    loop {
-        let mut pool = IPC_CONNECTION_POOL.write().await;
-
-        if let Some(pooled) = pool.pop_front() {
-            // 检查连接是否过期或失效
-            if pooled.last_used.elapsed() < Duration::from_millis(IDLE_TIMEOUT_MS)
-                && pooled.is_valid()
-            {
-                log::trace!("从连接池获取连接（剩余{}）", pool.len());
-                return Ok(pooled.conn);
-            }
-            // 连接已过期或失效，丢弃并继续尝试下一个
-            log::trace!("连接失效，丢弃并尝试下一个");
-            continue;
-        }
-
-        // 连接池为空，释放锁后创建新连接
-        drop(pool);
-        break;
-    }
-
-    // 2. 创建新连接
-    log::trace!("连接池为空，创建新连接");
-    super::connection::connect_named_pipe(&IpcClient::default_ipc_path()).await
+    acquire_connection_with_retry!(
+        super::connection::connect_named_pipe(&IpcClient::default_ipc_path()),
+        "Named Pipe"
+    )
 }
 
 #[cfg(unix)]
 async fn acquire_connection() -> Result<UnixStream, String> {
-    // 1. 尝试从池中获取（FIFO + 有效性检查）
-    loop {
+    acquire_connection_with_retry!(
+        super::connection::connect_unix_socket(&IpcClient::default_ipc_path()),
+        "Unix Socket"
+    )
+}
+
+// 归还连接到池中通用逻辑宏
+macro_rules! release_connection_impl {
+    ($conn:expr) => {{
         let mut pool = IPC_CONNECTION_POOL.write().await;
 
-        if let Some(pooled) = pool.pop_front() {
-            // 检查连接是否过期或失效
-            if pooled.last_used.elapsed() < Duration::from_millis(IDLE_TIMEOUT_MS)
-                && pooled.is_valid()
-            {
-                log::trace!("从连接池获取连接（剩余{}）", pool.len());
-                return Ok(pooled.conn);
-            }
-            // 连接已过期或失效，丢弃并继续尝试下一个
-            log::trace!("连接失效，丢弃并尝试下一个");
-            continue;
+        if pool.len() < MAX_POOL_SIZE {
+            pool.push_back(PooledConnection {
+                conn: $conn,
+                last_used: Instant::now(),
+            });
+            log::trace!("归还连接到池（当前{}）", pool.len());
+        } else {
+            log::trace!("连接池已满，丢弃连接");
         }
-
-        // 连接池为空，释放锁后创建新连接
-        drop(pool);
-        break;
-    }
-
-    // 2. 创建新连接
-    log::trace!("连接池为空，创建新连接");
-    super::connection::connect_unix_socket(&IpcClient::default_ipc_path()).await
+    }};
 }
 
 // 归还连接到池中（FIFO：从尾部加入）
 #[cfg(windows)]
 async fn release_connection(conn: NamedPipeClient) {
-    let mut pool = IPC_CONNECTION_POOL.write().await;
-
-    if pool.len() < MAX_POOL_SIZE {
-        pool.push_back(PooledConnection {
-            conn,
-            last_used: Instant::now(),
-        });
-        log::trace!("归还连接到池（当前{}）", pool.len());
-    } else {
-        log::trace!("连接池已满，丢弃连接");
-    }
+    release_connection_impl!(conn);
 }
 
 #[cfg(unix)]
 async fn release_connection(conn: UnixStream) {
-    let mut pool = IPC_CONNECTION_POOL.write().await;
-
-    if pool.len() < MAX_POOL_SIZE {
-        pool.push_back(PooledConnection {
-            conn,
-            last_used: Instant::now(),
-        });
-        log::trace!("归还连接到池（当前{}）", pool.len());
-    } else {
-        log::trace!("连接池已满，丢弃连接");
-    }
+    release_connection_impl!(conn);
 }
 
 // 全局 WebSocket 客户端实例
