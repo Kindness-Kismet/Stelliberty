@@ -123,7 +123,7 @@ class _ProxyNodeCardState extends State<ProxyNodeCard> {
                       ),
                       const SizedBox(height: 6),
                       Transform.translate(
-                        offset: const Offset(-6, 0),
+                        offset: const Offset(-3, 0),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
