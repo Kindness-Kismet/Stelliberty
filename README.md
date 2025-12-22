@@ -128,89 +128,236 @@ If you encounter port conflicts, run Command Prompt as **Administrator**:
 #### Missing Runtime Libraries (Windows)
 If the application fails to start, install the **Visual C++ Runtimes**: [vcredist - Runtimes AIO](https://gitlab.com/stdout12/vcredist).
 
+### Reporting Issues
+
+If you encounter any issues:
+
+1. Enable **Application Logging** in **Settings** → **App Behavior**
+2. Reproduce the issue to generate logs
+3. Find log files in the `data` directory under the application installation directory
+4. Remove any sensitive/private information from the logs
+5. Create an issue on GitHub and attach the sanitized log file
+6. Describe the problem and steps to reproduce
+
 ---
 
-## 🛠️ For Developers & Contributors
+## 🛠️ For Developers
 
 ### Prerequisites
-- **Flutter SDK** (>= 3.38)
-- **Rust toolchain** (>= 1.91)
+
+Before building this project, ensure you have the following installed:
+
+- **Flutter SDK** (latest stable version recommended, minimum 3.38)
+- **Rust toolchain** (latest stable version recommended, minimum 1.91)
 - **Dart SDK** (included with Flutter)
 
-### Development Workflow
+> 📖 This guide assumes you are familiar with Flutter and Rust development. Installation instructions for these tools are not covered here.
 
-#### 1. Install Dependencies
+### Dependencies Installation
+
+#### 1. Install Script Dependencies
+
+The prebuild script requires additional Dart packages:
+
 ```bash
-# Install script dependencies
 cd scripts && dart pub get && cd ..
-# Install rinf
+```
+
+#### 2. Install rinf CLI
+
+Install the Rust-Flutter bridge tool globally:
+
+```bash
 cargo install rinf_cli
-# Install project dependencies
+```
+
+#### 3. Install Project Dependencies
+
+```bash
 flutter pub get
 ```
 
-#### 2. Generate Code
-Required before first build or after modifying Rust/Dart interfaces:
+#### 4. Generate Required Code
+
+After installing dependencies, generate Rust-Flutter bindings and i18n translations:
+
 ```bash
 # Generate Rust-Flutter bridge code
 rinf gen
+
 # Generate i18n translation files
 dart run slang
 ```
 
-#### 3. Run Development Build
+> 💡 **Important**: These generation steps are required before building the project for the first time.
+
+### Building the Project
+
+#### Pre-build Preparation
+
+**Always run the prebuild script before building the project:**
+
 ```bash
-# Run prebuild script first if it's the first time or assets need an update
 dart run scripts/prebuild.dart
+```
+
+**Prebuild script parameters:**
+
+```bash
+# Show help
+dart run scripts/prebuild.dart --help
+
+# Install platform packaging tools (Windows: Inno Setup, Linux: dpkg/rpm/appimagetool)
+dart run scripts/prebuild.dart --installer
+
+# Android support (not implemented yet)
+dart run scripts/prebuild.dart --android
+```
+
+**What does prebuild do?**
+
+1. ✅ Cleans asset directories (preserves `test/` folder)
+2. ✅ Compiles `stelliberty-service` (desktop service executable)
+3. ✅ Copies platform-specific tray icons
+4. ✅ Downloads latest Mihomo core binary
+5. ✅ Downloads GeoIP/GeoSite data files
+
+#### Quick Build
+
+Use the build script to compile and package:
+
+```bash
+# Show help
+dart run scripts/build.dart --help
+
+# Build Release version for current platform (default: ZIP only)
+dart run scripts/build.dart
+
+# Build with Debug version too
+dart run scripts/build.dart --with-debug
+
+# Build with installer package (Windows: ZIP + EXE, Linux: ZIP + DEB/RPM/AppImage)
+dart run scripts/build.dart --with-installer
+
+# Build installer only, no ZIP (Windows: EXE, Linux: DEB/RPM/AppImage)
+dart run scripts/build.dart --installer-only
+
+# Full build (Release + Debug, with installer)
+dart run scripts/build.dart --with-debug --with-installer
+
+# Clean build
+dart run scripts/build.dart --clean
+
+# Build Android APK (not supported yet)
+dart run scripts/build.dart --android
+```
+
+**Build script parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `-h, --help` | Show help information |
+| `--with-debug` | Build both Release and Debug versions |
+| `--with-installer` | Generate ZIP + installer (Windows: EXE, Linux: DEB/RPM/AppImage) |
+| `--installer-only` | Generate installer only, no ZIP |
+| `--clean` | Run `flutter clean` before building |
+| `--android` | Build Android APK (not supported yet) |
+
+**Output location:**
+
+Built packages will be in `build/packages/`
+
+#### Known Limitations
+
+⚠️ **Platform Support Status**:
+
+- ✅ **Windows**: Fully tested and supported
+- ✅ **Linux**: Fully tested and supported
+- ⚠️ **macOS**: Core functionality works, but system integration is experimental
+- ❌ **Android**: Not implemented yet
+
+⚠️ **Unsupported Parameters**:
+
+- `--android`: Android platform is not adapted yet
+
+### Manual Development Workflow
+
+#### Generate Rust-Flutter Bindings
+
+After modifying Rust signal structs (with signal attributes):
+
+```bash
+rinf gen
+```
+
+> 📖 Rinf uses signal attributes on Rust structs to define messages, not `.proto` files. See [Rinf documentation](https://rinf.cunarist.com) for details.
+
+#### Generate i18n Translations
+
+After modifying translation files in `lib/i18n/strings/`:
+
+```bash
+dart run slang
+```
+
+#### Run Development Build
+
+```bash
+# Run prebuild first
+dart run scripts/prebuild.dart
+
 # Start development
 flutter run
 ```
 
-### Testing
-The project includes a test framework for isolated feature testing:
+#### Development Testing
+
+For developers, the project includes a test framework for isolated feature testing:
+
 ```bash
-# Run override rule test
+# Run override rule test (supports YAML or JS rules)
 flutter run --dart-define=TEST_TYPE=override
+
 # Run IPC API test
 flutter run --dart-define=TEST_TYPE=ipc-api
 ```
-- **Test Files**: Located in `assets/test/`. Prepare files based on `override` or `ipc-api` test requirements.
-- **Note**: Test mode is only available in Debug builds.
 
-### Building the Project
+**Required test files** in `assets/test/`:
 
-#### Pre-build
-**Always run the pre-build script before building.** It handles service compilation, core/data file downloads, and more.
-```bash
-# Run pre-build
-dart run scripts/prebuild.dart
-# View help
-dart run scripts/prebuild.dart --help
-```
+- **For `override` test:**
+  ```
+  assets/test/
+  ├── config/
+  │   └── test.yaml          # Base configuration file for testing
+  ├── override/
+  │   ├── your_script.js     # JS override script
+  │   └── your_rules.yaml    # YAML override rules
+  └── output/
+      └── final.yaml         # Expected final output after applying overrides
+  ```
 
-#### Build Command
-Use the `scripts/build.dart` script to compile and package:
-```bash
-# Build Release version (default: ZIP)
-dart run scripts/build.dart
-# Build with installer (ZIP + EXE/DEB/RPM/AppImage)
-dart run scripts/build.dart --with-installer
-# View all options
-dart run scripts/build.dart --help
-```
-- **Output**: Build artifacts are located in `build/packages/`.
-- **Platform Support**: Windows/Linux are fully supported, macOS is experimental, and Android is not yet supported.
+- **For `ipc-api` test:**
+  > **Note**: It is recommended to run the pre-build script (`dart run scripts/prebuild.dart`) before this test to download the necessary resources.
+  ```
+  assets/test/
+  └── config/
+      └── test.yaml          # Base configuration file for testing
+  ```
 
-### Code Standards
-- ✅ Zero warnings from `flutter analyze` and `cargo clippy`.
-- ✅ Format with `dart format` and `cargo fmt` before committing.
-- ✅ Rust code must use `Result<T, E>`; no `unwrap()`.
-- ✅ Dart code must maintain null safety.
+> 💡 **Note**: Test mode is only available in Debug builds and automatically disabled in Release mode.
 
-### Reporting Issues
-1. Enable **Application Logging** in **Settings → App Behavior**.
-2. Reproduce the issue and find the log file in the `data` directory.
-3. After **removing sensitive information**, create a GitHub issue with the log and reproduction steps.
+Test implementations: `lib/dev_test/` (`override_test.dart`, `ipc_api_test.dart`)
+
+---
+
+## 📋 Code Standards
+
+- ✅ No warnings from `flutter analyze` and `cargo clippy`
+- ✅ Format code with `dart format` and `cargo fmt` before committing
+- ✅ Do not modify auto-generated files (`lib/src/bindings/`, `lib/i18n/`)
+- ✅ Use event-driven architecture, avoid `setState` abuse
+- ✅ Rust code must use `Result<T, E>`, no `unwrap()`
+- ✅ Dart code must maintain null safety
 
 ---
 
@@ -224,17 +371,6 @@ dart run scripts/build.dart --help
 - 🌗 **Dark Mode Support**: Seamless light/dark theme switching
 
 This creates a modern, elegant desktop application experience with native-like feel across all platforms.
-
----
-
-## 📋 Code Standards
-
-- ✅ No warnings from `flutter analyze` and `cargo clippy`
-- ✅ Format code with `dart format` and `cargo fmt` before committing
-- ✅ Do not modify auto-generated files (`lib/src/bindings/`, `lib/i18n/`)
-- ✅ Use event-driven architecture, avoid `setState` abuse
-- ✅ Rust code must use `Result<T, E>`, no `unwrap()`
-- ✅ Dart code must maintain null safety
 
 ---
 
