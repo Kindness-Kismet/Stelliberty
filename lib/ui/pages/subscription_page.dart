@@ -709,22 +709,30 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       // 使用 ProxyParser 解析订阅内容（支持标准 YAML、Base64 编码、纯文本代理链接）
       // 创建 Completer 等待解析结果
       final completer = Completer<String>();
+      final requestId = 'import-${DateTime.now().millisecondsSinceEpoch}';
 
-      // 订阅 Rust 信号流
-      streamListener = ParseSubscriptionResponse.rustSignalStream.listen((
+      // 订阅 Rust 信号流，只接收匹配的 request_id
+      StreamSubscription? listener;
+      listener = ParseSubscriptionResponse.rustSignalStream.listen((
         rustResult,
       ) {
         if (completer.isCompleted) return;
+        if (rustResult.message.requestId != requestId) return;
 
         if (rustResult.message.isSuccessful) {
           completer.complete(rustResult.message.parsedConfig);
         } else {
           completer.completeError(Exception(rustResult.message.errorMessage));
         }
+        listener?.cancel(); // 收到响应后立即取消监听
       });
+      streamListener = listener;
 
       // 发送解析请求到 Rust
-      final parseRequest = ParseSubscriptionRequest(content: content);
+      final parseRequest = ParseSubscriptionRequest(
+        requestId: requestId,
+        content: content,
+      );
       parseRequest.sendSignalToRust();
 
       // 等待解析结果

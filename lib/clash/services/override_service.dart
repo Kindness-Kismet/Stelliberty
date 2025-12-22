@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:stelliberty/clash/data/override_model.dart';
 import 'package:stelliberty/clash/data/subscription_model.dart';
 import 'package:stelliberty/clash/storage/preferences.dart';
@@ -71,6 +72,9 @@ class OverrideService {
       throw Exception('远程 URL 为空');
     }
 
+    // 使用覆写ID作为请求标识符
+    final requestId = config.id;
+
     // 判断 Clash 是否运行
     final isClashRunning = ClashManager.instance.isCoreRunning;
 
@@ -91,37 +95,63 @@ class OverrideService {
       // 转换代理模式
       final proxyMode = _convertProxyMode(effectiveProxyMode);
 
-      // 发送下载请求到 Rust 层
-      signals.DownloadOverrideRequest(
-        url: config.url!,
-        proxyMode: proxyMode,
-        userAgent: userAgent,
-        timeoutSeconds: signals.Uint64(
-          BigInt.from(ClashDefaults.overrideDownloadTimeout),
-        ),
-        mixedPort: mixedPort,
-      ).sendSignalToRust();
+      // 创建 Completer 等待响应
+      final completer = Completer<signals.DownloadOverrideResponse>();
+      StreamSubscription? listener;
 
-      // 等待 Rust 响应
-      final responseStream = signals.DownloadOverrideResponse.rustSignalStream;
-      final response = await responseStream.first;
+      try {
+        // 订阅 Rust 响应流，只接收匹配的 request_id
+        StreamSubscription? localListener;
+        localListener = signals.DownloadOverrideResponse.rustSignalStream
+            .listen((result) {
+              if (!completer.isCompleted &&
+                  result.message.requestId == requestId) {
+                completer.complete(result.message);
+                localListener?.cancel(); // 收到响应后立即取消监听
+              }
+            });
+        listener = localListener;
 
-      if (!response.message.isSuccessful) {
-        throw Exception(response.message.errorMessage ?? '下载失败');
+        // 发送下载请求到 Rust 层
+        signals.DownloadOverrideRequest(
+          requestId: requestId,
+          url: config.url!,
+          proxyMode: proxyMode,
+          userAgent: userAgent,
+          timeoutSeconds: signals.Uint64(
+            BigInt.from(ClashDefaults.overrideDownloadTimeout),
+          ),
+          mixedPort: mixedPort,
+        ).sendSignalToRust();
+
+        // 等待响应
+        final response = await completer.future.timeout(
+          Duration(seconds: ClashDefaults.overrideDownloadTimeout + 5),
+          onTimeout: () {
+            throw Exception('覆写下载超时');
+          },
+        );
+
+        if (!response.isSuccessful) {
+          throw Exception(response.errorMessage ?? '下载失败');
+        }
+
+        final content = response.content;
+        if (content.isEmpty) {
+          throw Exception('下载的内容为空');
+        }
+
+        // 保存到本地
+        final targetPath = _getOverridePath(config.id, config.format);
+        final targetFile = File(targetPath);
+        await targetFile.writeAsString(content);
+
+        Logger.debug('覆写已保存至：$targetPath');
+        return content;
+      } finally {
+        // 停止监听信号流
+        await listener?.cancel();
       }
-
-      final content = response.message.content;
-      if (content.isEmpty) {
-        throw Exception('下载的内容为空');
-      }
-
-      // 保存到本地
-      final targetPath = _getOverridePath(config.id, config.format);
-      final targetFile = File(targetPath);
-      await targetFile.writeAsString(content);
-
-      Logger.debug('覆写已保存至：$targetPath');
-      return content;
     } catch (e) {
       Logger.error('下载远程覆写失败：${config.name} - $e');
       rethrow;

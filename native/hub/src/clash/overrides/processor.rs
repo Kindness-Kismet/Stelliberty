@@ -1,6 +1,5 @@
 // 覆写处理器
-//
-// 目的：处理配置覆写（YAML 合并 + JavaScript 执行）
+// 处理配置覆写（YAML 合并 + JavaScript 执行）
 
 use super::js_executor::JsExecutor;
 use super::yaml_merger::YamlMerger;
@@ -8,14 +7,14 @@ use crate::clash::subscription::ProxyParser;
 use rinf::{DartSignal, RustSignal, SignalPiece};
 use serde::{Deserialize, Serialize};
 
-// 覆写格式枚举
+// 覆写格式
 #[derive(Deserialize, Serialize, SignalPiece, Clone, Copy, Debug)]
 pub enum OverrideFormat {
     Yaml = 0,
     Javascript = 1,
 }
 
-// 单个覆写配置
+// 覆写配置
 #[derive(Debug, Deserialize, Serialize, SignalPiece, Clone)]
 pub struct OverrideConfig {
     pub id: String,
@@ -43,37 +42,20 @@ pub struct ApplyOverridesResponse {
 // Dart → Rust：解析订阅请求
 #[derive(Deserialize, DartSignal)]
 pub struct ParseSubscriptionRequest {
+    pub request_id: String, // 请求标识符，用于响应匹配
     pub content: String,
 }
 
 // Rust → Dart：解析订阅响应
 #[derive(Serialize, RustSignal)]
 pub struct ParseSubscriptionResponse {
+    pub request_id: String, // 请求标识符，用于请求匹配
     pub is_successful: bool,
     pub parsed_config: String,
     pub error_message: String,
 }
 
-// Dart → Rust：下载覆写文件请求
-#[derive(Deserialize, DartSignal)]
-pub struct DownloadOverrideRequest {
-    pub url: String,
-    pub proxy_mode: crate::clash::subscription::downloader::ProxyMode,
-    pub user_agent: String,
-    pub timeout_seconds: u64,
-    pub mixed_port: u16,
-}
-
-// Rust → Dart：下载覆写文件响应
-#[derive(Serialize, RustSignal)]
-pub struct DownloadOverrideResponse {
-    pub is_successful: bool,
-    pub content: String,
-    pub error_message: Option<String>,
-}
-
 impl ApplyOverridesRequest {
-    // 处理覆写应用请求
     pub fn handle(self) {
         log::info!("收到应用覆写请求，覆写数量：{}", self.overrides.len());
 
@@ -138,12 +120,21 @@ impl ApplyOverridesRequest {
 impl ParseSubscriptionRequest {
     // 处理订阅解析请求
     pub fn handle(self) {
-        log::info!("收到订阅解析请求，内容长度：{}字节", self.content.len());
+        log::info!(
+            "收到订阅解析请求 [{}]，内容长度：{}字节",
+            self.request_id,
+            self.content.len()
+        );
 
         match ProxyParser::parse_subscription(&self.content) {
             Ok(parsed_config) => {
-                log::info!("订阅解析成功，配置长度：{}字节", parsed_config.len());
+                log::info!(
+                    "订阅解析成功 [{}]，配置长度：{}字节",
+                    self.request_id,
+                    parsed_config.len()
+                );
                 let response = ParseSubscriptionResponse {
+                    request_id: self.request_id,
                     is_successful: true,
                     parsed_config,
                     error_message: String::new(),
@@ -151,8 +142,9 @@ impl ParseSubscriptionRequest {
                 response.send_signal_to_dart();
             }
             Err(e) => {
-                log::error!("订阅解析失败：{}", e);
+                log::error!("订阅解析失败 [{}]：{}", self.request_id, e);
                 let response = ParseSubscriptionResponse {
+                    request_id: self.request_id,
                     is_successful: false,
                     parsed_config: String::new(),
                     error_message: e,
@@ -160,43 +152,6 @@ impl ParseSubscriptionRequest {
                 response.send_signal_to_dart();
             }
         }
-    }
-}
-
-impl DownloadOverrideRequest {
-    // 处理下载覆写文件请求
-    pub async fn handle(self) {
-        log::info!("收到下载覆写文件请求：{}", self.url);
-
-        let result = super::downloader::download_override(
-            &self.url,
-            self.proxy_mode,
-            &self.user_agent,
-            self.timeout_seconds,
-            self.mixed_port,
-        )
-        .await;
-
-        let response = match result {
-            Ok(content) => {
-                log::info!("覆写文件下载成功，内容长度：{} 字节", content.len());
-                DownloadOverrideResponse {
-                    is_successful: true,
-                    content,
-                    error_message: None,
-                }
-            }
-            Err(e) => {
-                log::error!("覆写文件下载失败：{}", e);
-                DownloadOverrideResponse {
-                    is_successful: false,
-                    content: String::new(),
-                    error_message: Some(e.to_string()),
-                }
-            }
-        };
-
-        response.send_signal_to_dart();
     }
 }
 

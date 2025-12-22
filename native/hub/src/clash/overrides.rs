@@ -7,7 +7,8 @@ pub mod js_executor;
 pub mod processor;
 pub mod yaml_merger;
 
-pub use processor::{ApplyOverridesRequest, DownloadOverrideRequest, ParseSubscriptionRequest};
+pub use downloader::DownloadOverrideRequest;
+pub use processor::{ApplyOverridesRequest, ParseSubscriptionRequest};
 
 use rinf::DartSignal;
 use tokio::spawn;

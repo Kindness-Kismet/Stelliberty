@@ -93,7 +93,10 @@ class OverrideTest {
     Logger.info('检测到 Base64 编码订阅，调用 Rust 解析...');
 
     // 调用 Rust 解析订阅
-    final request = ParseSubscriptionRequest(content: content);
+    final request = ParseSubscriptionRequest(
+      requestId: 'test-parse-${DateTime.now().millisecondsSinceEpoch}',
+      content: content,
+    );
     request.sendSignalToRust();
 
     // 等待响应

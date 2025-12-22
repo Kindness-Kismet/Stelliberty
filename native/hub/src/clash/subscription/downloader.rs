@@ -1,13 +1,12 @@
 // 订阅下载器
-//
-// 目的：处理订阅配置的 HTTP 下载，支持多种代理模式
+// 处理订阅配置的 HTTP 下载，支持多种代理模式
 
 use reqwest::{Client, Proxy};
 use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-// 代理模式枚举
+// 代理模式
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, rinf::SignalPiece)]
 pub enum ProxyMode {
     Direct = 0, // 直连
@@ -18,41 +17,37 @@ pub enum ProxyMode {
 // Dart → Rust：下载订阅请求
 #[derive(Deserialize, DartSignal)]
 pub struct DownloadSubscriptionRequest {
+    pub request_id: String, // 请求标识符，用于响应匹配
     pub url: String,
     pub proxy_mode: ProxyMode,
     pub user_agent: String,
     pub timeout_seconds: u64,
-    pub mixed_port: u16, // Clash 混合端口（用于 Core 代理模式）
+    pub mixed_port: u16, // Clash 混合端口
 }
 
 // Rust → Dart：下载订阅响应
 #[derive(Serialize, RustSignal)]
 pub struct DownloadSubscriptionResponse {
+    pub request_id: String, // 请求标识符，用于请求匹配
     pub is_successful: bool,
-    pub content: String,                                 // 下载的配置内容
-    pub subscription_info: Option<SubscriptionInfoData>, // 订阅信息
+    pub content: String,
+    pub subscription_info: Option<SubscriptionInfoData>,
     pub error_message: Option<String>,
 }
 
-// 订阅信息数据
+// 订阅信息
 #[derive(Serialize, Deserialize, Clone, Debug, rinf::SignalPiece)]
 pub struct SubscriptionInfoData {
     pub upload: Option<u64>,
     pub download: Option<u64>,
     pub total: Option<u64>,
-    pub expire: Option<i64>, // Unix 时间戳
+    pub expire: Option<i64>,
 }
 
-// ============================================================================
-// 消息处理器
-// ============================================================================
-
 impl DownloadSubscriptionRequest {
-    // 处理下载订阅请求
     pub async fn handle(self) {
-        log::info!("收到下载订阅请求：{}", self.url);
+        log::info!("收到下载订阅请求 [{}]：{}", self.request_id, self.url);
 
-        // 调用下载器
         let result = download_subscription(
             &self.url,
             self.proxy_mode,
@@ -64,8 +59,13 @@ impl DownloadSubscriptionRequest {
 
         let response = match result {
             Ok((content, info)) => {
-                log::info!("订阅下载成功，内容长度：{} 字节", content.len());
+                log::info!(
+                    "订阅下载成功 [{}]，内容长度：{} 字节",
+                    self.request_id,
+                    content.len()
+                );
                 DownloadSubscriptionResponse {
+                    request_id: self.request_id,
                     is_successful: true,
                     content,
                     subscription_info: info,
@@ -73,8 +73,9 @@ impl DownloadSubscriptionRequest {
                 }
             }
             Err(e) => {
-                log::error!("订阅下载失败：{}", e);
+                log::error!("订阅下载失败 [{}]：{}", self.request_id, e);
                 DownloadSubscriptionResponse {
+                    request_id: self.request_id,
                     is_successful: false,
                     content: String::new(),
                     subscription_info: None,

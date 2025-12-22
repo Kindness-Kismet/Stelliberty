@@ -1,11 +1,73 @@
 // 覆写文件下载器
-//
-// 目的：处理覆写文件的 HTTP 下载，支持多种代理模式
-// 复用订阅下载的 HTTP 客户端逻辑
+// 处理覆写文件的 HTTP 下载，支持多种代理模式
 
 use crate::clash::subscription::downloader::ProxyMode;
 use reqwest::Client;
+use rinf::{DartSignal, RustSignal};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
+
+// Dart → Rust：下载覆写文件请求
+#[derive(Deserialize, DartSignal)]
+pub struct DownloadOverrideRequest {
+    pub request_id: String, // 请求标识符，用于响应匹配
+    pub url: String,
+    pub proxy_mode: ProxyMode,
+    pub user_agent: String,
+    pub timeout_seconds: u64,
+    pub mixed_port: u16,
+}
+
+// Rust → Dart：下载覆写文件响应
+#[derive(Serialize, RustSignal)]
+pub struct DownloadOverrideResponse {
+    pub request_id: String, // 请求标识符，用于请求匹配
+    pub is_successful: bool,
+    pub content: String,
+    pub error_message: Option<String>,
+}
+
+impl DownloadOverrideRequest {
+    pub async fn handle(self) {
+        log::info!("收到下载覆写文件请求 [{}]：{}", self.request_id, self.url);
+
+        let result = download_override(
+            &self.url,
+            self.proxy_mode,
+            &self.user_agent,
+            self.timeout_seconds,
+            self.mixed_port,
+        )
+        .await;
+
+        let response = match result {
+            Ok(content) => {
+                log::info!(
+                    "覆写文件下载成功 [{}]，内容长度：{} 字节",
+                    self.request_id,
+                    content.len()
+                );
+                DownloadOverrideResponse {
+                    request_id: self.request_id,
+                    is_successful: true,
+                    content,
+                    error_message: None,
+                }
+            }
+            Err(e) => {
+                log::error!("覆写文件下载失败 [{}]：{}", self.request_id, e);
+                DownloadOverrideResponse {
+                    request_id: self.request_id,
+                    is_successful: false,
+                    content: String::new(),
+                    error_message: Some(e.to_string()),
+                }
+            }
+        };
+
+        response.send_signal_to_dart();
+    }
+}
 
 // 下载覆写文件
 //
