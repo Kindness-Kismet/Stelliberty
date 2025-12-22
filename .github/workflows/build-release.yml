@@ -423,15 +423,15 @@ jobs:
             ## ❓ 故障排查
 
             ### Linux 启动问题
-            
-            如果无法启动应用，请确保已为可执行文件赋予运行权限：
-            
+
+            如果无法启动应用，请确保已为应用文件夹赋予权限：
+
             ```bash
             # 进入应用目录
             cd /path/to/stelliberty
-            
+
             # 赋予权限
-            chmod +x ./stelliberty
+            chmod 777 -R ./stelliberty
             ```
             
             ### 端口被占用（Windows）

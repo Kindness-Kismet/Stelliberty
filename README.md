@@ -130,9 +130,9 @@ paru -S stelliberty-bin
 #### Portable Version (ZIP Archive)
 1. Download the `.zip` file for your architecture (`amd64` or `arm64`) from the release page.
 2. Extract it to your desired location (e.g., `~/Stelliberty`).
-3. **Important:** Grant executable permission to the binary:
+3. **Important:** Grant permissions to the application folder:
    ```bash
-   chmod +x ./stelliberty
+   chmod 777 -R ./stelliberty
    ```
 4. Run `./stelliberty` from the extracted directory.
 5. ✅ Ready to use.

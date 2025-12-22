@@ -131,9 +131,9 @@ paru -S stelliberty-bin
 #### 便携版（ZIP 压缩包）
 1. 从发布页面下载适用于您架构（`amd64` 或 `arm64`）的 `.zip` 文件
 2. 解压到任意位置（如 `~/Stelliberty`）
-3. **重要：** 为可执行文件赋予运行权限：
+3. **重要：** 为应用文件夹赋予权限：
    ```bash
-   chmod +x ./stelliberty
+   chmod 777 -R ./stelliberty
    ```
 4. 直接运行解压目录中的 `./stelliberty`
 5. ✅ 开箱即用
