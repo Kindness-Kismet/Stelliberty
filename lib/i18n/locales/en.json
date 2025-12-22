@@ -78,6 +78,7 @@
     "copyLink": "Copy Link",
     "deleteCard": "Delete",
     "autoUpdateLabel": "Auto Update",
+    "updateOnStartupLabel": "On Startup Only",
     "manualUpdateLabel": "Manual Update",
     "localTypeLabel": "Local Type",
     "updateCardTitle": "Updating",

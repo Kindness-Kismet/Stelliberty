@@ -78,6 +78,7 @@
     "copyLink": "复制链接",
     "deleteCard": "删除",
     "autoUpdateLabel": "自动更新",
+    "updateOnStartupLabel": "仅启动时更新",
     "manualUpdateLabel": "手动更新",
     "localTypeLabel": "本地类型",
     "updateCardTitle": "更新中",

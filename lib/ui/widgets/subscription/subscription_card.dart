@@ -250,27 +250,30 @@ class SubscriptionCard extends StatelessWidget {
     final List<InlineSpan> children = [];
 
     // 自动更新状态
-    final isAutoUpdateEnabled =
-        subscription.autoUpdateMode != AutoUpdateMode.disabled;
+    final autoUpdateMode = subscription.autoUpdateMode;
     children.add(
       TextSpan(
         text: subscription.isLocalFile
             ? trans.subscription.localTypeLabel
-            : (isAutoUpdateEnabled
-                  ? trans.subscription.autoUpdateLabel
-                  : trans.subscription.manualUpdateLabel),
+            : (autoUpdateMode == AutoUpdateMode.disabled
+                  ? trans.subscription.manualUpdateLabel
+                  : (autoUpdateMode == AutoUpdateMode.onStartup
+                        ? trans.subscription.updateOnStartupLabel
+                        : trans.subscription.autoUpdateLabel)),
         style: TextStyle(
           color: subscription.isLocalFile
               ? Colors.grey
-              : (isAutoUpdateEnabled ? Colors.green : Colors.grey),
+              : (autoUpdateMode == AutoUpdateMode.disabled
+                    ? Colors.grey
+                    : Colors.green),
           fontSize: 11,
         ),
       ),
     );
 
-    // 距下次更新时间（仅远程订阅+自动更新+有更新记录时显示）
+    // 距下次更新时间（仅远程订阅+间隔更新+有更新记录时显示）
     if (!subscription.isLocalFile &&
-        isAutoUpdateEnabled &&
+        autoUpdateMode == AutoUpdateMode.interval &&
         subscription.lastUpdateTime != null) {
       children.add(
         const TextSpan(

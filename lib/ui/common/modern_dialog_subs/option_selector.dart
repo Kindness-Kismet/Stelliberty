@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+// 横向选项间距常量
+// 2 选项时的单边间距
+const double _kHorizontalSpacingTwoOptions = 6.0;
+// 3 选项时的单边间距
+const double _kHorizontalSpacingThreeOptions = 4.0;
+
 // 选项数据模型
 class OptionItem<T> {
   final T value;
@@ -108,15 +114,27 @@ class OptionSelectorWidget<T> extends StatelessWidget {
     bool isDark,
     ColorScheme colorScheme,
   ) {
+    // 根据选项数量动态设置间距
+    final spacing = options.length == 2
+        ? _kHorizontalSpacingTwoOptions
+        : _kHorizontalSpacingThreeOptions;
+
     return Row(
-      children: options.map((option) {
+      children: List.generate(options.length, (index) {
+        final option = options[index];
+        final isFirst = index == 0;
+        final isLast = index == options.length - 1;
+
         return Expanded(
           child: Padding(
-            padding: EdgeInsets.only(right: option == options.last ? 0 : 12),
+            padding: EdgeInsets.only(
+              left: isFirst ? 0 : spacing,
+              right: isLast ? 0 : spacing,
+            ),
             child: _buildOptionCard(context, option, isDark, colorScheme),
           ),
         );
-      }).toList(),
+      }),
     );
   }
 

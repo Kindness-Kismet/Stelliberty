@@ -28,6 +28,9 @@ enum AutoUpdateMode {
   // 禁用自动更新
   disabled('disabled'),
 
+  // 仅启动时更新
+  onStartup('onStartup'),
+
   // 间隔更新（按分钟）
   interval('interval');
 

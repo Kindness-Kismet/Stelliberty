@@ -9,7 +9,7 @@ import 'package:stelliberty/ui/common/modern_dialog_subs/option_selector.dart';
 import 'package:stelliberty/ui/common/modern_dialog_subs/text_input_field.dart';
 import 'package:stelliberty/ui/common/modern_dialog_subs/file_selector.dart';
 import 'package:stelliberty/ui/common/modern_dialog_subs/proxy_mode_selector.dart';
-import 'package:stelliberty/ui/common/modern_switch.dart';
+import 'package:stelliberty/ui/common/modern_dialog_subs/auto_update_mode_selector.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 
 // 对话框间距常量
@@ -115,7 +115,6 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
   late final TextEditingController _intervalController;
   late final TextEditingController _userAgentController;
   late AutoUpdateMode _autoUpdateMode;
-  late bool _updateOnStartup;
   late SubscriptionProxyMode _proxyMode;
 
   // 缓存的全局默认 UA，避免重复调用
@@ -151,9 +150,8 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
       text: widget.initialUserAgent ?? '',
     );
 
-    // 初始化自动更新模式和启动时更新
+    // 初始化自动更新模式和代理模式
     _autoUpdateMode = widget.initialAutoUpdateMode ?? AutoUpdateMode.disabled;
-    _updateOnStartup = widget.initialUpdateOnStartup ?? false;
     _proxyMode = widget.initialProxyMode ?? SubscriptionProxyMode.direct;
 
     // 添加监听器以检测内容变化
@@ -180,10 +178,6 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
       if (_autoUpdateMode == AutoUpdateMode.interval &&
           int.tryParse(_intervalController.text.trim()) !=
               (widget.initialIntervalMinutes ?? 60)) {
-        return true;
-      }
-
-      if (_updateOnStartup != (widget.initialUpdateOnStartup ?? false)) {
         return true;
       }
 
@@ -392,234 +386,38 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
   Widget _buildAutoUpdateSection() {
     final dialogTrans = context.translate.subscriptionDialog;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Material(
-      color: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.04)
-              : Colors.white.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: isDark ? 0.1 : 0.2),
-          ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 自动更新模式选择器
+        AutoUpdateModeSelector(
+          selectedValue: _autoUpdateMode,
+          onChanged: (value) {
+            setState(() => _autoUpdateMode = value);
+          },
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 标题
-            Row(
-              children: [
-                Icon(
-                  Icons.refresh,
-                  color: Theme.of(context).colorScheme.primary,
-                  size: 16,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  dialogTrans.autoUpdateTitle,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
 
-            // 两个模式选项（横向排列）
-            _buildUpdateModeOptions(),
-
-            // 禁用更新时的"启动时更新"选项
-            if (_autoUpdateMode == AutoUpdateMode.disabled) ...[
-              const SizedBox(height: 16),
-              _buildUpdateOnStartupCheckbox(),
-            ],
-
-            // 间隔更新配置（当选择间隔更新时展开）
-            if (_autoUpdateMode == AutoUpdateMode.interval) ...[
-              const SizedBox(height: 16),
-              TextInputField(
-                controller: _intervalController,
-                label: dialogTrans.updateIntervalLabel,
-                hint: dialogTrans.updateIntervalHint,
-                icon: Icons.schedule,
-                validator: (value) {
-                  if (_autoUpdateMode == AutoUpdateMode.interval) {
-                    final minutes = int.tryParse(value?.trim() ?? '');
-                    if (minutes == null || minutes < 1) {
-                      return dialogTrans.updateIntervalError;
-                    }
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  // 构建更新模式选项（横向排列）
-  Widget _buildUpdateModeOptions() {
-    final dialogTrans = context.translate.subscriptionDialog;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final options = [
-      (
-        AutoUpdateMode.disabled,
-        dialogTrans.autoUpdateDisabled,
-        dialogTrans.autoUpdateDisabledDesc,
-      ),
-      (
-        AutoUpdateMode.interval,
-        dialogTrans.autoUpdateInterval,
-        dialogTrans.autoUpdateIntervalDesc,
-      ),
-    ];
-
-    return Row(
-      children: options.map((option) {
-        final value = option.$1;
-        final title = option.$2;
-        final subtitle = option.$3;
-        final isSelected = _autoUpdateMode == value;
-
-        return Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Material(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(8),
-                onTap: () {
-                  setState(() {
-                    _autoUpdateMode = value;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.15)
-                        : (isDark
-                              ? Colors.white.withValues(alpha: 0.03)
-                              : Colors.white.withValues(alpha: 0.4)),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.white.withValues(alpha: isDark ? 0.1 : 0.2),
-                      width: isSelected ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isSelected
-                              ? Theme.of(context).colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurface,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.onSurface.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+        // 间隔更新配置（当选择间隔更新时展开）
+        if (_autoUpdateMode == AutoUpdateMode.interval) ...[
+          const SizedBox(height: 16),
+          TextInputField(
+            controller: _intervalController,
+            label: dialogTrans.updateIntervalLabel,
+            hint: dialogTrans.updateIntervalHint,
+            icon: Icons.schedule,
+            validator: (value) {
+              if (_autoUpdateMode == AutoUpdateMode.interval) {
+                final minutes = int.tryParse(value?.trim() ?? '');
+                if (minutes == null || minutes < 1) {
+                  return dialogTrans.updateIntervalError;
+                }
+              }
+              return null;
+            },
           ),
-        );
-      }).toList(),
-    );
-  }
-
-  // 构建"启动时更新"开关卡片
-  Widget _buildUpdateOnStartupCheckbox() {
-    final dialogTrans = context.translate.subscriptionDialog;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () {
-          setState(() {
-            _updateOnStartup = !_updateOnStartup;
-          });
-        },
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.04)
-                : Colors.white.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: isDark ? 0.1 : 0.2),
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      dialogTrans.updateOnStartup,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      dialogTrans.updateOnStartupDesc,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              ModernSwitch(
-                value: _updateOnStartup,
-                onChanged: (value) {
-                  setState(() {
-                    _updateOnStartup = value;
-                  });
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
+        ],
+      ],
     );
   }
 
@@ -725,7 +523,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
             : null,
         autoUpdateMode: _autoUpdateMode,
         intervalMinutes: int.tryParse(_intervalController.text.trim()) ?? 60,
-        shouldUpdateOnStartup: _updateOnStartup,
+        shouldUpdateOnStartup: _autoUpdateMode == AutoUpdateMode.onStartup,
         isLocalImport: _importMethod == SubscriptionImportMethod.localFile,
         localFilePath: _selectedFile?.file.path,
         proxyMode: _proxyMode,
