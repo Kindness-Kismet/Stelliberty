@@ -2,6 +2,7 @@
 
 mod clash;
 mod network;
+mod services;
 mod system;
 mod utils;
 
@@ -11,6 +12,7 @@ write_interface!();
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() {
+    services::init();
     utils::init();
     network::init();
     system::init();

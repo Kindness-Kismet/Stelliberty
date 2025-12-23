@@ -14,6 +14,7 @@ import 'package:stelliberty/clash/providers/service_provider.dart';
 import 'package:stelliberty/clash/core/service_state.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/src/bindings/signals/signals.dart';
 
 // 虚拟网卡网络栈类型枚举
 enum TunStack {
@@ -46,6 +47,10 @@ class _TunConfigCardState extends State<TunConfigCard> {
   // 加载状态
   bool _isLoading = true;
 
+  // 服务版本号状态
+  String? _installedServiceVersion; // 已安装服务的版本号
+  String? _bundledServiceVersion; // 应用内置服务的版本号
+
   // 虚拟网卡模式配置
   TunStack _tunStack = TunStack.mixed;
   final TextEditingController _tunDeviceController = TextEditingController();
@@ -73,12 +78,27 @@ class _TunConfigCardState extends State<TunConfigCard> {
     // 延迟加载配置，先显示骨架屏
     Future.delayed(Duration.zero, () {
       _loadConfig();
+      // 检查服务版本号（仅在服务已安装时）
+      final serviceStateManager = ServiceStateManager.instance;
+      if (serviceStateManager.isServiceModeInstalled) {
+        _checkServiceVersion();
+      }
       // 100ms 后隐藏骨架屏
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           setState(() => _isLoading = false);
         }
       });
+    });
+
+    // 监听服务版本号响应
+    ServiceVersionResponse.rustSignalStream.listen((signal) {
+      if (mounted) {
+        setState(() {
+          _installedServiceVersion = signal.message.installedVersion;
+          _bundledServiceVersion = signal.message.bundledVersion;
+        });
+      }
     });
   }
 
@@ -114,6 +134,89 @@ class _TunConfigCardState extends State<TunConfigCard> {
       _tunDisableIcmpForwarding =
           ClashManager.instance.isTunIcmpForwardingDisabled;
     });
+  }
+
+  // 检查服务版本号
+  void _checkServiceVersion() {
+    GetServiceVersion().sendSignalToRust();
+  }
+
+  // 更新服务
+  Future<void> _updateService(ServiceProvider serviceProvider) async {
+    final trans = context.translate;
+
+    // 记录当前状态
+    final wasRunning = ClashManager.instance.isCoreRunning;
+    final currentConfig = ClashManager.instance.currentConfigPath;
+    final overrides = ClashManager.instance.getOverrides();
+
+    try {
+      // 显示更新中提示
+      if (mounted) {
+        ModernToast.info(context, trans.tunConfig.updating);
+      }
+
+      // 1. 停止核心（如果正在运行）
+      if (wasRunning) {
+        Logger.info('更新服务前停止核心');
+        await ClashManager.instance.stopCore();
+      }
+
+      // 2. 卸载服务
+      Logger.info('卸载旧版本服务');
+      final uninstallSuccess = await serviceProvider.uninstallService();
+      if (!uninstallSuccess) {
+        throw Exception(serviceProvider.lastOperationError ?? '卸载服务失败');
+      }
+
+      // 3. 安装服务（新版本）
+      Logger.info('安装新版本服务');
+      final installSuccess = await serviceProvider.installService();
+      if (!installSuccess) {
+        throw Exception(serviceProvider.lastOperationError ?? '安装服务失败');
+      }
+
+      // 4. 恢复核心运行状态
+      if (wasRunning && currentConfig != null) {
+        Logger.info('恢复核心运行状态');
+        await ClashManager.instance.startCore(
+          configPath: currentConfig,
+          overrides: overrides,
+        );
+      }
+
+      // 5. 刷新版本号
+      _checkServiceVersion();
+
+      if (mounted) {
+        ModernToast.success(context, trans.tunConfig.updateSuccess);
+      }
+    } catch (e) {
+      Logger.error('更新服务失败：$e');
+
+      // 尝试恢复核心
+      if (wasRunning && currentConfig != null) {
+        try {
+          await ClashManager.instance.startCore(
+            configPath: currentConfig,
+            overrides: overrides,
+          );
+        } catch (e2) {
+          Logger.error('恢复核心失败：$e2');
+        }
+      }
+
+      if (mounted) {
+        ModernToast.error(
+          context,
+          trans.tunConfig.updateFailed.replaceAll('{error}', e.toString()),
+        );
+      }
+    } finally {
+      if (mounted) {
+        serviceProvider.clearLastOperationResult();
+      }
+    }
   }
 
   // 验证 MTU 值
@@ -308,6 +411,12 @@ class _TunConfigCardState extends State<TunConfigCard> {
           final isServiceModeInstalled = stateManager.isServiceModeInstalled;
           final isServiceModeProcessing = stateManager.isServiceModeProcessing;
 
+          // 检查是否有可用更新
+          final hasUpdate =
+              _installedServiceVersion != null &&
+              _bundledServiceVersion != null &&
+              _installedServiceVersion != _bundledServiceVersion;
+
           return Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -317,79 +426,84 @@ class _TunConfigCardState extends State<TunConfigCard> {
                   children: [
                     Text(
                       trans.tunConfig.serviceMode,
-                      style: Theme.of(context).textTheme.titleSmall,
+                      style: theme.textTheme.titleSmall,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       isServiceModeInstalled
                           ? trans.tunConfig.serviceInstalled
                           : trans.tunConfig.serviceNotInstalled,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: isServiceModeInstalled
-                            ? Colors.green.shade700
-                            : Colors.orange.shade700,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.outline,
                       ),
                     ),
                   ],
                 ),
               ),
-              ModernSwitch(
-                value: isServiceModeInstalled,
-                onChanged: isServiceModeProcessing
-                    ? null
-                    : (value) async {
-                        if (value) {
-                          // 安装服务
-                          final success = await serviceProvider
-                              .installService();
-                          if (mounted) {
-                            if (success) {
-                              ModernToast.success(
-                                context,
-                                context
-                                    .translate
-                                    .tunConfig
-                                    .serviceInstallSuccess,
-                              );
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isServiceModeInstalled) ...[
+                    IconButton(
+                      icon: const Icon(Icons.system_update, size: 20),
+                      tooltip: hasUpdate
+                          ? trans.tunConfig.updateAvailable
+                          : trans.tunConfig.upToDate,
+                      onPressed: hasUpdate && !isServiceModeProcessing
+                          ? () => _updateService(serviceProvider)
+                          : null,
+                      color: hasUpdate
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.outline.withAlpha(100),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  ModernSwitch(
+                    value: isServiceModeInstalled,
+                    onChanged: isServiceModeProcessing
+                        ? null
+                        : (value) async {
+                            if (value) {
+                              // 安装服务
+                              final success = await serviceProvider.installService();
+                              if (mounted) {
+                                if (success) {
+                                  ModernToast.success(
+                                    context,
+                                    trans.tunConfig.serviceInstallSuccess,
+                                  );
+                                  _checkServiceVersion(); // 安装后重新检查版本
+                                } else {
+                                  final errorMsg =
+                                      serviceProvider.lastOperationError ??
+                                      trans.tunConfig.serviceInstallFailed;
+                                  ModernToast.error(context, errorMsg);
+                                }
+                                serviceProvider.clearLastOperationResult();
+                              }
                             } else {
-                              // 显示详细错误信息（可能包含多行）
-                              final errorMsg =
-                                  serviceProvider.lastOperationError ??
-                                  context
-                                      .translate
-                                      .tunConfig
-                                      .serviceInstallFailed;
-                              ModernToast.error(context, errorMsg);
+                              // 卸载服务
+                              final success = await serviceProvider
+                                  .uninstallService();
+                              if (mounted) {
+                                if (success) {
+                                  ModernToast.success(
+                                    context,
+                                    trans.tunConfig.serviceUninstallSuccess,
+                                  );
+                                  _checkServiceVersion(); // 卸载后重新检查版本
+                                } else {
+                                  final errorMsg =
+                                      serviceProvider.lastOperationError ??
+                                      trans.tunConfig.serviceUninstallFailed;
+                                  ModernToast.error(context, errorMsg);
+                                }
+                                serviceProvider.clearLastOperationResult();
+                              }
                             }
-                            serviceProvider.clearLastOperationResult();
-                          }
-                        } else {
-                          // 卸载服务
-                          final success = await serviceProvider
-                              .uninstallService();
-                          if (mounted) {
-                            if (success) {
-                              ModernToast.success(
-                                context,
-                                context
-                                    .translate
-                                    .tunConfig
-                                    .serviceUninstallSuccess,
-                              );
-                            } else {
-                              // 显示详细错误信息（可能包含多行）
-                              final errorMsg =
-                                  serviceProvider.lastOperationError ??
-                                  context
-                                      .translate
-                                      .tunConfig
-                                      .serviceUninstallFailed;
-                              ModernToast.error(context, errorMsg);
-                            }
-                            serviceProvider.clearLastOperationResult();
-                          }
-                        }
-                      },
+                          },
+                  ),
+                ],
               ),
             ],
           );

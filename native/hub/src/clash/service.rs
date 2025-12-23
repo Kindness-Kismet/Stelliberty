@@ -7,7 +7,6 @@ use anyhow::{Context, Result};
 use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-#[cfg(not(windows))]
 use std::process::Command;
 use stelliberty_service::ipc::{IpcClient, IpcCommand, IpcResponse};
 
@@ -39,11 +38,87 @@ pub struct ServiceManager {
 impl ServiceManager {
     // 创建服务管理器
     pub fn new() -> Result<Self> {
-        let service_exe_path = Self::get_service_exe_path()?;
+        let service_exe_path = crate::services::path_service::service_private_exe();
         Ok(Self {
             ipc_client: IpcClient::default(),
             service_exe_path,
         })
+    }
+
+    // 获取已安装服务的版本号（从私有目录中的服务程序）
+    pub fn get_installed_service_version() -> Option<String> {
+        let service_exe_path = crate::services::path_service::service_private_exe();
+
+        // 检查私有目录中的服务程序是否存在
+        if !service_exe_path.exists() {
+            log::debug!("私有目录中不存在服务程序：{}", service_exe_path.display());
+            return None;
+        }
+
+        // 执行 stelliberty-service version 命令
+        let output = match Command::new(&service_exe_path)
+            .arg("version")
+            .output()
+        {
+            Ok(output) => output,
+            Err(e) => {
+                log::error!("执行私有目录服务程序 version 命令失败：{}", e);
+                return None;
+            }
+        };
+
+        if !output.status.success() {
+            log::error!("私有目录服务程序 version 命令返回错误");
+            return None;
+        }
+
+        // 解析输出：Stelliberty Service v1.5.0
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let version = stdout
+            .trim()
+            .strip_prefix("Stelliberty Service v")
+            .map(|v| v.to_string());
+
+        log::debug!("已安装服务版本：{:?}", version);
+        version
+    }
+
+    // 获取内置服务的版本号（从应用 assets 中的服务二进制）
+    pub fn get_bundled_service_version() -> Option<String> {
+        let source_service_exe = crate::services::path_service::assets_service_exe();
+
+        // 检查 assets 中的服务程序是否存在
+        if !source_service_exe.exists() {
+            log::error!(
+                "服务程序不存在：{}。请检查应用打包是否正确",
+                source_service_exe.display()
+            );
+            return None;
+        }
+
+        // 执行 stelliberty-service version 命令
+        let output = match Command::new(&source_service_exe).arg("version").output() {
+            Ok(output) => output,
+            Err(e) => {
+                log::error!("执行服务程序 version 命令失败：{}", e);
+                return None;
+            }
+        };
+
+        if !output.status.success() {
+            log::error!("服务程序 version 命令返回错误");
+            return None;
+        }
+
+        // 解析输出：Stelliberty Service v1.5.0
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let version = stdout
+            .trim()
+            .strip_prefix("Stelliberty Service v")
+            .map(|v| v.to_string());
+
+        log::debug!("内置服务版本：{:?}", version);
+        version
     }
 
     // 获取服务状态
@@ -335,14 +410,9 @@ impl ServiceManager {
 
     // 复制服务二进制到私有目录（安装时调用）
     fn copy_service_binary_to_private(&self) -> Result<()> {
-        let app_data_dir = Self::get_app_data_dir()?;
-        let source_service_exe = Self::get_source_service_exe_path()?;
-
-        #[cfg(windows)]
-        let private_service_exe = app_data_dir.join("stelliberty-service.exe");
-
-        #[cfg(not(windows))]
-        let private_service_exe = app_data_dir.join("stelliberty-service");
+        let app_data_dir = crate::services::path_service::service_private_dir();
+        let source_service_exe = crate::services::path_service::assets_service_exe();
+        let private_service_exe = crate::services::path_service::service_private_exe();
 
         // 检查是否需要复制（通过文件大小和修改时间判断）
         if !private_service_exe.exists() {
@@ -428,13 +498,7 @@ impl ServiceManager {
 
     // 删除私有目录中的服务二进制（卸载时调用）
     async fn remove_service_binary_from_private(&self) -> Result<()> {
-        let app_data_dir = Self::get_app_data_dir()?;
-
-        #[cfg(windows)]
-        let private_service_exe = app_data_dir.join("stelliberty-service.exe");
-
-        #[cfg(not(windows))]
-        let private_service_exe = app_data_dir.join("stelliberty-service");
+        let private_service_exe = crate::services::path_service::service_private_exe();
 
         if private_service_exe.exists() {
             log::info!(
@@ -638,87 +702,6 @@ impl ServiceManager {
         }
     }
 
-    // 获取服务二进制路径（始终使用私有目录）
-    fn get_service_exe_path() -> Result<PathBuf> {
-        let app_data_dir = Self::get_app_data_dir()?;
-
-        #[cfg(windows)]
-        let service_exe = app_data_dir.join("stelliberty-service.exe");
-
-        #[cfg(not(windows))]
-        let service_exe = app_data_dir.join("stelliberty-service");
-
-        Ok(service_exe)
-    }
-
-    // 获取便携式目录中的服务二进制路径
-    fn get_source_service_exe_path() -> Result<PathBuf> {
-        let current_exe = std::env::current_exe().context("无法获取当前程序路径")?;
-        let binary_dir = current_exe.parent().context("无法获取当前程序目录")?;
-
-        #[cfg(windows)]
-        let source_service_exe = binary_dir
-            .join("data")
-            .join("flutter_assets")
-            .join("assets")
-            .join("service")
-            .join("stelliberty-service.exe");
-
-        #[cfg(not(windows))]
-        let source_service_exe = binary_dir
-            .join("data")
-            .join("flutter_assets")
-            .join("assets")
-            .join("service")
-            .join("stelliberty-service");
-
-        if !source_service_exe.exists() {
-            anyhow::bail!(
-                "服务程序不存在：{}。请检查应用打包是否正确",
-                source_service_exe.display()
-            );
-        }
-
-        Ok(source_service_exe)
-    }
-
-    // 获取应用数据目录（私有目录）
-    fn get_app_data_dir() -> Result<PathBuf> {
-        #[cfg(windows)]
-        {
-            // Windows: %APPDATA%\stelliberty\service
-            let app_data = std::env::var("APPDATA").context("无法获取 APPDATA 环境变量")?;
-            Ok(PathBuf::from(app_data).join("stelliberty").join("service"))
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            // Linux: ~/.local/share/stelliberty/service
-            let home = std::env::var("HOME").context("无法获取 HOME 环境变量")?;
-            Ok(PathBuf::from(home)
-                .join(".local")
-                .join("share")
-                .join("stelliberty")
-                .join("service"))
-        }
-
-        #[cfg(target_os = "macos")]
-        {
-            // macOS: ~/Library/Application Support/Stelliberty/service
-            let home = std::env::var("HOME").context("无法获取 HOME 环境变量")?;
-            Ok(PathBuf::from(home)
-                .join("Library")
-                .join("Application Support")
-                .join("Stelliberty")
-                .join("service"))
-        }
-
-        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
-        {
-            anyhow::bail!("不支持的操作系统")
-        }
-    }
-
     #[cfg(windows)]
     fn is_service_installed() -> bool {
         use windows_service::{
@@ -764,43 +747,15 @@ impl Default for ServiceManager {
             log::error!("创建 ServiceManager 失败：{}", e);
 
             // 使用备用路径（尝试从私有目录或便携式目录）
-            let service_exe_path = Self::get_app_data_dir()
-                .ok()
-                .and_then(|app_data_dir| {
-                    #[cfg(windows)]
-                    let path = app_data_dir.join("stelliberty-service.exe");
-
-                    #[cfg(not(windows))]
-                    let path = app_data_dir.join("stelliberty-service");
-
-                    if path.exists() { Some(path) } else { None }
-                })
-                .unwrap_or_else(|| {
-                    // 备用：尝试从便携式目录
-                    let current_exe =
-                        std::env::current_exe().unwrap_or_else(|_| std::path::PathBuf::from("."));
-                    let binary_dir = current_exe
-                        .parent()
-                        .unwrap_or_else(|| std::path::Path::new("."));
-
-                    #[cfg(windows)]
-                    let fallback_path = binary_dir
-                        .join("data")
-                        .join("flutter_assets")
-                        .join("assets")
-                        .join("service")
-                        .join("stelliberty-service.exe");
-
-                    #[cfg(not(windows))]
-                    let fallback_path = binary_dir
-                        .join("data")
-                        .join("flutter_assets")
-                        .join("assets")
-                        .join("service")
-                        .join("stelliberty-service");
-
-                    fallback_path
-                });
+            let service_exe_path = {
+                let private_exe = crate::services::path_service::service_private_exe();
+                if private_exe.exists() {
+                    private_exe
+                } else {
+                    // 备用：尝试从 assets 目录
+                    crate::services::path_service::assets_service_exe()
+                }
+            };
 
             Self {
                 ipc_client: IpcClient::default(),
@@ -841,6 +796,10 @@ pub struct StopClash;
 #[derive(Deserialize, DartSignal)]
 pub struct SendServiceHeartbeat;
 
+// Dart → Rust：获取服务版本号
+#[derive(Deserialize, DartSignal)]
+pub struct GetServiceVersion;
+
 // Rust → Dart：服务状态响应
 #[derive(Serialize, RustSignal)]
 pub struct ServiceStatusResponse {
@@ -854,6 +813,15 @@ pub struct ServiceStatusResponse {
 pub struct ServiceOperationResult {
     pub is_successful: bool,
     pub error_message: Option<String>,
+}
+
+// Rust → Dart：服务版本号响应
+#[derive(Serialize, RustSignal)]
+pub struct ServiceVersionResponse {
+    // 已安装服务的版本号（如果服务未安装或未运行，则为 None）
+    pub installed_version: Option<String>,
+    // 应用内置的服务版本号
+    pub bundled_version: String,
 }
 
 // 消息处理逻辑
@@ -1087,5 +1055,28 @@ impl SendServiceHeartbeat {
                 log::warn!("发送服务心跳失败: {}", e);
             }
         }
+    }
+}
+
+impl GetServiceVersion {
+    pub async fn handle(&self) {
+        // 获取已安装服务的版本号（从私有目录）
+        let installed_version = ServiceManager::get_installed_service_version();
+
+        // 获取内置服务的版本号（从 assets）
+        let bundled_version =
+            ServiceManager::get_bundled_service_version().unwrap_or_else(|| "unknown".to_string());
+
+        log::debug!(
+            "服务版本信息 - 已安装: {:?}, 内置: {}",
+            installed_version,
+            bundled_version
+        );
+
+        ServiceVersionResponse {
+            installed_version,
+            bundled_version,
+        }
+        .send_signal_to_dart();
     }
 }

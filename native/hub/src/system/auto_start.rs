@@ -108,12 +108,13 @@ fn get_binary_path() -> Result<String, String> {
 
 #[cfg(target_os = "windows")]
 fn get_task_dir() -> Result<PathBuf, String> {
-    let user_data =
-        std::env::var("APPDATA").map_err(|e| format!("无法获取 APPDATA 环境变量：{}", e))?;
+    let task_dir = crate::services::path_service::tasks_dir();
 
-    let task_dir = PathBuf::from(user_data).join("Stelliberty").join("tasks");
-
-    std::fs::create_dir_all(&task_dir).map_err(|e| format!("创建任务目录失败：{}", e))?;
+    // 确保任务目录存在
+    if !task_dir.exists() {
+        std::fs::create_dir_all(&task_dir)
+            .map_err(|e| format!("创建任务目录失败：{}", e))?;
+    }
 
     Ok(task_dir)
 }

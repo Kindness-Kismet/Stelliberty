@@ -42,15 +42,11 @@ static LOG_FILE_PATH: Lazy<Mutex<Option<PathBuf>>> = Lazy::new(|| Mutex::new(Non
 static APP_LOG_ENABLED: Lazy<Mutex<bool>> = Lazy::new(|| Mutex::new(true)); // 应用日志开关（Dart 端控制）
 
 static LOGGER: Lazy<()> = Lazy::new(|| {
-    // 初始化日志文件路径（与 Dart PathService 一致）
-    if let Ok(app_data) = get_app_data_dir() {
-        let log_path = app_data.join("running.logs");
-        if let Ok(mut path_guard) = LOG_FILE_PATH.lock() {
-            *path_guard = Some(log_path.clone());
-            eprintln!("[RustLog] 应用日志文件路径: {}", log_path.display());
-        }
-    } else {
-        eprintln!("[RustLog] 无法获取应用数据目录，应用日志将被禁用");
+    // 初始化日志文件路径（使用路径服务）
+    let log_path = crate::services::path_service::log_file();
+    if let Ok(mut path_guard) = LOG_FILE_PATH.lock() {
+        *path_guard = Some(log_path.clone());
+        eprintln!("[RustLog] 应用日志文件路径: {}", log_path.display());
     }
 
     // 日志级别：Release 不能为 "off"（否则 format 回调不执行，文件无法写入）
@@ -175,19 +171,6 @@ fn check_and_rotate_log(path: &PathBuf) -> std::io::Result<()> {
     }
 
     Ok(())
-}
-
-// 获取应用数据目录（便携模式：可执行文件同级 data/ 目录）
-fn get_app_data_dir() -> Result<PathBuf, String> {
-    use std::env;
-
-    let binary_path = env::current_exe().map_err(|e| format!("无法获取可执行文件路径：{}", e))?;
-
-    let binary_dir = binary_path
-        .parent()
-        .ok_or_else(|| "无法获取可执行文件目录".to_string())?;
-
-    Ok(binary_dir.join("data"))
 }
 
 /// 设置应用日志启用状态（由 Dart 端通过 rinf 消息调用，线程安全，实时生效）

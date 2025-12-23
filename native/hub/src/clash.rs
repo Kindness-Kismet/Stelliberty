@@ -21,7 +21,8 @@ pub use process::{ClashProcessResult, StartClashProcess, StopClashProcess};
 
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "macos"))]
 pub use service::{
-    GetServiceStatus, InstallService, SendServiceHeartbeat, StartClash, StopClash, UninstallService,
+    GetServiceStatus, GetServiceVersion, InstallService, SendServiceHeartbeat, StartClash,
+    StopClash, UninstallService,
 };
 
 pub mod subscription;
@@ -141,6 +142,17 @@ pub fn init() {
         // 向服务发送心跳
         spawn(async {
             let receiver = SendServiceHeartbeat::get_dart_signal_receiver();
+            while let Some(dart_signal) = receiver.recv().await {
+                let message = dart_signal.message;
+                tokio::spawn(async move {
+                    message.handle().await;
+                });
+            }
+        });
+
+        // 获取服务版本号
+        spawn(async {
+            let receiver = GetServiceVersion::get_dart_signal_receiver();
             while let Some(dart_signal) = receiver.recv().await {
                 let message = dart_signal.message;
                 tokio::spawn(async move {
