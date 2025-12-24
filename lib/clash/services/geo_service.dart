@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/utils/logger.dart';
 
 // Geodata 数据文件服务
@@ -40,18 +41,8 @@ class GeoService {
       return _cachedGeoDataDir!;
     }
 
-    // 获取可执行文件所在目录
-    final exeDir = p.dirname(Platform.resolvedExecutable);
-
-    // 构建 flutter_assets/assets/clash-core/data 路径
-    final geoDataDir = p.join(
-      exeDir,
-      'data',
-      'flutter_assets',
-      'assets',
-      'clash-core',
-      'data',
-    );
+    // 使用 PathService 获取 Clash 核心数据目录
+    final geoDataDir = PathService.instance.clashCoreDataPath;
 
     final dir = Directory(geoDataDir);
 

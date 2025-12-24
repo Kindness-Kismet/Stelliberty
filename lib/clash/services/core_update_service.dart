@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 
@@ -244,8 +245,7 @@ class CoreUpdateService {
 
   // 获取核心文件目录（运行时路径）
   static Future<String> getCoreDirectory() async {
-    final exeDir = p.dirname(Platform.resolvedExecutable);
-    return p.join(exeDir, 'data', 'flutter_assets', 'assets', 'clash-core');
+    return PathService.instance.clashCoreBasePath;
   }
 
   // 删除备份的旧核心

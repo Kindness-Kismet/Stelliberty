@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
 import 'package:stelliberty/clash/services/geo_service.dart';
+import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/src/bindings/bindings.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/utils/logger.dart';
@@ -122,16 +122,8 @@ class ProcessService {
       throw UnsupportedError('不支持的平台: ${Platform.operatingSystem}');
     }
 
-    // 获取可执行文件所在目录
-    final exeDir = p.dirname(Platform.resolvedExecutable);
-
-    // 构建 flutter_assets/assets/clash-core 路径
-    final executablePath = p.join(
-      exeDir,
-      'data',
-      'flutter_assets',
-      'assets',
-      'clash-core',
+    // 使用 PathService 获取可执行文件路径
+    final executablePath = PathService.instance.getClashCoreExecutablePath(
       fileName,
     );
 

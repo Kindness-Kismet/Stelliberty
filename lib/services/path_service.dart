@@ -25,6 +25,8 @@ class PathService {
   late final String _overrideListPathCache;
   late final String _dnsConfigPathCache;
   late final String _pacFilePathCache;
+  late final String _clashCoreBasePathCache;
+  late final String _clashCoreDataPathCache;
 
   // 子目录名称常量
   static const String _subscriptionsDirName = 'subscriptions';
@@ -54,6 +56,14 @@ class PathService {
   // PAC 文件路径（缓存），用于系统代理 PAC 模式
   String get pacFilePath => _pacFilePathCache;
 
+  // Clash 核心基础目录路径（缓存）
+  // 路径：{exeDir}/data/flutter_assets/assets/clash-core
+  String get clashCoreBasePath => _clashCoreBasePathCache;
+
+  // Clash 核心数据目录路径（缓存），存储 GeoIP、GeoSite、runtime_config.yaml 等
+  // 路径：{exeDir}/data/flutter_assets/assets/clash-core/data
+  String get clashCoreDataPath => _clashCoreDataPathCache;
+
   // 获取指定订阅的配置文件路径
   String getSubscriptionConfigPath(String subscriptionId) {
     return path.join(subscriptionsDir, '$subscriptionId.yaml');
@@ -62,6 +72,16 @@ class PathService {
   // 获取指定覆写的文件路径
   String getOverridePath(String overrideId, String extension) {
     return path.join(overridesDir, '$overrideId.$extension');
+  }
+
+  // 获取 Clash 核心可执行文件路径
+  String getClashCoreExecutablePath(String fileName) {
+    return path.join(clashCoreBasePath, fileName);
+  }
+
+  // 获取 runtime_config.yaml 路径
+  String getRuntimeConfigPath() {
+    return path.join(clashCoreDataPath, 'runtime_config.yaml');
   }
 
   // 初始化服务，应用启动时调用一次，创建必要的数据目录
@@ -86,6 +106,17 @@ class PathService {
     );
     _dnsConfigPathCache = path.join(appDataPath, _dnsConfigName);
     _pacFilePathCache = path.join(appDataPath, _pacFileName);
+
+    // Clash 核心路径（基于可执行文件目录）
+    final exeDir = path.dirname(Platform.resolvedExecutable);
+    _clashCoreBasePathCache = path.join(
+      exeDir,
+      'data',
+      'flutter_assets',
+      'assets',
+      'clash-core',
+    );
+    _clashCoreDataPathCache = path.join(_clashCoreBasePathCache, 'data');
 
     // 创建所有必要的目录
     await _createDirectories();
