@@ -1,42 +1,25 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/clash/services/dns_service.dart';
 import 'package:stelliberty/clash/services/geo_service.dart';
 import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 
-// Clash 配置文件注入器，负责将用户配置参数注入到 Clash 配置文件中
-//
-// 设计原则：
-// - 订阅文件（subscriptions/*.yaml）永不修改
-// - 生成临时运行时配置文件（runtime_config.yaml）
-// - Clash 加载临时配置文件
+// Clash 配置注入器
+// 生成运行时配置文件（runtime_config.yaml），不修改订阅源文件
 class ConfigInjector {
-  // 获取默认配置内容
-  // 包含 Clash 核心必需的基础字段（Rust 端不会注入这些）
+  // 默认配置内容
   static String getDefaultConfigContent() {
     return 'proxies: []\nproxy-groups: []\nrules: []';
   }
 
-  // 注入用户自定义配置参数到配置文件
-  //
-  // 新架构：所有 YAML 处理在 Rust 端完成，避免 Dart 重复解析
-  // - 从配置文件或配置内容读取基础配置
-  // - 调用 Rust 端统一生成运行时配置（覆写 + 参数注入）
-  // - 写入 runtime_config.yaml
-  // - 返回 runtime_config.yaml 路径
-  //
-  // 参数：
-  // - configPath: 配置文件路径（可选）
-  // - configContent: 配置内容（可选，优先使用）
-  // - overrides: 覆写列表
-  //
-  // 返回值：runtime_config.yaml 的绝对路径
+  // 注入运行时参数，生成 runtime_config.yaml
   static Future<String?> injectCustomConfigParams({
     String? configPath,
     String? configContent,
     List<OverrideConfig> overrides = const [],
-    required int httpPort,
+    required int mixedPort,
     required bool isIpv6Enabled,
     required bool isTunEnabled,
     required String tunStack,
@@ -60,36 +43,26 @@ class ConfigInjector {
     required String outboundMode,
   }) async {
     try {
-      // 1. 获取配置内容（优先级：configContent > configPath > 默认配置）
+      // 1. 获取配置内容（优先级：configContent > configPath > 默认）
       String content;
 
-      // 优先使用直接提供的配置内容
       if (configContent != null && configContent.isNotEmpty) {
         content = configContent;
-      }
-      // 其次尝试从文件路径读取
-      else if (configPath != null && configPath.isNotEmpty) {
+      } else if (configPath != null && configPath.isNotEmpty) {
         final configFile = File(configPath);
-
-        // 文件不存在，使用默认配置
         if (!await configFile.exists()) {
-          Logger.warning('订阅配置文件不存在：$configPath，使用默认配置');
+          Logger.warning('配置文件不存在：$configPath');
           content = getDefaultConfigContent();
-        }
-        // 文件存在，尝试读取
-        else {
+        } else {
           try {
             content = await configFile.readAsString();
           } catch (e) {
-            Logger.error('读取配置文件失败：$configPath - $e');
-            Logger.info('回退到默认配置');
+            Logger.error('读取配置失败：$e');
             content = getDefaultConfigContent();
           }
         }
-      }
-      // 没有提供任何配置，使用默认配置
-      else {
-        Logger.info('未提供配置路径，使用默认配置启动核心');
+      } else {
+        Logger.info('使用默认配置启动核心');
         content = getDefaultConfigContent();
       }
 
@@ -100,8 +73,21 @@ class ConfigInjector {
           ? ClashPreferences.instance.getKeepAliveInterval()
           : null;
 
+      // 读取 DNS 覆写
+      final isDnsOverrideEnabled = ClashPreferences.instance
+          .getDnsOverrideEnabled();
+      String? dnsOverrideContent;
+      if (isDnsOverrideEnabled && DnsService.instance.configExists()) {
+        try {
+          final dnsConfigPath = DnsService.instance.getConfigPath();
+          dnsOverrideContent = await File(dnsConfigPath).readAsString();
+        } catch (e) {
+          Logger.error('读取 DNS 覆写失败：$e');
+        }
+      }
+
       final params = RuntimeConfigParams(
-        httpPort: httpPort,
+        mixedPort: mixedPort,
         isIpv6Enabled: isIpv6Enabled,
         isAllowLanEnabled: isAllowLanEnabled,
         isTcpConcurrentEnabled: isTcpConcurrentEnabled,
@@ -125,9 +111,11 @@ class ConfigInjector {
         externalControllerSecret: externalControllerSecret,
         isKeepAliveEnabled: isKeepAliveEnabled,
         keepAliveInterval: keepAliveInterval,
+        isDnsOverrideEnabled: isDnsOverrideEnabled,
+        dnsOverrideContent: dnsOverrideContent,
       );
 
-      // 3. 调用 Rust 统一处理（覆写 + 参数注入 + YAML 序列化）
+      // 3. 调用 Rust 处理
       final request = GenerateRuntimeConfigRequest(
         baseConfigContent: content,
         overrides: overrides,
@@ -136,19 +124,18 @@ class ConfigInjector {
 
       request.sendSignalToRust();
 
-      // 【性能优化】降低超时时间到 5 秒（正常情况下 Rust 处理很快）
       final response = await GenerateRuntimeConfigResponse
           .rustSignalStream
           .first
           .timeout(
             const Duration(seconds: 5),
             onTimeout: () {
-              throw Exception('Rust 配置生成超时（5秒）');
+              throw Exception('Rust 配置生成超时');
             },
           );
 
       if (!response.message.isSuccessful) {
-        Logger.error('Rust 配置生成失败：${response.message.errorMessage}');
+        Logger.error('配置生成失败：${response.message.errorMessage}');
         return null;
       }
 
@@ -159,9 +146,9 @@ class ConfigInjector {
         runtimeConfigPath,
       ).writeAsString(response.message.resultConfig);
 
-      Logger.info(
-        '运行时配置已生成 (${(response.message.resultConfig.length / 1024).toStringAsFixed(1)}KB，虚拟网卡：${isTunEnabled ? "启用" : "禁用"})',
-      );
+      final sizeKb = (response.message.resultConfig.length / 1024)
+          .toStringAsFixed(1);
+      Logger.info('运行时配置已生成（${sizeKb}KB）');
 
       return runtimeConfigPath;
     } catch (e) {

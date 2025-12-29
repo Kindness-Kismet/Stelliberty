@@ -146,7 +146,7 @@ class LifecycleManager {
       final generatedConfigPath = await ConfigInjector.injectCustomConfigParams(
         configPath: configPath,
         overrides: overrides,
-        httpPort: mixedPort, // 传递混合端口给配置注入器
+        mixedPort: mixedPort,
         isIpv6Enabled: isIpv6Enabled,
         isTunEnabled: isTunEnabled,
         tunStack: tunStack,

@@ -1,15 +1,10 @@
 // Clash 运行时参数注入器
-//
-// 负责将运行时参数注入到 Clash 配置中，替代 Dart 端的 ConfigInjector
 
 use serde_yaml_ng::{Mapping, Value as YamlValue};
 
 use super::runtime_params::RuntimeConfigParams;
 
 // 注入运行时参数到 Clash 配置
-//
-// 将所有运行时参数（端口、TUN、DNS 等）注入到配置中
-// 并修复可能出现的 YAML 解析问题（如科学计数法字符串）
 pub fn inject_runtime_params(
     yaml_content: &str,
     params: &RuntimeConfigParams,
@@ -25,8 +20,7 @@ pub fn inject_runtime_params(
         "配置根节点必须是 Map".to_string()
     })?;
 
-    // 2. 注入 IPC 端点（Named Pipe/Unix Socket）
-    // Debug/Profile 模式使用 _dev 后缀，避免与 Release 模式冲突
+    // 2. 注入 IPC 端点
     #[cfg(windows)]
     {
         #[cfg(debug_assertions)]
@@ -38,7 +32,7 @@ pub fn inject_runtime_params(
             YamlValue::String("external-controller-pipe".to_string()),
             YamlValue::String(pipe_path.clone()),
         );
-        log::info!("注入 Windows Named Pipe：{}", pipe_path);
+        log::info!("注入 Named Pipe：{}", pipe_path);
     }
 
     #[cfg(unix)]
@@ -55,27 +49,23 @@ pub fn inject_runtime_params(
         log::info!("注入 Unix Socket：{}", socket_path);
     }
 
-    // 3. 注入外部控制器配置（HTTP API）
+    // 3. 注入外部控制器
     if let Some(ref external_controller) = params.external_controller {
         if !external_controller.is_empty() {
-            // 用户启用了外部控制器，注入地址
             config_map.insert(
                 YamlValue::String("external-controller".to_string()),
                 YamlValue::String(external_controller.clone()),
             );
-            log::info!("外部控制器已启用：{}", external_controller);
+            log::info!("外部控制器：{}", external_controller);
 
-            // 注入 secret（如果配置了）
             if let Some(ref secret) = params.external_controller_secret {
                 if !secret.is_empty() {
                     config_map.insert(
                         YamlValue::String("secret".to_string()),
                         YamlValue::String(secret.clone()),
                     );
-                    log::info!("外部控制器 Secret 已设置");
                 } else {
                     config_map.remove(YamlValue::String("secret".to_string()));
-                    log::info!("外部控制器 Secret 为空");
                 }
             } else {
                 config_map.remove(YamlValue::String("secret".to_string()));
@@ -83,40 +73,31 @@ pub fn inject_runtime_params(
         } else {
             config_map.remove(YamlValue::String("external-controller".to_string()));
             config_map.remove(YamlValue::String("secret".to_string()));
-            log::info!("外部控制器已禁用（仅使用 IPC）");
         }
     } else {
         config_map.remove(YamlValue::String("external-controller".to_string()));
         config_map.remove(YamlValue::String("secret".to_string()));
     }
 
-    // 4. 注入端口配置
+    // 4. 注入端口
     config_map.insert(
         YamlValue::String("mixed-port".to_string()),
-        YamlValue::Number(params.http_port.into()),
+        YamlValue::Number(params.mixed_port.into()),
     );
 
-    // 5. 注入 bind-address（根据 is_allow_lan_enabled 动态设置）
-    // - is_allow_lan_enabled 为 false 时：bind-address 为 '127.0.0.1'（仅本地，双重保护）
-    // - is_allow_lan_enabled 为 true 时：bind-address 为 '0.0.0.0'（所有接口，允许局域网）
+    // 5. 注入 bind-address
     let bind_address = if params.is_allow_lan_enabled {
-        "0.0.0.0".to_string()
+        "0.0.0.0"
     } else {
-        "127.0.0.1".to_string()
+        "127.0.0.1"
     };
-
     config_map.insert(
         YamlValue::String("bind-address".to_string()),
-        YamlValue::String(bind_address.clone()),
+        YamlValue::String(bind_address.to_string()),
     );
+    log::info!("bind-address：{}", bind_address);
 
-    log::info!(
-        "注入 bind-address：{}（is_allow_lan_enabled={}）",
-        bind_address,
-        params.is_allow_lan_enabled
-    );
-
-    // 移除单独的 port 和 socks-port，避免端口冲突
+    // 移除旧端口配置
     config_map.remove(YamlValue::String("port".to_string()));
     config_map.remove(YamlValue::String("socks-port".to_string()));
 
@@ -132,7 +113,7 @@ pub fn inject_runtime_params(
         YamlValue::Bool(params.is_unified_delay_enabled),
     );
 
-    // 8. 注入 TCP Keep-Alive 配置
+    // 8. 注入 Keep-Alive
     if params.is_keep_alive_enabled {
         if let Some(interval) = params.keep_alive_interval {
             config_map.insert(
@@ -144,19 +125,13 @@ pub fn inject_runtime_params(
         config_map.remove(YamlValue::String("keep-alive-interval".to_string()));
     }
 
-    // 9. 注入 TUN 模式配置（始终注入完整配置，只切换 enable 字段）
+    // 9. 注入 TUN 配置
     log::debug!(
-        "🔍 Rust 收到的 TUN 参数：enabled={}，stack={}，device={}，is_auto_route_enabled={}，is_auto_redirect_enabled={}，is_auto_detect_interface_enabled={}，is_strict_route_enabled={}，is_icmp_forwarding_disabled={}，mtu={}，route_exclude_address={:?}",
+        "TUN 参数：enabled={}, stack={}, device={}, mtu={}",
         params.is_tun_enabled,
         params.tun_stack,
         params.tun_device,
-        params.is_tun_auto_route_enabled,
-        params.is_tun_auto_redirect_enabled,
-        params.is_tun_auto_detect_interface_enabled,
-        params.is_tun_strict_route_enabled,
-        params.is_tun_icmp_forwarding_disabled,
-        params.tun_mtu,
-        params.tun_route_exclude_address
+        params.tun_mtu
     );
 
     let mut tun_config = Mapping::new();
@@ -185,7 +160,6 @@ pub fn inject_runtime_params(
         YamlValue::Bool(params.is_tun_auto_detect_interface_enabled),
     );
 
-    // DNS 劫持列表
     let dns_hijack: Vec<YamlValue> = params
         .tun_dns_hijack
         .iter()
@@ -195,13 +169,11 @@ pub fn inject_runtime_params(
         YamlValue::String("dns-hijack".to_string()),
         YamlValue::Sequence(dns_hijack),
     );
-
     tun_config.insert(
         YamlValue::String("strict-route".to_string()),
         YamlValue::Bool(params.is_tun_strict_route_enabled),
     );
 
-    // 排除网段列表
     if !params.tun_route_exclude_address.is_empty() {
         let route_exclude: Vec<YamlValue> = params
             .tun_route_exclude_address
@@ -218,8 +190,6 @@ pub fn inject_runtime_params(
         YamlValue::String("mtu".to_string()),
         YamlValue::Number(params.tun_mtu.into()),
     );
-
-    // ICMP 转发控制（注意：配置项是 disable，所以需要取反逻辑）
     tun_config.insert(
         YamlValue::String("disable-icmp-forwarding".to_string()),
         YamlValue::Bool(params.is_tun_icmp_forwarding_disabled),
@@ -229,15 +199,16 @@ pub fn inject_runtime_params(
         YamlValue::String("tun".to_string()),
         YamlValue::Mapping(tun_config),
     );
-
     log::info!("TUN 配置已注入（enabled={}）", params.is_tun_enabled);
 
-    // TUN 启用时，注入基本的 DNS 配置
-    if params.is_tun_enabled {
+    // 10. 注入 DNS（优先级：用户覆写 > TUN 默认 > 不注入）
+    if params.is_dns_override_enabled {
+        inject_user_dns_override(config_map, params)?;
+    } else if params.is_tun_enabled {
         inject_dns_config(config_map, params)?;
     }
 
-    // 9. 序列化为 YAML
+    // 11. 序列化输出
     let yaml_string = serde_yaml_ng::to_string(&config).map_err(|e| {
         log::error!("序列化配置失败：{}", e);
         format!("序列化配置失败：{}", e)
@@ -246,9 +217,8 @@ pub fn inject_runtime_params(
     Ok(yaml_string)
 }
 
-// 注入 DNS 配置（TUN 模式需要）
+// 注入 TUN 模式默认 DNS 配置
 fn inject_dns_config(config_map: &mut Mapping, params: &RuntimeConfigParams) -> Result<(), String> {
-    // 获取现有 DNS 配置（如果有）
     let existing_dns = config_map
         .get(YamlValue::String("dns".to_string()))
         .and_then(|v| v.as_mapping())
@@ -256,20 +226,18 @@ fn inject_dns_config(config_map: &mut Mapping, params: &RuntimeConfigParams) -> 
 
     let mut dns_config = existing_dns.unwrap_or_else(Mapping::new);
 
-    // 获取当前的 enhanced-mode
-    let current_mode = dns_config
+    let enhanced_mode = dns_config
         .get(YamlValue::String("enhanced-mode".to_string()))
         .and_then(|v| v.as_str())
         .unwrap_or("fake-ip");
 
-    // 如果不是 fake-ip 且已设置 enhanced-mode，跳过注入
-    if current_mode != "fake-ip"
+    // 非 fake-ip 模式且已配置，跳过
+    if enhanced_mode != "fake-ip"
         && dns_config.contains_key(YamlValue::String("enhanced-mode".to_string()))
     {
         return Ok(());
     }
 
-    // 注入基本 DNS 配置
     dns_config.insert(
         YamlValue::String("enable".to_string()),
         YamlValue::Bool(true),
@@ -293,7 +261,7 @@ fn inject_dns_config(config_map: &mut Mapping, params: &RuntimeConfigParams) -> 
         );
     }
 
-    // 如果用户配置没有 nameserver，添加默认值
+    // 默认 nameserver
     if !dns_config.contains_key(YamlValue::String("nameserver".to_string()))
         || dns_config
             .get(YamlValue::String("nameserver".to_string()))
@@ -311,7 +279,7 @@ fn inject_dns_config(config_map: &mut Mapping, params: &RuntimeConfigParams) -> 
         );
     }
 
-    // 如果用户配置没有 default-nameserver，添加默认值
+    // 默认 default-nameserver
     if !dns_config.contains_key(YamlValue::String("default-nameserver".to_string()))
         || dns_config
             .get(YamlValue::String("default-nameserver".to_string()))
@@ -333,6 +301,44 @@ fn inject_dns_config(config_map: &mut Mapping, params: &RuntimeConfigParams) -> 
         YamlValue::String("dns".to_string()),
         YamlValue::Mapping(dns_config),
     );
+
+    Ok(())
+}
+
+// 注入用户自定义 DNS 覆写
+fn inject_user_dns_override(
+    config_map: &mut Mapping,
+    params: &RuntimeConfigParams,
+) -> Result<(), String> {
+    let dns_content = match &params.dns_override_content {
+        Some(content) if !content.is_empty() => content,
+        _ => {
+            log::warn!("DNS 覆写已启用但内容为空");
+            return Ok(());
+        }
+    };
+
+    let user_config: YamlValue = serde_yaml_ng::from_str(dns_content).map_err(|e| {
+        log::error!("解析用户 DNS 配置失败：{}", e);
+        format!("解析用户 DNS 配置失败：{}", e)
+    })?;
+
+    let user_config_map = user_config.as_mapping().ok_or_else(|| {
+        log::error!("用户 DNS 配置根节点不是 Map");
+        "用户 DNS 配置根节点必须是 Map".to_string()
+    })?;
+
+    if let Some(dns_value) = user_config_map.get(YamlValue::String("dns".to_string())) {
+        config_map.insert(YamlValue::String("dns".to_string()), dns_value.clone());
+        log::info!("用户 DNS 覆写已注入");
+    } else {
+        log::warn!("用户 DNS 配置中无 dns 字段");
+    }
+
+    if let Some(hosts_value) = user_config_map.get(YamlValue::String("hosts".to_string())) {
+        config_map.insert(YamlValue::String("hosts".to_string()), hosts_value.clone());
+        log::info!("用户 Hosts 覆写已注入");
+    }
 
     Ok(())
 }

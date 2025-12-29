@@ -35,7 +35,7 @@ class IpcApiTest {
 
       final runtimeConfigPath = await ConfigInjector.injectCustomConfigParams(
         configPath: testConfigPath,
-        httpPort: 17890,
+        mixedPort: 17890,
         isIpv6Enabled: false,
         isTunEnabled: false,
         tunStack: 'mixed',

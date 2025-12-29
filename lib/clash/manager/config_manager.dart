@@ -207,7 +207,7 @@ class ConfigManager {
     return await ConfigInjector.injectCustomConfigParams(
       configPath: configPath,
       overrides: overrides,
-      httpPort: _mixedPort,
+      mixedPort: _mixedPort,
       isIpv6Enabled: _isIpv6Enabled,
       isTunEnabled: _isTunEnabled,
       tunStack: _tunStack,
