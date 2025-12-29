@@ -80,10 +80,7 @@ class BaseCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        if (trailing != null) ...[
-          const SizedBox(width: 8),
-          Flexible(child: trailing!),
-        ],
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
     );
   }
