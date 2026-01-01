@@ -9,6 +9,8 @@ pub mod auto_start;
 pub mod backup;
 #[cfg(target_os = "windows")]
 pub mod loopback;
+#[cfg(target_os = "windows")]
+pub mod power_event;
 pub mod url_launcher;
 
 #[allow(unused_imports)]
@@ -106,4 +108,7 @@ pub fn init() {
 
     #[cfg(target_os = "windows")]
     loopback::init();
+
+    #[cfg(target_os = "windows")]
+    power_event::start_power_event_listener();
 }

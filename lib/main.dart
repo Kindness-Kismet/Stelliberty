@@ -17,6 +17,7 @@ import 'package:stelliberty/utils/logger.dart';
 import 'package:stelliberty/utils/platform_helper.dart';
 import 'package:stelliberty/utils/windows_injector.dart';
 import 'package:stelliberty/services/path_service.dart';
+import 'package:stelliberty/services/power_event_service.dart';
 import 'package:stelliberty/storage/preferences.dart';
 import 'package:stelliberty/clash/storage/preferences.dart';
 import 'package:stelliberty/tray/tray_manager.dart';
@@ -316,6 +317,9 @@ Future<void> setupProviderDependencies(
 ) async {
   // 建立双向引用
   providers.subscriptionProvider.setClashProvider(providers.clashProvider);
+
+  // 初始化电源事件服务
+  PowerEventService().init();
 
   // 设置覆写系统集成
   await providers.subscriptionProvider.setupOverrideIntegration(

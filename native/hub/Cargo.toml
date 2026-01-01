@@ -66,6 +66,9 @@ windows = { version = "^0.62.2", features = [
     "Win32_UI_Shell",
     "Win32_UI_WindowsAndMessaging",
     "Win32_System_Threading",
+    "Win32_System_Power",
+    "Win32_System_LibraryLoader",
+    "Win32_Graphics_Gdi",
 ] }
 winapi = { version = "^0.3.9", features = ["winbase", "processthreadsapi", "jobapi2", "handleapi", "synchapi", "winuser"] }
 windows-sys = { version = "^0.61.2", features = ["Win32_Foundation"] }
