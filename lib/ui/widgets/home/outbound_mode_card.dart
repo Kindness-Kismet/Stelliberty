@@ -75,7 +75,7 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
       builder: (context, isRunning, child) {
         return BaseCard(
           icon: Icons.alt_route_rounded,
-          title: trans.proxy.outboundMode,
+          title: trans.proxy.outbound_mode,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -83,7 +83,7 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
               _buildModeOption(
                 context,
                 icon: Icons.rule_rounded,
-                title: trans.proxy.ruleMode,
+                title: trans.proxy.rule_mode,
                 outboundMode: 'rule',
                 isRunning: isRunning,
               ),
@@ -93,7 +93,7 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
               _buildModeOption(
                 context,
                 icon: Icons.public_rounded,
-                title: trans.proxy.globalMode,
+                title: trans.proxy.global_mode,
                 outboundMode: 'global',
                 isRunning: isRunning,
               ),
@@ -103,7 +103,7 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
               _buildModeOption(
                 context,
                 icon: Icons.phonelink_rounded,
-                title: trans.proxy.directMode,
+                title: trans.proxy.direct_mode,
                 outboundMode: 'direct',
                 isRunning: isRunning,
               ),

@@ -49,7 +49,7 @@ class _DnsConfigPageState extends State<DnsConfigPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                trans.clashFeatures.dnsConfig.pageTitle,
+                trans.clash_features.dns_config.page_title,
                 style: theme.textTheme.titleLarge,
               ),
             ],

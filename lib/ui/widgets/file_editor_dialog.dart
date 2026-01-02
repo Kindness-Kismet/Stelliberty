@@ -346,7 +346,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
     final trans = context.translate;
 
     return ModernDialog(
-      title: widget.customTitle ?? trans.fileEditor.title,
+      title: widget.customTitle ?? trans.file_editor.title,
       subtitle: widget.fileName,
       shouldHideSubtitle: widget.shouldHideSubtitle,
       titleIcon: Icons.code,
@@ -356,7 +356,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
       headerWidget: _buildEnhancedSearchBox(),
       content: _buildEditor(),
       actionsLeft: Text(
-        trans.fileEditor.stats
+        trans.file_editor.stats
             .replaceAll('{chars}', _charCount.toString())
             .replaceAll('{lines}', _lineCount.toString()),
         style: TextStyle(
@@ -367,14 +367,14 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
       actionsRight: [
         if (!widget.isReadOnly) ...[
           DialogActionButton(
-            label: trans.fileEditor.cancelButton,
+            label: trans.file_editor.cancel_button,
             isPrimary: false,
             onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
           ),
           DialogActionButton(
             label: _isSaving
-                ? trans.fileEditor.savingButton
-                : trans.fileEditor.saveButton,
+                ? trans.file_editor.saving_button
+                : trans.file_editor.save_button,
             isPrimary: true,
             isLoading: _isSaving,
             onPressed: (_isSaving || !_isModified) ? null : _handleSave,
@@ -611,7 +611,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        trans.fileEditor.loading,
+                        trans.file_editor.loading,
                         style: TextStyle(
                           fontSize: 12,
                           color: Theme.of(
@@ -663,13 +663,13 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
       if (!mounted) return;
 
       if (success) {
-        ModernToast.success(context, trans.fileEditor.saveSuccess);
+        ModernToast.success(context, trans.file_editor.save_success);
         Navigator.of(context).pop();
       } else {
         setState(() {
           _isSaving = false;
         });
-        ModernToast.error(context, trans.fileEditor.saveFailed);
+        ModernToast.error(context, trans.file_editor.save_failed);
       }
     } catch (e) {
       if (!mounted) return;
@@ -681,7 +681,7 @@ class _FileEditorDialogState extends State<FileEditorDialog> {
       Logger.error('保存文件失败: $e');
       ModernToast.error(
         context,
-        trans.fileEditor.saveError.replaceAll('{error}', e.toString()),
+        trans.file_editor.save_error.replaceAll('{error}', e.toString()),
       );
     }
   }

@@ -51,7 +51,7 @@ class _TrafficStatsCardState extends State<TrafficStatsCard> {
 
               return BaseCard(
                 icon: Icons.data_usage,
-                title: trans.home.trafficStats,
+                title: trans.home.traffic_stats,
                 trailing: _buildTotalTrafficDisplay(context, traffic),
                 child: _buildTrafficContent(context, traffic, isRunning),
               );
@@ -59,7 +59,7 @@ class _TrafficStatsCardState extends State<TrafficStatsCard> {
           )
         : BaseCard(
             icon: Icons.data_usage,
-            title: trans.home.trafficStats,
+            title: trans.home.traffic_stats,
             trailing: _buildTotalTrafficDisplay(
               context,
               manager.lastTrafficData ?? TrafficData.zero,

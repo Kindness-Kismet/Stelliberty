@@ -70,8 +70,8 @@ class SubscriptionDialog extends StatefulWidget {
       context: context,
       barrierDismissible: false,
       builder: (context) => SubscriptionDialog(
-        title: trans.subscriptionDialog.addTitle,
-        confirmText: trans.subscriptionDialog.addButton,
+        title: trans.subscription_dialog.add_title,
+        confirmText: trans.subscription_dialog.add_button,
         titleIcon: Icons.add_circle_outline,
         isAddMode: true, // 标记为添加模式
         onConfirm: onConfirm,
@@ -90,7 +90,7 @@ class SubscriptionDialog extends StatefulWidget {
       context: context,
       barrierDismissible: false,
       builder: (context) => SubscriptionDialog(
-        title: trans.subscriptionDialog.editTitle,
+        title: trans.subscription_dialog.edit_title,
         initialName: subscription.name,
         initialUrl: subscription.url,
         initialAutoUpdateMode: subscription.autoUpdateMode,
@@ -98,7 +98,7 @@ class SubscriptionDialog extends StatefulWidget {
         initialUpdateOnStartup: subscription.shouldUpdateOnStartup,
         initialProxyMode: subscription.proxyMode,
         initialUserAgent: subscription.userAgent,
-        confirmText: trans.subscriptionDialog.saveButton,
+        confirmText: trans.subscription_dialog.save_button,
         titleIcon: Icons.edit_outlined,
         isLocalFile: subscription.isLocalFile,
       ),
@@ -239,7 +239,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
       content: _buildContent(),
       actionsLeft: widget.isAddMode
           ? Text(
-              trans.subscriptionDialog.addModeHint,
+              trans.subscription_dialog.add_mode_hint,
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(
@@ -248,7 +248,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
               ),
             )
           : Text(
-              trans.subscriptionDialog.editModeHint,
+              trans.subscription_dialog.edit_mode_hint,
               style: TextStyle(
                 fontSize: 12,
                 color: Theme.of(
@@ -258,7 +258,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
             ),
       actionsRight: [
         DialogActionButton(
-          label: trans.subscriptionDialog.cancelButton,
+          label: trans.subscription_dialog.cancel_button,
           isPrimary: false,
           onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
         ),
@@ -292,12 +292,12 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
             TextInputField(
               controller: _nameController,
-              label: trans.subscriptionDialog.configNameLabel,
-              hint: trans.subscriptionDialog.configNameHint,
+              label: trans.subscription_dialog.config_name_label,
+              hint: trans.subscription_dialog.config_name_hint,
               icon: Icons.label_outline,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return trans.subscriptionDialog.configNameError;
+                  return trans.subscription_dialog.config_name_error;
                 }
                 return null;
               },
@@ -312,30 +312,30 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
               const SizedBox(height: _dialogItemSpacing),
               TextInputField(
                 controller: _urlController,
-                label: trans.subscriptionDialog.subscriptionLinkLabel,
-                hint: trans.subscriptionDialog.subscriptionLinkHint,
+                label: trans.subscription_dialog.subscription_link_label,
+                hint: trans.subscription_dialog.subscription_link_hint,
                 icon: Icons.link,
                 minLines: 1,
                 maxLines: null,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return trans.subscriptionDialog.linkError;
+                    return trans.subscription_dialog.link_error;
                   }
 
                   final uri = Uri.tryParse(value.trim());
                   if (uri == null) {
-                    return trans.subscriptionDialog.linkFormatError;
+                    return trans.subscription_dialog.link_format_error;
                   }
 
                   if (uri.scheme != 'http' && uri.scheme != 'https') {
                     return context
                         .translate
-                        .subscriptionDialog
-                        .linkProtocolError;
+                        .subscription_dialog
+                        .link_protocol_error;
                   }
 
                   if (uri.host.isEmpty) {
-                    return trans.subscriptionDialog.linkMissingHost;
+                    return trans.subscription_dialog.link_missing_host;
                   }
 
                   // 验证域名格式：必须包含点，或者是 localhost/IP
@@ -345,15 +345,15 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
                       !host.contains('.')) {
                     return context
                         .translate
-                        .subscriptionDialog
-                        .linkHostFormatError;
+                        .subscription_dialog
+                        .link_host_format_error;
                   }
 
                   if (host.length < 3) {
                     return context
                         .translate
-                        .subscriptionDialog
-                        .linkHostTooShort;
+                        .subscription_dialog
+                        .link_host_too_short;
                   }
 
                   return null;
@@ -385,7 +385,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
   }
 
   Widget _buildAutoUpdateSection() {
-    final dialogTrans = context.translate.subscriptionDialog;
+    final dialogTrans = context.translate.subscription_dialog;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -403,14 +403,14 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
           const SizedBox(height: 16),
           TextInputField(
             controller: _intervalController,
-            label: dialogTrans.updateIntervalLabel,
-            hint: dialogTrans.updateIntervalHint,
+            label: dialogTrans.update_interval_label,
+            hint: dialogTrans.update_interval_hint,
             icon: Icons.schedule,
             validator: (value) {
               if (_autoUpdateMode == AutoUpdateMode.interval) {
                 final minutes = int.tryParse(value?.trim() ?? '');
                 if (minutes == null || minutes < 1) {
-                  return dialogTrans.updateIntervalError;
+                  return dialogTrans.update_interval_error;
                 }
               }
               return null;
@@ -433,34 +433,34 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
   // 构建 User-Agent 输入字段
   Widget _buildUserAgentField() {
-    final dialogTrans = context.translate.subscriptionDialog;
+    final dialogTrans = context.translate.subscription_dialog;
     return TextInputField(
       controller: _userAgentController,
       label: 'User-Agent',
       hint:
-          '${dialogTrans.userAgentDefault}: ${ClashDefaults.defaultUserAgent}',
+          '${dialogTrans.user_agent_default}: ${ClashDefaults.defaultUserAgent}',
       icon: Icons.badge,
     );
   }
 
   // 构建导入方式选择器
   Widget _buildImportModeSelector() {
-    final dialogTrans = context.translate.subscriptionDialog;
+    final dialogTrans = context.translate.subscription_dialog;
 
     return OptionSelectorWidget<SubscriptionImportMethod>(
-      title: dialogTrans.importMethodTitle,
+      title: dialogTrans.import_method_title,
       titleIcon: Icons.import_export,
       isHorizontal: true,
       options: [
         OptionItem(
           value: SubscriptionImportMethod.link,
-          title: dialogTrans.importLink,
-          subtitle: dialogTrans.importLinkSupport,
+          title: dialogTrans.import_link,
+          subtitle: dialogTrans.import_link_support,
         ),
         OptionItem(
           value: SubscriptionImportMethod.localFile,
-          title: dialogTrans.importLocal,
-          subtitle: dialogTrans.importLocalNoSupport,
+          title: dialogTrans.import_local,
+          subtitle: dialogTrans.import_local_no_support,
         ),
       ],
       selectedValue: _importMethod,
@@ -481,7 +481,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
   // 构建文件选择器
   Widget _buildFileSelector() {
-    final dialogTrans = context.translate.subscriptionDialog;
+    final dialogTrans = context.translate.subscription_dialog;
 
     return FileSelectorWidget(
       onFileSelected: (result) {
@@ -490,10 +490,10 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
         });
       },
       initialFile: _selectedFile,
-      hintText: dialogTrans.selectFileLabel,
-      selectedText: dialogTrans.fileSelectedLabel,
-      draggingText: dialogTrans.dropToImport,
-      dragHintText: dialogTrans.clickOrDrag,
+      hintText: dialogTrans.select_file_label,
+      selectedText: dialogTrans.file_selected_label,
+      draggingText: dialogTrans.drop_to_import,
+      dragHintText: dialogTrans.click_or_drag,
     );
   }
 
@@ -558,8 +558,8 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
           if (mounted) {
             final defaultErrorMessage =
                 _importMethod == SubscriptionImportMethod.localFile
-                ? trans.subscriptionDialog.localImportFailed
-                : trans.subscriptionDialog.remoteImportFailed;
+                ? trans.subscription_dialog.local_import_failed
+                : trans.subscription_dialog.remote_import_failed;
 
             ModernToast.error(context, errorMessage ?? defaultErrorMessage);
           }
@@ -568,7 +568,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
         // 没有回调，直接返回结果（编辑模式）
         await Future.delayed(const Duration(milliseconds: 300));
         if (mounted) {
-          ModernToast.success(context, trans.subscriptionDialog.saveSuccess);
+          ModernToast.success(context, trans.subscription_dialog.save_success);
           Navigator.of(context).pop(result);
         }
       }
@@ -578,7 +578,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
         setState(() => _isLoading = false);
         ModernToast.error(
           context,
-          trans.subscriptionDialog.operationError.replaceAll(
+          trans.subscription_dialog.operation_error.replaceAll(
             '{error}',
             error.toString(),
           ),

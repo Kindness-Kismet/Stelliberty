@@ -179,7 +179,7 @@ class _LogPageState extends State<LogPage> {
                   children: [
                     _buildFilterChip(
                       context,
-                      label: trans.logs.allLevels,
+                      label: trans.logs.all_levels,
                       isSelected: provider.filterLevel == null,
                       onTap: () => provider.setFilterLevel(null),
                     ),
@@ -225,7 +225,7 @@ class _LogPageState extends State<LogPage> {
                   child: TextField(
                     onChanged: (value) => provider.setSearchKeyword(value),
                     decoration: InputDecoration(
-                      hintText: trans.logs.searchPlaceholder,
+                      hintText: trans.logs.search_placeholder,
                       hintStyle: TextStyle(
                         fontSize: 13,
                         color: colorScheme.onSurfaceVariant,
@@ -260,8 +260,8 @@ class _LogPageState extends State<LogPage> {
                   // 暂停/恢复按钮
                   ModernIconTooltip(
                     message: provider.isMonitoringPaused
-                        ? trans.connection.resumeBtn
-                        : trans.connection.pauseBtn,
+                        ? trans.connection.resume_btn
+                        : trans.connection.pause_btn,
                     icon: provider.isMonitoringPaused
                         ? Icons.play_arrow_rounded
                         : Icons.pause_rounded,
@@ -271,7 +271,7 @@ class _LogPageState extends State<LogPage> {
                   const SizedBox(width: 6),
                   // 清空日志按钮
                   ModernIconTooltip(
-                    message: trans.logs.clearLogs,
+                    message: trans.logs.clear_logs,
                     icon: Icons.delete_outline_rounded,
                     onPressed: provider.logs.isEmpty
                         ? null
@@ -342,8 +342,8 @@ class _LogPageState extends State<LogPage> {
                 const SizedBox(height: 16),
                 Text(
                   provider.logs.isEmpty
-                      ? trans.logs.emptyLogs
-                      : trans.logs.emptyFiltered,
+                      ? trans.logs.empty_logs
+                      : trans.logs.empty_filtered,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Theme.of(
                       context,
@@ -394,7 +394,7 @@ class _LogPageState extends State<LogPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            trans.logs.loadingLogs,
+            trans.logs.loading_logs,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(
                 context,
@@ -421,7 +421,7 @@ class _LogPageState extends State<LogPage> {
           ),
           const SizedBox(height: 16),
           Text(
-            trans.logs.clashNotRunning,
+            trans.logs.clash_not_running,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               color: Theme.of(
                 context,
@@ -430,7 +430,7 @@ class _LogPageState extends State<LogPage> {
           ),
           const SizedBox(height: 8),
           Text(
-            trans.logs.startClashToViewLogs,
+            trans.logs.start_clash_to_view_logs,
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(
                 context,

@@ -48,14 +48,17 @@ class _TestUrlCardState extends State<TestUrlCard> {
       clashProvider.configService.setTestUrl(_testUrlController.text);
 
       if (mounted) {
-        ModernToast.success(context, trans.clashFeatures.testUrl.saveSuccess);
+        ModernToast.success(
+          context,
+          trans.clash_features.test_url.save_success,
+        );
       }
     } catch (e) {
       Logger.error('保存延迟测试网址失败: $e');
       if (mounted) {
         ModernToast.error(
           context,
-          trans.clashFeatures.testUrl.saveFailed.replaceAll(
+          trans.clash_features.test_url.save_failed.replaceAll(
             '{error}',
             e.toString(),
           ),
@@ -91,11 +94,11 @@ class _TestUrlCardState extends State<TestUrlCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    trans.clashFeatures.testUrl.title,
+                    trans.clash_features.test_url.title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    trans.clashFeatures.testUrl.subtitle,
+                    trans.clash_features.test_url.subtitle,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -107,13 +110,13 @@ class _TestUrlCardState extends State<TestUrlCard> {
           ModernTextField(
             controller: _testUrlController,
             keyboardType: TextInputType.url,
-            labelText: trans.clashFeatures.testUrl.label,
+            labelText: trans.clash_features.test_url.label,
             hintText: ClashDefaults.defaultTestUrl,
             minLines: 1,
             suffixIcon: Padding(
               padding: const EdgeInsets.only(right: 4),
               child: ModernTooltip(
-                message: trans.clashFeatures.testUrl.restoreDefault,
+                message: trans.clash_features.test_url.restore_default,
                 child: IconButton(
                   icon: const Icon(Icons.restore),
                   onPressed: () {
@@ -141,7 +144,7 @@ class _TestUrlCardState extends State<TestUrlCard> {
                     : const Icon(Icons.save, size: 18),
                 label: Text(
                   _isSaving
-                      ? trans.clashFeatures.testUrl.saving
+                      ? trans.clash_features.test_url.saving
                       : trans.common.save,
                 ),
               ),

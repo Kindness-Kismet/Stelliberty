@@ -49,16 +49,16 @@ class _PerformancePageState extends State<PerformancePage> {
       case 'standard':
         return context
             .translate
-            .clashFeatures
+            .clash_features
             .performance
-            .geodataLoader
+            .geodata_loader
             .standard;
       case 'memconservative':
         return context
             .translate
-            .clashFeatures
+            .clash_features
             .performance
-            .geodataLoader
+            .geodata_loader
             .memconservative;
       default:
         return value;
@@ -70,11 +70,11 @@ class _PerformancePageState extends State<PerformancePage> {
 
     switch (value) {
       case 'off':
-        return trans.clashFeatures.performance.findProcess.off;
+        return trans.clash_features.performance.find_process.off;
       case 'strict':
-        return trans.clashFeatures.performance.findProcess.strict;
+        return trans.clash_features.performance.find_process.strict;
       case 'always':
-        return trans.clashFeatures.performance.findProcess.always;
+        return trans.clash_features.performance.find_process.always;
       default:
         return value;
     }
@@ -102,7 +102,7 @@ class _PerformancePageState extends State<PerformancePage> {
               ),
               const SizedBox(width: 8),
               Text(
-                trans.clashFeatures.performance.pageTitle,
+                trans.clash_features.performance.page_title,
                 style: theme.textTheme.titleLarge,
               ),
             ],
@@ -148,18 +148,18 @@ class _PerformancePageState extends State<PerformancePage> {
                                     Text(
                                       context
                                           .translate
-                                          .clashFeatures
+                                          .clash_features
                                           .performance
-                                          .geodataLoader
+                                          .geodata_loader
                                           .title,
                                       style: theme.textTheme.titleMedium,
                                     ),
                                     Text(
                                       context
                                           .translate
-                                          .clashFeatures
+                                          .clash_features
                                           .performance
-                                          .geodataLoader
+                                          .geodata_loader
                                           .subtitle,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
@@ -228,18 +228,18 @@ class _PerformancePageState extends State<PerformancePage> {
                                     Text(
                                       context
                                           .translate
-                                          .clashFeatures
+                                          .clash_features
                                           .performance
-                                          .findProcess
+                                          .find_process
                                           .title,
                                       style: theme.textTheme.titleMedium,
                                     ),
                                     Text(
                                       context
                                           .translate
-                                          .clashFeatures
+                                          .clash_features
                                           .performance
-                                          .findProcess
+                                          .find_process
                                           .subtitle,
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(

@@ -31,15 +31,15 @@ enum LogLevel {
     final trans = context.translate;
     switch (this) {
       case LogLevel.silent:
-        return trans.logLevel.silent;
+        return trans.log_level.silent;
       case LogLevel.error:
-        return trans.logLevel.error;
+        return trans.log_level.error;
       case LogLevel.warning:
-        return trans.logLevel.warning;
+        return trans.log_level.warning;
       case LogLevel.info:
-        return trans.logLevel.info;
+        return trans.log_level.info;
       case LogLevel.debug:
-        return trans.logLevel.debug;
+        return trans.log_level.debug;
     }
   }
 }
@@ -83,11 +83,11 @@ class _LogLevelCardState extends State<LogLevelCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    trans.clashFeatures.logLevel.title,
+                    trans.clash_features.log_level.title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
-                    trans.clashFeatures.logLevel.subtitle,
+                    trans.clash_features.log_level.subtitle,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],

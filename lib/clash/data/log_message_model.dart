@@ -74,15 +74,15 @@ extension ClashLogLevelExtension on ClashLogLevel {
     final trans = context.translate;
     switch (this) {
       case ClashLogLevel.debug:
-        return trans.logLevel.debug;
+        return trans.log_level.debug;
       case ClashLogLevel.info:
-        return trans.logLevel.info;
+        return trans.log_level.info;
       case ClashLogLevel.warning:
-        return trans.logLevel.warning;
+        return trans.log_level.warning;
       case ClashLogLevel.error:
-        return trans.logLevel.error;
+        return trans.log_level.error;
       case ClashLogLevel.silent:
-        return trans.logLevel.silent;
+        return trans.log_level.silent;
     }
   }
 

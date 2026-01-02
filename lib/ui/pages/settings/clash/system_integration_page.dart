@@ -51,7 +51,7 @@ class _SystemIntegrationPageState extends State<SystemIntegrationPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                trans.clashFeatures.systemIntegration.pageTitle,
+                trans.clash_features.system_integration.page_title,
                 style: theme.textTheme.titleLarge,
               ),
             ],

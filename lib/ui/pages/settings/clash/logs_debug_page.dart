@@ -50,7 +50,7 @@ class _LogsDebugPageState extends State<LogsDebugPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                trans.clashFeatures.logsDebug.pageTitle,
+                trans.clash_features.logs_debug.page_title,
                 style: theme.textTheme.titleLarge,
               ),
             ],

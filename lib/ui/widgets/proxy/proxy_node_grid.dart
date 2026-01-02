@@ -177,7 +177,7 @@ class _ProxyNodeGridWidgetState extends State<ProxyNodeGrid> {
                                 style: const TextStyle(fontSize: 14),
                               ),
                               subtitle: Text(
-                                trans.proxy.nodeInfoUnavailable,
+                                trans.proxy.node_info_unavailable,
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),

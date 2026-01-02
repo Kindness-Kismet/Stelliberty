@@ -147,8 +147,8 @@ class _OverrideDialogState extends State<OverrideDialog> {
 
     return ModernDialog(
       title: isEditing
-          ? trans.overrideDialog.editOverrideTitle
-          : trans.overrideDialog.addOverrideTitle,
+          ? trans.override_dialog.edit_override_title
+          : trans.override_dialog.add_override_title,
       titleIcon: isEditing ? Icons.edit : Icons.add_circle_outline,
       isModified: isEditing && _hasChanges,
       maxWidth: 720,
@@ -188,12 +188,12 @@ class _OverrideDialogState extends State<OverrideDialog> {
 
             TextInputField(
               controller: _nameController,
-              label: trans.kOverride.nameLabel,
-              hint: trans.kOverride.nameHint,
+              label: trans.kOverride.name_label,
+              hint: trans.kOverride.name_hint,
               icon: Icons.label_outline,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return trans.kOverride.nameError;
+                  return trans.kOverride.name_error;
                 }
                 return null;
               },
@@ -204,18 +204,18 @@ class _OverrideDialogState extends State<OverrideDialog> {
               const SizedBox(height: _dialogItemSpacing),
               TextInputField(
                 controller: _urlController,
-                label: trans.kOverride.urlLabel,
+                label: trans.kOverride.url_label,
                 hint: 'https://example.com/override.yaml',
                 icon: Icons.link,
                 minLines: 1,
                 maxLines: null,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return trans.kOverride.urlError;
+                    return trans.kOverride.url_error;
                   }
                   final uri = Uri.tryParse(value.trim());
                   if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-                    return trans.kOverride.urlFormatError;
+                    return trans.kOverride.url_format_error;
                   }
                   return null;
                 },
@@ -247,24 +247,24 @@ class _OverrideDialogState extends State<OverrideDialog> {
   Widget _buildAddModeSelector() {
     final trans = context.translate;
     return OptionSelectorWidget<OverrideAddMethod>(
-      title: trans.kOverride.addMethodTitle,
+      title: trans.kOverride.add_method_title,
       titleIcon: Icons.folder,
       isHorizontal: true,
       options: [
         OptionItem(
           value: OverrideAddMethod.remote,
-          title: trans.kOverride.addMethodRemote,
-          subtitle: trans.kOverride.addMethodRemoteDesc,
+          title: trans.kOverride.add_method_remote,
+          subtitle: trans.kOverride.add_method_remote_desc,
         ),
         OptionItem(
           value: OverrideAddMethod.create,
-          title: trans.kOverride.addMethodCreate,
-          subtitle: trans.kOverride.addMethodCreateDesc,
+          title: trans.kOverride.add_method_create,
+          subtitle: trans.kOverride.add_method_create_desc,
         ),
         OptionItem(
           value: OverrideAddMethod.import,
-          title: trans.kOverride.addMethodImport,
-          subtitle: trans.kOverride.addMethodImportDesc,
+          title: trans.kOverride.add_method_import,
+          subtitle: trans.kOverride.add_method_import_desc,
         ),
       ],
       selectedValue: _addMethod,
@@ -278,7 +278,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
   Widget _buildFormatSelector() {
     final trans = context.translate;
     return OptionSelectorWidget<OverrideFormat>(
-      title: trans.kOverride.formatTitle,
+      title: trans.kOverride.format_title,
       titleIcon: Icons.code,
       isHorizontal: true,
       options: [
@@ -318,10 +318,10 @@ class _OverrideDialogState extends State<OverrideDialog> {
         });
       },
       initialFile: _selectedFile,
-      hintText: trans.kOverride.selectLocalFile,
-      selectedText: trans.kOverride.fileSelected,
-      draggingText: trans.kOverride.fileSelectPrompt,
-      dragHintText: trans.kOverride.clickOrDrag,
+      hintText: trans.kOverride.select_local_file,
+      selectedText: trans.kOverride.file_selected,
+      draggingText: trans.kOverride.file_select_prompt,
+      dragHintText: trans.kOverride.click_or_drag,
     );
   }
 
@@ -383,7 +383,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
         if (success) {
           Logger.info('添加成功，关闭对话框');
           if (mounted) {
-            ModernToast.success(context, trans.overrideDialog.addSuccess);
+            ModernToast.success(context, trans.override_dialog.add_success);
             Navigator.of(context).pop(override);
           }
         } else {
@@ -392,7 +392,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
           if (mounted) {
             ModernToast.error(
               context,
-              trans.kOverride.addFailed.replaceAll('{error}', override.name),
+              trans.kOverride.add_failed.replaceAll('{error}', override.name),
             );
           }
         }
@@ -402,7 +402,7 @@ class _OverrideDialogState extends State<OverrideDialog> {
         setState(() => _isLoading = false);
         ModernToast.error(
           context,
-          trans.kOverride.addFailed.replaceAll('{error}', error.toString()),
+          trans.kOverride.add_failed.replaceAll('{error}', error.toString()),
         );
       }
     } else {

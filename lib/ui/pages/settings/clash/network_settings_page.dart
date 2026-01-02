@@ -66,7 +66,7 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                trans.clashFeatures.networkSettings.pageTitle,
+                trans.clash_features.network_settings.page_title,
                 style: theme.textTheme.titleLarge,
               ),
             ],
@@ -94,15 +94,15 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     icon: Icons.speed,
                     title: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
-                        .unifiedDelay
+                        .clash_features
+                        .network_settings
+                        .unified_delay
                         .title,
                     subtitle: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
-                        .unifiedDelay
+                        .clash_features
+                        .network_settings
+                        .unified_delay
                         .subtitle,
                     value: _unifiedDelay,
                     onChanged: (value) {
@@ -118,15 +118,15 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     icon: Icons.lan,
                     title: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
-                        .allowLan
+                        .clash_features
+                        .network_settings
+                        .allow_lan
                         .title,
                     subtitle: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
-                        .allowLan
+                        .clash_features
+                        .network_settings
+                        .allow_lan
                         .subtitle,
                     value: _allowLan,
                     onChanged: (value) {
@@ -142,14 +142,14 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     icon: Icons.language,
                     title: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
+                        .clash_features
+                        .network_settings
                         .ipv6
                         .title,
                     subtitle: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
+                        .clash_features
+                        .network_settings
                         .ipv6
                         .subtitle,
                     value: _ipv6,
@@ -166,15 +166,15 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     icon: Icons.multiple_stop,
                     title: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
-                        .tcpConcurrent
+                        .clash_features
+                        .network_settings
+                        .tcp_concurrent
                         .title,
                     subtitle: context
                         .translate
-                        .clashFeatures
-                        .networkSettings
-                        .tcpConcurrent
+                        .clash_features
+                        .network_settings
+                        .tcp_concurrent
                         .subtitle,
                     value: _tcpConcurrent,
                     onChanged: (value) {

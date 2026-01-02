@@ -41,8 +41,8 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
     final trans = context.translate;
 
     return ModernDialog(
-      title: trans.appUpdate.dialog.title,
-      subtitle: trans.appUpdate.dialog.subtitle,
+      title: trans.app_update.dialog.title,
+      subtitle: trans.app_update.dialog.subtitle,
       titleIcon: Icons.system_update_outlined,
       maxWidth: 560,
       maxHeightRatio: 0.75,
@@ -50,12 +50,12 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
       actionsLeft: _buildIgnoreButton(),
       actionsRight: [
         DialogActionButton(
-          label: trans.appUpdate.dialog.cancelButton,
+          label: trans.app_update.dialog.cancel_button,
           isPrimary: false,
           onPressed: () => Navigator.of(context).pop(),
         ),
         DialogActionButton(
-          label: trans.appUpdate.dialog.downloadButton,
+          label: trans.app_update.dialog.download_button,
           isPrimary: true,
           onPressed: _handleDownload,
         ),
@@ -105,7 +105,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         children: [
           _buildVersionRow(
             icon: Icons.phonelink_setup_outlined,
-            label: trans.appUpdate.dialog.currentVersionLabel,
+            label: trans.app_update.dialog.current_version_label,
             version: widget.updateInfo.currentVersion,
             color: Theme.of(
               context,
@@ -114,7 +114,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
           const SizedBox(height: 12),
           _buildVersionRow(
             icon: Icons.new_releases_outlined,
-            label: trans.appUpdate.dialog.latestVersionLabel,
+            label: trans.app_update.dialog.latest_version_label,
             version: widget.updateInfo.latestVersion,
             color: Theme.of(context).colorScheme.primary,
             highlight: true,
@@ -193,7 +193,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  trans.appUpdate.dialog.releaseNotesLabel,
+                  trans.app_update.dialog.release_notes_label,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
@@ -248,7 +248,7 @@ class _AppUpdateDialogState extends State<AppUpdateDialog> {
         color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
       ),
       label: Text(
-        trans.appUpdate.dialog.ignoreButton,
+        trans.app_update.dialog.ignore_button,
         style: TextStyle(
           fontSize: 13,
           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),

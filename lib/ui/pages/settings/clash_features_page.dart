@@ -38,7 +38,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
             child: Row(
               children: [
                 ModernIconTooltip(
-                  message: trans.clashFeatures.backToSettings,
+                  message: trans.clash_features.back_to_settings,
                   icon: Icons.arrow_back,
                   isFilled: false,
                   onPressed: () =>
@@ -46,7 +46,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  trans.clashFeatures.title,
+                  trans.clash_features.title,
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -69,17 +69,17 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     title: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .networkSettings
+                          .network_settings
                           .title,
                     ),
                     subtitle: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .networkSettings
+                          .network_settings
                           .subtitle,
                     ),
                     onTap: () => provider.switchView(
@@ -95,17 +95,17 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     title: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .portControl
+                          .port_control
                           .title,
                     ),
                     subtitle: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .portControl
+                          .port_control
                           .subtitle,
                     ),
                     onTap: () => provider.switchView(
@@ -121,24 +121,24 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     title: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .systemIntegration
+                          .system_integration
                           .title,
                     ),
                     subtitle: Text(
                       Platform.isWindows
                           ? context
                                 .translate
-                                .clashFeatures
+                                .clash_features
                                 .navigation
-                                .systemIntegration
-                                .subtitleWindows
+                                .system_integration
+                                .subtitle_windows
                           : context
                                 .translate
-                                .clashFeatures
+                                .clash_features
                                 .navigation
-                                .systemIntegration
+                                .system_integration
                                 .subtitle,
                     ),
                     onTap: () => provider.switchView(
@@ -154,17 +154,17 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     title: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .dnsConfig
+                          .dns_config
                           .title,
                     ),
                     subtitle: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .dnsConfig
+                          .dns_config
                           .subtitle,
                     ),
                     onTap: () =>
@@ -179,7 +179,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     title: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
                           .performance
                           .title,
@@ -187,7 +187,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     subtitle: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
                           .performance
                           .subtitle,
@@ -205,17 +205,17 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     title: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .logsDebug
+                          .logs_debug
                           .title,
                     ),
                     subtitle: Text(
                       context
                           .translate
-                          .clashFeatures
+                          .clash_features
                           .navigation
-                          .logsDebug
+                          .logs_debug
                           .subtitle,
                     ),
                     onTap: () =>

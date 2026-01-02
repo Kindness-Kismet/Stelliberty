@@ -38,12 +38,12 @@ class ProxyEmptyState extends StatelessWidget {
           const Icon(Icons.warning_amber, size: 64, color: Colors.orange),
           const SizedBox(height: 16),
           Text(
-            message ?? trans.proxy.emptyNoSubscription,
+            message ?? trans.proxy.empty_no_subscription,
             style: const TextStyle(fontSize: 18, color: Colors.grey),
           ),
           const SizedBox(height: 8),
           Text(
-            subtitle ?? trans.proxy.emptyPleaseAddFirst,
+            subtitle ?? trans.proxy.empty_please_add_first,
             style: const TextStyle(color: Colors.grey),
           ),
         ];
@@ -53,7 +53,7 @@ class ProxyEmptyState extends StatelessWidget {
           const Icon(Icons.error_outline, size: 64, color: Colors.red),
           const SizedBox(height: 16),
           Text(
-            message ?? trans.proxy.emptyError,
+            message ?? trans.proxy.empty_error,
             style: const TextStyle(color: Colors.red),
             textAlign: TextAlign.center,
           ),
@@ -64,12 +64,12 @@ class ProxyEmptyState extends StatelessWidget {
           const Icon(Icons.settings_ethernet, size: 64, color: Colors.blue),
           const SizedBox(height: 16),
           Text(
-            message ?? trans.proxy.emptyDirectMode,
+            message ?? trans.proxy.empty_direct_mode,
             style: const TextStyle(fontSize: 18, color: Colors.blue),
           ),
           const SizedBox(height: 8),
           Text(
-            subtitle ?? trans.proxy.emptyDirectModeDesc,
+            subtitle ?? trans.proxy.empty_direct_mode_desc,
             style: const TextStyle(color: Colors.grey),
             textAlign: TextAlign.center,
           ),
@@ -80,7 +80,7 @@ class ProxyEmptyState extends StatelessWidget {
           const Icon(Icons.inbox, size: 64, color: Colors.grey),
           const SizedBox(height: 16),
           Text(
-            message ?? trans.proxy.emptyNoProxyGroups,
+            message ?? trans.proxy.empty_no_proxy_groups,
             style: const TextStyle(fontSize: 18, color: Colors.grey),
           ),
           if (subtitle != null) ...[

@@ -21,10 +21,10 @@ class UwpLoopbackCard extends StatelessWidget {
 
     return ModernFeatureLayoutCard(
       icon: Icons.apps,
-      title: trans.uwpLoopback.cardTitle,
-      subtitle: trans.uwpLoopback.cardSubtitle,
+      title: trans.uwp_loopback.card_title,
+      subtitle: trans.uwp_loopback.card_subtitle,
       trailing: ModernTooltip(
-        message: trans.uwpLoopback.openManager,
+        message: trans.uwp_loopback.open_manager,
         child: IconButton(
           icon: const Icon(Icons.open_in_new),
           onPressed: () {

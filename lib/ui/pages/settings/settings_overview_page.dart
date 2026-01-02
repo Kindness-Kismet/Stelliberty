@@ -91,8 +91,8 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
                 borderRadius: BorderRadius.circular(8),
               ),
               leading: const Icon(Icons.settings_suggest_outlined),
-              title: Text(trans.clashFeatures.title),
-              subtitle: Text(trans.clashFeatures.description),
+              title: Text(trans.clash_features.title),
+              subtitle: Text(trans.clash_features.description),
               onTap: () =>
                   provider.switchView(ContentView.settingsClashFeatures),
               // 只移除点击时的水波纹扩散效果，保留悬停效果
@@ -126,8 +126,8 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 leading: const Icon(Icons.new_releases_outlined),
-                title: Text(trans.appUpdate.title),
-                subtitle: Text(trans.appUpdate.description),
+                title: Text(trans.app_update.title),
+                subtitle: Text(trans.app_update.description),
                 onTap: () => provider.switchView(ContentView.settingsAppUpdate),
                 // 只移除点击时的水波纹扩散效果，保留悬停效果
                 splashColor: Colors.transparent,

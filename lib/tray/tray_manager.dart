@@ -186,7 +186,7 @@ class AppTrayManager {
       // 设置提示文本(Linux 可能不支持)
       if (!Platform.isLinux) {
         try {
-          await trayManager.setToolTip(translate.common.appName);
+          await trayManager.setToolTip(translate.common.app_name);
         } catch (e) {
           Logger.warning('设置托盘提示文本失败（平台可能不支持）：$e');
         }
@@ -230,32 +230,32 @@ class AppTrayManager {
 
       final menu = Menu(
         items: [
-          MenuItem(key: 'close_menu', label: translate.tray.closeMenu),
+          MenuItem(key: 'close_menu', label: translate.tray.close_menu),
           MenuItem(
             key: 'show_window',
-            label: translate.tray.showWindow,
+            label: translate.tray.show_window,
             disabled: isWindowVisible, // 窗口可见时禁用
           ),
           MenuItem.separator(),
           // 出站模式子菜单
           MenuItem.submenu(
             key: 'outbound_mode',
-            label: translate.tray.outboundMode,
+            label: translate.tray.outbound_mode,
             submenu: Menu(
               items: [
                 MenuItem.checkbox(
                   key: 'outbound_mode_rule',
-                  label: translate.tray.ruleMode,
+                  label: translate.tray.rule_mode,
                   checked: currentOutboundMode == 'rule',
                 ),
                 MenuItem.checkbox(
                   key: 'outbound_mode_global',
-                  label: translate.tray.globalMode,
+                  label: translate.tray.global_mode,
                   checked: currentOutboundMode == 'global',
                 ),
                 MenuItem.checkbox(
                   key: 'outbound_mode_direct',
-                  label: translate.tray.directMode,
+                  label: translate.tray.direct_mode,
                   checked: currentOutboundMode == 'direct',
                 ),
               ],
@@ -264,13 +264,13 @@ class AppTrayManager {
           MenuItem.separator(),
           MenuItem.checkbox(
             key: 'toggle_proxy',
-            label: translate.tray.toggleProxy,
+            label: translate.tray.toggle_proxy,
             checked: isSystemProxyEnabled, // 使用系统代理状态
             disabled: !hasSubscription && !isProxyRunning, // 无订阅且未运行时禁用
           ),
           MenuItem.checkbox(
             key: 'toggle_tun',
-            label: translate.tray.toggleTun,
+            label: translate.tray.toggle_tun,
             checked: isTunEnabled,
             disabled: !isTunAvailable, // 仅在权限不足时禁用,服务模式下可独立工作
           ),

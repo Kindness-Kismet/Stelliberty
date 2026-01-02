@@ -63,7 +63,7 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
       Logger.error('切换全局快捷键状态失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetFailed)),
+          SnackBar(content: Text(context.translate.behavior.hotkey_set_failed)),
         );
       }
     }
@@ -128,20 +128,34 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
 
       // 特殊键
       switch (usb) {
-        case 0x0007002c: return 'Space';
-        case 0x00070028: return 'Enter';
-        case 0x00070029: return 'Esc';
-        case 0x0007002b: return 'Tab';
-        case 0x0007002a: return 'Backspace';
-        case 0x0007004c: return 'Delete';
-        case 0x0007004a: return 'Home';
-        case 0x0007004d: return 'End';
-        case 0x0007004b: return 'PageUp';
-        case 0x0007004e: return 'PageDown';
-        case 0x00070052: return 'Up';
-        case 0x00070051: return 'Down';
-        case 0x00070050: return 'Left';
-        case 0x0007004f: return 'Right';
+        case 0x0007002c:
+          return 'Space';
+        case 0x00070028:
+          return 'Enter';
+        case 0x00070029:
+          return 'Esc';
+        case 0x0007002b:
+          return 'Tab';
+        case 0x0007002a:
+          return 'Backspace';
+        case 0x0007004c:
+          return 'Delete';
+        case 0x0007004a:
+          return 'Home';
+        case 0x0007004d:
+          return 'End';
+        case 0x0007004b:
+          return 'PageUp';
+        case 0x0007004e:
+          return 'PageDown';
+        case 0x00070052:
+          return 'Up';
+        case 0x00070051:
+          return 'Down';
+        case 0x00070050:
+          return 'Left';
+        case 0x0007004f:
+          return 'Right';
       }
     }
 
@@ -285,7 +299,9 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
 
   // 处理切换代理快捷键录制完成
   Future<void> _onProxyHotkeyRecorded(HotKey hotKey) async {
-    Logger.debug('录制到快捷键 - modifiers: ${hotKey.modifiers}, key: ${hotKey.key}, keyLabel: ${hotKey.key.keyLabel}');
+    Logger.debug(
+      '录制到快捷键 - modifiers: ${hotKey.modifiers}, key: ${hotKey.key}, keyLabel: ${hotKey.key.keyLabel}',
+    );
 
     // 检查是否只按了修饰键（没有实际按键）
     if (_isModifierKey(hotKey.key)) {
@@ -307,10 +323,14 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
     });
 
     try {
-      final success = await HotkeyService.instance.setToggleProxyHotkey(hotkeyStr);
+      final success = await HotkeyService.instance.setToggleProxyHotkey(
+        hotkeyStr,
+      );
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetSuccess)),
+          SnackBar(
+            content: Text(context.translate.behavior.hotkey_set_success),
+          ),
         );
       }
     } catch (e) {
@@ -320,7 +340,7 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
           _toggleProxyHotkey = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetFailed)),
+          SnackBar(content: Text(context.translate.behavior.hotkey_set_failed)),
         );
       }
     }
@@ -343,10 +363,14 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
     });
 
     try {
-      final success = await HotkeyService.instance.setToggleTunHotkey(hotkeyStr);
+      final success = await HotkeyService.instance.setToggleTunHotkey(
+        hotkeyStr,
+      );
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetSuccess)),
+          SnackBar(
+            content: Text(context.translate.behavior.hotkey_set_success),
+          ),
         );
       }
     } catch (e) {
@@ -356,7 +380,7 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
           _toggleTunHotkey = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetFailed)),
+          SnackBar(content: Text(context.translate.behavior.hotkey_set_failed)),
         );
       }
     }
@@ -379,10 +403,14 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
     });
 
     try {
-      final success = await HotkeyService.instance.setShowWindowHotkey(hotkeyStr);
+      final success = await HotkeyService.instance.setShowWindowHotkey(
+        hotkeyStr,
+      );
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetSuccess)),
+          SnackBar(
+            content: Text(context.translate.behavior.hotkey_set_success),
+          ),
         );
       }
     } catch (e) {
@@ -392,7 +420,7 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
           _showWindowHotkey = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetFailed)),
+          SnackBar(content: Text(context.translate.behavior.hotkey_set_failed)),
         );
       }
     }
@@ -418,7 +446,9 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
       final success = await HotkeyService.instance.setExitAppHotkey(hotkeyStr);
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetSuccess)),
+          SnackBar(
+            content: Text(context.translate.behavior.hotkey_set_success),
+          ),
         );
       }
     } catch (e) {
@@ -428,7 +458,7 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
           _exitAppHotkey = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(context.translate.behavior.hotkeySetFailed)),
+          SnackBar(content: Text(context.translate.behavior.hotkey_set_failed)),
         );
       }
     }
@@ -510,7 +540,9 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
                 Text(
                   description,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withAlpha(153),
                   ),
                 ),
               ],
@@ -522,16 +554,17 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
               if (isRecording)
                 Container(
                   constraints: const BoxConstraints(minWidth: 120),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: Theme.of(context).colorScheme.primary,
                     ),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: HotKeyRecorder(
-                    onHotKeyRecorded: onHotKeyRecorded,
-                  ),
+                  child: HotKeyRecorder(onHotKeyRecorded: onHotKeyRecorded),
                 )
               else
                 InkWell(
@@ -539,15 +572,21 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     constraints: const BoxConstraints(minWidth: 120),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.onSurface.withAlpha(76),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withAlpha(76),
                       ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      currentHotkey ?? context.translate.behavior.hotkeyNotSet,
+                      currentHotkey ??
+                          context.translate.behavior.hotkey_not_set,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
@@ -557,7 +596,7 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
               IconButton(
                 icon: const Icon(Icons.clear, size: 20),
                 onPressed: currentHotkey != null ? onClear : null,
-                tooltip: context.translate.behavior.hotkeyClear,
+                tooltip: context.translate.behavior.hotkey_clear,
               ),
             ],
           ),
@@ -594,13 +633,15 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.translate.behavior.hotkeyTitle,
+                        context.translate.behavior.hotkey_title,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       Text(
-                        context.translate.behavior.hotkeyDescription,
+                        context.translate.behavior.hotkey_description,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurface.withAlpha(153),
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withAlpha(153),
                         ),
                       ),
                     ],
@@ -614,8 +655,8 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
             const SizedBox(height: 16),
             const Divider(height: 1),
             _buildHotkeyRow(
-              title: context.translate.behavior.hotkeyToggleProxy,
-              description: context.translate.behavior.hotkeyToggleProxyDesc,
+              title: context.translate.behavior.hotkey_toggle_proxy,
+              description: context.translate.behavior.hotkey_toggle_proxy_desc,
               currentHotkey: _toggleProxyHotkey,
               isRecording: _isRecordingProxy,
               onRecord: _startRecordingProxy,
@@ -623,8 +664,8 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
               onHotKeyRecorded: _onProxyHotkeyRecorded,
             ),
             _buildHotkeyRow(
-              title: context.translate.behavior.hotkeyToggleTun,
-              description: context.translate.behavior.hotkeyToggleTunDesc,
+              title: context.translate.behavior.hotkey_toggle_tun,
+              description: context.translate.behavior.hotkey_toggle_tun_desc,
               currentHotkey: _toggleTunHotkey,
               isRecording: _isRecordingTun,
               onRecord: _startRecordingTun,
@@ -632,8 +673,8 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
               onHotKeyRecorded: _onTunHotkeyRecorded,
             ),
             _buildHotkeyRow(
-              title: context.translate.behavior.hotkeyShowWindow,
-              description: context.translate.behavior.hotkeyShowWindowDesc,
+              title: context.translate.behavior.hotkey_show_window,
+              description: context.translate.behavior.hotkey_show_window_desc,
               currentHotkey: _showWindowHotkey,
               isRecording: _isRecordingShowWindow,
               onRecord: _startRecordingShowWindow,
@@ -641,8 +682,8 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
               onHotKeyRecorded: _onShowWindowHotkeyRecorded,
             ),
             _buildHotkeyRow(
-              title: context.translate.behavior.hotkeyExitApp,
-              description: context.translate.behavior.hotkeyExitAppDesc,
+              title: context.translate.behavior.hotkey_exit_app,
+              description: context.translate.behavior.hotkey_exit_app_desc,
               currentHotkey: _exitAppHotkey,
               isRecording: _isRecordingExitApp,
               onRecord: _startRecordingExitApp,

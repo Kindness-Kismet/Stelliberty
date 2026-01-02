@@ -20,13 +20,13 @@ enum AppLanguageMode {
 
     switch (this) {
       case AppLanguageMode.system:
-        return trans.language.modeSystem;
+        return trans.language.mode_system;
       case AppLanguageMode.zh:
-        return trans.language.modeZh;
+        return trans.language.mode_zh;
       case AppLanguageMode.zhTw:
-        return trans.language.modeZhTw;
+        return trans.language.mode_zh_tw;
       case AppLanguageMode.en:
-        return trans.language.modeEn;
+        return trans.language.mode_en;
     }
   }
 

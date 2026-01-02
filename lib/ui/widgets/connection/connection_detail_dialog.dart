@@ -15,14 +15,14 @@ class ConnectionDetailDialog extends StatelessWidget {
     final trans = context.translate;
 
     return ModernDialog(
-      title: trans.connection.connectionDetails,
+      title: trans.connection.connection_details,
       titleIcon: Icons.info_outline_rounded,
       maxWidth: 600,
       maxHeightRatio: 0.8,
       content: _buildContent(context),
       actionsRight: [
         DialogActionButton(
-          label: trans.connection.exitButton,
+          label: trans.connection.exit_button,
           isPrimary: false,
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -39,63 +39,63 @@ class ConnectionDetailDialog extends StatelessWidget {
     // 定义所有信息项，用于分组
     final infoItems = {
       t.groups.general: [
-        _InfoItem(t.connectionType, metadata.type),
+        _InfoItem(t.connection_type, metadata.type),
         _InfoItem(t.protocol, metadata.network.toUpperCase()),
-        _InfoItem(t.targetAddress, metadata.displayHost),
-        if (metadata.host.isNotEmpty) _InfoItem(t.hostLabel, metadata.host),
+        _InfoItem(t.target_address, metadata.displayHost),
+        if (metadata.host.isNotEmpty) _InfoItem(t.host_label, metadata.host),
         if (metadata.sniffHost.isNotEmpty)
-          _InfoItem(t.sniffHost, metadata.sniffHost),
-        _InfoItem(t.proxyGroup, connection.proxyNode),
-        _InfoItem(t.proxyNode, connection.proxyGroup),
+          _InfoItem(t.sniff_host, metadata.sniffHost),
+        _InfoItem(t.proxy_group, connection.proxyNode),
+        _InfoItem(t.proxy_node, connection.proxyGroup),
         if (connection.chains.length > 1)
-          _InfoItem(t.proxyChain, connection.chains.reversed.join(' → ')),
-        _InfoItem(t.ruleLabel, connection.rule),
-        _InfoItem(t.rulePayload, connection.rulePayload),
+          _InfoItem(t.proxy_chain, connection.chains.reversed.join(' → ')),
+        _InfoItem(t.rule_label, connection.rule),
+        _InfoItem(t.rule_payload, connection.rulePayload),
       ],
       t.groups.source: [
-        _InfoItem(t.sourceIP, metadata.sourceIP),
-        _InfoItem(t.sourcePort, metadata.sourcePort),
-        _InfoItem(t.sourceGeoIP, metadata.sourceGeoIP.join(', ')),
-        _InfoItem(t.sourceIPASN, metadata.sourceIPASN),
+        _InfoItem(t.source_ip, metadata.sourceIP),
+        _InfoItem(t.source_port, metadata.sourcePort),
+        _InfoItem(t.source_geo_ip, metadata.sourceGeoIP.join(', ')),
+        _InfoItem(t.source_ipasn, metadata.sourceIPASN),
       ],
       t.groups.destination: [
-        _InfoItem(t.destinationIP, metadata.destinationIP),
-        _InfoItem(t.destinationPort, metadata.destinationPort),
-        _InfoItem(t.destinationGeoIP, metadata.destinationGeoIP.join(', ')),
-        _InfoItem(t.destinationIPASN, metadata.destinationIPASN),
-        _InfoItem(t.remoteDestination, metadata.remoteDestination),
+        _InfoItem(t.destination_ip, metadata.destinationIP),
+        _InfoItem(t.destination_port, metadata.destinationPort),
+        _InfoItem(t.destination_geo_ip, metadata.destinationGeoIP.join(', ')),
+        _InfoItem(t.destination_ipasn, metadata.destinationIPASN),
+        _InfoItem(t.remote_destination, metadata.remoteDestination),
       ],
       t.groups.inbound: [
-        _InfoItem(t.inboundName, metadata.inboundName),
-        _InfoItem(t.inboundIP, metadata.inboundIP),
+        _InfoItem(t.inbound_name, metadata.inboundName),
+        _InfoItem(t.inbound_ip, metadata.inboundIP),
         if (metadata.inboundPort != '0')
-          _InfoItem(t.inboundPort, metadata.inboundPort),
-        _InfoItem(t.inboundUser, metadata.inboundUser),
+          _InfoItem(t.inbound_port, metadata.inboundPort),
+        _InfoItem(t.inbound_user, metadata.inboundUser),
       ],
       t.groups.process: [
-        _InfoItem(t.processLabel, metadata.process),
-        _InfoItem(t.processPath, metadata.processPath),
+        _InfoItem(t.process_label, metadata.process),
+        _InfoItem(t.process_path, metadata.processPath),
         if (metadata.uid != null)
-          _InfoItem(t.processUID, metadata.uid.toString()),
+          _InfoItem(t.process_uid, metadata.uid.toString()),
       ],
       t.groups.advanced: [
-        _InfoItem(t.dnsMode, metadata.dnsMode),
+        _InfoItem(t.dns_mode, metadata.dnsMode),
         if (metadata.dscp != 0) _InfoItem(t.dscp, metadata.dscp.toString()),
-        _InfoItem(t.specialProxy, metadata.specialProxy),
-        _InfoItem(t.specialRules, metadata.specialRules),
+        _InfoItem(t.special_proxy, metadata.specialProxy),
+        _InfoItem(t.special_rules, metadata.specialRules),
       ],
       t.groups.traffic: [
-        _InfoItem(t.uploadLabel, _formatBytes(connection.upload)),
-        _InfoItem(t.downloadLabel, _formatBytes(connection.download)),
-        _InfoItem(t.uploadSpeed, '${_formatBytes(connection.uploadSpeed)}/s'),
+        _InfoItem(t.upload_label, _formatBytes(connection.upload)),
+        _InfoItem(t.download_label, _formatBytes(connection.download)),
+        _InfoItem(t.upload_speed, '${_formatBytes(connection.uploadSpeed)}/s'),
         _InfoItem(
-          t.downloadSpeed,
+          t.download_speed,
           '${_formatBytes(connection.downloadSpeed)}/s',
         ),
       ],
       t.groups.meta: [
-        _InfoItem(t.durationLabel, connection.formattedDuration),
-        _InfoItem(t.connectionId, connection.id),
+        _InfoItem(t.duration_label, connection.formattedDuration),
+        _InfoItem(t.connection_id, connection.id),
       ],
     };
 

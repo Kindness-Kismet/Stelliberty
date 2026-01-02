@@ -50,7 +50,7 @@ class _PortControlPageState extends State<PortControlPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                trans.clashFeatures.portControl.pageTitle,
+                trans.clash_features.port_control.page_title,
                 style: theme.textTheme.titleLarge,
               ),
             ],

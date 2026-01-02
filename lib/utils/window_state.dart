@@ -35,7 +35,7 @@ class WindowStateManager {
       // 设置窗口最小尺寸
       appWindow.minSize = _minSize;
       await windowManager.setTitle(
-        LocaleSettings.instance.currentTranslations.common.appName,
+        LocaleSettings.instance.currentTranslations.common.app_name,
       );
 
       // 预计算所需值

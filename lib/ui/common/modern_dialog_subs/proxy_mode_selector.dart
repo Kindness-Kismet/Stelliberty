@@ -20,24 +20,24 @@ class ProxyModeSelector extends StatelessWidget {
     final trans = context.translate;
 
     return OptionSelectorWidget<SubscriptionProxyMode>(
-      title: trans.subscriptionDialog.proxyModeTitle,
+      title: trans.subscription_dialog.proxy_mode_title,
       titleIcon: Icons.public,
       isHorizontal: true,
       options: [
         OptionItem(
           value: SubscriptionProxyMode.direct,
-          title: trans.subscriptionDialog.proxyModeDirectTitle,
-          subtitle: trans.subscriptionDialog.proxyModeDirect,
+          title: trans.subscription_dialog.proxy_mode_direct_title,
+          subtitle: trans.subscription_dialog.proxy_mode_direct,
         ),
         OptionItem(
           value: SubscriptionProxyMode.system,
-          title: trans.subscriptionDialog.proxyModeSystemTitle,
-          subtitle: trans.subscriptionDialog.proxyModeSystem,
+          title: trans.subscription_dialog.proxy_mode_system_title,
+          subtitle: trans.subscription_dialog.proxy_mode_system,
         ),
         OptionItem(
           value: SubscriptionProxyMode.core,
-          title: trans.subscriptionDialog.proxyModeCoreTitle,
-          subtitle: trans.subscriptionDialog.proxyModeCore,
+          title: trans.subscription_dialog.proxy_mode_core_title,
+          subtitle: trans.subscription_dialog.proxy_mode_core,
         ),
       ],
       selectedValue: selectedValue,

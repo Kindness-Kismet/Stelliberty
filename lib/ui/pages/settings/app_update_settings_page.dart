@@ -77,13 +77,13 @@ class _AppUpdateSettingsPageState extends State<AppUpdateSettingsPage> {
 
     switch (interval) {
       case 'startup':
-        return trans.appUpdate.intervalOnStartup;
+        return trans.app_update.interval_on_startup;
       case '1day':
-        return trans.appUpdate.interval1Day;
+        return trans.app_update.interval_1_day;
       case '7days':
-        return trans.appUpdate.interval7Days;
+        return trans.app_update.interval_7_days;
       case '14days':
-        return trans.appUpdate.interval14Days;
+        return trans.app_update.interval_14_days;
       default:
         return interval;
     }
@@ -104,11 +104,11 @@ class _AppUpdateSettingsPageState extends State<AppUpdateSettingsPage> {
         await AppUpdateDialog.show(context, updateInfo);
       } else {
         // 已是最新版本
-        ModernToast.success(context, trans.appUpdate.upToDate);
+        ModernToast.success(context, trans.app_update.up_to_date);
       }
     } else {
       // 检查失败
-      ModernToast.error(context, trans.appUpdate.networkError);
+      ModernToast.error(context, trans.app_update.network_error);
     }
   }
 
@@ -132,7 +132,7 @@ class _AppUpdateSettingsPageState extends State<AppUpdateSettingsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                trans.appUpdate.settings,
+                trans.app_update.settings,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ],
@@ -178,8 +178,8 @@ class _AppUpdateSettingsPageState extends State<AppUpdateSettingsPage> {
 
         return ModernFeatureLayoutCard(
           icon: Icons.new_releases_outlined,
-          title: trans.appUpdate.autoUpdateTitle,
-          subtitle: trans.appUpdate.autoUpdateDescription,
+          title: trans.app_update.auto_update_title,
+          subtitle: trans.app_update.auto_update_description,
           trailingLeadingButton: IconButton(
             icon: isChecking
                 ? SizedBox(
@@ -191,7 +191,7 @@ class _AppUpdateSettingsPageState extends State<AppUpdateSettingsPage> {
                     ),
                   )
                 : const Icon(Icons.refresh, size: 20),
-            tooltip: trans.appUpdate.checkNow,
+            tooltip: trans.app_update.check_now,
             onPressed: isChecking ? null : _checkForUpdate,
           ),
           trailing: ModernSwitch(
@@ -211,8 +211,8 @@ class _AppUpdateSettingsPageState extends State<AppUpdateSettingsPage> {
 
     return ModernFeatureLayoutCard(
       icon: Icons.schedule_outlined,
-      title: trans.appUpdate.checkIntervalTitle,
-      subtitle: trans.appUpdate.checkIntervalDescription,
+      title: trans.app_update.check_interval_title,
+      subtitle: trans.app_update.check_interval_description,
       trailing: _buildIntervalDropdown(),
       isHoverEnabled: true,
       isTapEnabled: false,

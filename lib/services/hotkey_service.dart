@@ -289,18 +289,30 @@ class HotkeyService {
       final num = int.tryParse(keyStr.substring(1));
       if (num != null && num >= 1 && num <= 12) {
         switch (num) {
-          case 1: return LogicalKeyboardKey.f1;
-          case 2: return LogicalKeyboardKey.f2;
-          case 3: return LogicalKeyboardKey.f3;
-          case 4: return LogicalKeyboardKey.f4;
-          case 5: return LogicalKeyboardKey.f5;
-          case 6: return LogicalKeyboardKey.f6;
-          case 7: return LogicalKeyboardKey.f7;
-          case 8: return LogicalKeyboardKey.f8;
-          case 9: return LogicalKeyboardKey.f9;
-          case 10: return LogicalKeyboardKey.f10;
-          case 11: return LogicalKeyboardKey.f11;
-          case 12: return LogicalKeyboardKey.f12;
+          case 1:
+            return LogicalKeyboardKey.f1;
+          case 2:
+            return LogicalKeyboardKey.f2;
+          case 3:
+            return LogicalKeyboardKey.f3;
+          case 4:
+            return LogicalKeyboardKey.f4;
+          case 5:
+            return LogicalKeyboardKey.f5;
+          case 6:
+            return LogicalKeyboardKey.f6;
+          case 7:
+            return LogicalKeyboardKey.f7;
+          case 8:
+            return LogicalKeyboardKey.f8;
+          case 9:
+            return LogicalKeyboardKey.f9;
+          case 10:
+            return LogicalKeyboardKey.f10;
+          case 11:
+            return LogicalKeyboardKey.f11;
+          case 12:
+            return LogicalKeyboardKey.f12;
         }
       }
     }
@@ -310,69 +322,121 @@ class HotkeyService {
       final code = keyStr.codeUnitAt(0);
       if (code >= 48 && code <= 57) {
         switch (keyStr) {
-          case '0': return LogicalKeyboardKey.digit0;
-          case '1': return LogicalKeyboardKey.digit1;
-          case '2': return LogicalKeyboardKey.digit2;
-          case '3': return LogicalKeyboardKey.digit3;
-          case '4': return LogicalKeyboardKey.digit4;
-          case '5': return LogicalKeyboardKey.digit5;
-          case '6': return LogicalKeyboardKey.digit6;
-          case '7': return LogicalKeyboardKey.digit7;
-          case '8': return LogicalKeyboardKey.digit8;
-          case '9': return LogicalKeyboardKey.digit9;
+          case '0':
+            return LogicalKeyboardKey.digit0;
+          case '1':
+            return LogicalKeyboardKey.digit1;
+          case '2':
+            return LogicalKeyboardKey.digit2;
+          case '3':
+            return LogicalKeyboardKey.digit3;
+          case '4':
+            return LogicalKeyboardKey.digit4;
+          case '5':
+            return LogicalKeyboardKey.digit5;
+          case '6':
+            return LogicalKeyboardKey.digit6;
+          case '7':
+            return LogicalKeyboardKey.digit7;
+          case '8':
+            return LogicalKeyboardKey.digit8;
+          case '9':
+            return LogicalKeyboardKey.digit9;
         }
       }
 
       // 字母 A-Z
       if (code >= 97 && code <= 122) {
         switch (keyStr) {
-          case 'a': return LogicalKeyboardKey.keyA;
-          case 'b': return LogicalKeyboardKey.keyB;
-          case 'c': return LogicalKeyboardKey.keyC;
-          case 'd': return LogicalKeyboardKey.keyD;
-          case 'e': return LogicalKeyboardKey.keyE;
-          case 'f': return LogicalKeyboardKey.keyF;
-          case 'g': return LogicalKeyboardKey.keyG;
-          case 'h': return LogicalKeyboardKey.keyH;
-          case 'i': return LogicalKeyboardKey.keyI;
-          case 'j': return LogicalKeyboardKey.keyJ;
-          case 'k': return LogicalKeyboardKey.keyK;
-          case 'l': return LogicalKeyboardKey.keyL;
-          case 'm': return LogicalKeyboardKey.keyM;
-          case 'n': return LogicalKeyboardKey.keyN;
-          case 'o': return LogicalKeyboardKey.keyO;
-          case 'p': return LogicalKeyboardKey.keyP;
-          case 'q': return LogicalKeyboardKey.keyQ;
-          case 'r': return LogicalKeyboardKey.keyR;
-          case 's': return LogicalKeyboardKey.keyS;
-          case 't': return LogicalKeyboardKey.keyT;
-          case 'u': return LogicalKeyboardKey.keyU;
-          case 'v': return LogicalKeyboardKey.keyV;
-          case 'w': return LogicalKeyboardKey.keyW;
-          case 'x': return LogicalKeyboardKey.keyX;
-          case 'y': return LogicalKeyboardKey.keyY;
-          case 'z': return LogicalKeyboardKey.keyZ;
+          case 'a':
+            return LogicalKeyboardKey.keyA;
+          case 'b':
+            return LogicalKeyboardKey.keyB;
+          case 'c':
+            return LogicalKeyboardKey.keyC;
+          case 'd':
+            return LogicalKeyboardKey.keyD;
+          case 'e':
+            return LogicalKeyboardKey.keyE;
+          case 'f':
+            return LogicalKeyboardKey.keyF;
+          case 'g':
+            return LogicalKeyboardKey.keyG;
+          case 'h':
+            return LogicalKeyboardKey.keyH;
+          case 'i':
+            return LogicalKeyboardKey.keyI;
+          case 'j':
+            return LogicalKeyboardKey.keyJ;
+          case 'k':
+            return LogicalKeyboardKey.keyK;
+          case 'l':
+            return LogicalKeyboardKey.keyL;
+          case 'm':
+            return LogicalKeyboardKey.keyM;
+          case 'n':
+            return LogicalKeyboardKey.keyN;
+          case 'o':
+            return LogicalKeyboardKey.keyO;
+          case 'p':
+            return LogicalKeyboardKey.keyP;
+          case 'q':
+            return LogicalKeyboardKey.keyQ;
+          case 'r':
+            return LogicalKeyboardKey.keyR;
+          case 's':
+            return LogicalKeyboardKey.keyS;
+          case 't':
+            return LogicalKeyboardKey.keyT;
+          case 'u':
+            return LogicalKeyboardKey.keyU;
+          case 'v':
+            return LogicalKeyboardKey.keyV;
+          case 'w':
+            return LogicalKeyboardKey.keyW;
+          case 'x':
+            return LogicalKeyboardKey.keyX;
+          case 'y':
+            return LogicalKeyboardKey.keyY;
+          case 'z':
+            return LogicalKeyboardKey.keyZ;
         }
       }
     }
 
     // 特殊键
     switch (keyStr) {
-      case 'space': return LogicalKeyboardKey.space;
-      case 'enter': return LogicalKeyboardKey.enter;
-      case 'esc': case 'escape': return LogicalKeyboardKey.escape;
-      case 'tab': return LogicalKeyboardKey.tab;
-      case 'backspace': return LogicalKeyboardKey.backspace;
-      case 'delete': return LogicalKeyboardKey.delete;
-      case 'home': return LogicalKeyboardKey.home;
-      case 'end': return LogicalKeyboardKey.end;
-      case 'pageup': return LogicalKeyboardKey.pageUp;
-      case 'pagedown': return LogicalKeyboardKey.pageDown;
-      case 'up': return LogicalKeyboardKey.arrowUp;
-      case 'down': return LogicalKeyboardKey.arrowDown;
-      case 'left': return LogicalKeyboardKey.arrowLeft;
-      case 'right': return LogicalKeyboardKey.arrowRight;
-      default: return null;
+      case 'space':
+        return LogicalKeyboardKey.space;
+      case 'enter':
+        return LogicalKeyboardKey.enter;
+      case 'esc':
+      case 'escape':
+        return LogicalKeyboardKey.escape;
+      case 'tab':
+        return LogicalKeyboardKey.tab;
+      case 'backspace':
+        return LogicalKeyboardKey.backspace;
+      case 'delete':
+        return LogicalKeyboardKey.delete;
+      case 'home':
+        return LogicalKeyboardKey.home;
+      case 'end':
+        return LogicalKeyboardKey.end;
+      case 'pageup':
+        return LogicalKeyboardKey.pageUp;
+      case 'pagedown':
+        return LogicalKeyboardKey.pageDown;
+      case 'up':
+        return LogicalKeyboardKey.arrowUp;
+      case 'down':
+        return LogicalKeyboardKey.arrowDown;
+      case 'left':
+        return LogicalKeyboardKey.arrowLeft;
+      case 'right':
+        return LogicalKeyboardKey.arrowRight;
+      default:
+        return null;
     }
   }
 

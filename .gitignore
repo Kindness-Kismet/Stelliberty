@@ -11,6 +11,7 @@
 .history
 .svn/
 migrate_working_dir/
+/*.txt
 
 **/nul
 

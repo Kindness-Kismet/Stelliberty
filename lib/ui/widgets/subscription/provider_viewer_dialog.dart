@@ -126,7 +126,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
 
       if (apiClient == null) {
         setState(() {
-          _errorMessage = trans.provider.clashNotRunning;
+          _errorMessage = trans.provider.clash_not_running;
           _isLoading = false;
         });
         return;
@@ -158,7 +158,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       });
     } catch (e) {
       setState(() {
-        _errorMessage = trans.provider.loadingFailed.replaceAll(
+        _errorMessage = trans.provider.loading_failed.replaceAll(
           '{error}',
           e.toString(),
         );
@@ -184,7 +184,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
 
     if (apiClient == null) {
       if (mounted) {
-        ModernToast.error(context, trans.provider.clashNotRunning);
+        ModernToast.error(context, trans.provider.clash_not_running);
       }
       return;
     }
@@ -200,13 +200,13 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
         if (updatingCount > 0) {
           ModernToast.info(
             context,
-            trans.provider.allSyncInProgress.replaceAll(
+            trans.provider.all_sync_in_progress.replaceAll(
               '{count}',
               updatingCount.toString(),
             ),
           );
         } else {
-          ModernToast.info(context, trans.provider.noProvidersToSync);
+          ModernToast.info(context, trans.provider.no_providers_to_sync);
         }
       }
       return;
@@ -281,7 +281,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       if (failedResults.isEmpty) {
         ModernToast.success(
           context,
-          trans.provider.allSyncComplete
+          trans.provider.all_sync_complete
               .replaceAll('{success}', successCount.toString())
               .replaceAll('{total}', httpProviders.length.toString()),
         );
@@ -289,7 +289,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
         final failedNames = failedResults.map((r) => r.$1).join('，');
         ModernToast.error(
           context,
-          trans.provider.partialSyncFailed
+          trans.provider.partial_sync_failed
               .replaceAll('{names}', failedNames)
               .replaceAll('{success}', successCount.toString())
               .replaceAll('{failed}', failedResults.length.toString()),
@@ -315,7 +315,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       final platformFile = result.files.first;
       if (platformFile.path == null || provider.path == null) {
         if (mounted) {
-          ModernToast.error(context, trans.provider.pathNotAvailable);
+          ModernToast.error(context, trans.provider.path_not_available);
         }
         return;
       }
@@ -338,7 +338,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       if (mounted) {
         ModernToast.success(
           context,
-          trans.provider.uploadSuccess.replaceAll('{name}', provider.name),
+          trans.provider.upload_success.replaceAll('{name}', provider.name),
         );
       }
 
@@ -350,7 +350,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       if (mounted) {
         ModernToast.error(
           context,
-          trans.provider.uploadFailed.replaceAll('{error}', e.toString()),
+          trans.provider.upload_failed.replaceAll('{error}', e.toString()),
         );
       }
     }
@@ -367,7 +367,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
     if (_isSyncingAll) {
       Logger.warning('同步全部操作正在进行中，忽略单个同步请求：${provider.name}');
       if (mounted) {
-        ModernToast.info(context, trans.provider.syncAllInProgress);
+        ModernToast.info(context, trans.provider.sync_all_in_progress);
       }
       return;
     }
@@ -406,16 +406,16 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       if (syncResult.isSuccessful) {
         ModernToast.success(
           context,
-          trans.provider.syncSuccess.replaceAll('{name}', provider.name),
+          trans.provider.sync_success.replaceAll('{name}', provider.name),
         );
       } else {
         ModernToast.error(
           context,
-          trans.provider.syncFailed
+          trans.provider.sync_failed
               .replaceAll('{name}', provider.name)
               .replaceAll(
                 '{error}',
-                syncResult.errorMessage ?? trans.provider.unknownError,
+                syncResult.errorMessage ?? trans.provider.unknown_error,
               ),
         );
       }
@@ -441,7 +441,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       content: _buildContent(),
       actionsLeftButtons: [
         DialogActionButton(
-          label: trans.provider.syncAll,
+          label: trans.provider.sync_all,
           icon: Icons.sync,
           onPressed: _isSyncingAll ? null : _syncAll,
           isLoading: _isSyncingAll,
@@ -503,7 +503,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
             const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
-              trans.provider.emptyTitle,
+              trans.provider.empty_title,
               style: const TextStyle(fontSize: 16, color: Colors.grey),
             ),
           ],
@@ -524,7 +524,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
       children: [
         if (proxyProviders.isNotEmpty) ...[
           Text(
-            trans.provider.proxyProviders,
+            trans.provider.proxy_providers,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -535,7 +535,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
         ],
         if (ruleProviders.isNotEmpty) ...[
           Text(
-            trans.provider.ruleProviders,
+            trans.provider.rule_providers,
             style: Theme.of(
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),

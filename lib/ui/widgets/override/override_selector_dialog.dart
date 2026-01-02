@@ -85,7 +85,7 @@ class _OverrideSelectorDialogState extends State<OverrideSelectorDialog> {
     final trans = context.translate;
 
     return ModernDialog(
-      title: trans.overrideDialog.selectOverrides,
+      title: trans.override_dialog.select_overrides,
       titleIcon: Icons.checklist,
       maxWidth: 640,
       maxHeightRatio: 0.8,
@@ -178,12 +178,12 @@ class _OverrideSelectorDialogState extends State<OverrideSelectorDialog> {
           Icon(Icons.rule, size: 64, color: Colors.grey[400]),
           const SizedBox(height: 16),
           Text(
-            trans.overrideDialog.noOverridesTitle,
+            trans.override_dialog.no_overrides_title,
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
           const SizedBox(height: 8),
           Text(
-            trans.overrideDialog.noOverridesHint,
+            trans.override_dialog.no_overrides_hint,
             style: TextStyle(fontSize: 12, color: Colors.grey[500]),
           ),
         ],

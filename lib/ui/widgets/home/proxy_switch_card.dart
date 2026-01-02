@@ -42,7 +42,7 @@ class ProxySwitchCard extends StatelessWidget {
 
         return BaseCard(
           icon: Icons.shield_outlined,
-          title: trans.proxy.proxyControl,
+          title: trans.proxy.proxy_control,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -97,8 +97,8 @@ class ProxySwitchCard extends StatelessWidget {
                 ),
                 child: Text(
                   isProxyEnabled
-                      ? trans.proxy.stopProxy
-                      : trans.proxy.startProxy,
+                      ? trans.proxy.stop_proxy
+                      : trans.proxy.start_proxy,
                   style: const TextStyle(
                     fontWeight: FontWeight.w500,
                     fontSize: 15,

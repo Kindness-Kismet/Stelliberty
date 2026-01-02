@@ -98,7 +98,7 @@ class _OverridePageState extends State<OverridePage> {
               FilledButton.icon(
                 onPressed: _showAddOverrideDialog,
                 icon: const Icon(Icons.add_circle, size: 18),
-                label: Text(translate.kOverride.addOverride),
+                label: Text(translate.kOverride.add_override),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -131,7 +131,7 @@ class _OverridePageState extends State<OverridePage> {
                   label: Text(
                     provider.isBatchUpdatingOverrides
                         ? translate.kOverride.updating
-                        : translate.kOverride.updateAll,
+                        : translate.kOverride.update_all,
                   ),
                   style: FilledButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
@@ -170,12 +170,12 @@ class _OverridePageState extends State<OverridePage> {
                   Icon(Icons.rule, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
                   Text(
-                    translate.kOverride.emptyTitle,
+                    translate.kOverride.empty_title,
                     style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    translate.kOverride.emptyHint,
+                    translate.kOverride.empty_hint,
                     style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
@@ -231,7 +231,7 @@ class _OverridePageState extends State<OverridePage> {
 
     ModernToast.success(
       context,
-      translate.kOverride.addSuccess.replaceAll('{name}', result.name),
+      translate.kOverride.add_success.replaceAll('{name}', result.name),
     );
   }
 
@@ -273,8 +273,8 @@ class _OverridePageState extends State<OverridePage> {
     final trans = context.translate;
     final confirmed = await showConfirmDialog(
       context: context,
-      title: translate.kOverride.confirmDelete,
-      message: translate.kOverride.confirmDeleteMessage.replaceAll(
+      title: translate.kOverride.confirm_delete,
+      message: translate.kOverride.confirm_delete_message.replaceAll(
         '{name}',
         override.name,
       ),
@@ -296,13 +296,13 @@ class _OverridePageState extends State<OverridePage> {
     if (!context.mounted) return;
 
     if (errors.isEmpty) {
-      ModernToast.success(context, translate.kOverride.updateAllSuccess);
+      ModernToast.success(context, translate.kOverride.update_all_success);
       return;
     }
 
     ModernToast.warning(
       context,
-      translate.kOverride.updatePartialFailed.replaceAll(
+      translate.kOverride.update_partial_failed.replaceAll(
         '{errors}',
         errors.join('\n'),
       ),

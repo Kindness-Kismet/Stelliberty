@@ -26,7 +26,7 @@ class HomeSidebar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 24.0),
                 child: Center(
                   child: Text(
-                    trans.common.appName,
+                    trans.common.app_name,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,

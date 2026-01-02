@@ -135,7 +135,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  trans.subscription.configCount.replaceAll(
+                  trans.subscription.config_count.replaceAll(
                     '{count}',
                     data.subscriptionCount.toString(),
                   ),
@@ -155,7 +155,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           OutlinedButton.icon(
             onPressed: () => _navigateToOverrideManagement(context),
             icon: const Icon(Icons.rule, size: 18),
-            label: Text(trans.subscription.overrideManagement),
+            label: Text(trans.subscription.override_management),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               textStyle: const TextStyle(
@@ -171,7 +171,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           FilledButton.icon(
             onPressed: () => _showAddSubscriptionDialog(context, provider),
             icon: const Icon(Icons.add_rounded, size: 18),
-            label: Text(trans.subscription.addConfig),
+            label: Text(trans.subscription.add_config),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               textStyle: const TextStyle(
@@ -204,7 +204,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               label: Text(
                 data.isLoading
                     ? trans.subscription.updating
-                    : trans.subscription.updateAll,
+                    : trans.subscription.update_all,
               ),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
@@ -267,7 +267,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             ),
             const SizedBox(height: 8),
             Text(
-              trans.subscription.emptyHint,
+              trans.subscription.empty_hint,
               style: const TextStyle(color: Colors.grey),
             ),
           ],
@@ -443,7 +443,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     if (success) {
       ModernToast.success(
         context,
-        trans.subscription.updateSuccess.replaceAll(
+        trans.subscription.update_success.replaceAll(
           '{name}',
           subscription.name,
         ),
@@ -465,26 +465,26 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final trans = context.translate;
 
     if (errorTypeName == null) {
-      return trans.subscription.updateFailed;
+      return trans.subscription.update_failed;
     }
 
     switch (errorTypeName) {
       case 'network':
-        return trans.subscription.updateFailedNetwork;
+        return trans.subscription.update_failed_network;
       case 'timeout':
-        return trans.subscription.updateFailedTimeout;
+        return trans.subscription.update_failed_timeout;
       case 'notFound':
-        return trans.subscription.updateFailedNotFound;
+        return trans.subscription.update_failed_not_found;
       case 'forbidden':
-        return trans.subscription.updateFailedForbidden;
+        return trans.subscription.update_failed_forbidden;
       case 'serverError':
-        return trans.subscription.updateFailedServer;
+        return trans.subscription.update_failed_server;
       case 'formatError':
-        return trans.subscription.updateFailedFormat;
+        return trans.subscription.update_failed_format;
       case 'certificate':
-        return trans.subscription.updateFailedCertificate;
+        return trans.subscription.update_failed_certificate;
       default:
-        return trans.subscription.updateFailedUnknown;
+        return trans.subscription.update_failed_unknown;
     }
   }
 
@@ -499,19 +499,19 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     if (!context.mounted) return;
 
     if (errors.isEmpty) {
-      ModernToast.success(context, trans.subscription.updateAllSuccess);
+      ModernToast.success(context, trans.subscription.update_all_success);
     } else {
       // 只显示成功/失败统计，不显示具体错误
       final successCount = provider.subscriptions.length - errors.length;
       if (successCount > 0) {
         ModernToast.warning(
           context,
-          trans.subscription.updatePartialSuccess
+          trans.subscription.update_partial_success
               .replaceAll('{success}', successCount.toString())
               .replaceAll('{failed}', errors.length.toString()),
         );
       } else {
-        ModernToast.error(context, trans.subscription.updateAllFailed);
+        ModernToast.error(context, trans.subscription.update_all_failed);
       }
     }
   }
@@ -525,8 +525,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     final trans = context.translate;
     final confirmed = await showConfirmDialog(
       context: context,
-      title: trans.subscription.deleteConfirm,
-      message: trans.subscription.deleteConfirmMessage.replaceAll(
+      title: trans.subscription.delete_confirm,
+      message: trans.subscription.delete_confirm_message.replaceAll(
         '{name}',
         subscription.name,
       ),
@@ -633,7 +633,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
       ModernToast.error(
         context,
-        trans.fileEditor.readError.replaceAll('{error}', error.toString()),
+        trans.file_editor.read_error.replaceAll('{error}', error.toString()),
       );
     }
   }
@@ -686,7 +686,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
       ModernToast.error(
         context,
-        trans.fileEditor.readError.replaceAll('{error}', error.toString()),
+        trans.file_editor.read_error.replaceAll('{error}', error.toString()),
       );
     }
   }
@@ -706,10 +706,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
 
     try {
       final file = File(result.localFilePath!);
-      final dialogTrans = context.translate.subscriptionDialog;
+      final dialogTrans = context.translate.subscription_dialog;
 
       if (!await file.exists()) {
-        throw Exception(dialogTrans.fileNotExist);
+        throw Exception(dialogTrans.file_not_exist);
       }
 
       // 读取文件内容

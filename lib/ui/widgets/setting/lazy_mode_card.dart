@@ -71,18 +71,18 @@ class _LazyModeCardState extends State<LazyModeCard> {
                   Text(
                     context
                         .translate
-                        .clashFeatures
-                        .systemIntegration
-                        .lazyMode
+                        .clash_features
+                        .system_integration
+                        .lazy_mode
                         .title,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   Text(
                     context
                         .translate
-                        .clashFeatures
-                        .systemIntegration
-                        .lazyMode
+                        .clash_features
+                        .system_integration
+                        .lazy_mode
                         .subtitle,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Theme.of(

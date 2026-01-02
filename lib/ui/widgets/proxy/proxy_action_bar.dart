@@ -103,7 +103,7 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
               ? context
                     .translate
                     .proxy
-                    .testAllDelays // 横屏：测试当前组
+                    .test_all_delays // 横屏：测试当前组
               : '测试所有节点延迟', // 竖屏：测试所有节点
           onPressed: state.canTestDelays
               ? () {
@@ -131,7 +131,7 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
         // 回到顶部按钮
         _ActionButton(
           icon: Icons.vertical_align_top,
-          tooltip: trans.proxy.scrollToTop,
+          tooltip: trans.proxy.scroll_to_top,
           onPressed: widget.onScrollToTop,
         ),
         const SizedBox(width: 8),
@@ -173,7 +173,7 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
         // 布局切换按钮（测试延迟时禁用）
         _ActionButton(
           icon: Icons.view_agenda,
-          tooltip: trans.proxy.switchToVerticalLayout,
+          tooltip: trans.proxy.switch_to_vertical_layout,
           onPressed: state.isBatchTestingDelay
               ? null
               : widget.onLayoutModeChanged,
@@ -209,7 +209,7 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
             // 回到顶部按钮
             _ActionButton(
               icon: Icons.vertical_align_top,
-              tooltip: trans.proxy.scrollToTop,
+              tooltip: trans.proxy.scroll_to_top,
               onPressed: widget.onScrollToTop,
             ),
             const SizedBox(width: 8),
@@ -223,7 +223,7 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
             // 布局切换按钮（测试延迟时禁用）
             _ActionButton(
               icon: Icons.view_list,
-              tooltip: trans.proxy.switchToHorizontalLayout,
+              tooltip: trans.proxy.switch_to_horizontal_layout,
               onPressed: state.isBatchTestingDelay
                   ? null
                   : widget.onLayoutModeChanged,
@@ -268,7 +268,7 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
               onChanged: widget.viewModel.updateSearchQuery,
               style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
               decoration: InputDecoration(
-                hintText: trans.proxy.searchHint,
+                hintText: trans.proxy.search_hint,
                 hintStyle: TextStyle(
                   fontSize: 13,
                   color: colorScheme.onSurface.withValues(alpha: 0.4),
@@ -339,13 +339,13 @@ class _ProxyActionBarState extends State<ProxyActionBar> {
 
     switch (mode) {
       case 0:
-        return trans.proxy.defaultSort;
+        return trans.proxy.default_sort;
       case 1:
-        return trans.proxy.nameSort;
+        return trans.proxy.name_sort;
       case 2:
-        return trans.proxy.delaySort;
+        return trans.proxy.delay_sort;
       default:
-        return trans.proxy.defaultSort;
+        return trans.proxy.default_sort;
     }
   }
 }

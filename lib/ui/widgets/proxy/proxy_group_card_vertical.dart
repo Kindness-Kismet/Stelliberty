@@ -84,9 +84,10 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
   ) {
     final trans = context.translate;
 
-    final currentNode = widget.group.now ?? trans.proxy.notSelected;
+    final currentNode = widget.group.now ?? trans.proxy.not_selected;
     final nodeCount = widget.group.all.length;
-    final hasSelectedNode = widget.group.now != null && widget.group.now!.isNotEmpty;
+    final hasSelectedNode =
+        widget.group.now != null && widget.group.now!.isNotEmpty;
 
     const double buttonSize = 32.0;
     const double iconSize = 20.0;
@@ -108,7 +109,8 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
                   Row(
                     children: [
                       // 代理组图标
-                      if (widget.group.icon != null && widget.group.icon!.isNotEmpty)
+                      if (widget.group.icon != null &&
+                          widget.group.icon!.isNotEmpty)
                         SizedBox(
                           width: 24,
                           height: 24,
@@ -175,7 +177,9 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
             ),
             const SizedBox(width: 12),
             // 定位按钮（只在有选中节点且展开时显示）
-            if (hasSelectedNode && widget.isExpanded && widget.onLocate != null) ...[
+            if (hasSelectedNode &&
+                widget.isExpanded &&
+                widget.onLocate != null) ...[
               GestureDetector(
                 onTap: widget.onLocate,
                 child: Container(
@@ -218,7 +222,13 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
     // 根据搜索关键词过滤节点
     final filteredNodes = _searchController.text.isEmpty
         ? nodeNames
-        : nodeNames.where((name) => name.toLowerCase().contains(_searchController.text.toLowerCase())).toList();
+        : nodeNames
+              .where(
+                (name) => name.toLowerCase().contains(
+                  _searchController.text.toLowerCase(),
+                ),
+              )
+              .toList();
 
     return Column(
       children: [
@@ -230,7 +240,7 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
             padding: const EdgeInsets.all(16),
             child: Center(
               child: Text(
-                _searchController.text.isEmpty ? trans.proxy.noNodes : trans.proxy.noNodes,
+                trans.proxy.no_nodes,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
@@ -281,7 +291,7 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
                 onChanged: (value) => setState(() {}),
                 style: TextStyle(fontSize: 13, color: colorScheme.onSurface),
                 decoration: InputDecoration(
-                  hintText: trans.proxy.searchHint,
+                  hintText: trans.proxy.search_hint,
                   hintStyle: TextStyle(
                     fontSize: 13,
                     color: colorScheme.onSurface.withValues(alpha: 0.4),
@@ -319,7 +329,8 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
       builder: (context, constraints) {
         const double spacing = 12.0;
         final double cardWidth =
-            (constraints.maxWidth - (widget.columns - 1) * spacing - 32) / widget.columns;
+            (constraints.maxWidth - (widget.columns - 1) * spacing - 32) /
+            widget.columns;
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

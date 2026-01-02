@@ -93,7 +93,7 @@ class ConnectionCard extends StatelessWidget {
                       ),
                     ),
                     ModernTooltip(
-                      message: trans.connection.closeConnection,
+                      message: trans.connection.close_connection,
                       child: IconButton(
                         icon: const Icon(Icons.close_rounded, size: 16),
                         onPressed: onClose,

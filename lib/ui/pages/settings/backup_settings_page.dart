@@ -75,7 +75,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                   // 创建备份卡片
                   ModernFeatureLayoutCard(
                     icon: Icons.backup_outlined,
-                    title: trans.backup.createBackup,
+                    title: trans.backup.create_backup,
                     subtitle: trans.backup.description,
                     isHoverEnabled: !_isCreating,
                     isTapEnabled: !_isCreating,
@@ -85,7 +85,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                   // 还原备份卡片
                   ModernFeatureLayoutCard(
                     icon: Icons.restore_outlined,
-                    title: trans.backup.restoreBackup,
+                    title: trans.backup.restore_backup,
                     subtitle: trans.backup.description,
                     isHoverEnabled: !_isRestoring,
                     isTapEnabled: !_isRestoring,
@@ -108,7 +108,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     try {
       // 选择保存位置
       final result = await FilePicker.platform.saveFile(
-        dialogTitle: trans.backup.createBackup,
+        dialogTitle: trans.backup.create_backup,
         fileName: BackupService.instance.generateBackupFileName(),
         type: FileType.custom,
         allowedExtensions: ['stelliberty'],
@@ -127,7 +127,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
       ModernToast.show(
         context,
-        trans.backup.backupSuccess,
+        trans.backup.backup_success,
         type: ToastType.success,
       );
 
@@ -136,8 +136,8 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       await showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text(trans.backup.securityWarning),
-          content: Text(trans.backup.securityWarningMessage),
+          title: Text(trans.backup.security_warning),
+          content: Text(trans.backup.security_warning_message),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -161,7 +161,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
     // 选择备份文件
     final result = await FilePicker.platform.pickFiles(
-      dialogTitle: trans.backup.selectBackupFile,
+      dialogTitle: trans.backup.select_backup_file,
       type: FileType.custom,
       allowedExtensions: ['stelliberty'],
     );
@@ -173,8 +173,8 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => ConfirmDialog(
-        title: trans.backup.restoreConfirm,
-        message: trans.backup.restoreConfirmMessage,
+        title: trans.backup.restore_confirm,
+        message: trans.backup.restore_confirm_message,
       ),
     );
 
@@ -199,7 +199,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
       ModernToast.show(
         context,
-        trans.backup.restoreSuccess,
+        trans.backup.restore_success,
         type: ToastType.success,
       );
     } catch (e) {
@@ -218,15 +218,15 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
     final t = trans.backup;
 
     if (errorStr.contains('不存在') || errorStr.contains('not found')) {
-      return t.errorFileNotFound;
+      return t.error_file_not_found;
     } else if (errorStr.contains('格式错误') || errorStr.contains('format')) {
-      return t.errorInvalidFormat;
+      return t.error_invalid_format;
     } else if (errorStr.contains('版本') || errorStr.contains('version')) {
-      return t.errorVersionMismatch;
+      return t.error_version_mismatch;
     } else if (errorStr.contains('不完整') || errorStr.contains('incomplete')) {
-      return t.errorDataIncomplete;
+      return t.error_data_incomplete;
     } else {
-      return '${t.errorUnknown}: $errorStr';
+      return '${t.error_unknown}: $errorStr';
     }
   }
 }

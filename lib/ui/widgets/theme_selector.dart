@@ -155,41 +155,41 @@ class _ThemeSelectorState extends State<ThemeSelector> {
                               itemToString: (effect) {
                                 switch (effect) {
                                   case AppWindowEffect.mica:
-                                    return trans.theme.effectMica;
+                                    return trans.theme.effect_mica;
                                   case AppWindowEffect.acrylic:
                                     return context
                                         .translate
                                         .theme
-                                        .effectAcrylic;
+                                        .effect_acrylic;
                                   case AppWindowEffect.tabbed:
-                                    return trans.theme.effectTabbed;
+                                    return trans.theme.effect_tabbed;
                                   default:
                                     return context
                                         .translate
                                         .theme
-                                        .effectDefault;
+                                        .effect_default;
                                 }
                               },
                               child: CustomDropdownButton(
                                 text: (effect) {
                                   switch (effect) {
                                     case AppWindowEffect.mica:
-                                      return trans.theme.effectMica;
+                                      return trans.theme.effect_mica;
                                     case AppWindowEffect.acrylic:
                                       return context
                                           .translate
                                           .theme
-                                          .effectAcrylic;
+                                          .effect_acrylic;
                                     case AppWindowEffect.tabbed:
                                       return context
                                           .translate
                                           .theme
-                                          .effectTabbed;
+                                          .effect_tabbed;
                                     default:
                                       return context
                                           .translate
                                           .theme
-                                          .effectDefault;
+                                          .effect_default;
                                   }
                                 }(windowEffectProvider.windowEffect),
                                 isHovering: _isHoveringOnEffectMenu,

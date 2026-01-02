@@ -297,7 +297,7 @@ class _ProxyGroupSelectorState extends State<ProxyGroupSelector> {
       mainAxisSize: MainAxisSize.min,
       children: [
         ModernTooltip(
-          message: trans.proxy.scrollLeft,
+          message: trans.proxy.scroll_left,
           child: IconButton(
             constraints: const BoxConstraints(
               minWidth: _scrollButtonConstraint,
@@ -335,7 +335,7 @@ class _ProxyGroupSelectorState extends State<ProxyGroupSelector> {
         ),
         const SizedBox(width: _scrollButtonGap),
         ModernTooltip(
-          message: trans.proxy.scrollRight,
+          message: trans.proxy.scroll_right,
           child: IconButton(
             constraints: const BoxConstraints(
               minWidth: _scrollButtonConstraint,

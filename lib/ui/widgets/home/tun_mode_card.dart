@@ -52,7 +52,7 @@ class _TunModeCardState extends State<TunModeCard> {
     if (Platform.isAndroid) {
       return BaseCard(
         icon: Icons.router_outlined,
-        title: trans.proxy.tunMode,
+        title: trans.proxy.tun_mode,
         // Android 平台禁用开关
         trailing: ModernSwitch(value: false, onChanged: null),
         child: _buildUnsupportedContent(context),
@@ -64,7 +64,7 @@ class _TunModeCardState extends State<TunModeCard> {
       builder: (context, isTunEnabled, child) {
         return BaseCard(
           icon: Icons.router_outlined,
-          title: trans.proxy.tunMode,
+          title: trans.proxy.tun_mode,
           // 右边只有开关
           trailing: ModernSwitch(
             value: isTunEnabled,
@@ -88,13 +88,13 @@ class _TunModeCardState extends State<TunModeCard> {
     final trans = context.translate;
 
     if (Platform.isWindows) {
-      return trans.home.tunRequiresWindows;
+      return trans.home.tun_requires_windows;
     } else if (Platform.isLinux) {
-      return trans.home.tunRequiresLinux;
+      return trans.home.tun_requires_linux;
     } else if (Platform.isMacOS) {
-      return trans.home.tunRequiresMacOS;
+      return trans.home.tun_requires_macos;
     }
-    return trans.proxy.tunRequiresService;
+    return trans.proxy.tun_requires_service;
   }
 
   // 构建状态指示器
@@ -121,8 +121,8 @@ class _TunModeCardState extends State<TunModeCard> {
           const SizedBox(width: 6),
           Text(
             isAvailable
-                ? trans.home.tunStatusAvailable
-                : trans.home.tunStatusUnavailable,
+                ? trans.home.tun_status_available
+                : trans.home.tun_status_unavailable,
             style: theme.textTheme.bodySmall?.copyWith(
               fontSize: 13,
               color: isAvailable
@@ -159,7 +159,7 @@ class _TunModeCardState extends State<TunModeCard> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              trans.home.tunNotSupported,
+              trans.home.tun_not_supported,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Theme.of(
                   context,

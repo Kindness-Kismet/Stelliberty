@@ -279,8 +279,8 @@ class _ProxyPageWidgetState extends State<ProxyPage> {
     if (subscriptionProvider.getSubscriptionConfigPath() == null) {
       return ProxyEmptyState(
         type: ProxyEmptyStateType.noSubscription,
-        message: trans.proxy.noSubscription,
-        subtitle: trans.proxy.pleaseAddSubscription,
+        message: trans.proxy.no_subscription,
+        subtitle: trans.proxy.please_add_subscription,
       );
     }
 
@@ -296,16 +296,16 @@ class _ProxyPageWidgetState extends State<ProxyPage> {
           clashProvider.outboundMode == 'direct') {
         return ProxyEmptyState(
           type: ProxyEmptyStateType.directMode,
-          message: trans.proxy.directModeEnabled,
-          subtitle: trans.proxy.directModeDescription,
+          message: trans.proxy.direct_mode_enabled,
+          subtitle: trans.proxy.direct_mode_description,
         );
       }
 
       return ProxyEmptyState(
         type: ProxyEmptyStateType.noProxyGroups,
-        message: trans.proxy.noProxyGroups,
+        message: trans.proxy.no_proxy_groups,
         subtitle: !clashProvider.isCoreRunning
-            ? trans.proxy.loadAfterStart
+            ? trans.proxy.load_after_start
             : null,
       );
     }
@@ -320,7 +320,7 @@ class _ProxyPageWidgetState extends State<ProxyPage> {
     final trans = context.translate;
 
     if (clashProvider.proxyGroups.isEmpty) {
-      return Center(child: Text(trans.proxy.noProxyGroups));
+      return Center(child: Text(trans.proxy.no_proxy_groups));
     }
 
     // 检测订阅是否切换
@@ -387,7 +387,7 @@ class _ProxyPageWidgetState extends State<ProxyPage> {
 
     // 如果切换失败（如代理组类型不支持手动切换），给用户提示
     if (!success && context.mounted) {
-      ModernToast.warning(context, trans.proxy.unsupportedGroupType);
+      ModernToast.warning(context, trans.proxy.unsupported_group_type);
     }
 
     // 移除 setState(),让 ClashProvider.notifyListeners() 触发 Selector 更新

@@ -146,7 +146,7 @@ class OverrideCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              trans.subscription.localTypeLabel,
+                              trans.subscription.local_type_label,
                               style: TextStyle(
                                 fontSize: 10,
                                 color: Colors.blue[700],
@@ -208,17 +208,17 @@ class OverrideCard extends StatelessWidget {
                   items: [
                     PopupMenuItemData(
                       icon: Icons.settings,
-                      label: trans.kOverride.editConfig,
+                      label: trans.kOverride.edit_config,
                       onPressed: onEditConfig,
                     ),
                     PopupMenuItemData(
                       icon: Icons.edit,
-                      label: trans.kOverride.editFile,
+                      label: trans.kOverride.edit_file,
                       onPressed: onEditFile,
                     ),
                     PopupMenuItemData(
                       icon: Icons.delete,
-                      label: trans.kOverride.deleteItem,
+                      label: trans.kOverride.delete_item,
                       onPressed: onDelete,
                       isDangerous: true,
                     ),

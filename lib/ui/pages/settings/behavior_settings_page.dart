@@ -98,8 +98,8 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                   // 开机自启动卡片
                   _buildSwitchCard(
                     icon: Icons.power_settings_new_outlined,
-                    title: trans.behavior.autoStartTitle,
-                    subtitle: trans.behavior.autoStartDescription,
+                    title: trans.behavior.auto_start_title,
+                    subtitle: trans.behavior.auto_start_description,
                     value: _autoStartEnabled,
                     onChanged: _updateAutoStartSetting,
                   ),
@@ -109,8 +109,8 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                   // 静默启动卡片
                   _buildSwitchCard(
                     icon: Icons.visibility_off_outlined,
-                    title: trans.behavior.silentStartTitle,
-                    subtitle: trans.behavior.silentStartDescription,
+                    title: trans.behavior.silent_start_title,
+                    subtitle: trans.behavior.silent_start_description,
                     value: _silentStartEnabled,
                     onChanged: _updateSilentStartSetting,
                   ),
@@ -120,8 +120,8 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                   // 最小化到托盘卡片
                   _buildSwitchCard(
                     icon: Icons.remove_circle_outline,
-                    title: trans.behavior.minimizeToTrayTitle,
-                    subtitle: trans.behavior.minimizeToTrayDescription,
+                    title: trans.behavior.minimize_to_tray_title,
+                    subtitle: trans.behavior.minimize_to_tray_description,
                     value: _minimizeToTray,
                     onChanged: _updateMinimizeToTraySetting,
                   ),
@@ -131,8 +131,8 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                   // 应用日志卡片
                   _buildSwitchCard(
                     icon: Icons.description_outlined,
-                    title: trans.behavior.appLogTitle,
-                    subtitle: trans.behavior.appLogDescription,
+                    title: trans.behavior.app_log_title,
+                    subtitle: trans.behavior.app_log_description,
                     value: _appLogEnabled,
                     onChanged: _updateAppLogSetting,
                   ),

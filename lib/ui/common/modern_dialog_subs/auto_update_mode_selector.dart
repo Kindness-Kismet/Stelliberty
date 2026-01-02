@@ -17,27 +17,27 @@ class AutoUpdateModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trans = context.translate.subscriptionDialog;
+    final trans = context.translate.subscription_dialog;
 
     return OptionSelectorWidget<AutoUpdateMode>(
-      title: trans.autoUpdateTitle,
+      title: trans.auto_update_title,
       titleIcon: Icons.update,
       isHorizontal: true,
       options: [
         OptionItem(
           value: AutoUpdateMode.disabled,
-          title: trans.autoUpdateDisabled,
-          subtitle: trans.autoUpdateDisabledDesc,
+          title: trans.auto_update_disabled,
+          subtitle: trans.auto_update_disabled_desc,
         ),
         OptionItem(
           value: AutoUpdateMode.onStartup,
-          title: trans.autoUpdateOnStartup,
-          subtitle: trans.autoUpdateOnStartupDesc,
+          title: trans.auto_update_on_startup,
+          subtitle: trans.auto_update_on_startup_desc,
         ),
         OptionItem(
           value: AutoUpdateMode.interval,
-          title: trans.autoUpdateInterval,
-          subtitle: trans.autoUpdateIntervalDesc,
+          title: trans.auto_update_interval,
+          subtitle: trans.auto_update_interval_desc,
         ),
       ],
       selectedValue: selectedValue,

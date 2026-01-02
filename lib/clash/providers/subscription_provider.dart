@@ -1337,7 +1337,7 @@ class SubscriptionProvider extends ChangeNotifier {
           final trans = context.translate;
           ModernToast.error(
             context,
-            trans.subscription.configAbnormal.replaceAll(
+            trans.subscription.config_abnormal.replaceAll(
               '{name}',
               subscriptionName,
             ),
@@ -1355,7 +1355,7 @@ class SubscriptionProvider extends ChangeNotifier {
             final trans = context.translate;
             ModernToast.success(
               context,
-              trans.subscription.fallbackToDefaultConfig,
+              trans.subscription.fallback_to_default_config,
             );
           });
         } else {
@@ -1371,14 +1371,17 @@ class SubscriptionProvider extends ChangeNotifier {
               final trans = context.translate;
               ModernToast.success(
                 context,
-                trans.subscription.coreRestartedWithDefaultConfig,
+                trans.subscription.core_restarted_with_default_config,
               );
             });
           } else {
             Logger.error('默认配置重启失败');
             _showToast((context) {
               final trans = context.translate;
-              ModernToast.error(context, trans.subscription.coreRestartFailed);
+              ModernToast.error(
+                context,
+                trans.subscription.core_restart_failed,
+              );
             });
           }
         }

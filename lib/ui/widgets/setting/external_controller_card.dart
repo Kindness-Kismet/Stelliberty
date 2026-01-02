@@ -65,13 +65,13 @@ class _ExternalControllerCardState extends State<ExternalControllerCard> {
     final secret = _secretController.text.trim();
 
     if (address.isEmpty) {
-      setState(() => _addressError = trans.externalController.addressError);
+      setState(() => _addressError = trans.external_controller.address_error);
       return;
     }
 
     if (!_validateAddress(address)) {
       setState(
-        () => _addressError = trans.externalController.addressFormatError,
+        () => _addressError = trans.external_controller.address_format_error,
       );
       return;
     }
@@ -84,14 +84,14 @@ class _ExternalControllerCardState extends State<ExternalControllerCard> {
       await prefs.setExternalControllerSecret(secret);
 
       if (mounted) {
-        ModernToast.success(context, trans.externalController.saveSuccess);
+        ModernToast.success(context, trans.external_controller.save_success);
       }
     } catch (e) {
       Logger.error('保存外部控制器配置失败: $e');
       if (mounted) {
         ModernToast.error(
           context,
-          trans.externalController.saveFailed.replaceAll(
+          trans.external_controller.save_failed.replaceAll(
             '{error}',
             e.toString(),
           ),
@@ -130,11 +130,11 @@ class _ExternalControllerCardState extends State<ExternalControllerCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        trans.externalController.title,
+                        trans.external_controller.title,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       Text(
-                        trans.externalController.description,
+                        trans.external_controller.description,
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ],
@@ -163,8 +163,8 @@ class _ExternalControllerCardState extends State<ExternalControllerCard> {
           ModernTextField(
             controller: _addressController,
             keyboardType: TextInputType.text,
-            labelText: trans.externalController.addressLabel,
-            hintText: trans.externalController.addressHint,
+            labelText: trans.external_controller.address_label,
+            hintText: trans.external_controller.address_hint,
             errorText: _addressError,
             minLines: 1,
           ),
@@ -173,8 +173,8 @@ class _ExternalControllerCardState extends State<ExternalControllerCard> {
           ModernTextField(
             controller: _secretController,
             keyboardType: TextInputType.text,
-            labelText: trans.externalController.secretLabel,
-            hintText: trans.externalController.secretHint,
+            labelText: trans.external_controller.secret_label,
+            hintText: trans.external_controller.secret_hint,
             errorText: _secretError,
             shouldObscureText: true,
             minLines: 1,
@@ -195,7 +195,7 @@ class _ExternalControllerCardState extends State<ExternalControllerCard> {
                     : const Icon(Icons.save, size: 18),
                 label: Text(
                   _isSaving
-                      ? trans.externalController.saving
+                      ? trans.external_controller.saving
                       : trans.common.save,
                 ),
               ),
