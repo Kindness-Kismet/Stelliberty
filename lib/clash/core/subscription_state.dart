@@ -10,6 +10,9 @@ enum SubscriptionOperationState {
   // 正在加载
   loading,
 
+  // 正在切换订阅
+  switching,
+
   // 正在更新单个订阅
   updating,
 
@@ -48,6 +51,9 @@ extension SubscriptionOperationStateExtension on SubscriptionOperationState {
 
   // 是否正在加载
   bool get isLoading => this == SubscriptionOperationState.loading;
+
+  // 是否正在切换订阅
+  bool get isSwitching => this == SubscriptionOperationState.switching;
 
   // 是否正在更新（任何类型的更新）
   bool get isUpdating =>
@@ -181,6 +187,9 @@ class SubscriptionStateManager extends ChangeNotifier {
   // 便捷方法 - 是否正在自动更新
   bool get isAutoUpdating => _operationState.isAutoUpdating;
 
+  // 便捷方法 - 是否正在切换订阅
+  bool get isSwitchingSubscription => _operationState.isSwitching;
+
   // 便捷方法 - 是否为忙碌状态
   bool get isBusy => _operationState.isBusy;
 
@@ -283,6 +292,15 @@ class SubscriptionStateManager extends ChangeNotifier {
       operationState: SubscriptionOperationState.autoUpdating,
       errorState: SubscriptionErrorState.none,
       reason: reason ?? '开始自动更新',
+    );
+  }
+
+  // 设置为切换订阅状态
+  void setSwitching({String? reason}) {
+    _updateState(
+      operationState: SubscriptionOperationState.switching,
+      errorState: SubscriptionErrorState.none,
+      reason: reason ?? '开始切换订阅',
     );
   }
 

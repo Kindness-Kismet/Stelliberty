@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:stelliberty/clash/data/clash_model.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_node_card.dart';
 import 'package:stelliberty/ui/notifiers/proxy_notifier.dart';
+import 'package:stelliberty/services/image_cache_service.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 
 // 竖向模式的代理组折叠卡片
@@ -116,17 +118,23 @@ class _ProxyGroupCardVerticalState extends State<ProxyGroupCardVertical> {
                           height: 24,
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(3),
-                            child: Image.network(
-                              widget.group.icon!,
+                            child: CachedNetworkImage(
+                              imageUrl: widget.group.icon!,
                               width: 24,
                               height: 24,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(
-                                    Icons.language,
-                                    size: 18,
-                                    color: Colors.grey,
-                                  ),
+                              cacheManager:
+                                  ImageCacheService.instance.cacheManager,
+                              placeholder: (context, url) => const Icon(
+                                Icons.language,
+                                size: 18,
+                                color: Colors.grey,
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.language,
+                                size: 18,
+                                color: Colors.grey,
+                              ),
                             ),
                           ),
                         )

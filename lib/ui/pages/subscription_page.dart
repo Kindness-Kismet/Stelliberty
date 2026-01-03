@@ -88,6 +88,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           child: Selector<SubscriptionProvider, _SubscriptionListState>(
             selector: (_, provider) => _SubscriptionListState(
               isLoading: provider.isLoading,
+              isSwitchingSubscription: provider.isSwitchingSubscription,
               errorMessage: provider.errorMessage,
               subscriptions: provider.subscriptions,
               currentSubscriptionId: provider.currentSubscriptionId,
@@ -276,6 +277,49 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     }
 
     // 显示订阅列表（支持拖动排序，响应式布局）
+    return Column(
+      children: [
+        // 切换订阅状态提示
+        if (data.isSwitchingSubscription) _buildSwitchingIndicator(context),
+        // 订阅列表
+        Expanded(child: _buildSubscriptionGrid(context, provider, data)),
+      ],
+    );
+  }
+
+  // 构建切换订阅状态提示
+  Widget _buildSwitchingIndicator(BuildContext context) {
+    final trans = context.translate;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            trans.subscription.switching,
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 构建订阅网格列表
+  Widget _buildSubscriptionGrid(
+    BuildContext context,
+    SubscriptionProvider provider,
+    _SubscriptionListState data,
+  ) {
     return LayoutBuilder(
       builder: (context, constraints) {
         // 当宽度超过 600 时显示两列，否则一列
@@ -793,12 +837,14 @@ class _SubscriptionControlBarState {
 // 订阅列表状态 - 用于 Selector 精确控制重建
 class _SubscriptionListState {
   final bool isLoading;
+  final bool isSwitchingSubscription;
   final String? errorMessage;
   final List<Subscription> subscriptions;
   final String? currentSubscriptionId;
 
   const _SubscriptionListState({
     required this.isLoading,
+    required this.isSwitchingSubscription,
     required this.errorMessage,
     required this.subscriptions,
     required this.currentSubscriptionId,
@@ -810,6 +856,7 @@ class _SubscriptionListState {
       other is _SubscriptionListState &&
           runtimeType == other.runtimeType &&
           isLoading == other.isLoading &&
+          isSwitchingSubscription == other.isSwitchingSubscription &&
           errorMessage == other.errorMessage &&
           _listEquals(subscriptions, other.subscriptions) &&
           currentSubscriptionId == other.currentSubscriptionId;
@@ -817,6 +864,7 @@ class _SubscriptionListState {
   @override
   int get hashCode => Object.hash(
     isLoading,
+    isSwitchingSubscription,
     errorMessage,
     subscriptions.length, // 只使用列表长度，避免与 equals 不一致
     currentSubscriptionId,

@@ -73,6 +73,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // 状态委托给状态管理器
   bool get isLoading => _stateManager.isLoading;
+  bool get isSwitchingSubscription => _stateManager.isSwitchingSubscription;
   int get updateProgress => _stateManager.updateProgress.current;
   int get updateTotal => _stateManager.updateProgress.total;
   bool get isUpdating => _stateManager.updateProgress.isUpdating;
@@ -1135,14 +1136,23 @@ class SubscriptionProvider extends ChangeNotifier {
       return;
     }
 
+    // 设置切换状态
+    _stateManager.setSwitching(reason: '切换订阅');
+    notifyListeners();
+
     _currentSubscriptionId = subscriptionId;
     // 保存选择到持久化存储
     await ClashPreferences.instance.setCurrentSubscriptionId(subscriptionId);
-    notifyListeners();
     Logger.info('选择订阅：$subscriptionId');
 
-    // 重新加载配置文件
-    await _reloadCurrentSubscriptionConfig(reason: '订阅切换');
+    try {
+      // 重新加载配置文件
+      await _reloadCurrentSubscriptionConfig(reason: '订阅切换');
+    } finally {
+      // 清除切换状态
+      _stateManager.setIdle(reason: '订阅切换完成');
+      notifyListeners();
+    }
   }
 
   // 清除当前选中的订阅（用于默认配置启动成功后，避免应用重启时重新加载失败的配置）

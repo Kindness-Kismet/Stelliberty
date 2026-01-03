@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/data/subscription_model.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
+import 'package:stelliberty/services/external_open_service.dart';
+import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/common/modern_popup_menu.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
@@ -324,6 +326,11 @@ class SubscriptionCard extends StatelessWidget {
             label: trans.subscription.menu.file_edit,
             onPressed: onEditFile,
           ),
+          PopupMenuItemData(
+            icon: Icons.open_in_new,
+            label: trans.subscription.menu.open_external_editor,
+            onPressed: () => _handleOpenInExternalEditor(context),
+          ),
           // 只有当前选中的订阅才显示运行配置查看
           if (isSelected)
             PopupMenuItemData(
@@ -416,17 +423,68 @@ class SubscriptionCard extends StatelessWidget {
     );
   }
 
+  Future<void> _handleOpenInExternalEditor(BuildContext context) async {
+    final trans = context.translate;
+    final configPath = PathService.instance.getSubscriptionConfigPath(
+      subscription.id,
+    );
+
+    final result = await ExternalOpenService.openFile(configPath);
+    if (!context.mounted) return;
+
+    if (result.isSuccessful) {
+      ModernToast.success(
+        context,
+        trans.subscription.external_open.open_success,
+      );
+      return;
+    }
+
+    ModernToast.error(
+      context,
+      trans.subscription.external_open.open_failed.replaceAll(
+        '{error}',
+        _formatExternalOpenError(trans, result),
+      ),
+    );
+  }
+
+  String _formatExternalOpenError(
+    Translations trans,
+    ExternalOpenResult result,
+  ) {
+    switch (result.errorType) {
+      case ExternalOpenErrorType.fileNotFound:
+        return trans.subscription.external_open.error_file_not_found;
+      case ExternalOpenErrorType.directoryNotFound:
+        return trans.subscription.external_open.error_directory_not_found;
+      case ExternalOpenErrorType.unsupportedPlatform:
+        return trans.subscription.external_open.error_unsupported_platform;
+      case ExternalOpenErrorType.processFailed:
+        return result.errorDetails ??
+            trans.subscription.external_open.error_unknown;
+      case ExternalOpenErrorType.unknown:
+      case null:
+        return trans.subscription.external_open.error_unknown;
+    }
+  }
+
   // 复制 URL
   void _copyUrl(BuildContext context) async {
+    final trans = context.translate;
+
     try {
       await Clipboard.setData(ClipboardData(text: subscription.url));
-      if (context.mounted) {
-        ModernToast.success(context, '链接已复制到剪贴板');
-      }
+      if (!context.mounted) return;
+
+      ModernToast.success(context, trans.subscription.link_copied);
     } catch (e) {
-      if (context.mounted) {
-        ModernToast.error(context, '复制失败: $e');
-      }
+      if (!context.mounted) return;
+
+      ModernToast.error(
+        context,
+        trans.subscription.copy_failed.replaceAll('{error}', e.toString()),
+      );
     }
   }
 

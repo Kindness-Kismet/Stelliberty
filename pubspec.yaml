@@ -72,6 +72,13 @@ dependencies:
   # Markdown 渲染支持
   gpt_markdown: ^1.1.4
 
+  # 网络图片缓存
+  cached_network_image: ^3.4.1
+  flutter_cache_manager: ^3.4.1
+
+  # 外部打开文件
+  open_filex: ^4.5.0
+
 dev_dependencies:
   flutter_lints: ^6.0.0
 

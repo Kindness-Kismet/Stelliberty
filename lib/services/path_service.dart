@@ -21,6 +21,7 @@ class PathService {
   // 缓存的路径，初始化时计算一次避免重复拼接
   late final String _subscriptionsDirCache;
   late final String _overridesDirCache;
+  late final String _imageCacheDirCache;
   late final String _subscriptionListPathCache;
   late final String _overrideListPathCache;
   late final String _dnsConfigPathCache;
@@ -31,6 +32,7 @@ class PathService {
   // 子目录名称常量
   static const String _subscriptionsDirName = 'subscriptions';
   static const String _overridesDirName = 'overrides';
+  static const String _imageCacheDirName = 'image_cache';
 
   // 配置文件名称常量
   static const String _subscriptionListFileName = 'subscriptions_list.json';
@@ -43,6 +45,9 @@ class PathService {
 
   // 覆写目录路径（缓存），存储 YAML 和 JavaScript 覆写文件
   String get overridesDir => _overridesDirCache;
+
+  // 图片缓存目录路径（缓存），存储网络图片缓存
+  String get imageCacheDir => _imageCacheDirCache;
 
   // 订阅列表文件路径（缓存），存储订阅元数据
   String get subscriptionListPath => _subscriptionListPathCache;
@@ -96,6 +101,7 @@ class PathService {
     // 初始化缓存路径，一次性计算避免重复拼接
     _subscriptionsDirCache = path.join(appDataPath, _subscriptionsDirName);
     _overridesDirCache = path.join(appDataPath, _overridesDirName);
+    _imageCacheDirCache = path.join(appDataPath, _imageCacheDirName);
     _subscriptionListPathCache = path.join(
       _subscriptionsDirCache,
       _subscriptionListFileName,
@@ -128,6 +134,7 @@ class PathService {
       appDataPath,
       _subscriptionsDirCache,
       _overridesDirCache,
+      _imageCacheDirCache,
     ];
 
     for (final dirPath in directories) {
