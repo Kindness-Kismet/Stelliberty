@@ -5,6 +5,7 @@ pub mod handlers;
 pub mod ipc_client;
 pub mod ws_client;
 
+#[cfg(windows)]
 pub use connection::connect_named_pipe;
 #[cfg(unix)]
 pub use connection::connect_unix_socket;
