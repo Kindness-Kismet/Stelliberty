@@ -1,6 +1,6 @@
-import 'package:stelliberty/clash/utils/system_proxy.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/system_proxy_service.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // Clash 系统代理管理器
 // 负责系统代理的启用和禁用
@@ -8,6 +8,14 @@ class SystemProxyManager {
   final bool Function() _isCoreRunning;
   final int Function() _getHttpPort;
   final Function() _notifyListeners;
+
+  // 状态变化回调
+  Function(bool)? _onSystemProxyStateChanged;
+
+  // 设置状态变化回调
+  void setOnSystemProxyStateChanged(Function(bool)? callback) {
+    _onSystemProxyStateChanged = callback;
+  }
 
   bool _systemProxyEnabled = false;
   bool get isSystemProxyEnabled => _systemProxyEnabled;
@@ -18,10 +26,10 @@ class SystemProxyManager {
   SystemProxyManager({
     required bool Function() isCoreRunning,
     required int Function() getHttpPort,
-    required Function() notifyListeners,
+    Function()? notifyListeners,
   }) : _isCoreRunning = isCoreRunning,
        _getHttpPort = getHttpPort,
-       _notifyListeners = notifyListeners;
+       _notifyListeners = notifyListeners ?? (() {});
 
   // 重启系统代理（先禁用再启用，应用当前配置）
   Future<void> restartSystemProxy() async {
@@ -84,6 +92,7 @@ class SystemProxyManager {
 
       _systemProxyEnabled = true;
       _hasEnabledSystemProxy = true;
+      _onSystemProxyStateChanged?.call(true);
       _notifyListeners();
       return true;
     } catch (e) {
@@ -99,6 +108,7 @@ class SystemProxyManager {
       Logger.debug('当前实例未启用过系统代理，跳过禁用操作');
       if (_systemProxyEnabled) {
         _systemProxyEnabled = false;
+        _onSystemProxyStateChanged?.call(false);
         _notifyListeners();
       }
       return true;
@@ -108,6 +118,7 @@ class SystemProxyManager {
       await SystemProxy.disable();
       _systemProxyEnabled = false;
       _hasEnabledSystemProxy = false;
+      _onSystemProxyStateChanged?.call(false);
       _notifyListeners();
       return true;
     } catch (e) {

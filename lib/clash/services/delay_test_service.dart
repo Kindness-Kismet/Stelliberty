@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'package:stelliberty/clash/data/clash_model.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart' as signals;
 
 // 延迟测试服务

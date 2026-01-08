@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_text_field.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 端口设置配置卡片
 class PortSettingsCard extends StatefulWidget {
@@ -36,15 +35,15 @@ class _PortSettingsCardState extends State<PortSettingsCard> {
   void initState() {
     super.initState();
     _clashProvider = Provider.of<ClashProvider>(context, listen: false);
-    final clashManager = ClashManager.instance;
+    final configState = _clashProvider.configState;
     _mixedPortController = TextEditingController(
-      text: clashManager.mixedPort.toString(),
+      text: configState.mixedPort.toString(),
     );
     _socksPortController = TextEditingController(
-      text: clashManager.socksPort?.toString() ?? '',
+      text: configState.socksPort?.toString() ?? '',
     );
     _httpPortController = TextEditingController(
-      text: clashManager.httpPort?.toString() ?? '',
+      text: configState.httpPort?.toString() ?? '',
     );
   }
 

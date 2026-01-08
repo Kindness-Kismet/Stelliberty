@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:stelliberty/clash/data/subscription_model.dart';
+import 'package:stelliberty/clash/model/subscription_model.dart';
 import 'package:stelliberty/ui/common/modern_dialog_subs/option_selector.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 

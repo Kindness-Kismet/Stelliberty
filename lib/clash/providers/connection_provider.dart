@@ -1,16 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:stelliberty/clash/data/connection_model.dart';
+import 'package:stelliberty/clash/model/connection_model.dart';
+import 'package:stelliberty/clash/state/connection_states.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/utils/logger.dart';
-
-// 连接过滤级别
-enum ConnectionFilterLevel {
-  all, // 全部
-  direct, // 仅直连
-  proxy, // 仅代理
-}
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 连接管理 Provider
 // 负责定时获取和管理 Clash 连接信息

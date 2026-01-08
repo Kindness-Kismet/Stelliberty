@@ -1,6 +1,6 @@
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 应用更新信息
 class AppUpdateInfo {

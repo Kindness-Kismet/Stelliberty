@@ -6,7 +6,7 @@ import 'package:stelliberty/services/hotkey_service.dart';
 import 'package:stelliberty/storage/preferences.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 全局快捷键设置卡片
 class HotkeySettingsCard extends StatefulWidget {

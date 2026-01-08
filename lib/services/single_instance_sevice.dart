@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_single_instance/flutter_single_instance.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 确保应用单实例运行
 // Debug/Profile 模式跳过单实例检查，允许与 Release 版本共存

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // IPC 请求超时配置
 class _IpcTimeouts {

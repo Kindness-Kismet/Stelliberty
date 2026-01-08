@@ -11,10 +11,11 @@ import 'package:stelliberty/ui/common/modern_text_field.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
+import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/service_provider.dart';
-import 'package:stelliberty/clash/core/service_state.dart';
+import 'package:stelliberty/clash/state/service_states.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:rinf/rinf.dart';
 
@@ -85,8 +86,8 @@ class _TunConfigCardState extends State<TunConfigCard> {
     Future.delayed(Duration.zero, () {
       _loadConfig();
       // 检查服务版本号（仅在服务已安装时）
-      final serviceStateManager = ServiceStateManager.instance;
-      if (serviceStateManager.isServiceModeInstalled) {
+      final serviceProvider = context.read<ServiceProvider>();
+      if (serviceProvider.serviceState.isServiceModeInstalled) {
         _checkServiceVersion();
       }
       // 100ms 后隐藏骨架屏
@@ -123,24 +124,21 @@ class _TunConfigCardState extends State<TunConfigCard> {
   void _loadConfig() {
     if (!mounted) return;
 
+    final configState = context.read<ClashProvider>().configState;
+
     setState(() {
-      _tunStack = TunStack.fromString(ClashManager.instance.tunStack);
-      _tunDeviceController.text = ClashManager.instance.tunDevice;
-      _tunAutoRoute = ClashManager.instance.isTunAutoRouteEnabled;
-      _tunAutoDetectInterface =
-          ClashManager.instance.isTunAutoDetectInterfaceEnabled;
-      _tunStrictRoute = ClashManager.instance.isTunStrictRouteEnabled;
-      _tunMtuController.text = ClashManager.instance.tunMtu.toString();
-      _tunDnsHijackController.text = ClashManager.instance.tunDnsHijack.join(
-        '，',
-      );
-      _tunAutoRedirect = ClashManager.instance.isTunAutoRedirectEnabled;
-      _tunRouteExcludeAddressController.text = ClashManager
-          .instance
+      _tunStack = TunStack.fromString(configState.tunStack);
+      _tunDeviceController.text = configState.tunDevice;
+      _tunAutoRoute = configState.isTunAutoRouteEnabled;
+      _tunAutoDetectInterface = configState.isTunAutoDetectInterfaceEnabled;
+      _tunStrictRoute = configState.isTunStrictRouteEnabled;
+      _tunMtuController.text = configState.tunMtu.toString();
+      _tunDnsHijackController.text = configState.tunDnsHijack.join('，');
+      _tunAutoRedirect = configState.isTunAutoRedirectEnabled;
+      _tunRouteExcludeAddressController.text = configState
           .tunRouteExcludeAddress
           .join('，');
-      _tunDisableIcmpForwarding =
-          ClashManager.instance.isTunIcmpForwardingDisabled;
+      _tunDisableIcmpForwarding = configState.isTunIcmpForwardingDisabled;
     });
   }
 
@@ -152,10 +150,11 @@ class _TunConfigCardState extends State<TunConfigCard> {
   // 更新服务
   Future<void> _updateService(ServiceProvider serviceProvider) async {
     final trans = context.translate;
+    final clashProvider = context.read<ClashProvider>();
 
     // 记录当前状态
     final wasRunning = ClashManager.instance.isCoreRunning;
-    final currentConfig = ClashManager.instance.currentConfigPath;
+    final currentConfig = clashProvider.currentConfigPath;
     final overrides = ClashManager.instance.getOverrides();
 
     try {
@@ -404,11 +403,12 @@ class _TunConfigCardState extends State<TunConfigCard> {
     final trans = context.translate;
     return [
       // ========== 服务模式安装（第一行） ==========
-      Consumer<ServiceStateManager>(
-        builder: (context, stateManager, _) {
-          final serviceProvider = context.read<ServiceProvider>();
-          final isServiceModeInstalled = stateManager.isServiceModeInstalled;
-          final isServiceModeProcessing = stateManager.isServiceModeProcessing;
+      Consumer<ServiceProvider>(
+        builder: (context, serviceProvider, _) {
+          final isServiceModeInstalled =
+              serviceProvider.serviceState.isServiceModeInstalled;
+          final isServiceModeProcessing =
+              serviceProvider.serviceState.isServiceModeProcessing;
 
           // 检查是否有可用更新
           final hasUpdate =

@@ -1,15 +1,15 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
-import 'package:stelliberty/clash/data/subscription_model.dart';
-import 'package:stelliberty/clash/data/override_model.dart' as app_override;
+import 'package:stelliberty/clash/model/subscription_model.dart';
+import 'package:stelliberty/clash/model/override_model.dart' as app_override;
 import 'package:stelliberty/clash/services/override_service.dart';
 import 'package:stelliberty/clash/services/override_applicator.dart';
 import 'package:stelliberty/clash/services/dns_service.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 

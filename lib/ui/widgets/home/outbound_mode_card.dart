@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/tray/tray_manager.dart';
 import 'package:stelliberty/ui/widgets/home/base_card.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 
 // 出站模式卡片
@@ -19,26 +18,35 @@ class OutboundModeCard extends StatefulWidget {
 
 class _OutboundModeCardState extends State<OutboundModeCard> {
   String _selectedOutboundMode = 'rule';
+  ClashProvider? _clashProvider;
 
   @override
   void initState() {
     super.initState();
     _loadCurrentMode();
-    // 监听 ClashManager 状态变化
-    ClashManager.instance.addListener(_onClashManagerChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 在 didChangeDependencies 中获取并缓存 provider 引用
+    if (_clashProvider == null) {
+      _clashProvider = context.read<ClashProvider>();
+      _clashProvider!.addListener(_onClashProviderChanged);
+    }
   }
 
   @override
   void dispose() {
-    // 移除监听器，防止内存泄漏
-    ClashManager.instance.removeListener(_onClashManagerChanged);
+    // 使用缓存的 provider 引用移除监听器，避免在 dispose 中使用 context
+    _clashProvider?.removeListener(_onClashProviderChanged);
     super.dispose();
   }
 
-  // ClashManager 状态变化回调
-  void _onClashManagerChanged() {
-    if (mounted) {
-      final currentOutboundMode = ClashManager.instance.outboundMode;
+  // ClashProvider 状态变化回调
+  void _onClashProviderChanged() {
+    if (mounted && _clashProvider != null) {
+      final currentOutboundMode = _clashProvider!.outboundMode;
       if (_selectedOutboundMode != currentOutboundMode) {
         setState(() {
           _selectedOutboundMode = currentOutboundMode;
@@ -50,7 +58,7 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
 
   Future<void> _loadCurrentMode() async {
     try {
-      final outboundMode = ClashManager.instance.outboundMode;
+      final outboundMode = context.read<ClashProvider>().outboundMode;
       if (mounted) {
         setState(() {
           _selectedOutboundMode = outboundMode;
@@ -181,7 +189,10 @@ class _OutboundModeCardState extends State<OutboundModeCard> {
     });
 
     try {
-      final success = await ClashManager.instance.setOutboundMode(outboundMode);
+      final success = await context
+          .read<ClashProvider>()
+          .clashManager
+          .setOutboundMode(outboundMode);
 
       if (context.mounted && !success) {
         await _loadCurrentMode();

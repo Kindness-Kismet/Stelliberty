@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:stelliberty/clash/data/override_model.dart';
+import 'package:stelliberty/clash/model/override_model.dart';
 import 'package:stelliberty/clash/providers/override_provider.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
 import 'package:stelliberty/ui/common/modern_dialog.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 覆写选择对话框 - 从全局覆写列表中选择并排序
 class OverrideSelectorDialog extends StatefulWidget {

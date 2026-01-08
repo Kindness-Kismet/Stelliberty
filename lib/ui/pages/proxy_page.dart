@@ -11,9 +11,9 @@ import 'package:stelliberty/ui/widgets/proxy/proxy_node_grid.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_group_selector.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_group_list_vertical.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/clash/data/clash_model.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
 
 // 代理页面状态数据类（用于优化 Selector）
 class _ProxyPageState {

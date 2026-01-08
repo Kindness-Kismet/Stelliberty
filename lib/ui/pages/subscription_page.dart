@@ -5,7 +5,7 @@ import 'package:path/path.dart' as path;
 import 'package:provider/provider.dart';
 import 'package:reorderable_grid_view/reorderable_grid_view.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
-import 'package:stelliberty/clash/data/subscription_model.dart';
+import 'package:stelliberty/clash/model/subscription_model.dart';
 import 'package:stelliberty/clash/services/geo_service.dart';
 import 'package:stelliberty/ui/widgets/subscription/subscription_card.dart';
 import 'package:stelliberty/ui/widgets/subscription/subscription_dialog.dart';
@@ -16,7 +16,7 @@ import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/widgets/confirm_dialog.dart';
 import 'package:stelliberty/providers/content_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
 

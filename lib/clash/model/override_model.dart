@@ -1,4 +1,4 @@
-import 'package:stelliberty/clash/data/subscription_model.dart';
+import 'package:stelliberty/clash/model/subscription_model.dart';
 
 // 覆写类型
 enum OverrideType {

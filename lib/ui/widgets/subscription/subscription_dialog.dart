@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:stelliberty/clash/data/subscription_model.dart';
+import 'package:stelliberty/clash/model/subscription_model.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/common/modern_dialog.dart';
 import 'package:stelliberty/ui/common/modern_dialog_subs/option_selector.dart';

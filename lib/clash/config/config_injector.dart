@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/clash/services/dns_service.dart';
 import 'package:stelliberty/clash/services/geo_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 
 // Clash 配置注入器

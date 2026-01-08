@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:stelliberty/clash/data/subscription_model.dart';
+import 'package:stelliberty/clash/model/subscription_model.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/services/external_open_service.dart';
+import 'package:stelliberty/atomic/external_opener.dart';
 import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/common/modern_popup_menu.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 订阅卡片组件
 // 显示订阅的详细信息：

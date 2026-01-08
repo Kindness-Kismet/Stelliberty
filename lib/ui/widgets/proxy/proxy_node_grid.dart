@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
-import 'package:stelliberty/clash/data/clash_model.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_node_card.dart';
 import 'package:stelliberty/ui/notifiers/proxy_notifier.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 
 // 代理页布局常量

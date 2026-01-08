@@ -1,4 +1,4 @@
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 订阅流量信息
 class SubscriptionInfo {

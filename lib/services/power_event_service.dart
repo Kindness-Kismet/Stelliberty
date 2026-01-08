@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 电源事件服务：监听休眠/唤醒，自动重启核心以恢复状态
 class PowerEventService {

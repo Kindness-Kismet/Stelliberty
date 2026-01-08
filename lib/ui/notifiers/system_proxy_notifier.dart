@@ -2,10 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:rinf/rinf.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
-import 'package:stelliberty/clash/utils/system_proxy.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
+import 'package:stelliberty/services/system_proxy_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 系统代理配置的业务逻辑
 // 负责代理主机、绕过规则、PAC 脚本配置，以及网络接口管理

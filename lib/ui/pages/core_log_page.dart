@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/clash/data/log_message_model.dart';
-import 'package:stelliberty/clash/providers/log_provider.dart';
+import 'package:stelliberty/clash/model/log_message_model.dart';
+import 'package:stelliberty/clash/providers/core_log_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/core_log/core_log_card.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
 

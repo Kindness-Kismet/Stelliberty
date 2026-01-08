@@ -1,6 +1,6 @@
 import 'package:stelliberty/clash/network/api_client.dart';
-import 'package:stelliberty/clash/data/connection_model.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/clash/model/connection_model.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // Clash 连接管理器
 // 负责连接的查询和关闭

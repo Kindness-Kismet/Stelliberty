@@ -4,7 +4,7 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import 'package:stelliberty/services/app_update_service.dart';
 import 'package:stelliberty/providers/app_update_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/bindings.dart';
 import 'package:stelliberty/ui/common/modern_dialog.dart';
 

@@ -1,32 +1,59 @@
 import 'dart:async';
-import 'package:stelliberty/clash/core/service_state.dart';
+import 'package:stelliberty/clash/state/service_states.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/tray/tray_manager.dart';
 
 // Clash 服务模式业务逻辑管理
-// 专注于业务逻辑，不继承 ChangeNotifier
 class ServiceProvider {
-  // 单例模式
   static final ServiceProvider _instance = ServiceProvider._internal();
   factory ServiceProvider() => _instance;
   ServiceProvider._internal();
 
-  // 服务状态管理器（供 UI 监听）
-  ServiceStateManager get stateManager => ServiceStateManager.instance;
+  // 服务状态
+  ServiceState _serviceState = ServiceState.unknown;
+  ServiceState get serviceState => _serviceState;
 
-  // 最后的操作结果（用于 UI 显示 toast）
+  // 更新服务状态
+  void _updateServiceState(ServiceState newState) {
+    if (_serviceState == newState) return;
+
+    final previousState = _serviceState;
+    _serviceState = newState;
+    Logger.debug('服务状态变化：${previousState.name} -> ${newState.name}');
+  }
+
+  // 最后的操作结果
   String? _lastOperationError;
   bool? _lastOperationSuccess;
 
-  // Getters - 便捷访问状态（可选，UI 也可以直接访问 stateManager）
-  ServiceState get status => stateManager.currentState;
-  bool get isServiceModeInstalled => stateManager.isServiceModeInstalled;
-  bool get isServiceModeRunning => stateManager.isServiceModeRunning;
-  bool get isServiceModeProcessing => stateManager.isServiceModeProcessing;
+  ServiceState get status => _serviceState;
+  bool get isServiceModeInstalled => _serviceState.isServiceModeInstalled;
+  bool get isServiceModeRunning => _serviceState.isServiceModeRunning;
+  bool get isServiceModeProcessing => _serviceState.isServiceModeProcessing;
   String? get lastOperationError => _lastOperationError;
   bool? get lastOperationSuccess => _lastOperationSuccess;
+
+  // 从状态字符串更新状态
+  void _updateFromStatusString(String statusStr) {
+    final ServiceState newState;
+    switch (statusStr.toLowerCase()) {
+      case 'running':
+        newState = ServiceState.running;
+        break;
+      case 'stopped':
+        newState = ServiceState.installed;
+        break;
+      case 'not_installed':
+        newState = ServiceState.notInstalled;
+        break;
+      default:
+        newState = ServiceState.unknown;
+    }
+    _updateServiceState(newState);
+  }
 
   // 清除最后的操作结果
   void clearLastOperationResult() {
@@ -57,19 +84,19 @@ class ServiceProvider {
       final statusStr = signal.message.status;
 
       // 使用状态管理器更新状态
-      stateManager.updateFromStatusString(statusStr, reason: '从服务器刷新状态');
+      _updateFromStatusString(statusStr);
     } catch (e) {
       Logger.error('获取服务状态失败：$e');
-      stateManager.setUnknown(reason: '刷新失败：$e');
+      _updateServiceState(ServiceState.unknown); // '刷新失败：$e');
     }
   }
 
   // 安装服务
   // 返回 true 表示成功，false 表示失败
   Future<bool> installService() async {
-    if (stateManager.isServiceModeProcessing) return false;
+    if (isServiceModeProcessing) return false;
 
-    stateManager.setInstalling(reason: '用户请求安装服务');
+    _updateServiceState(ServiceState.installing); // '用户请求安装服务');
     _lastOperationSuccess = null;
     _lastOperationError = null;
 
@@ -97,7 +124,7 @@ class ServiceProvider {
         _lastOperationSuccess = true;
 
         // 立即更新本地状态
-        stateManager.setInstalled(reason: '服务安装成功');
+        _updateServiceState(ServiceState.installed); // '服务安装成功');
 
         // 等待服务完全就绪后刷新状态
         await Future.delayed(const Duration(seconds: 2));
@@ -165,9 +192,9 @@ class ServiceProvider {
   // 卸载服务
   // 返回 true 表示成功，false 表示失败
   Future<bool> uninstallService() async {
-    if (stateManager.isServiceModeProcessing) return false;
+    if (isServiceModeProcessing) return false;
 
-    stateManager.setUninstalling(reason: '用户请求卸载服务');
+    _updateServiceState(ServiceState.uninstalling); // '用户请求卸载服务');
     _lastOperationSuccess = null;
     _lastOperationError = null;
 
@@ -179,7 +206,7 @@ class ServiceProvider {
       final currentConfigPath = ClashManager.instance.currentConfigPath;
 
       // 检查并禁用虚拟网卡（普通模式不支持虚拟网卡，需提前禁用并持久化）
-      if (ClashManager.instance.isTunEnabled) {
+      if (ClashPreferences.instance.getTunEnable()) {
         Logger.info('检测到虚拟网卡已启用，卸载服务前先禁用虚拟网卡...');
         try {
           await ClashManager.instance.setTunEnabled(false);
@@ -210,7 +237,7 @@ class ServiceProvider {
         ClashManager.instance.stopServiceHeartbeat();
 
         // 立即更新本地状态并通知 UI
-        stateManager.setNotInstalled(reason: '服务卸载成功');
+        _updateServiceState(ServiceState.notInstalled); // '服务卸载成功');
 
         // 手动触发托盘菜单更新（服务卸载后 TUN 菜单应变为不可用）
         AppTrayManager().updateTrayMenuManually();

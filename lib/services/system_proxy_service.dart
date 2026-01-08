@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 

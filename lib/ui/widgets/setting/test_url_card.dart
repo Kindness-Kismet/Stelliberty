@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/clash/manager/manager.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_text_field.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 延迟测试网址配置卡片
 class TestUrlCard extends StatefulWidget {
@@ -26,7 +26,7 @@ class _TestUrlCardState extends State<TestUrlCard> {
   void initState() {
     super.initState();
     _testUrlController = TextEditingController(
-      text: ClashManager.instance.testUrl,
+      text: ClashPreferences.instance.getTestUrl(),
     );
   }
 

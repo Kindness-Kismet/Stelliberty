@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:yaml/yaml.dart';
-import 'package:stelliberty/clash/data/clash_model.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // Clash 配置文件解析器
 // 用于在 Clash 未启动时直接从配置文件读取代理信息

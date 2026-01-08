@@ -1,8 +1,8 @@
 import 'dart:io';
 import 'package:yaml/yaml.dart';
-import 'package:stelliberty/clash/data/dns_config_model.dart';
+import 'package:stelliberty/clash/model/dns_config_model.dart';
 import 'package:stelliberty/services/path_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // DNS 配置服务
 //

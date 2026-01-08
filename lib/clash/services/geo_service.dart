@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:stelliberty/services/path_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // Geodata 数据文件服务
 // 负责定位 Geodata 数据库文件（GeoIP、GeoSite、ASN、Country）

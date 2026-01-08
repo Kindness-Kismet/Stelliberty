@@ -1,7 +1,7 @@
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:stelliberty/utils/logger.dart';
-import 'package:stelliberty/utils/window_state.dart';
+import 'package:stelliberty/services/log_print_service.dart';
+import 'package:stelliberty/services/window_state_service.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
@@ -236,7 +236,7 @@ class TrayEventHandler with TrayListener {
     _isSwitching = true;
 
     final manager = ClashManager.instance;
-    final isTunEnabled = manager.isTunEnabled;
+    final isTunEnabled = _clashProvider!.configState.isTunEnabled;
 
     Logger.info('从托盘切换虚拟网卡模式 - 当前状态：${isTunEnabled ? "已启用" : "未启用"}');
 
@@ -256,7 +256,7 @@ class TrayEventHandler with TrayListener {
     _isSwitching = true;
 
     final manager = ClashManager.instance;
-    final currentOutboundMode = manager.outboundMode;
+    final currentOutboundMode = _clashProvider!.configState.outboundMode;
 
     // 如果已经是当前模式，直接返回
     if (currentOutboundMode == outboundMode) {
@@ -278,7 +278,7 @@ class TrayEventHandler with TrayListener {
         // 这样主页卡片和其他监听器都能收到更新
         Future.microtask(() {
           // 延迟一个微任务确保状态已完全更新
-          if (manager.outboundMode == outboundMode) {
+          if (_clashProvider!.configState.outboundMode == outboundMode) {
             Logger.debug('托盘出站模式切换完成，触发状态同步通知');
           }
         });

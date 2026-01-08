@@ -9,7 +9,7 @@ import 'package:stelliberty/ui/layout/title_bar.dart';
 import 'package:stelliberty/ui/widgets/app_update_dialog.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 应用的根 Widget，负责提供动态主题和生命周期管理。
 class BasicLayout extends StatefulWidget {

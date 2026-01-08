@@ -4,7 +4,7 @@ import 'package:stelliberty/ui/widgets/home/outbound_mode_card.dart';
 import 'package:stelliberty/ui/widgets/home/proxy_switch_card.dart';
 import 'package:stelliberty/ui/widgets/home/traffic_stats_card.dart';
 import 'package:stelliberty/ui/widgets/home/tun_mode_card.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
 
 // 主页 - 代理控制中心

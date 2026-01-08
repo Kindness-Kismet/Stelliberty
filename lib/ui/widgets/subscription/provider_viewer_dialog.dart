@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart' as flutter_provider;
-import 'package:stelliberty/clash/data/provider_model.dart';
+import 'package:stelliberty/clash/model/provider_model.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/clash/services/geo_service.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/widgets/subscription/subscription_info_widget.dart';
 import 'package:stelliberty/ui/common/modern_dialog.dart';

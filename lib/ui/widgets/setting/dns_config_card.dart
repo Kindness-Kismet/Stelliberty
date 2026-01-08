@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/clash/data/dns_config_model.dart';
+import 'package:stelliberty/clash/model/dns_config_model.dart';
 import 'package:stelliberty/clash/services/dns_service.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/clash/providers/clash_provider.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_dropdown_menu.dart';
 import 'package:stelliberty/ui/common/modern_dropdown_button.dart';
@@ -246,8 +248,12 @@ class _DnsConfigCardState extends State<DnsConfigCard> {
       await ClashPreferences.instance.setDnsOverrideEnabled(_enableDns);
 
       // 如果 Clash 正在运行，重载配置文件
+      // 注意：在 await 之前获取 context，避免跨异步使用
+      if (!mounted) return;
+      final clashProvider = context.read<ClashProvider>();
+
       if (ClashManager.instance.isCoreRunning) {
-        final currentConfigPath = ClashManager.instance.currentConfigPath;
+        final currentConfigPath = clashProvider.currentConfigPath;
         if (currentConfigPath != null) {
           await ClashManager.instance.reloadConfig(
             configPath: currentConfigPath,

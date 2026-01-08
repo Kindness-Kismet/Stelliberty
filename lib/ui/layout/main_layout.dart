@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/providers/content_provider.dart';
-import 'package:stelliberty/utils/platform_helper.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:stelliberty/ui/widgets/content_body.dart';
 import 'package:stelliberty/ui/pages/settings/appearance_settings_page.dart';
 import 'package:stelliberty/ui/pages/settings/language_settings_page.dart';
@@ -20,7 +20,7 @@ import 'package:stelliberty/ui/pages/subscription_page.dart';
 import 'package:stelliberty/ui/pages/override_page.dart';
 import 'package:stelliberty/ui/pages/home_page.dart';
 import 'package:stelliberty/ui/pages/connection_page.dart';
-import 'package:stelliberty/ui/pages/log_page.dart';
+import 'package:stelliberty/ui/pages/core_log_page.dart';
 
 import 'sidebar.dart';
 import 'mobile_bottom_nav.dart';

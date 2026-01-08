@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 权限检查服务
 class PermissionService {

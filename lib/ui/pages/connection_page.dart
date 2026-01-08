@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/providers/connection_provider.dart';
-import 'package:stelliberty/clash/data/connection_model.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/clash/state/connection_states.dart';
+import 'package:stelliberty/clash/model/connection_model.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/connection/connection_card.dart';
 import 'package:stelliberty/ui/widgets/connection/connection_detail_dialog.dart';

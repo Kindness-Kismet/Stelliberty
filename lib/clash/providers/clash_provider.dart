@@ -1,39 +1,150 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/clash/data/clash_model.dart';
-import 'package:stelliberty/clash/data/traffic_data_model.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/clash/state/core_states.dart';
+import 'package:stelliberty/clash/state/config_states.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
+import 'package:stelliberty/clash/model/traffic_data_model.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/clash/utils/config_parser.dart';
 import 'package:stelliberty/clash/services/config_watcher.dart';
 import 'package:stelliberty/clash/services/config_management_service.dart';
 import 'package:stelliberty/clash/services/delay_test_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart' as signals;
 
-// Clash 状态 Provider
-// 管理 Clash 的运行状态、代理列表等
-//
-// 注意：使用 ClashManager 单例实例，确保全局只有一个 Clash 进程
+// Clash 状态管理
+// 使用 ClashManager 单例，确保全局唯一进程
 class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
-  // 使用 ClashManager 单例实例
   ClashManager get _clashManager => ClashManager.instance;
 
   // 配置管理服务
   late final ConfigManagementService _configService;
 
-  // 公开 ClashManager 用于外部访问
+  // ClashManager 实例
   ClashManager get clashManager => _clashManager;
 
-  // 公开配置管理服务供 UI 层使用
+  // 配置管理服务
   ConfigManagementService get configService => _configService;
 
-  // 运行状态
-  bool get isCoreRunning => _clashManager.isCoreRunning;
+  // ============================================
+  // 核心状态
+  // ============================================
+  CoreState _coreState = CoreState.stopped;
+  CoreState get coreState => _coreState;
 
-  // 当前出站模式
-  String get outboundMode => _clashManager.outboundMode;
+  String _coreVersion = 'Unknown';
+  String get coreVersion => _coreVersion;
+
+  String? _currentConfigPath;
+  String? get currentConfigPath => _currentConfigPath;
+
+  ClashStartMode? _currentStartMode;
+  ClashStartMode? get currentStartMode => _currentStartMode;
+
+  // 系统代理状态
+  bool _isSystemProxyEnabled = false;
+  bool get isSystemProxyEnabled => _isSystemProxyEnabled;
+
+  void _updateSystemProxyState(bool enabled) {
+    if (_isSystemProxyEnabled == enabled) return;
+
+    _isSystemProxyEnabled = enabled;
+    Logger.debug('系统代理状态更新：$enabled');
+    notifyListeners();
+  }
+
+  // 配置状态
+  ConfigState _configState = const ConfigState();
+  ConfigState get configState => _configState;
+
+  // 从持久化刷新配置状态
+  void refreshConfigState() {
+    _configState = ConfigState.fromPreferences(ClashPreferences.instance);
+    Logger.debug('配置状态已从持久化刷新');
+    notifyListeners();
+  }
+
+  // 内部同步配置状态
+  void _syncConfigFromManager() {
+    _configState = ConfigState.fromPreferences(ClashPreferences.instance);
+    Logger.debug('配置状态已从持久化同步');
+  }
+
+  bool get isAllowLanEnabled => _configState.isAllowLanEnabled;
+  bool get isIpv6Enabled => _configState.isIpv6Enabled;
+  bool get isTcpConcurrentEnabled => _configState.isTcpConcurrentEnabled;
+  bool get isUnifiedDelayEnabled => _configState.isUnifiedDelayEnabled;
+  String get geodataLoader => _configState.geodataLoader;
+  String get findProcessMode => _configState.findProcessMode;
+  String get clashCoreLogLevel => _configState.clashCoreLogLevel;
+  String get externalController => _configState.externalController;
+  bool get isExternalControllerEnabled =>
+      _configState.isExternalControllerEnabled;
+  String get testUrl => _configState.testUrl;
+  String get outboundMode => _configState.outboundMode;
+  bool get isTunEnabled => _configState.isTunEnabled;
+  String get tunStack => _configState.tunStack;
+  String get tunDevice => _configState.tunDevice;
+  bool get isTunAutoRouteEnabled => _configState.isTunAutoRouteEnabled;
+  bool get isTunAutoRedirectEnabled => _configState.isTunAutoRedirectEnabled;
+  bool get isTunAutoDetectInterfaceEnabled =>
+      _configState.isTunAutoDetectInterfaceEnabled;
+  List<String> get tunDnsHijack => _configState.tunDnsHijack;
+  bool get isTunStrictRouteEnabled => _configState.isTunStrictRouteEnabled;
+  List<String> get tunRouteExcludeAddress =>
+      _configState.tunRouteExcludeAddress;
+  bool get isTunIcmpForwardingDisabled =>
+      _configState.isTunIcmpForwardingDisabled;
+  int get tunMtu => _configState.tunMtu;
+  int get mixedPort => _configState.mixedPort;
+  int? get socksPort => _configState.socksPort;
+  int? get httpPort => _configState.httpPort;
+
+  // 运行状态（基于 CoreState）
+  bool get isCoreRunning => _coreState.isRunning;
+  bool get isCoreRestarting => _coreState == CoreState.restarting;
+  bool get isCoreStarting => _coreState == CoreState.starting;
+  bool get isCoreStopping => _coreState == CoreState.stopping;
+
+  // 更新核心状态
+  void _updateCoreState(CoreState newState) {
+    if (_coreState == newState) return;
+
+    final previousState = _coreState;
+    _coreState = newState;
+    Logger.debug('核心状态变化：${previousState.name} -> ${newState.name}');
+
+    // 核心启动成功后，刷新配置状态
+    if (newState == CoreState.running) {
+      _syncConfigFromManager();
+    }
+
+    notifyListeners();
+  }
+
+  // 更新核心版本
+  void _updateCoreVersion(String version) {
+    if (_coreVersion == version) return;
+
+    _coreVersion = version;
+    Logger.debug('核心版本更新：$version');
+    notifyListeners();
+  }
+
+  // 更新当前配置路径
+  void _updateCurrentConfigPath(String? configPath) {
+    if (_currentConfigPath == configPath) return;
+
+    _currentConfigPath = configPath;
+    Logger.debug('当前配置路径更新：${configPath ?? "null"}');
+    notifyListeners();
+  }
+
+  // ============================================
+  // 其他状态
+  // ============================================
 
   // 流量数据流（转发自 ClashManager）
   Stream<TrafficData>? get trafficStream => _clashManager.trafficStream;
@@ -54,7 +165,7 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     // 获取当前出站模式
-    final outboundMode = _clashManager.outboundMode;
+    final outboundMode = _configState.outboundMode;
 
     // 根据模式过滤代理组
     _cachedProxyGroups = switch (outboundMode) {
@@ -164,11 +275,29 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   ClashProvider() {
-    // 初始化服务类
-    _configService = ConfigManagementService(_clashManager);
+    // 初始化服务类（传入获取 ConfigState 的回调）
+    _configService = ConfigManagementService(_clashManager, () => _configState);
 
-    // 监听 ClashManager 的变化
-    _clashManager.addListener(_onClashManagerChanged);
+    // 初始同步配置状态（从 ConfigManager 拉取）
+    _syncConfigFromManager();
+
+    // 设置状态变化回调（从各个 Manager 同步状态到 Provider）
+    _clashManager.setStateChangeCallbacks(
+      onCoreStateChanged: _updateCoreState,
+      onCoreVersionChanged: _updateCoreVersion,
+      onConfigPathChanged: _updateCurrentConfigPath,
+      onStartModeChanged: (mode) {
+        if (_currentStartMode != mode) {
+          _currentStartMode = mode;
+          Logger.debug('启动模式更新：${mode?.name ?? "null"}');
+          notifyListeners();
+        }
+      },
+      onSystemProxyStateChanged: _updateSystemProxyState,
+    );
+
+    // ClashManager 不再是 ChangeNotifier，移除监听
+    // 现在由 Provider 在调用 Manager 方法后手动通知
 
     // 注册应用生命周期监听
     WidgetsBinding.instance.addObserver(this);
@@ -248,13 +377,6 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
     await _loadProxiesFromConfig(configPath, false);
   }
 
-  // ClashManager 状态变化时触发
-  void _onClashManagerChanged() {
-    // 清除缓存，因为模式可能已变化
-    _invalidateCache();
-    notifyListeners();
-  }
-
   // 应用生命周期状态变化时触发
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -303,7 +425,8 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
         await loadProxies();
 
         // 获取实际使用的配置路径（可能因回退而与传入的 configPath 不同）
-        final actualConfigPath = _clashManager.currentConfigPath;
+        // 通过回调已经同步到 _currentConfigPath
+        final actualConfigPath = _currentConfigPath;
 
         // 如果启用了配置重载且实际使用了配置文件（非默认配置），启动配置文件监听
         if (_isConfigReloadEnabled &&
@@ -330,7 +453,7 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
     _errorMessage = null;
 
     // 保存当前配置路径（必须在 stop 之前获取）
-    final currentConfigPath = _clashManager.currentConfigPath;
+    final currentConfigPath = _currentConfigPath;
 
     try {
       // 先停止配置文件监听
@@ -359,8 +482,8 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
         Logger.info('Clash 已重启');
         await loadProxies();
 
-        // 获取实际使用的配置路径
-        final actualConfigPath = _clashManager.currentConfigPath;
+        // 获取实际使用的配置路径（通过回调已同步到 _currentConfigPath）
+        final actualConfigPath = _currentConfigPath;
 
         // 如果启用了配置重载且实际使用了配置文件，启动配置文件监听
         if (_isConfigReloadEnabled &&
@@ -1353,22 +1476,22 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ========== 系统代理和 TUN 模式控制 ==========
 
-  /// 获取 TUN 模式状态
-  bool get isTunEnabled => _clashManager.isTunEnabled;
-
   /// 切换 TUN 模式
   Future<bool> setTunMode(bool enabled) async {
     try {
       Logger.info('切换虚拟网卡模式：${enabled ? "启用" : "禁用"}');
-      return await _clashManager.setTunEnabled(enabled);
+      final success = await _clashManager.setTunEnabled(enabled);
+      if (success) {
+        // 主动从 Manager 同步配置状态
+        _syncConfigFromManager();
+        notifyListeners();
+      }
+      return success;
     } catch (e) {
       Logger.error('切换虚拟网卡模式失败：$e');
       return false;
     }
   }
-
-  // 获取系统代理状态（代理 ClashManager）
-  bool get isSystemProxyEnabled => _clashManager.isSystemProxyEnabled;
 
   /// 启用系统代理
   Future<void> enableSystemProxy() async {
@@ -1395,7 +1518,7 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
   @override
   void dispose() {
     _stopConfigWatcher();
-    _clashManager.removeListener(_onClashManagerChanged);
+    // ClashManager 不再是 ChangeNotifier，移除监听器移除操作
 
     // 移除应用生命周期监听
     WidgetsBinding.instance.removeObserver(this);

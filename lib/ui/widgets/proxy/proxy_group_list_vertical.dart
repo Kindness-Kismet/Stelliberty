@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:stelliberty/clash/data/clash_model.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_group_card_vertical.dart';
 import 'package:stelliberty/ui/notifiers/proxy_notifier.dart';
 import 'package:stelliberty/storage/preferences.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 竖向模式的代理组列表（带高度计算优化）
 class ProxyGroupListVertical extends StatefulWidget {

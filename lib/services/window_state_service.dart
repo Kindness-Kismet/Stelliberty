@@ -7,7 +7,7 @@ import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/tray/tray_manager.dart';
-import 'logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 窗口状态管理器，负责窗口尺寸、位置及最大化状态的持久化
 class WindowStateManager {

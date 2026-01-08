@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stelliberty/storage/dev_preferences.dart';
-import '../config/clash_defaults.dart';
-import '../utils/system_proxy.dart';
+import 'package:stelliberty/services/system_proxy_service.dart';
+import '../clash/config/clash_defaults.dart';
 
 // Clash 专用持久化配置管理
 class ClashPreferences {

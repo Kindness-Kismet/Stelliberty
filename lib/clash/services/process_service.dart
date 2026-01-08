@@ -5,7 +5,7 @@ import 'package:stelliberty/clash/services/geo_service.dart';
 import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/src/bindings/bindings.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // Clash 进程管理服务
 // Dart 端负责业务逻辑和端口检查，Rust 端负责实际进程管理

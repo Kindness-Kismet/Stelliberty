@@ -7,9 +7,9 @@ import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
 import 'package:stelliberty/storage/preferences.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/tray/tray_manager.dart';
-import 'package:stelliberty/utils/window_state.dart';
+import 'package:stelliberty/services/window_state_service.dart';
 import 'package:window_manager/window_manager.dart';
 
 // 全局快捷键服务（使用 hotkey_manager 插件）
@@ -506,7 +506,7 @@ class HotkeyService {
     _isSwitching = true;
 
     final manager = ClashManager.instance;
-    final isTunEnabled = manager.isTunEnabled;
+    final isTunEnabled = _clashProvider!.configState.isTunEnabled;
 
     Logger.info('快捷键切换虚拟网卡 - 当前状态：${isTunEnabled ? "已启用" : "未启用"}');
 

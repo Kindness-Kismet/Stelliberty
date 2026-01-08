@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as path;
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 enum ExternalOpenErrorType {
   fileNotFound,

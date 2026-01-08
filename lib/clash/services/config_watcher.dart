@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:async';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 配置文件监听服务
 // 监听配置文件变化并触发重载回调

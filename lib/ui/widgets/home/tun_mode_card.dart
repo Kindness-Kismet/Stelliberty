@@ -2,8 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
-import 'package:stelliberty/clash/core/service_state.dart';
-import 'package:stelliberty/services/permission_service.dart';
+import 'package:stelliberty/clash/providers/service_provider.dart';
+import 'package:stelliberty/clash/state/service_states.dart';
+import 'package:stelliberty/atomic/permission_checker.dart';
 import 'package:stelliberty/tray/tray_manager.dart';
 import 'package:stelliberty/ui/widgets/home/base_card.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
@@ -41,8 +42,9 @@ class _TunModeCardState extends State<TunModeCard> {
 
   @override
   Widget build(BuildContext context) {
-    final serviceStateManager = context.watch<ServiceStateManager>();
-    final isServiceModeInstalled = serviceStateManager.isServiceModeInstalled;
+    final serviceProvider = context.watch<ServiceProvider>();
+    final isServiceModeInstalled =
+        serviceProvider.serviceState.isServiceModeInstalled;
     final trans = context.translate;
 
     // TUN 模式可用条件：服务模式已安装 或 以管理员/root 权限运行

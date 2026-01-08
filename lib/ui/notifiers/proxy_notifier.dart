@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
-import 'package:stelliberty/clash/data/clash_model.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // ProxyPage 的业务逻辑
 // 负责代理节点排序、搜索和定位计算

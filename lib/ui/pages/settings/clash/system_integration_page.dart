@@ -6,7 +6,7 @@ import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/setting/system_proxy_card.dart';
 import 'package:stelliberty/ui/widgets/setting/tun_config_card.dart';
 import 'package:stelliberty/ui/widgets/setting/uwp_loopback_card.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 class SystemIntegrationPage extends StatefulWidget {
   const SystemIntegrationPage({super.key});

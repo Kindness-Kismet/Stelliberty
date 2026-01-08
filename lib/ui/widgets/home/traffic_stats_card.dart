@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/clash/data/traffic_data_model.dart';
+import 'package:stelliberty/clash/providers/clash_provider.dart';
+import 'package:stelliberty/clash/model/traffic_data_model.dart';
 import 'package:stelliberty/ui/widgets/home/base_card.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 
@@ -23,22 +23,25 @@ class _TrafficStatsCardState extends State<TrafficStatsCard> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // 在 Widget 树构建完成后获取缓存数据，避免 initState 中使用 context 的问题
-    _trafficDataCache ??= context.read<ClashManager>().lastTrafficData;
+    _trafficDataCache ??= context
+        .read<ClashProvider>()
+        .clashManager
+        .lastTrafficData;
   }
 
   @override
   Widget build(BuildContext context) {
-    final manager = context.read<ClashManager>();
+    final manager = context.read<ClashProvider>().clashManager;
     final trans = context.translate;
 
     // 使用 select 精确监听 isRunning 状态，避免不必要的重建
-    final isRunning = context.select<ClashManager, bool>(
+    final isRunning = context.select<ClashProvider, bool>(
       (m) => m.isCoreRunning,
     );
 
     return isRunning
         ? StreamBuilder<TrafficData>(
-            stream: context.read<ClashManager>().trafficStream,
+            stream: context.read<ClashProvider>().trafficStream,
             builder: (context, snapshot) {
               // 优先使用流中的数据，如果没有则使用缓存的最后数据
               final traffic =
@@ -168,7 +171,7 @@ class _TrafficStatsCardState extends State<TrafficStatsCard> {
     bool isRunning,
   ) {
     // 从 ClashManager 读取全局波形图历史数据
-    final manager = context.read<ClashManager>();
+    final manager = context.read<ClashProvider>().clashManager;
 
     return Column(
       children: [
@@ -267,7 +270,7 @@ class _TrafficStatsCardState extends State<TrafficStatsCard> {
 
   // 重置流量统计（无需确认对话框）
   void _resetTraffic(BuildContext context) {
-    final clashManager = context.read<ClashManager>();
+    final clashManager = context.read<ClashProvider>().clashManager;
     clashManager.resetTrafficStats();
     // 清空本地缓存
     setState(() {

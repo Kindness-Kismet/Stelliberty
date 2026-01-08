@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'package:stelliberty/clash/data/log_message_model.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/clash/model/log_message_model.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 
 // Clash 核心日志服务

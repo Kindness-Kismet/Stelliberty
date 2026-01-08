@@ -8,7 +8,7 @@ import 'package:stelliberty/ui/widgets/modern_multiline_text_field.dart';
 import 'package:stelliberty/ui/notifiers/system_proxy_notifier.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 系统代理配置卡片
 class SystemProxyCard extends StatefulWidget {

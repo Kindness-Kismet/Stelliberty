@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:stelliberty/clash/data/log_message_model.dart';
+import 'package:stelliberty/clash/model/log_message_model.dart';
 import 'package:stelliberty/clash/services/log_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 日志状态管理
 // 统一管理所有日志相关的状态，确保切换页面时数据不丢失

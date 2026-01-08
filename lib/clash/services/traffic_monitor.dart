@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
-import 'package:stelliberty/clash/data/traffic_data_model.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/clash/model/traffic_data_model.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 
 // Clash 流量监控服务

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:stelliberty/clash/data/log_message_model.dart';
+import 'package:stelliberty/clash/model/log_message_model.dart';
 
 /// 日志卡片组件 - 与代理节点卡片风格一致
 ///

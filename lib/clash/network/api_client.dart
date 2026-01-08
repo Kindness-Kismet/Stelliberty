@@ -1,7 +1,7 @@
 import 'dart:async';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
-import 'package:stelliberty/clash/data/connection_model.dart';
+import 'package:stelliberty/clash/model/connection_model.dart';
 import 'package:stelliberty/clash/network/ipc_request_helper.dart';
 
 // Clash RESTful API 客户端

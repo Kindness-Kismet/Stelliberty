@@ -1,9 +1,9 @@
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/clash/network/ipc_request_helper.dart';
 import 'package:stelliberty/clash/services/process_service.dart';
 import 'package:stelliberty/clash/config/config_injector.dart';
 import 'package:stelliberty/services/path_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'dart:io';
 import 'dart:async';

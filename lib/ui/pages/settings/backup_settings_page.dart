@@ -3,17 +3,18 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/services/backup_service.dart';
 import 'package:stelliberty/clash/manager/manager.dart';
+import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
 import 'package:stelliberty/clash/providers/override_provider.dart';
 import 'package:stelliberty/storage/preferences.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/constants/spacing.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/widgets/confirm_dialog.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/providers/content_provider.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 备份与还原设置页面
 class BackupSettingsPage extends StatefulWidget {
@@ -197,6 +198,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
 
       if (!mounted) return;
 
+      final clashProvider = Provider.of<ClashProvider>(context, listen: false);
       final subscriptionProvider = Provider.of<SubscriptionProvider>(
         context,
         listen: false,
@@ -207,6 +209,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       );
 
       // 重新初始化 Provider 以加载还原的数据
+      clashProvider.refreshConfigState();
       await subscriptionProvider.initialize();
       await overrideProvider.initialize();
 

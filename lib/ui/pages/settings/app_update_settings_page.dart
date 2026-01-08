@@ -11,7 +11,7 @@ import 'package:stelliberty/ui/common/modern_dropdown_button.dart';
 import 'package:stelliberty/ui/common/modern_dropdown_menu.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/widgets/app_update_dialog.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 class AppUpdateSettingsPage extends StatefulWidget {
   const AppUpdateSettingsPage({super.key});

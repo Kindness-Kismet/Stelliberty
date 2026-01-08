@@ -1,47 +1,49 @@
 import 'package:stelliberty/clash/manager/manager.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/clash/state/config_states.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 配置管理服务
 // 封装所有与 ClashManager 配置相关的方法
 // 使用服务类模式替代 Mixin，提高代码可读性和可测试性
 class ConfigManagementService {
   final ClashManager _clashManager;
+  final ConfigState Function() _getConfigState;
 
-  ConfigManagementService(this._clashManager);
+  ConfigManagementService(this._clashManager, this._getConfigState);
 
   // 获取混合端口
-  int get mixedPort => _clashManager.mixedPort;
+  int get mixedPort => _getConfigState().mixedPort;
 
   // 获取局域网代理状态
-  bool getAllowLan() => _clashManager.isAllowLanEnabled;
+  bool getAllowLan() => _getConfigState().isAllowLanEnabled;
 
   // 获取 IPv6 状态
-  bool getIpv6() => _clashManager.isIpv6Enabled;
+  bool getIpv6() => _getConfigState().isIpv6Enabled;
 
   // 获取 TCP 并发状态
-  bool getTcpConcurrent() => _clashManager.isTcpConcurrentEnabled;
+  bool getTcpConcurrent() => _getConfigState().isTcpConcurrentEnabled;
 
   // 获取统一延迟状态
-  bool getUnifiedDelay() => _clashManager.isUnifiedDelayEnabled;
+  bool getUnifiedDelay() => _getConfigState().isUnifiedDelayEnabled;
 
   // 获取 GEO 数据加载模式
-  String getGeodataLoader() => _clashManager.geodataLoader;
+  String getGeodataLoader() => _getConfigState().geodataLoader;
 
   // 获取查找进程模式
-  String getFindProcessMode() => _clashManager.findProcessMode;
+  String getFindProcessMode() => _getConfigState().findProcessMode;
 
   // 获取日志等级
-  String getClashCoreLogLevel() => _clashManager.clashCoreLogLevel;
+  String getClashCoreLogLevel() => _getConfigState().clashCoreLogLevel;
 
   // 获取外部控制器状态
   bool getExternalControllerEnabled() =>
-      _clashManager.isExternalControllerEnabled;
+      _getConfigState().isExternalControllerEnabled;
 
   // 获取外部控制器地址
-  String? getExternalController() => _clashManager.externalController;
+  String? getExternalController() => _getConfigState().externalController;
 
   // 获取测速链接
-  String getTestUrl() => _clashManager.testUrl;
+  String getTestUrl() => _getConfigState().testUrl;
 
   // 设置局域网代理状态
   Future<bool> setAllowLan(bool enabled) async {

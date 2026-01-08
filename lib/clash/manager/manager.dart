@@ -1,24 +1,24 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:stelliberty/clash/network/api_client.dart';
 import 'package:stelliberty/clash/services/process_service.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
-import 'package:stelliberty/clash/data/connection_model.dart';
-import 'package:stelliberty/clash/data/traffic_data_model.dart';
+import 'package:stelliberty/clash/model/connection_model.dart';
+import 'package:stelliberty/clash/model/traffic_data_model.dart';
 import 'package:stelliberty/clash/services/traffic_monitor.dart';
 import 'package:stelliberty/clash/services/log_service.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/clash/manager/lifecycle_manager.dart';
 import 'package:stelliberty/clash/manager/config_manager.dart';
 import 'package:stelliberty/clash/manager/proxy_manager.dart';
 import 'package:stelliberty/clash/manager/connection_manager.dart';
 import 'package:stelliberty/clash/manager/system_proxy_manager.dart';
+import 'package:stelliberty/clash/state/core_states.dart';
 
 // Clash 管理器（门面模式）
 // 协调各个子管理器，提供统一的管理接口
-class ClashManager extends ChangeNotifier {
+class ClashManager {
   static final ClashManager _instance = ClashManager._internal();
   static ClashManager get instance => _instance;
 
@@ -36,7 +36,7 @@ class ClashManager extends ChangeNotifier {
   // 配置重载防抖定时器
   Timer? _configReloadDebounceTimer;
 
-  // 懒惰模式：标记是否为应用启动后的首次核心启动
+  // 首次启动标记
   static bool _isFirstStartAfterAppLaunch = true;
 
   ClashApiClient? get apiClient => isCoreRunning ? _apiClient : null;
@@ -62,36 +62,6 @@ class ClashManager extends ChangeNotifier {
   String? get currentConfigPath => _lifecycleManager.currentConfigPath;
   String get coreVersion => _lifecycleManager.coreVersion;
 
-  bool get isAllowLanEnabled => _configManager.isAllowLanEnabled;
-  bool get isIpv6Enabled => _configManager.isIpv6Enabled;
-  bool get isTcpConcurrentEnabled => _configManager.isTcpConcurrentEnabled;
-  bool get isUnifiedDelayEnabled => _configManager.isUnifiedDelayEnabled;
-  String get geodataLoader => _configManager.geodataLoader;
-  String get findProcessMode => _configManager.findProcessMode;
-  String get clashCoreLogLevel => _configManager.clashCoreLogLevel;
-  String? get externalController => _configManager.externalController;
-  bool get isExternalControllerEnabled =>
-      _configManager.isExternalControllerEnabled;
-  String get testUrl => _configManager.testUrl;
-  bool get isTunEnabled => _configManager.isTunEnabled;
-  String get tunStack => _configManager.tunStack;
-  String get tunDevice => _configManager.tunDevice;
-  bool get isTunAutoRouteEnabled => _configManager.isTunAutoRouteEnabled;
-  bool get isTunAutoRedirectEnabled => _configManager.isTunAutoRedirectEnabled;
-  bool get isTunAutoDetectInterfaceEnabled =>
-      _configManager.isTunAutoDetectInterfaceEnabled;
-  List<String> get tunDnsHijack => _configManager.tunDnsHijack;
-  bool get isTunStrictRouteEnabled => _configManager.isTunStrictRouteEnabled;
-  List<String> get tunRouteExcludeAddress =>
-      _configManager.tunRouteExcludeAddress;
-  bool get isTunIcmpForwardingDisabled =>
-      _configManager.isTunIcmpForwardingDisabled;
-  int get tunMtu => _configManager.tunMtu;
-  int get mixedPort => _configManager.mixedPort; // 混合端口
-  int? get socksPort => _configManager.socksPort; // SOCKS 端口
-  int? get httpPort => _configManager.httpPort; // HTTP 端口
-  String get outboundMode => _configManager.outboundMode;
-
   // TCP Keep-Alive 配置（启动参数，直接从持久化读取）
   bool get isKeepAliveEnabled =>
       ClashPreferences.instance.getKeepAliveEnabled();
@@ -111,12 +81,12 @@ class ClashManager extends ChangeNotifier {
   // 防重复调用标记
   bool _isHandlingOverridesFailed = false;
 
-  // 获取覆写配置（公开接口，供 ServiceProvider 使用）
+  // 获取覆写配置
   List<OverrideConfig> getOverrides() {
     return _getOverrides?.call() ?? [];
   }
 
-  // 覆写失败处理（公开接口，供 LifecycleManager 调用）
+  // 覆写失败处理
   Future<void> handleOverridesFailed() async {
     if (_isHandlingOverridesFailed) {
       Logger.warning('覆写失败回调正在处理中，跳过重复调用');
@@ -145,7 +115,6 @@ class ClashManager extends ChangeNotifier {
 
     _configManager = ConfigManager(
       apiClient: _apiClient,
-      notifyListeners: notifyListeners,
       isCoreRunning: () => isCoreRunning,
     );
 
@@ -154,14 +123,12 @@ class ClashManager extends ChangeNotifier {
       apiClient: _apiClient,
       trafficMonitor: _trafficMonitor,
       logService: _logService,
-      notifyListeners: notifyListeners,
-      refreshAllStatusBatch: _configManager.refreshAllStatusBatch,
     );
 
     _proxyManager = ProxyManager(
       apiClient: _apiClient,
       isCoreRunning: () => isCoreRunning,
-      getTestUrl: () => testUrl,
+      getTestUrl: () => ClashPreferences.instance.getTestUrl(),
     );
 
     _connectionManager = ConnectionManager(
@@ -171,12 +138,11 @@ class ClashManager extends ChangeNotifier {
 
     _systemProxyManager = SystemProxyManager(
       isCoreRunning: () => isCoreRunning,
-      getHttpPort: () => mixedPort, // 系统代理使用混合端口
-      notifyListeners: notifyListeners,
+      getHttpPort: () => ClashPreferences.instance.getMixedPort(),
     );
   }
 
-  // 设置覆写获取回调（由 SubscriptionProvider 注入）
+  // 设置覆写获取回调
   void setOverridesGetter(List<OverrideConfig> Function() callback) {
     _getOverrides = callback;
     Logger.debug('已设置覆写获取回调到 ClashManager');
@@ -194,39 +160,59 @@ class ClashManager extends ChangeNotifier {
     Logger.debug('已设置默认配置启动成功回调到 ClashManager');
   }
 
+  // 设置状态变化回调（由 ClashProvider 注入）
+  void setStateChangeCallbacks({
+    Function(CoreState)? onCoreStateChanged,
+    Function(String)? onCoreVersionChanged,
+    Function(String?)? onConfigPathChanged,
+    Function(ClashStartMode?)? onStartModeChanged,
+    Function(bool)? onSystemProxyStateChanged,
+  }) {
+    _lifecycleManager.setOnCoreStateChanged(onCoreStateChanged);
+    _lifecycleManager.setOnCoreVersionChanged(onCoreVersionChanged);
+    _lifecycleManager.setOnConfigPathChanged(onConfigPathChanged);
+    _lifecycleManager.setOnStartModeChanged(onStartModeChanged);
+    _systemProxyManager.setOnSystemProxyStateChanged(onSystemProxyStateChanged);
+    Logger.debug('已设置状态变化回调到各个 Manager');
+  }
+
   Future<bool> startCore({
     String? configPath,
     List<OverrideConfig> overrides = const [],
   }) async {
+    // 从持久化存储读取配置参数（ConfigManager 不再缓存状态）
+    final prefs = ClashPreferences.instance;
+
     final success = await _lifecycleManager.startCore(
       configPath: configPath,
       overrides: overrides,
       onOverridesFailed: handleOverridesFailed,
       onThirdLevelFallback: _onThirdLevelFallback,
-      mixedPort: _configManager.mixedPort, // 传递混合端口
-      isIpv6Enabled: _configManager.isIpv6Enabled,
-      isTunEnabled: _configManager.isTunEnabled,
-      tunStack: _configManager.tunStack,
-      tunDevice: _configManager.tunDevice,
-      isTunAutoRouteEnabled: _configManager.isTunAutoRouteEnabled,
-      isTunAutoRedirectEnabled: _configManager.isTunAutoRedirectEnabled,
-      isTunAutoDetectInterfaceEnabled:
-          _configManager.isTunAutoDetectInterfaceEnabled,
-      tunDnsHijack: _configManager.tunDnsHijack,
-      isTunStrictRouteEnabled: _configManager.isTunStrictRouteEnabled,
-      tunRouteExcludeAddress: _configManager.tunRouteExcludeAddress,
-      isTunIcmpForwardingDisabled: _configManager.isTunIcmpForwardingDisabled,
-      tunMtu: _configManager.tunMtu,
-      isAllowLanEnabled: _configManager.isAllowLanEnabled,
-      isTcpConcurrentEnabled: _configManager.isTcpConcurrentEnabled,
-      geodataLoader: _configManager.geodataLoader,
-      findProcessMode: _configManager.findProcessMode,
-      clashCoreLogLevel: _configManager.clashCoreLogLevel,
-      externalController: _configManager.externalController,
-      isUnifiedDelayEnabled: _configManager.isUnifiedDelayEnabled,
-      outboundMode: _configManager.outboundMode,
-      socksPort: _configManager.socksPort,
-      httpPort: _configManager.httpPort, // 单独 HTTP 端口
+      mixedPort: prefs.getMixedPort(),
+      isIpv6Enabled: prefs.getIpv6(),
+      isTunEnabled: prefs.getTunEnable(),
+      tunStack: prefs.getTunStack(),
+      tunDevice: prefs.getTunDevice(),
+      isTunAutoRouteEnabled: prefs.getTunAutoRoute(),
+      isTunAutoRedirectEnabled: prefs.getTunAutoRedirect(),
+      isTunAutoDetectInterfaceEnabled: prefs.getTunAutoDetectInterface(),
+      tunDnsHijack: prefs.getTunDnsHijack(),
+      isTunStrictRouteEnabled: prefs.getTunStrictRoute(),
+      tunRouteExcludeAddress: prefs.getTunRouteExcludeAddress(),
+      isTunIcmpForwardingDisabled: prefs.getTunDisableIcmpForwarding(),
+      tunMtu: prefs.getTunMtu(),
+      isAllowLanEnabled: prefs.getAllowLan(),
+      isTcpConcurrentEnabled: prefs.getTcpConcurrent(),
+      geodataLoader: prefs.getGeodataLoader(),
+      findProcessMode: prefs.getFindProcessMode(),
+      clashCoreLogLevel: prefs.getCoreLogLevel(),
+      externalController: prefs.getExternalControllerEnabled()
+          ? prefs.getExternalControllerAddress()
+          : '',
+      isUnifiedDelayEnabled: prefs.getUnifiedDelayEnabled(),
+      outboundMode: prefs.getOutboundMode(),
+      socksPort: prefs.getSocksPort(),
+      httpPort: prefs.getHttpPort(),
     );
 
     // 懒惰模式：仅在应用首次启动核心时自动开启系统代理
@@ -458,9 +444,14 @@ class ClashManager extends ChangeNotifier {
   }
 
   Future<bool> setMixedPort(int port) async {
-    return await _configManager.setMixedPort(port, () {
+    final success = await _configManager.setMixedPort(port);
+
+    // 如果核心正在运行且端口更新成功，重启系统代理以应用新端口
+    if (success && isCoreRunning) {
       unawaited(_systemProxyManager.restartSystemProxy());
-    });
+    }
+
+    return success;
   }
 
   Future<bool> setSocksPort(int? port) async {
@@ -498,7 +489,7 @@ class ClashManager extends ChangeNotifier {
     final success = await setter();
 
     // 如果核心正在运行且 TUN 已启用，重新生成配置并重载
-    if (success && isCoreRunning && isTunEnabled) {
+    if (success && isCoreRunning && ClashPreferences.instance.getTunEnable()) {
       Logger.debug('TUN 子配置已更新（$configName），重新生成配置文件并重载…');
       await reloadConfig(
         configPath: currentConfigPath,
@@ -603,12 +594,6 @@ class ClashManager extends ChangeNotifier {
     return await _configManager.setOutboundMode(outboundMode);
   }
 
-  // 从持久化存储重新加载配置到内存
-  // 用于备份还原后刷新内存状态
-  void reloadFromPreferences() {
-    _configManager.reloadFromPreferences();
-  }
-
   // 重启系统代理（先禁用再启用，应用当前配置）
   Future<void> restartSystemProxy() async {
     await _systemProxyManager.restartSystemProxy();
@@ -622,7 +607,7 @@ class ClashManager extends ChangeNotifier {
     return await _systemProxyManager.disableSystemProxy();
   }
 
-  @override
+  // 清理资源（应用关闭时调用）
   void dispose() {
     _lifecycleManager.dispose();
 
@@ -631,7 +616,5 @@ class ClashManager extends ChangeNotifier {
 
     Logger.info('应用关闭，停止 Clash 核心…');
     unawaited(stopCore());
-
-    super.dispose();
   }
 }

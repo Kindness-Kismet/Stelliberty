@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/services/path_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 
 // 备份服务
@@ -135,9 +134,6 @@ class BackupService {
         if (!result.isSuccessful) {
           throw Exception(result.errorMessage ?? '备份还原失败');
         }
-
-        // 刷新内存状态（使 ClashManager 重新从持久化存储加载配置）
-        ClashManager.instance.reloadFromPreferences();
       } finally {
         await subscription?.cancel();
       }

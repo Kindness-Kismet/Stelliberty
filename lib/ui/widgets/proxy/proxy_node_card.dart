@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:stelliberty/clash/data/clash_model.dart';
+import 'package:stelliberty/clash/model/clash_model.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 /// 代理节点卡片组件 - 磨砂玻璃风格

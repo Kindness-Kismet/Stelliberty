@@ -7,7 +7,7 @@ import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/providers/content_provider.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/widgets/setting/lazy_mode_card.dart';
 import 'package:stelliberty/ui/widgets/setting/hotkey_settings_card.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';

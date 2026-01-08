@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
-import 'package:stelliberty/clash/core/service_state.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
+import 'package:stelliberty/clash/providers/service_provider.dart';
+import 'package:stelliberty/clash/state/service_states.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/clash/services/core_update_service.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/widgets/home/base_card.dart';
 import 'package:stelliberty/ui/widgets/home/info_container.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 /// Clash 信息卡片
@@ -29,20 +29,20 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
 
   @override
   Widget build(BuildContext context) {
-    final serviceStateManager = context.watch<ServiceStateManager>();
-    final runMode = _determineRunMode(context, serviceStateManager);
+    final serviceProvider = context.watch<ServiceProvider>();
+    final runMode = _determineRunMode(context, serviceProvider);
     final proxyHost = ClashPreferences.instance.getProxyHost();
     final trans = context.translate;
 
     // 使用 Selector 只监听需要的属性，避免不必要的重建
     return Selector<
-      ClashManager,
+      ClashProvider,
       ({bool isCoreRunning, int mixedPort, String coreVersion})
     >(
-      selector: (_, manager) => (
-        isCoreRunning: manager.isCoreRunning,
-        mixedPort: manager.mixedPort,
-        coreVersion: manager.coreVersion,
+      selector: (_, provider) => (
+        isCoreRunning: provider.isCoreRunning,
+        mixedPort: provider.configState.mixedPort,
+        coreVersion: provider.coreVersion,
       ),
       builder: (context, state, child) {
         final isCoreRunning = state.isCoreRunning;
@@ -150,7 +150,6 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
     if (_isUpdating) return;
 
     final clashProvider = context.read<ClashProvider>();
-    final clashManager = context.read<ClashManager>();
 
     setState(() {
       _isUpdating = true;
@@ -164,8 +163,8 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
     }
 
     // 记录核心状态（用于更新后恢复）
-    final wasRunning = clashManager.isCoreRunning;
-    final currentConfigPath = clashManager.currentConfigPath;
+    final wasRunning = clashProvider.isCoreRunning;
+    final currentConfigPath = clashProvider.currentConfigPath;
 
     try {
       // 1. 获取当前版本和最新版本
@@ -238,7 +237,7 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
       // 只有在文件替换阶段失败（核心已停止但更新未完成）时才需要重启
       // 下载阶段失败时核心从未停止，无需重启
       if (wasRunning &&
-          !clashManager.isCoreRunning &&
+          !clashProvider.isCoreRunning &&
           currentConfigPath != null) {
         try {
           Logger.info('文件替换失败，重新启动旧核心');
@@ -305,11 +304,12 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
 
   String _determineRunMode(
     BuildContext context,
-    ServiceStateManager serviceStateManager,
+    ServiceProvider serviceProvider,
   ) {
     final trans = context.translate;
 
-    final isServiceModeInstalled = serviceStateManager.isServiceModeInstalled;
+    final isServiceModeInstalled =
+        serviceProvider.serviceState.isServiceModeInstalled;
 
     // 只要服务模式已安装，就显示服务模式（无论核心是否运行）
     if (isServiceModeInstalled) {

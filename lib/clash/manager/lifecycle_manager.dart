@@ -7,20 +7,11 @@ import 'package:stelliberty/clash/services/traffic_monitor.dart';
 import 'package:stelliberty/clash/services/log_service.dart';
 import 'package:stelliberty/clash/services/geo_service.dart';
 import 'package:stelliberty/clash/providers/service_provider.dart';
-import 'package:stelliberty/clash/storage/preferences.dart';
-import 'package:stelliberty/clash/core/core_state.dart';
-import 'package:stelliberty/services/permission_service.dart';
+import 'package:stelliberty/storage/clash_preferences.dart';
+import 'package:stelliberty/clash/state/core_states.dart';
+import 'package:stelliberty/atomic/permission_checker.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
-import 'package:stelliberty/utils/logger.dart';
-
-// Clash 启动模式
-enum ClashStartMode {
-  // 普通模式（应用直接启动进程）
-  sidecar,
-
-  // 服务模式（通过服务启动）
-  service,
-}
+import 'package:stelliberty/services/log_print_service.dart';
 
 // Clash 生命周期管理器
 // 负责 Clash 核心的启动、停止、重启
@@ -30,10 +21,44 @@ class LifecycleManager {
   final TrafficMonitor _trafficMonitor;
   final ClashLogService _logService;
   final Function() _notifyListeners;
-  final Function() _refreshAllStatusBatch;
 
-  // 核心状态管理器
-  final CoreStateManager _coreStateManager = CoreStateManager.instance;
+  // 状态变化回调
+  Function(CoreState)? _onCoreStateChanged;
+  Function(String)? _onCoreVersionChanged;
+  Function(String?)? _onConfigPathChanged;
+  Function(ClashStartMode?)? _onStartModeChanged;
+
+  // 设置状态变化回调
+  void setOnCoreStateChanged(Function(CoreState)? callback) {
+    _onCoreStateChanged = callback;
+  }
+
+  void setOnCoreVersionChanged(Function(String)? callback) {
+    _onCoreVersionChanged = callback;
+  }
+
+  void setOnConfigPathChanged(Function(String?)? callback) {
+    _onConfigPathChanged = callback;
+  }
+
+  void setOnStartModeChanged(Function(ClashStartMode?)? callback) {
+    _onStartModeChanged = callback;
+  }
+
+  // 核心状态（由 Manager 直接管理）
+  CoreState _coreState = CoreState.stopped;
+  CoreState get coreState => _coreState;
+
+  // 更新核心状态并通知
+  void _updateCoreState(CoreState newState) {
+    if (_coreState == newState) return;
+
+    final previousState = _coreState;
+    _coreState = newState;
+    Logger.debug('核心状态变化：${previousState.name} -> ${newState.name}');
+    _onCoreStateChanged?.call(newState);
+    _notifyListeners();
+  }
 
   // 回退标记（防止无限递归）
   bool _isFallbackRetry = false;
@@ -48,10 +73,11 @@ class LifecycleManager {
 
   // 更新当前配置路径（用于重载后同步路径）
   void updateConfigPath(String? configPath) {
-    if (configPath != null && configPath.isNotEmpty) {
-      _originalConfigPath = configPath;
-      Logger.debug('配置路径已更新：$configPath');
-    }
+    if (configPath == null || configPath.isEmpty) return;
+
+    _originalConfigPath = configPath;
+    _onConfigPathChanged?.call(configPath);
+    Logger.debug('配置路径已更新：$configPath');
   }
 
   // 启动时实际使用的端口列表（用于停止时准确释放）
@@ -64,28 +90,23 @@ class LifecycleManager {
   String _coreVersion = 'Unknown';
   String get coreVersion => _coreVersion;
 
-  // 运行状态（通过状态管理器获取）
-  bool get isCoreRunning => _coreStateManager.currentState.isRunning;
-  bool get isCoreRestarting =>
-      _coreStateManager.currentState == CoreState.restarting;
-  bool get isCoreStarting =>
-      _coreStateManager.currentState == CoreState.starting;
-  bool get isCoreStopping =>
-      _coreStateManager.currentState == CoreState.stopping;
+  // 运行状态
+  bool get isCoreRunning => _coreState.isRunning;
+  bool get isCoreRestarting => _coreState == CoreState.restarting;
+  bool get isCoreStarting => _coreState == CoreState.starting;
+  bool get isCoreStopping => _coreState == CoreState.stopping;
 
   LifecycleManager({
     required ProcessService processService,
     required ClashApiClient apiClient,
     required TrafficMonitor trafficMonitor,
     required ClashLogService logService,
-    required Function() notifyListeners,
-    required Function() refreshAllStatusBatch,
+    Function()? notifyListeners,
   }) : _processService = processService,
        _apiClient = apiClient,
        _trafficMonitor = trafficMonitor,
        _logService = logService,
-       _notifyListeners = notifyListeners,
-       _refreshAllStatusBatch = refreshAllStatusBatch;
+       _notifyListeners = notifyListeners ?? (() {});
 
   // 启动 Clash 核心（不触碰系统代理）
   //
@@ -140,7 +161,7 @@ class LifecycleManager {
       return true;
     }
 
-    _coreStateManager.setStarting(reason: '开始启动核心');
+    _updateCoreState(CoreState.starting); // '开始启动核心');
 
     try {
       // 检查 TUN 权限（如果 TUN 已启用）
@@ -256,7 +277,7 @@ class LifecycleManager {
           await Future.delayed(const Duration(milliseconds: 500));
 
           // 重置状态,允许递归调用
-          _coreStateManager.setStopped(reason: '回退准备重启');
+          _updateCoreState(CoreState.stopped); // '回退准备重启');
 
           // 重新启动(不带覆写,且禁用回退以避免无限循环)
           Logger.info('使用无覆写配置重新启动核心');
@@ -379,13 +400,13 @@ class LifecycleManager {
       }
 
       // 无法回退,直接返回失败
-      _coreStateManager.setStopped(reason: '启动失败');
+      _updateCoreState(CoreState.stopped); // '启动失败');
       _actualPortsUsed = null;
       return false;
     } finally {
       // 如果还在启动状态但没有成功，设置为停止状态
-      if (_coreStateManager.currentState == CoreState.starting) {
-        _coreStateManager.setStopped(reason: '启动未完成');
+      if (_coreState == CoreState.starting) {
+        _updateCoreState(CoreState.stopped); // '启动未完成');
       }
     }
   }
@@ -444,6 +465,7 @@ class LifecycleManager {
 
       // 记录启动模式
       _currentStartMode = ClashStartMode.service;
+      _onStartModeChanged?.call(ClashStartMode.service);
 
       // 等待 IPC API 就绪（与普通模式保持一致）
       Logger.info('等待服务模式下的 IPC API 就绪…');
@@ -516,6 +538,7 @@ class LifecycleManager {
 
       // 记录启动模式
       _currentStartMode = ClashStartMode.sidecar;
+      _onStartModeChanged?.call(ClashStartMode.sidecar);
 
       // 完成后续初始化（获取版本、启动监控）
       return await _initializeAfterStart(
@@ -552,15 +575,11 @@ class LifecycleManager {
       final version = await _waitForIpcReady();
       if (version != null) {
         _coreVersion = version;
+        _onCoreVersionChanged?.call(version);
       } else {
         Logger.warning('未能通过 IPC 获取版本号');
         _coreVersion = 'Unknown';
-      }
-
-      try {
-        await _refreshAllStatusBatch();
-      } catch (e) {
-        Logger.error('获取配置状态失败：$e');
+        _onCoreVersionChanged?.call('Unknown');
       }
 
       // 构建 API base URL
@@ -581,10 +600,11 @@ class LifecycleManager {
       }
 
       // 标记为运行状态
-      _coreStateManager.setRunning(reason: '核心启动成功');
+      _updateCoreState(CoreState.running); // '核心启动成功');
 
       // 更新当前配置路径（启动成功后才更新，失败则不更新）
       _originalConfigPath = configPath;
+      _onConfigPathChanged?.call(configPath);
       Logger.debug('更新当前配置路径：${configPath ?? "null（使用默认配置）"}');
 
       // 服务模式下启动心跳定时器
@@ -599,7 +619,7 @@ class LifecycleManager {
       return true;
     } catch (e) {
       Logger.error('初始化失败：$e');
-      _coreStateManager.setStopped(reason: '初始化失败');
+      _updateCoreState(CoreState.stopped); // '初始化失败');
       return false;
     }
   }
@@ -708,7 +728,7 @@ class LifecycleManager {
         await stopCore();
       } else {
         // 如果核心未运行，确保状态正确
-        _coreStateManager.setStopped(reason: '准备使用默认配置启动');
+        _updateCoreState(CoreState.stopped); // '准备使用默认配置启动');
         _actualPortsUsed = null;
       }
 
@@ -781,7 +801,7 @@ class LifecycleManager {
       return true;
     }
 
-    _coreStateManager.setStopping(reason: '开始停止核心');
+    _updateCoreState(CoreState.stopping); // '开始停止核心');
 
     try {
       // 先停止监控服务（优雅关闭 WebSocket 连接）
@@ -809,10 +829,11 @@ class LifecycleManager {
       }
 
       // 清理状态
-      _coreStateManager.setStopped(reason: '核心已停止');
+      _updateCoreState(CoreState.stopped); // '核心已停止');
       _actualPortsUsed = null;
       _coreVersion = 'Unknown';
       _currentStartMode = null;
+      _onStartModeChanged?.call(null);
 
       _notifyListeners();
       Logger.info('Clash 核心已停止');
@@ -822,8 +843,8 @@ class LifecycleManager {
       return false;
     } finally {
       // 确保状态正确
-      if (_coreStateManager.currentState == CoreState.stopping) {
-        _coreStateManager.setStopped(reason: '停止操作完成');
+      if (_coreState == CoreState.stopping) {
+        _updateCoreState(CoreState.stopped); // '停止操作完成');
       }
     }
   }

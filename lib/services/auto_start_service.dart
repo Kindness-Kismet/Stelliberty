@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/storage/preferences.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 开机自启动服务，跨平台单例实现
 // 支持 Windows、macOS 和 Linux

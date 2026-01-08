@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:stelliberty/clash/data/provider_model.dart';
+import 'package:stelliberty/clash/model/provider_model.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:intl/intl.dart';
 

@@ -1,6 +1,6 @@
-import 'package:stelliberty/clash/data/override_model.dart' as data;
+import 'package:stelliberty/clash/model/override_model.dart' as data;
 import 'package:stelliberty/clash/services/override_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 
 // 覆写应用器 - 负责将覆写应用到订阅配置

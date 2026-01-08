@@ -1,18 +1,25 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:stelliberty/clash/core/override_state.dart';
-import 'package:stelliberty/clash/data/override_model.dart';
+import 'package:stelliberty/clash/state/override_states.dart';
+import 'package:stelliberty/clash/model/override_model.dart';
 import 'package:stelliberty/clash/services/override_service.dart';
 import 'package:stelliberty/services/path_service.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 
 // 全局覆写管理 Provider
 class OverrideProvider extends ChangeNotifier {
   final OverrideService _service;
 
-  // 状态管理器
-  final OverrideStateManager _stateManager = OverrideStateManager.instance;
+  // 覆写状态（Provider 直接管理）
+  OverrideState _state = OverrideState.idle();
+  OverrideState get overrideState => _state;
+
+  // 更新状态并通知
+  void _updateState(OverrideState newState) {
+    _state = newState;
+    notifyListeners();
+  }
 
   // 全局覆写列表
   List<OverrideConfig> _overrides = [];
@@ -36,21 +43,25 @@ class OverrideProvider extends ChangeNotifier {
     Logger.debug('已设置覆写内容更新回调');
   }
 
-  // 状态委托给状态管理器
-  bool get isLoading => _stateManager.isLoading;
-  bool get isBatchUpdatingOverrides => _stateManager.isBatchUpdating;
-  String? get errorMessage => _stateManager.errorMessage;
+  bool get isLoading => _state.isLoading;
+  bool get isBatchUpdatingOverrides => _state.isBatchUpdating;
+  String? get errorMessage => _state.errorMessage;
 
   // 检查指定覆写是否正在更新
   bool isOverrideUpdating(String overrideId) {
-    return _stateManager.isOverrideUpdating(overrideId);
+    return _state.isOverrideUpdating(overrideId);
   }
 
   OverrideProvider(this._service);
 
   // 初始化 Provider
   Future<void> initialize() async {
-    _stateManager.setLoading(reason: '初始化覆写管理');
+    _updateState(
+      _state.copyWith(
+        operationState: OverrideOperationState.loading,
+        clearError: true,
+      ),
+    ); // '初始化覆写管理');
     notifyListeners();
 
     try {
@@ -58,15 +69,16 @@ class OverrideProvider extends ChangeNotifier {
       _overrides = await _loadOverrideList();
 
       Logger.info('覆写 Provider 初始化成功，共 ${_overrides.length} 个覆写');
-      _stateManager.setIdle(reason: '初始化完成');
+      _updateState(OverrideState.idle()); // '初始化完成');
     } catch (e) {
       final errorMsg = '初始化覆写失败: $e';
       Logger.error(errorMsg);
       _overrides = [];
-      _stateManager.setError(
-        errorState: OverrideErrorState.initializationError,
-        errorMessage: errorMsg,
-        reason: '初始化失败',
+      _updateState(
+        _state.copyWith(
+          errorState: OverrideErrorState.initializationError,
+          errorMessage: errorMsg,
+        ),
       );
     } finally {
       notifyListeners();
@@ -206,7 +218,9 @@ class OverrideProvider extends ChangeNotifier {
     }
 
     // 添加到更新中列表
-    _stateManager.addUpdatingOverride(overrideId, reason: '开始更新远程覆写');
+    _updateState(
+      _state.copyWith(updatingIds: {..._state.updatingIds, overrideId}),
+    ); // '开始更新远程覆写');
     notifyListeners();
 
     try {
@@ -226,14 +240,21 @@ class OverrideProvider extends ChangeNotifier {
       return true;
     } catch (e) {
       Logger.error('更新远程覆写失败：${override.name} - $e');
-      _stateManager.setError(
-        errorState: OverrideErrorState.networkError,
-        errorMessage: '更新远程覆写失败: $e',
-        reason: '远程覆写更新失败',
+      _updateState(
+        _state.copyWith(
+          errorState: OverrideErrorState.networkError,
+          errorMessage: '更新远程覆写失败: $e',
+        ),
       );
       return false;
     } finally {
-      _stateManager.removeUpdatingOverride(overrideId, reason: '更新完成');
+      _updateState(
+        _state.copyWith(
+          updatingIds: _state.updatingIds
+              .where((id) => id != overrideId)
+              .toSet(),
+        ),
+      ); // '更新完成');
       notifyListeners();
     }
   }
@@ -395,9 +416,12 @@ class OverrideProvider extends ChangeNotifier {
       return errors;
     }
 
-    _stateManager.setBatchUpdating(
-      total: remoteOverrides.length,
-      reason: '开始批量更新远程覆写',
+    _updateState(
+      _state.copyWith(
+        operationState: OverrideOperationState.batchUpdating,
+        updateTotal: remoteOverrides.length,
+        updateCurrent: 0,
+      ),
     );
     notifyListeners();
 
@@ -441,7 +465,7 @@ class OverrideProvider extends ChangeNotifier {
         }
       }
     } finally {
-      _stateManager.setIdle(reason: '批量更新完成');
+      _updateState(OverrideState.idle()); // '批量更新完成');
       notifyListeners();
     }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:stelliberty/clash/providers/override_provider.dart';
-import 'package:stelliberty/clash/data/override_model.dart';
+import 'package:stelliberty/clash/model/override_model.dart';
 import 'package:stelliberty/providers/content_provider.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/ui/widgets/file_editor_dialog.dart';
@@ -9,7 +9,7 @@ import 'package:stelliberty/ui/widgets/override/override_dialog.dart';
 import 'package:stelliberty/ui/widgets/override/override_card.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
 import 'package:stelliberty/ui/widgets/confirm_dialog.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/ui/widgets/modern_tooltip.dart';
 
 import 'package:stelliberty/ui/constants/spacing.dart';

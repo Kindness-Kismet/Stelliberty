@@ -2,14 +2,13 @@ import 'dart:io';
 import 'dart:async';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/tray/tray_event.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/service_provider.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
-import 'package:stelliberty/clash/manager/manager.dart';
 import 'package:stelliberty/i18n/i18n.dart';
-import 'package:stelliberty/services/permission_service.dart';
+import 'package:stelliberty/atomic/permission_checker.dart';
 
 // 系统托盘管理器,负责初始化、配置和生命周期管理
 class AppTrayManager {
@@ -35,10 +34,9 @@ class AppTrayManager {
     _clashProvider = provider;
     _eventHandler.setClashProvider(provider);
 
-    // 监听 ClashManager（系统代理和虚拟网卡状态）
-    // 注意：不监听 ClashProvider，避免双重触发
+    // 监听 ClashProvider 状态变化（ClashManager 不再是 ChangeNotifier）
     if (!_isListeningToClashManager) {
-      ClashManager.instance.addListener(_updateTrayMenuOnStateChange);
+      provider.addListener(_updateTrayMenuOnStateChange);
       _isListeningToClashManager = true;
     }
 
@@ -47,11 +45,12 @@ class AppTrayManager {
       Logger.info('设置托盘 ClashProvider，当前代理状态：${provider.isCoreRunning}');
 
       // 缓存 ClashManager 实例减少重复访问
-      final manager = ClashManager.instance;
+      final manager = provider.clashManager;
+      final configState = provider.configState;
       _proxyStateCache = provider.isCoreRunning; // 初始化缓存
       _systemProxyStateCache = manager.isSystemProxyEnabled;
-      _tunStateCache = manager.isTunEnabled;
-      _outboundModeCache = manager.outboundMode; // 初始化出站模式缓存
+      _tunStateCache = configState.isTunEnabled;
+      _outboundModeCache = configState.outboundMode; // 初始化出站模式缓存
 
       // 获取订阅状态
       final hasSubscription =
@@ -59,7 +58,7 @@ class AppTrayManager {
       _subscriptionStateCache = hasSubscription;
 
       _updateTrayMenu(provider.isCoreRunning, hasSubscription);
-      _updateTrayIcon(manager.isSystemProxyEnabled, manager.isTunEnabled);
+      _updateTrayIcon(manager.isSystemProxyEnabled, configState.isTunEnabled);
     }
   }
 
@@ -92,9 +91,10 @@ class AppTrayManager {
           _subscriptionProvider!.getSubscriptionConfigPath() != null;
 
       // 获取系统代理和 TUN 状态
-      final manager = ClashManager.instance;
+      final manager = _clashProvider!.clashManager;
+      final configState = _clashProvider!.configState;
       final isSystemProxyEnabled = manager.isSystemProxyEnabled;
-      final isTunEnabled = manager.isTunEnabled;
+      final isTunEnabled = configState.isTunEnabled;
 
       // 清除 TUN 可用性缓存，强制重新检查（用于服务安装/卸载后）
       _tunAvailableCache = null;
@@ -118,10 +118,11 @@ class AppTrayManager {
       final currentProxyState = _clashProvider!.isCoreRunning;
 
       // 缓存 ClashManager 实例减少重复访问
-      final manager = ClashManager.instance;
+      final manager = _clashProvider!.clashManager;
+      final configState = _clashProvider!.configState;
       final currentSystemProxyState = manager.isSystemProxyEnabled;
-      final currentTunState = manager.isTunEnabled;
-      final currentOutboundMode = manager.outboundMode;
+      final currentTunState = configState.isTunEnabled;
+      final currentOutboundMode = configState.outboundMode;
       final currentSubscriptionState =
           _subscriptionProvider!.getSubscriptionConfigPath() != null;
 
@@ -210,15 +211,16 @@ class AppTrayManager {
   ) async {
     try {
       // 获取系统代理实际状态
-      final manager = ClashManager.instance;
+      final manager = _clashProvider!.clashManager;
+      final configState = _clashProvider!.configState;
       final isSystemProxyEnabled = manager.isSystemProxyEnabled;
-      final isTunEnabled = manager.isTunEnabled;
+      final isTunEnabled = configState.isTunEnabled;
 
       // 检查虚拟网卡模式是否可用(需管理员权限或服务模式)
       final isTunAvailable = await _checkTunAvailable();
 
       // 获取当前出站模式
-      final currentOutboundMode = manager.outboundMode;
+      final currentOutboundMode = configState.outboundMode;
 
       // 检查窗口是否可见
       bool isWindowVisible = false;
@@ -391,10 +393,9 @@ class AppTrayManager {
       if (_subscriptionProvider != null) {
         _subscriptionProvider!.removeListener(_updateTrayMenuOnStateChange);
       }
-      if (_isListeningToClashManager) {
-        ClashManager.instance.removeListener(_updateTrayMenuOnStateChange);
-        _isListeningToClashManager = false;
-      }
+      // _isListeningToClashManager 标志现在用于 ClashProvider 监听
+      _isListeningToClashManager = false;
+
       trayManager.removeListener(_eventHandler);
       await trayManager.destroy();
       _isInitialized = false;

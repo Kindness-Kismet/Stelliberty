@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:stelliberty/providers/window_effect_provider.dart';
-import 'package:stelliberty/utils/window_state.dart';
-import 'package:stelliberty/utils/logger.dart';
+import 'package:stelliberty/services/window_state_service.dart';
+import 'package:stelliberty/services/log_print_service.dart';
 import 'package:stelliberty/storage/preferences.dart';
 
 // 自定义标题栏组件
