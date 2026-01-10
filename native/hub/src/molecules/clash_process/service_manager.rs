@@ -427,6 +427,14 @@ impl ServiceManager {
             }
         }
 
+        // 通知 Dart 端核心已停止
+        ClashProcessResult {
+            is_successful: true,
+            error_message: None,
+            pid: None,
+        }
+        .send_signal_to_dart();
+
         // 只有卸载成功后才删除私有目录中的服务二进制文件
         self.remove_service_binary_from_private().await?;
 

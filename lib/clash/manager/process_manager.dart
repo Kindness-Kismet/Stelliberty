@@ -55,8 +55,6 @@ class ProcessManager {
         '端口已释放 (${portsToRelease.join(", ")}) - 耗时：${stopwatch.elapsedMilliseconds}ms',
       );
     }
-
-    Logger.info('Clash 进程已停止');
   }
 
   // 确保端口可用（如果被占用则尝试清理）
@@ -64,14 +62,23 @@ class ProcessManager {
     // 批量检查所有端口（一次 netstat）
     final portStatus = await _service.checkMultiplePorts(ports);
 
+    final availablePorts = <int>[];
+    final occupiedPorts = <int>[];
+
     for (final port in ports) {
       final isInUse = portStatus[port] ?? false;
-
-      if (!isInUse) {
-        Logger.debug('端口 $port 可用');
-        continue;
+      if (isInUse) {
+        occupiedPorts.add(port);
+      } else {
+        availablePorts.add(port);
       }
+    }
 
+    if (availablePorts.isNotEmpty) {
+      Logger.debug('端口检查通过：${availablePorts.join(", ")}');
+    }
+
+    for (final port in occupiedPorts) {
       // 端口被占用，尝试清理（最多3次）
       for (int attempt = 1; attempt <= 3; attempt++) {
         Logger.warning('端口 $port 被占用（尝试 $attempt/3），查找并终止占用进程…');

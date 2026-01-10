@@ -81,10 +81,12 @@ class ServiceManager {
           );
 
       if (signal.message.isSuccessful) {
-        Logger.info('服务安装成功');
-
         // 等待服务完全就绪
         await Future.delayed(const Duration(seconds: 2));
+
+        // 立即刷新服务状态
+        await refreshStatus();
+        Logger.debug('服务状态已刷新为：$_cachedState');
 
         // 手动触发托盘菜单更新（服务安装后 TUN 菜单应变为可用）
         AppTrayManager().updateTrayMenuManually();
@@ -169,21 +171,24 @@ class ServiceManager {
           );
 
       if (signal.message.isSuccessful) {
-        Logger.info('服务卸载成功');
+        // 立即刷新服务状态
+        await refreshStatus();
+        Logger.debug('服务状态已刷新为：$_cachedState');
 
-        // 停止服务心跳定时器（Rust 端已停止核心，但 Dart 端的心跳定时器还在运行）
+        // 停止服务心跳定时器
         ClashManager.instance.stopServiceHeartbeat();
 
-        // 手动触发托盘菜单更新（服务卸载后 TUN 菜单应变为不可用）
+        // 强制重置核心状态
+        ClashManager.instance.forceResetCoreState();
+        Logger.debug('核心状态已强制重置为 stopped');
+
+        // 手动触发托盘菜单更新
         AppTrayManager().updateTrayMenuManually();
 
         // 如果卸载前核心在运行，以普通模式重启
         if (wasRunningBefore && currentConfigPath != null) {
           Logger.info('以普通模式重启核心...');
           try {
-            // 重置 Dart 端状态后再以普通模式启动
-            await ClashManager.instance.stopCore();
-
             final overrides = ClashManager.instance.getOverrides();
             await ClashManager.instance.startCore(
               configPath: currentConfigPath,

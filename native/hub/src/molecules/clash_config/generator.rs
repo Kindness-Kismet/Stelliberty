@@ -105,20 +105,31 @@ fn log_config_summary(config_yaml: &str) {
                 }
             }
 
-            // 输出代理节点数量
-            if let Some(proxies) = config.get("proxies").and_then(|v| v.as_sequence()) {
-                log::info!("代理节点：{} 个", proxies.len());
-            }
+            // 输出配置统计
+            let proxy_count = config
+                .get("proxies")
+                .and_then(|v| v.as_sequence())
+                .map(|s| s.len())
+                .unwrap_or(0);
 
-            // 输出代理组数量
-            if let Some(groups) = config.get("proxy-groups").and_then(|v| v.as_sequence()) {
-                log::info!("代理组：{} 个", groups.len());
-            }
+            let group_count = config
+                .get("proxy-groups")
+                .and_then(|v| v.as_sequence())
+                .map(|s| s.len())
+                .unwrap_or(0);
 
-            // 输出规则数量
-            if let Some(rules) = config.get("rules").and_then(|v| v.as_sequence()) {
-                log::info!("路由规则：{} 条", rules.len());
-            }
+            let rule_count = config
+                .get("rules")
+                .and_then(|v| v.as_sequence())
+                .map(|s| s.len())
+                .unwrap_or(0);
+
+            log::info!(
+                "配置统计：节点={}, 代理组={}, 规则={}",
+                proxy_count,
+                group_count,
+                rule_count
+            );
         }
         Err(e) => {
             log::warn!("无法解析配置进行摘要输出：{}", e);

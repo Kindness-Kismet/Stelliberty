@@ -304,7 +304,6 @@ class WindowExitHandler {
         // 先禁用系统代理，再停止核心
         await ClashManager.instance.disableSystemProxy();
         await ClashManager.instance.stopCore();
-        Logger.info('Clash 进程已停止');
       }
     } catch (e) {
       Logger.error('停止 Clash 进程时出错：$e');

@@ -219,7 +219,8 @@ class LifecycleManager {
 
       if (serviceAvailable) {
         // 服务模式启动
-        Logger.info('使用服务模式启动 Clash 核心');
+        final serviceState = ServiceManager.instance.cachedState;
+        Logger.info('使用服务模式启动 Clash 核心（状态：$serviceState）');
         isStartSuccessful = await _startWithService(
           runtimeConfigPath,
           externalController,
@@ -422,9 +423,6 @@ class LifecycleManager {
       // 使用 ServiceManager 单例
       final serviceManager = ServiceManager.instance;
       final isServiceModeInstalled = serviceManager.isServiceModeInstalled;
-      final status = serviceManager.cachedState;
-
-      Logger.debug('检查服务状态：服务模式已安装=$isServiceModeInstalled，状态=$status');
 
       // 关键：只要服务已安装（stopped 或 running 都可以），就可以使用服务模式
       // 因为通过 IPC 发送 StartClash 命令时，服务会自动启动
@@ -942,8 +940,8 @@ class LifecycleManager {
     }
   }
 
-  // 强制重置进程状态（服务安装/卸载时调用）
-  void forceResetState() {
+  // 强制重置核心状态（服务安装/卸载时调用）
+  void forceResetCoreState() {
     _updateCoreState(CoreState.stopped);
     _actualPortsUsed = null;
   }

@@ -219,9 +219,9 @@ class ClashManager {
     return await _lifecycleManager.stopCore();
   }
 
-  // 强制重置进程状态（服务安装/卸载时调用）
-  void forceResetProcessState() {
-    _lifecycleManager.forceResetState();
+  // 强制重置核心状态（服务安装/卸载时调用）
+  void forceResetCoreState() {
+    _lifecycleManager.forceResetCoreState();
   }
 
   // 启动服务心跳定时器（仅服务模式使用，代理方法）

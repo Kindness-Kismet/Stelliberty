@@ -471,35 +471,37 @@ async fn ensure_ws_client_initialized() {
 }
 
 // 清理 IPC 连接池（在 Clash 停止时调用）
-pub async fn cleanup_ipc_connection_pool() {
+pub async fn cleanup_ipc_connection_pool() -> usize {
     let mut pool = IPC_CONNECTION_POOL.write().await;
     let count = pool.len();
     pool.clear();
-    if count > 0 {
-        log::info!("已清理 IPC 连接池（{}个连接）", count);
-    }
+    count
 }
 
 // 清理 WebSocket 客户端（在 Clash 停止时调用）
-pub async fn cleanup_ws_client() {
+pub async fn cleanup_ws_client() -> bool {
     let mut client_guard = WS_CLIENT.write().await;
     if let Some(ws_client) = client_guard.take() {
         ws_client.disconnect_all().await;
-        log::info!("WebSocket 客户端已清理");
+        true
+    } else {
+        false
     }
 }
 
 // 清理所有网络资源（在 Clash 停止时调用的统一入口）
 pub async fn cleanup_all_network_resources() {
-    log::info!("开始清理所有网络资源");
-
     // 1. 清理 WebSocket 连接
-    cleanup_ws_client().await;
+    let ws_cleaned = cleanup_ws_client().await;
 
     // 2. 清理 IPC 连接池
-    cleanup_ipc_connection_pool().await;
+    let ipc_count = cleanup_ipc_connection_pool().await;
 
-    log::info!("所有网络资源已清理");
+    log::info!(
+        "网络资源已清理（WebSocket={}, IPC连接池={}个）",
+        if ws_cleaned { "是" } else { "否" },
+        ipc_count
+    );
 }
 
 // GET 请求处理器
