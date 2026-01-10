@@ -149,6 +149,15 @@ impl IpcServer {
         let listener = UnixListener::bind(IPC_PATH)
             .map_err(|e| IpcError::Other(format!("创建 Unix Socket 失败: {}", e)))?;
 
+        // 设置 Unix Socket 文件权限为 0600（仅所有者可读写）
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(IPC_PATH, std::fs::Permissions::from_mode(0o600))
+                .map_err(|e| IpcError::Other(format!("设置 Unix Socket 权限失败: {}", e)))?;
+            log::info!("Unix Socket 权限已设置为 0600（仅所有者可读写）");
+        }
+
         loop {
             tokio::select! {
                 // 接受新连接
@@ -321,21 +330,21 @@ impl Drop for SecurityDescriptorWrapper {
 }
 
 #[cfg(windows)]
-// 创建允许已认证用户访问的安全描述符
+// 创建限制性安全描述符（仅允许当前用户、管理员和系统访问）
 //
 // SDDL 字符串说明：
 // - D: = DACL（访问控制列表）
-// - (A;;GA;;;AU) = 允许 (A)，通用访问 (GA)，已认证用户 (AU)
+// - (A;;GA;;;CO) = 允许 (A)，通用访问 (GA)，创建者所有者 (CO) - 即当前用户
 // - (A;;GA;;;BA) = 允许 (A)，通用访问 (GA)，管理员组 (BA)
 // - (A;;GA;;;SY) = 允许 (A)，通用访问 (GA)，系统 (SY)
 //
-// 这比允许 Everyone (WD) 更安全，因为排除了匿名用户
+// 注意：移除了 AU（已认证用户），只允许创建者、管理员和系统访问
 fn create_permissive_security_attributes() -> std::result::Result<SecurityDescriptorWrapper, String>
 {
     use windows::core::PCWSTR;
 
-    // SDDL 字符串：允许已认证用户、管理员和系统访问
-    let sddl = "D:(A;;GA;;;AU)(A;;GA;;;BA)(A;;GA;;;SY)";
+    // SDDL 字符串：只允许创建者所有者、管理员和系统访问
+    let sddl = "D:(A;;GA;;;CO)(A;;GA;;;BA)(A;;GA;;;SY)";
 
     let sddl_wide: Vec<u16> = sddl.encode_utf16().chain(std::iter::once(0)).collect();
 
@@ -351,7 +360,7 @@ fn create_permissive_security_attributes() -> std::result::Result<SecurityDescri
         .map_err(|e| format!("创建安全描述符失败: {e}"))?;
     }
 
-    log::info!("创建安全描述符成功（允许已认证用户访问）");
+    log::info!("创建安全描述符成功（仅允许创建者所有者、管理员和系统访问）");
     Ok(SecurityDescriptorWrapper(security_descriptor))
 }
 

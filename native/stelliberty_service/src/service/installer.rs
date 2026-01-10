@@ -389,13 +389,27 @@ After=network.target
 
 [Service]
 Type=simple
-UMask=0000
+UMask=0077
 ExecStart={binary_path}
 Restart=on-failure
 RestartSec=5s
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=stelliberty
+
+# 安全加固：限制服务权限
+# 只授予 Clash 核心所需的最小权限集
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SYS_TIME CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE CAP_SYS_TIME CAP_SYS_PTRACE CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE
+
+# 权限说明：
+# CAP_NET_ADMIN: 网络管理（TUN 设备、路由表）
+# CAP_NET_RAW: 原始套接字（ICMP、透明代理）
+# CAP_NET_BIND_SERVICE: 绑定特权端口（< 1024）
+# CAP_SYS_TIME: 修改系统时间（NTP 同步）
+# CAP_SYS_PTRACE: 进程追踪（find-process-mode）
+# CAP_DAC_READ_SEARCH: 读取文件权限绕过（配置文件）
+# CAP_DAC_OVERRIDE: 写入文件权限绕过（日志文件）
 
 [Install]
 WantedBy=multi-user.target
@@ -716,6 +730,8 @@ fn get_launchd_plist(binary_path: &str) -> String {
     <true/>
     <key>KeepAlive</key>
     <true/>
+    <key>Umask</key>
+    <integer>63</integer>
     <key>StandardOutPath</key>
     <string>/var/log/stelliberty-service.log</string>
     <key>StandardErrorPath</key>

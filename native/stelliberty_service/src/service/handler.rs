@@ -26,6 +26,7 @@ pub fn create_handler(
                     external_controller,
                 } => {
                     log::info!("收到启动 Clash 命令");
+
                     let mut manager = clash_manager.write().await;
                     match manager.start(core_path, config_path, data_dir, external_controller) {
                         Ok(()) => {
