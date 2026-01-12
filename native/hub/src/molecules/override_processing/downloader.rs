@@ -1,7 +1,7 @@
 // 覆写文件下载器
 // 处理覆写文件的 HTTP 下载，支持多种代理模式
 
-use crate::molecules::subscription_management::ProxyMode;
+use crate::molecules::ProxyMode;
 use reqwest::Client;
 use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};

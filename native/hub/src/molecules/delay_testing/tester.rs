@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::{spawn, sync::Semaphore};
 
-use crate::molecules::clash_network::handlers::internal_ipc_get;
+use crate::atoms::IpcClient;
 
 // Dart → Rust：单节点延迟测试请求
 #[derive(Deserialize, DartSignal)]
@@ -237,7 +237,7 @@ async fn test_single_node(node_name: &str, test_url: &str, timeout_ms: u32) -> i
     log::debug!("测试节点延迟：{}", node_name);
 
     // 发送 IPC GET 请求
-    match internal_ipc_get(&path).await {
+    match IpcClient::get(&path).await {
         Ok(body) => {
             // 解析 JSON 响应：{"delay": 123}
             match serde_json::from_str::<serde_json::Value>(&body) {

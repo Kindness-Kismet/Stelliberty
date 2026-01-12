@@ -3,7 +3,7 @@
 pub mod clash_coordinator;
 pub mod system_coordinator;
 
-pub use clash_coordinator::ClashCoordinator;
+pub use clash_coordinator::{cleanup_network_resources, ClashCoordinator};
 pub use system_coordinator::SystemCoordinator;
 
 pub fn init_all() {

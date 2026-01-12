@@ -6,8 +6,8 @@ use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 
 use super::runtime_params::RuntimeConfigParams;
+use crate::atoms::OverrideProcessor;
 use crate::molecules::OverrideConfig;
-use crate::molecules::override_processing::OverrideProcessor;
 
 // Dart → Rust：生成运行时配置请求
 #[derive(Debug, Clone, Serialize, Deserialize, DartSignal)]

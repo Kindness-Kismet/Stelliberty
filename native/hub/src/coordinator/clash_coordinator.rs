@@ -47,3 +47,8 @@ pub fn init() {
 pub fn cleanup() {
     clash_process::cleanup();
 }
+
+// 清理所有网络资源（供其他分子通过协调层调用）
+pub async fn cleanup_network_resources() {
+    clash_network::cleanup_all_network_resources().await;
+}

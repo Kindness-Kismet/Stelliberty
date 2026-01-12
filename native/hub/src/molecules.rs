@@ -11,4 +11,4 @@ pub mod subscription_management;
 pub mod system_operations;
 
 // 导出共享类型，方便其他分子使用
-pub use shared_types::{OverrideConfig, OverrideFormat};
+pub use shared_types::{OverrideConfig, OverrideFormat, ProxyMode};

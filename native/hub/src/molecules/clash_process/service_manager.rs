@@ -2,7 +2,6 @@
 //
 // 通过 Windows Service/systemd 以管理员权限运行 Clash 核心
 
-use crate::molecules::clash_network::handlers::cleanup_all_network_resources;
 use crate::molecules::clash_process::process_manager::ClashProcessResult;
 use anyhow::{Context, Result};
 use rinf::{DartSignal, RustSignal};
@@ -365,8 +364,7 @@ impl ServiceManager {
         log::info!("卸载 Stelliberty Service…");
 
         // 卸载前先清理网络资源（避免 WebSocket 异常断开）
-        log::info!("卸载前清理网络资源...");
-        cleanup_all_network_resources().await;
+        // 注意：网络资源会通过连接池健康检查自动清理
 
         // 执行卸载命令（会弹 UAC，用户可能取消）
         // uninstall 命令会自动停止服务进程（包括 Clash 核心）
@@ -878,14 +876,6 @@ impl UninstallService {
             Ok(()) => {
                 log::info!("服务卸载成功");
 
-                // 清理网络资源（连接已失效）
-                tokio::spawn(async {
-                    log::info!("开始清理网络资源（服务卸载）");
-                    crate::molecules::clash_network::handlers::cleanup_all_network_resources()
-                        .await;
-                    log::info!("网络资源清理完成（服务卸载）");
-                });
-
                 // 清理进程管理器状态
                 crate::molecules::clash_process::process_manager::cleanup_process_manager().await;
 
@@ -973,14 +963,6 @@ impl StopClash {
         match service_manager.stop_clash().await {
             Ok(()) => {
                 log::info!("通过服务停止 Clash 成功");
-
-                // 异步清理网络资源（IPC 连接池和 WebSocket）
-                tokio::spawn(async {
-                    log::info!("开始清理网络资源（服务模式）");
-                    crate::molecules::clash_network::handlers::cleanup_all_network_resources()
-                        .await;
-                    log::info!("网络资源清理完成（服务模式）");
-                });
 
                 ClashProcessResult {
                     is_successful: true,

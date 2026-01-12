@@ -1,18 +1,11 @@
 // 订阅下载器
 // 处理订阅配置的 HTTP 下载，支持多种代理模式
 
+use crate::molecules::ProxyMode;
 use reqwest::{Client, Proxy};
 use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-
-// 代理模式
-#[derive(Deserialize, Serialize, Clone, Copy, Debug, rinf::SignalPiece)]
-pub enum ProxyMode {
-    Direct = 0, // 直连
-    System = 1, // 系统代理
-    Core = 2,   // Clash 核心代理
-}
 
 // Dart → Rust：下载订阅请求
 #[derive(Deserialize, DartSignal)]

@@ -3,9 +3,7 @@
 pub mod downloader;
 pub mod parser;
 
-pub use downloader::{
-    DownloadSubscriptionRequest, DownloadSubscriptionResponse, ProxyMode, SubscriptionInfoData,
-};
+pub use downloader::{DownloadSubscriptionRequest, DownloadSubscriptionResponse, SubscriptionInfoData};
 pub use parser::ProxyParser;
 
 pub fn init_listeners() {
