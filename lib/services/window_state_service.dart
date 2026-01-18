@@ -297,7 +297,6 @@ class WindowExitHandler {
     AppTrayManager().beginExit();
 
     try {
-      // 1. 先停止 Clash 进程（最重要）
       if (ClashManager.instance.isCoreRunning) {
         Logger.info('正在停止 Clash 进程...');
         // 先禁用系统代理，再停止核心
@@ -308,21 +307,29 @@ class WindowExitHandler {
       Logger.error('停止 Clash 进程时出错：$e');
     }
 
-    // 2. 保存窗口状态
+    // 保存窗口状态
     try {
       await WindowStateManager.saveStateOnClose();
     } catch (e) {
       Logger.error('保存窗口状态失败：$e');
     }
 
-    // 3. 清理窗口监听器，防止内存泄漏
+    // 清理窗口监听器，防止内存泄漏
     try {
       AppWindowListener().dispose();
     } catch (e) {
       Logger.error('清理窗口监听器失败：$e');
     }
 
-    // 4. 关闭 Rust 异步运行时
+    // 销毁托盘图标
+    try {
+      await AppTrayManager().dispose();
+      Logger.info('托盘图标已销毁');
+    } catch (e) {
+      Logger.error('销毁托盘图标失败：$e');
+    }
+
+    // 关闭 Rust 异步运行时
     try {
       finalizeRust();
       Logger.info('Rust 运行时已关闭');
@@ -330,7 +337,7 @@ class WindowExitHandler {
       Logger.error('关闭 Rust 运行时失败：$e');
     }
 
-    // 5. 退出应用
+    // 退出应用
     Logger.info('应用即将退出');
     exit(0);
   }
