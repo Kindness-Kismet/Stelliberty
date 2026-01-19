@@ -200,8 +200,8 @@ class _TunConfigCardState extends State<TunConfigCard> {
             configPath: currentConfig,
             overrides: overrides,
           );
-        } catch (e2) {
-          Logger.error('恢复核心失败：$e2');
+        } catch (e) {
+          Logger.error('恢复核心失败：$e');
         }
       }
 

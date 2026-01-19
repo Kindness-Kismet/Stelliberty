@@ -242,8 +242,8 @@ class _ClashInfoCardState extends State<ClashInfoCard> {
           Logger.info('文件替换失败，重新启动旧核心');
           await Future.delayed(const Duration(milliseconds: 500));
           await clashProvider.start(configPath: currentConfigPath);
-        } catch (restartError) {
-          Logger.error('重启核心失败: $restartError');
+        } catch (e) {
+          Logger.error('重启核心失败: $e');
         }
       }
 

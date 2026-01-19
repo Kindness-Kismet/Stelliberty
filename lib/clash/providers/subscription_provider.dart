@@ -51,7 +51,11 @@ class SubscriptionProvider extends ChangeNotifier {
     if (_currentSubscriptionId == null) return null;
     try {
       return _subscriptions.firstWhere((s) => s.id == _currentSubscriptionId);
-    } catch (_) {
+    } catch (e) {
+      assert(() {
+        Logger.debug('当前订阅查找失败：$e');
+        return true;
+      }());
       return null;
     }
   }

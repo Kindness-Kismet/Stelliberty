@@ -395,12 +395,12 @@ class _OverrideDialogState extends State<OverrideDialog> {
             );
           }
         }
-      } catch (error) {
-        Logger.error('添加时发生异常: $error');
+      } catch (e) {
+        Logger.error('添加时发生异常: $e');
         if (!mounted) return;
         setState(() => _isLoading = false);
         ModernToast.error(
-          trans.kOverride.add_failed.replaceAll('{error}', error.toString()),
+          trans.kOverride.add_failed.replaceAll('{error}', e.toString()),
         );
       }
     } else {

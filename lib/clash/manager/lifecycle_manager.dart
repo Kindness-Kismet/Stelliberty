@@ -551,8 +551,8 @@ class LifecycleManager {
           timeout: Duration(seconds: ClashDefaults.processKillTimeout),
           portsToRelease: portsToRelease,
         );
-      } catch (stopError) {
-        Logger.warning('清理失败的进程时出错：$stopError');
+      } catch (e) {
+        Logger.warning('清理失败的进程时出错：$e');
       }
 
       _actualPortsUsed = null;

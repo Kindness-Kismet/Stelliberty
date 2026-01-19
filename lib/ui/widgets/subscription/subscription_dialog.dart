@@ -535,10 +535,10 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
         try {
           success = await widget.onConfirm!(result);
-        } catch (error) {
+        } catch (e) {
           success = false;
-          errorMessage = error.toString();
-          Logger.error('订阅操作异常: $error');
+          errorMessage = e.toString();
+          Logger.error('订阅操作异常: $e');
         }
 
         if (!mounted) return;
@@ -570,14 +570,14 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
           Navigator.of(context).pop(result);
         }
       }
-    } catch (error) {
-      Logger.error('对话框确认操作异常: $error');
+    } catch (e) {
+      Logger.error('对话框确认操作异常: $e');
       if (mounted) {
         setState(() => _isLoading = false);
         ModernToast.error(
           trans.subscription_dialog.operation_error.replaceAll(
             '{error}',
-            error.toString(),
+            e.toString(),
           ),
         );
       }

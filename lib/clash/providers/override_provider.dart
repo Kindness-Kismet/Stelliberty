@@ -504,7 +504,11 @@ class OverrideProvider extends ChangeNotifier {
   OverrideConfig? getOverrideById(String id) {
     try {
       return _overrides.firstWhere((o) => o.id == id);
-    } catch (_) {
+    } catch (e) {
+      assert(() {
+        Logger.debug('未找到覆写：$e');
+        return true;
+      }());
       return null;
     }
   }

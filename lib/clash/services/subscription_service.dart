@@ -398,8 +398,8 @@ class SubscriptionService {
         Logger.info('已将备份数据恢复到主文件');
 
         return subscriptions;
-      } catch (backupError) {
-        Logger.error('备份文件也损坏：$backupError');
+      } catch (e) {
+        Logger.error('备份文件也损坏：$e');
         Logger.error('订阅数据无法恢复，请检查文件：$listPath');
         return [];
       }

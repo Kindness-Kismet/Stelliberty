@@ -648,11 +648,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           );
         },
       );
-    } catch (error) {
+    } catch (e) {
       if (!context.mounted) return;
 
       ModernToast.error(
-        trans.file_editor.read_error.replaceAll('{error}', error.toString()),
+        trans.file_editor.read_error.replaceAll('{error}', e.toString()),
       );
     }
   }
@@ -700,11 +700,11 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         hideSubtitle: false, // 显示文件名
         onSave: null, // 只读模式无需保存回调
       );
-    } catch (error) {
+    } catch (e) {
       if (!context.mounted) return;
 
       ModernToast.error(
-        trans.file_editor.read_error.replaceAll('{error}', error.toString()),
+        trans.file_editor.read_error.replaceAll('{error}', e.toString()),
       );
     }
   }
