@@ -26,6 +26,8 @@ class PathService {
   late final String _overrideListPathCache;
   late final String _dnsConfigPathCache;
   late final String _pacFilePathCache;
+  late final String _preferencesFilePathCache;
+  late final String _devPreferencesFilePathCache;
   late final String _clashCoreBasePathCache;
   late final String _clashCoreDataPathCache;
 
@@ -39,6 +41,8 @@ class PathService {
   static const String _overrideListFileName = 'overrides_list.json';
   static const String _dnsConfigName = 'dns_config.yaml';
   static const String _pacFileName = 'stelliberty_proxy.pac';
+  static const String _preferencesFileName = 'settings_preferences.json';
+  static const String _devPreferencesFileName = 'settings_preferences_dev.json';
 
   // 订阅目录路径（缓存），存储所有订阅配置文件
   String get subscriptionsDir => _subscriptionsDirCache;
@@ -60,6 +64,12 @@ class PathService {
 
   // PAC 文件路径（缓存），用于系统代理 PAC 模式
   String get pacFilePath => _pacFilePathCache;
+
+  // 应用配置文件路径（缓存），用于桌面端便携式存储
+  String get preferencesFilePath => _preferencesFilePathCache;
+
+  // 开发模式配置文件路径（缓存）
+  String get devPreferencesFilePath => _devPreferencesFilePathCache;
 
   // Clash 核心基础目录路径（缓存）
   // 路径：{exeDir}/data/flutter_assets/assets/clash-core
@@ -112,6 +122,11 @@ class PathService {
     );
     _dnsConfigPathCache = path.join(appDataPath, _dnsConfigName);
     _pacFilePathCache = path.join(appDataPath, _pacFileName);
+    _preferencesFilePathCache = path.join(appDataPath, _preferencesFileName);
+    _devPreferencesFilePathCache = path.join(
+      appDataPath,
+      _devPreferencesFileName,
+    );
 
     // Clash 核心路径（基于可执行文件目录）
     final exeDir = path.dirname(Platform.resolvedExecutable);

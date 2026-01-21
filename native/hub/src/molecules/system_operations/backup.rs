@@ -128,6 +128,20 @@ impl RestoreBackupRequest {
 
 // 备份版本
 const BACKUP_VERSION: &str = "1.0.0";
+const EXCLUDED_PREFERENCE_KEYS: [&str; 12] = [
+    "auto_start_enabled",
+    "clash_tun_enable",
+    "clash_tun_stack",
+    "clash_tun_device",
+    "clash_tun_auto_route",
+    "clash_tun_auto_redirect",
+    "clash_tun_auto_detect_interface",
+    "clash_tun_dns_hijack",
+    "clash_tun_strict_route",
+    "clash_tun_route_exclude_address",
+    "clash_tun_disable_icmp_forwarding",
+    "clash_tun_mtu",
+];
 
 // 备份数据结构
 #[derive(Serialize, Deserialize, Debug)]
@@ -302,7 +316,10 @@ async fn collect_preferences(
     }
 
     let content = async_fs::read_to_string(path).await?;
-    let prefs: HashMap<String, serde_json::Value> = serde_json::from_str(&content)?;
+    let mut prefs: HashMap<String, serde_json::Value> = serde_json::from_str(&content)?;
+    for key in EXCLUDED_PREFERENCE_KEYS {
+        prefs.remove(key);
+    }
     Ok(prefs)
 }
 
@@ -396,7 +413,28 @@ async fn restore_preferences(
     prefs: &HashMap<String, serde_json::Value>,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    let json_str = serde_json::to_string_pretty(prefs)?;
+    let mut merged_prefs = prefs.clone();
+    if Path::new(path).exists() {
+        match async_fs::read_to_string(path).await {
+            Ok(content) => match serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) {
+                Ok(existing_prefs) => {
+                    for key in EXCLUDED_PREFERENCE_KEYS {
+                        if let Some(value) = existing_prefs.get(key) {
+                            merged_prefs.insert(key.to_string(), value.clone());
+                        }
+                    }
+                }
+                Err(e) => {
+                    log::warn!("读取现有配置失败：{}", e);
+                }
+            },
+            Err(e) => {
+                log::warn!("读取现有配置失败：{}", e);
+            }
+        }
+    }
+
+    let json_str = serde_json::to_string_pretty(&merged_prefs)?;
 
     if let Some(parent) = Path::new(path).parent() {
         async_fs::create_dir_all(parent).await?;

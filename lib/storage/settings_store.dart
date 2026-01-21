@@ -1,71 +1,87 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:stelliberty/services/path_service.dart';
 import 'package:stelliberty/services/log_print_service.dart';
 
-// 开发者偏好管理器（Dev 模式专用）
-// 使用 JSON 文件存储在运行目录，方便开发调试
-class DeveloperPreferences {
-  DeveloperPreferences._();
+// 设置偏好 JSON 存储
+class SettingsStore {
+  SettingsStore._();
 
-  static DeveloperPreferences? _instance;
-  static DeveloperPreferences get instance =>
-      _instance ??= DeveloperPreferences._();
+  static SettingsStore? _instance;
+  static SettingsStore get instance => _instance ??= SettingsStore._();
 
   Map<String, dynamic> _data = {};
   File? _file;
+  String? _filePath;
   bool _isInitialized = false;
-  bool _isInitializing = false; // 正在初始化标志
+  bool _isInitializing = false;
 
-  // 检查是否为 Dev 模式
-  static bool get isDevMode => kDebugMode || kProfileMode;
-
-  // 初始化
-  Future<void> init() async {
-    // 已经初始化过或正在初始化，跳过
+  // 初始化并加载配置文件
+  Future<void> init(String filePath) async {
     if (_isInitialized || _isInitializing) {
+      if (_filePath != null && _filePath != filePath) {
+        throw Exception('SettingsStore 已使用其他路径初始化');
+      }
       return;
     }
 
-    if (!isDevMode) {
-      Logger.warning('非 Dev 模式，不应使用 DeveloperPreferences');
-      return;
-    }
-
-    _isInitializing = true; // 标记开始初始化
+    _isInitializing = true;
+    _filePath = filePath;
 
     try {
-      final dataPath = PathService.instance.appDataPath;
-      _file = File('$dataPath/shared_preferences_dev.json');
-
-      // 读取配置文件
-      if (await _file!.exists()) {
-        try {
-          final content = await _file!.readAsString();
-          _data = json.decode(content) as Map<String, dynamic>;
-          Logger.info('Dev 模式配置已加载：${_file!.path}');
-        } catch (e) {
-          Logger.error('读取 Dev 配置失败：$e，将使用默认配置');
-          _data = {};
-        }
-      } else {
-        Logger.info('Dev 配置文件不存在，创建新文件：${_file!.path}');
-        _data = {};
-        // 立即创建默认配置文件
-        await _save();
-      }
+      _file = File(filePath);
+      await _loadFromFile();
 
       _isInitialized = true;
     } finally {
-      _isInitializing = false; // 无论成功失败都清除初始化标志
+      _isInitializing = false;
+    }
+  }
+
+  Future<void> reload() async {
+    if (!_isInitialized) {
+      throw Exception('SettingsStore 未初始化，请先调用 init()');
+    }
+    await _reload();
+  }
+
+  Future<void> _reload() async {
+    if (_isInitializing) return;
+    _isInitializing = true;
+    try {
+      if (_file == null && _filePath != null) {
+        _file = File(_filePath!);
+      }
+      await _loadFromFile();
+    } finally {
+      _isInitializing = false;
+    }
+  }
+
+  Future<void> _loadFromFile() async {
+    if (_file == null) {
+      throw Exception('SettingsStore 未初始化，请先调用 init()');
+    }
+
+    if (await _file!.exists()) {
+      try {
+        final content = await _file!.readAsString();
+        _data = json.decode(content) as Map<String, dynamic>;
+        Logger.info('设置偏好已加载：${_file!.path}');
+      } catch (e) {
+        Logger.error('读取设置偏好失败：$e，使用默认配置');
+        _data = {};
+      }
+    } else {
+      Logger.info('设置偏好文件不存在，创建新文件：${_file!.path}');
+      _data = {};
+      await _save();
     }
   }
 
   // 确保已初始化
   void _ensureInit() {
     if (!_isInitialized) {
-      throw Exception('DeveloperPreferences 未初始化，请先调用 init()');
+      throw Exception('SettingsStore 未初始化，请先调用 init()');
     }
   }
 
@@ -78,12 +94,10 @@ class DeveloperPreferences {
         const JsonEncoder.withIndent('  ').convert(_data),
       );
     } catch (e) {
-      Logger.error('保存 Dev 配置失败：$e');
-      rethrow; // 重新抛出异常，让调用者知道保存失败
+      Logger.error('保存设置偏好失败：$e');
+      rethrow;
     }
   }
-
-  // 基础操作方法
 
   String? getString(String key) {
     _ensureInit();

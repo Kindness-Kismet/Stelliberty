@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:stelliberty/storage/dev_preferences.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
+import 'package:stelliberty/services/path_service.dart';
+import 'package:stelliberty/storage/settings_store.dart';
 import 'package:stelliberty/services/log_print_service.dart';
 
 // 通用应用持久化配置管理,管理主题、窗口、语言等应用级配置
@@ -11,19 +13,33 @@ class AppPreferences {
   static AppPreferences? _instance;
   static AppPreferences get instance => _instance ??= AppPreferences._();
 
-  dynamic _prefs; // SharedPreferences 或 DeveloperPreferences
+  dynamic _prefs; // SharedPreferences 或 SettingsStore
 
   // 检查是否为 Dev 模式
   static bool get isDevMode => kDebugMode || kProfileMode;
 
   // 初始化
   Future<void> init() async {
-    if (isDevMode) {
-      // Dev 模式：使用开发者偏好 JSON 配置
-      await DeveloperPreferences.instance.init();
-      _prefs = DeveloperPreferences.instance;
+    if (!PlatformHelper.isDesktop) {
+      // 移动端：使用系统 SharedPreferences
+      _prefs = await SharedPreferences.getInstance();
+      return;
+    }
+
+    // 桌面端：Dev 模式使用调试 JSON，Release 使用便携式 JSON
+    final settingsStore = SettingsStore.instance;
+    final filePath = isDevMode
+        ? PathService.instance.devPreferencesFilePath
+        : PathService.instance.preferencesFilePath;
+    await settingsStore.init(filePath);
+    _prefs = settingsStore;
+  }
+
+  Future<void> reload() async {
+    _ensureInit();
+    if (_prefs is SettingsStore) {
+      await (_prefs as SettingsStore).reload();
     } else {
-      // Release 模式：使用系统 SharedPreferences
       _prefs = await SharedPreferences.getInstance();
     }
   }

@@ -97,4 +97,12 @@ class BehaviorSettingsProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  Future<void> applyRestoredSettings() async {
+    _loadSettings();
+    await _refreshAutoStartStatus();
+    notifyListeners();
+
+    await updateAppLog(_appLogEnabled);
+  }
 }

@@ -166,6 +166,24 @@ class HotkeyService {
     }
   }
 
+  Future<void> refreshFromPreferences() async {
+    if (!isDesktopPlatform) {
+      return;
+    }
+
+    if (!_isInitialized) {
+      await initialize();
+      return;
+    }
+
+    final enabled = AppPreferences.instance.getHotkeyEnabled();
+    if (enabled) {
+      await registerHotkeys();
+    } else {
+      await unregisterHotkeys();
+    }
+  }
+
   Future<bool> setEnabled(bool enabled) async {
     try {
       await AppPreferences.instance.setHotkeyEnabled(enabled);

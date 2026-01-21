@@ -231,6 +231,11 @@ class AppUpdateProvider extends ChangeNotifier {
     await _scheduleNextCheck();
   }
 
+  Future<void> refreshFromPreferences() async {
+    _lastCheckTime = AppPreferences.instance.getLastAppUpdateCheckTime();
+    await restartSchedule();
+  }
+
   // 格式化时长
   String _formatDuration(Duration duration) {
     if (duration.inDays > 0) {

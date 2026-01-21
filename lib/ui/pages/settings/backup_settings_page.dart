@@ -4,8 +4,15 @@ import 'package:provider/provider.dart';
 import 'package:stelliberty/services/backup_service.dart';
 import 'package:stelliberty/clash/manager/clash_manager.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
+import 'package:stelliberty/clash/providers/behavior_settings_provider.dart';
 import 'package:stelliberty/clash/providers/subscription_provider.dart';
 import 'package:stelliberty/clash/providers/override_provider.dart';
+import 'package:stelliberty/providers/app_update_provider.dart';
+import 'package:stelliberty/providers/language_provider.dart';
+import 'package:stelliberty/providers/theme_provider.dart';
+import 'package:stelliberty/providers/window_effect_provider.dart';
+import 'package:stelliberty/services/hotkey_service.dart';
+import 'package:stelliberty/services/window_state_service.dart';
 import 'package:stelliberty/storage/preferences.dart';
 import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
@@ -198,13 +205,23 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
   Future<void> _reloadAfterRestore() async {
     Logger.info('备份还原成功，重新加载所有数据');
 
-    // 重新初始化 Preferences
-    await AppPreferences.instance.init();
-    await ClashPreferences.instance.init();
-
-    if (!mounted) return;
-
-    // 重新初始化 Provider
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final windowEffectProvider = Provider.of<WindowEffectProvider>(
+      context,
+      listen: false,
+    );
+    final languageProvider = Provider.of<LanguageProvider>(
+      context,
+      listen: false,
+    );
+    final behaviorSettingsProvider = Provider.of<BehaviorSettingsProvider>(
+      context,
+      listen: false,
+    );
+    final appUpdateProvider = Provider.of<AppUpdateProvider>(
+      context,
+      listen: false,
+    );
     final clashProvider = Provider.of<ClashProvider>(context, listen: false);
     final subscriptionProvider = Provider.of<SubscriptionProvider>(
       context,
@@ -214,6 +231,20 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
       context,
       listen: false,
     );
+
+    // 重新初始化 Preferences
+    await AppPreferences.instance.reload();
+    await ClashPreferences.instance.reload();
+
+    if (!mounted) return;
+
+    await themeProvider.initialize();
+    await windowEffectProvider.initialize();
+    await languageProvider.initialize();
+    await behaviorSettingsProvider.applyRestoredSettings();
+    await appUpdateProvider.refreshFromPreferences();
+    await HotkeyService.instance.refreshFromPreferences();
+    WindowStateManager.clearCache();
 
     clashProvider.refreshConfigState();
     await subscriptionProvider.initialize();
