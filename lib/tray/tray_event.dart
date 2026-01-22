@@ -282,7 +282,6 @@ class TrayEventHandler with TrayListener {
     // 设置切换标志，禁用托盘交互
     _isSwitching = true;
 
-    final manager = ClashManager.instance;
     final currentOutboundMode = _clashProvider!.configState.outboundMode;
 
     // 如果已经是当前模式，直接返回
@@ -297,12 +296,10 @@ class TrayEventHandler with TrayListener {
     Logger.info('从托盘切换出站模式: $currentOutboundMode → $outboundMode');
 
     try {
-      final success = await manager.setOutboundMode(outboundMode);
+      final success = await _clashProvider!.setOutboundMode(outboundMode);
 
       if (success) {
         Logger.info('出站模式已从托盘切换到: $outboundMode');
-        // 刷新配置状态
-        _clashProvider!.refreshConfigState();
       } else {
         Logger.warning('从托盘切换出站模式失败，保持原模式: $currentOutboundMode');
       }

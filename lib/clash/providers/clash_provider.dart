@@ -148,16 +148,18 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // 可见的代理组列表（缓存）
   List<ProxyGroup>? _cachedProxyGroups;
+  // 缓存对应的出站模式，避免模式切换后复用旧列表
+  String? _cachedProxyGroupsMode;
 
   // 可见的代理组列表（根据出站模式过滤）
   List<ProxyGroup> get proxyGroups {
+    final outboundMode = _configState.outboundMode;
     // 如果缓存存在，直接返回
-    if (_cachedProxyGroups != null) {
+    if (_cachedProxyGroups != null && _cachedProxyGroupsMode == outboundMode) {
       return _cachedProxyGroups!;
     }
 
-    // 获取当前出站模式
-    final outboundMode = _configState.outboundMode;
+    _cachedProxyGroupsMode = outboundMode;
 
     // 根据模式过滤代理组
     _cachedProxyGroups = switch (outboundMode) {
@@ -179,6 +181,7 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
   // 清除缓存（在数据变化时调用）
   void _invalidateCache() {
     _cachedProxyGroups = null;
+    _cachedProxyGroupsMode = null;
   }
 
   // 所有代理节点
@@ -1434,6 +1437,21 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   // ========== 配置管理方法 ==========
+
+  Future<bool> setOutboundMode(String outboundMode) async {
+    try {
+      final success = await _clashManager.setOutboundMode(outboundMode);
+      if (success) {
+        _syncConfigFromManager();
+        _invalidateCache();
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      Logger.error('切换出站模式失败：$e');
+      return false;
+    }
+  }
 
   Future<bool> setAllowLan(bool enabled) async {
     final success = await _clashManager.setAllowLan(enabled);
