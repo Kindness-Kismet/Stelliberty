@@ -330,6 +330,9 @@ flutter run --dart-define=TEST_TYPE=override
 
 # Run IPC API test
 flutter run --dart-define=TEST_TYPE=ipc-api
+
+# Run delay test stream
+flutter run --dart-define=TEST_TYPE=delay-test
 ```
 
 **Required test files** in `assets/test/`:
@@ -354,9 +357,17 @@ flutter run --dart-define=TEST_TYPE=ipc-api
       └── test.yaml          # Base configuration file for testing
   ```
 
+- **For `delay-test` test:**
+  > **Note**: It is recommended to run the pre-build script (`dart run scripts/prebuild.dart`) before this test to download the necessary resources.
+  ```
+  assets/test/
+  └── config/
+      └── test.yaml          # Base configuration file for testing
+  ```
+
 > 💡 **Note**: Test mode is only available in Debug builds and automatically disabled in Release mode.
 
-Test implementations: `lib/dev_test/` (`override_test.dart`, `ipc_api_test.dart`)
+Test implementations: `lib/dev_test/` (`override_test.dart`, `ipc_api_test.dart`, `delay_test_stream.dart`)
 
 </details>
 

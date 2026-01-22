@@ -1,11 +1,25 @@
 // IPC 客户端原子模块：提供基础 IPC 通信能力。
-// 不包含连接池与重试策略。
+// 支持延迟测试场景下的连接复用。
 
+use once_cell::sync::Lazy;
+use std::collections::VecDeque;
+use std::sync::Arc;
+use std::time::Instant;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+use tokio::sync::Mutex;
 use tokio::time::{Duration, timeout};
 
 #[cfg(unix)]
 use tokio::net::UnixStream;
+
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
+
+#[cfg(windows)]
+type IpcStream = NamedPipeClient;
+
+#[cfg(unix)]
+type IpcStream = UnixStream;
 
 // HTTP 响应
 pub struct IpcHttpResponse {
@@ -13,7 +27,33 @@ pub struct IpcHttpResponse {
     pub body: String,
 }
 
-// IPC 客户端（无状态，每次请求创建新连接）
+const MAX_POOL_SIZE: usize = 30;
+const IDLE_TIMEOUT_MS: u64 = 35000;
+
+struct PooledConnection {
+    conn: IpcStream,
+    last_used: Instant,
+}
+
+impl PooledConnection {
+    fn is_valid(&self) -> bool {
+        use std::io::ErrorKind;
+
+        let mut buf = [0u8; 1];
+        match self.conn.try_read(&mut buf) {
+            Ok(0) => false,
+            // 读取到数据说明连接状态不干净，直接丢弃避免污染后续响应。
+            Ok(_) => false,
+            Err(e) if e.kind() == ErrorKind::WouldBlock => true,
+            Err(_) => false,
+        }
+    }
+}
+
+static IPC_CONNECTION_POOL: Lazy<Arc<Mutex<VecDeque<PooledConnection>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(VecDeque::new())));
+
+// IPC 客户端（支持可选连接池）
 pub struct IpcClient;
 
 impl IpcClient {
@@ -47,12 +87,17 @@ impl IpcClient {
     // 发送 GET 请求（每次创建新连接）
     pub async fn get(path: &str) -> Result<String, String> {
         let ipc_path = Self::default_ipc_path();
+        let response = Self::request(&ipc_path, "GET", path, None).await?;
 
-        #[cfg(windows)]
-        let response = Self::request_windows(&ipc_path, "GET", path, None).await?;
+        if response.status_code >= 200 && response.status_code < 300 {
+            Ok(response.body)
+        } else {
+            Err(format!("HTTP {}", response.status_code))
+        }
+    }
 
-        #[cfg(unix)]
-        let response = Self::request_unix(&ipc_path, "GET", path, None).await?;
+    pub async fn get_with_pool(path: &str) -> Result<String, String> {
+        let response = Self::request_with_pool("GET", path, None).await?;
 
         if response.status_code >= 200 && response.status_code < 300 {
             Ok(response.body)
@@ -62,19 +107,12 @@ impl IpcClient {
     }
 
     #[cfg(windows)]
-    async fn request_windows(
-        ipc_path: &str,
-        method: &str,
-        path: &str,
-        body: Option<&str>,
-    ) -> Result<IpcHttpResponse, String> {
-        use tokio::net::windows::named_pipe::ClientOptions;
-
+    async fn connect(ipc_path: &str) -> Result<IpcStream, String> {
         let mut last_err = None;
         for retry in 0..20 {
             match ClientOptions::new().open(ipc_path) {
-                Ok(mut stream) => {
-                    return Self::send_request(&mut stream, method, path, body).await;
+                Ok(stream) => {
+                    return Ok(stream);
                 }
                 Err(e) => {
                     let is_busy = e.raw_os_error() == Some(231);
@@ -95,17 +133,65 @@ impl IpcClient {
     }
 
     #[cfg(unix)]
-    async fn request_unix(
+    async fn connect(ipc_path: &str) -> Result<IpcStream, String> {
+        UnixStream::connect(ipc_path)
+            .await
+            .map_err(|e| format!("连接 Unix Socket 失败：{}", e))
+    }
+
+    async fn request(
         ipc_path: &str,
         method: &str,
         path: &str,
         body: Option<&str>,
     ) -> Result<IpcHttpResponse, String> {
-        let mut stream = UnixStream::connect(ipc_path)
-            .await
-            .map_err(|e| format!("连接 Unix Socket 失败：{}", e))?;
+        let mut stream = Self::connect(ipc_path).await?;
+        Self::send_request(&mut stream, method, path, body, false).await
+    }
 
-        Self::send_request(&mut stream, method, path, body).await
+    async fn request_with_pool(
+        method: &str,
+        path: &str,
+        body: Option<&str>,
+    ) -> Result<IpcHttpResponse, String> {
+        let mut stream = Self::acquire_connection().await?;
+        let response = Self::send_request(&mut stream, method, path, body, true).await;
+        if response.is_ok() {
+            Self::release_connection(stream).await;
+        }
+        response
+    }
+
+    async fn acquire_connection() -> Result<IpcStream, String> {
+        loop {
+            let pooled = {
+                let mut pool = IPC_CONNECTION_POOL.lock().await;
+                pool.pop_front()
+            };
+
+            if let Some(pooled) = pooled {
+                if pooled.last_used.elapsed() < Duration::from_millis(IDLE_TIMEOUT_MS)
+                    && pooled.is_valid()
+                {
+                    return Ok(pooled.conn);
+                }
+                continue;
+            }
+
+            break;
+        }
+
+        Self::connect(&Self::default_ipc_path()).await
+    }
+
+    async fn release_connection(conn: IpcStream) {
+        let mut pool = IPC_CONNECTION_POOL.lock().await;
+        if pool.len() < MAX_POOL_SIZE {
+            pool.push_back(PooledConnection {
+                conn,
+                last_used: Instant::now(),
+            });
+        }
     }
 
     async fn send_request<S>(
@@ -113,12 +199,13 @@ impl IpcClient {
         method: &str,
         path: &str,
         body: Option<&str>,
+        keep_alive: bool,
     ) -> Result<IpcHttpResponse, String>
     where
         S: AsyncReadExt + AsyncWriteExt + Unpin,
     {
         // 构建 HTTP 请求
-        let request = Self::build_http_request(method, path, body);
+        let request = Self::build_http_request(method, path, body, keep_alive);
 
         // 发送请求
         stream
@@ -130,10 +217,17 @@ impl IpcClient {
         Self::read_http_response(stream).await
     }
 
-    fn build_http_request(method: &str, path: &str, body: Option<&str>) -> String {
+    fn build_http_request(
+        method: &str,
+        path: &str,
+        body: Option<&str>,
+        keep_alive: bool,
+    ) -> String {
         let mut request = format!("{} {} HTTP/1.1\r\n", method, path);
         request.push_str("Host: localhost\r\n");
-        request.push_str("Connection: close\r\n");
+        if !keep_alive {
+            request.push_str("Connection: close\r\n");
+        }
 
         if let Some(body_str) = body {
             request.push_str("Content-Type: application/json\r\n");

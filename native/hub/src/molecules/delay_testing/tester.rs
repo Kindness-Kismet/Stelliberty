@@ -4,6 +4,7 @@ use futures_util::stream::{self, StreamExt};
 use rinf::{DartSignal, RustSignal};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::spawn;
 
 use crate::atoms::IpcClient;
@@ -82,7 +83,12 @@ pub fn init() {
 
 // 处理单节点延迟测试请求
 async fn handle_single_delay_test_request(request: SingleDelayTestRequest) {
-    log::info!("收到单节点延迟测试请求：{}", request.node_name);
+    log::info!(
+        "收到单节点延迟测试请求：{}（timeout {}ms，url={}）",
+        request.node_name,
+        request.timeout_ms,
+        request.test_url
+    );
 
     let delay_ms =
         test_single_node(&request.node_name, &request.test_url, request.timeout_ms).await;
@@ -96,17 +102,21 @@ async fn handle_single_delay_test_request(request: SingleDelayTestRequest) {
 
 // 处理批量延迟测试请求
 async fn handle_batch_delay_test_request(request: BatchDelayTestRequest) {
-    log::info!(
-        "收到批量延迟测试请求，节点数：{}，并发数：{}",
-        request.node_names.len(),
-        request.concurrency
-    );
-
-    let total_count = request.node_names.len() as u32;
     let node_names = request.node_names;
     let test_url = request.test_url;
     let timeout_ms = request.timeout_ms;
-    let concurrency = request.concurrency.max(1) as usize;
+    let total_count = node_names.len() as u32;
+    let requested_concurrency = request.concurrency.max(1) as usize;
+    let actual_concurrency = requested_concurrency.min(node_names.len().max(1));
+
+    log::info!(
+        "收到批量延迟测试请求，节点数：{}，并发数：{}（请求 {}），timeout {}ms，url={}",
+        total_count,
+        actual_concurrency,
+        requested_concurrency,
+        timeout_ms,
+        test_url
+    );
 
     // 进度回调：每个节点测试完成后发送进度信号
     let on_progress = Arc::new(move |node_name: String, delay_ms: i32| {
@@ -118,8 +128,14 @@ async fn handle_batch_delay_test_request(request: BatchDelayTestRequest) {
     });
 
     // 执行批量测试
-    let results =
-        batch_test_delays(node_names, test_url, timeout_ms, concurrency, on_progress).await;
+    let results = batch_test_delays(
+        node_names,
+        test_url,
+        timeout_ms,
+        actual_concurrency,
+        on_progress,
+    )
+    .await;
 
     // 统计成功数量
     let success_count = results.iter().filter(|r| r.delay_ms > 0).count() as u32;
@@ -151,11 +167,6 @@ async fn batch_test_delays(
     }
 
     let total = node_names.len();
-    log::info!(
-        "开始批量延迟测试，节点数：{}，并发数：{}",
-        total,
-        concurrency
-    );
 
     let test_url = Arc::new(test_url);
 
@@ -186,10 +197,18 @@ async fn batch_test_delays(
     // 收集所有结果
     let results: Vec<BatchTestResult> = tasks.collect().await;
 
-    let success_count = results.iter().filter(|r| r.delay_ms > 0).count();
-    log::info!("批量延迟测试完成，成功：{}/{}", success_count, total);
-
     results
+}
+
+fn timeout_result(node_name: &str, timeout_ms: u32, elapsed_ms: u128, retry_count: u32) -> i32 {
+    log::warn!(
+        "节点延迟测试超时：{} - 超过 {}ms（耗时 {}ms，重试 {} 次）",
+        node_name,
+        timeout_ms,
+        elapsed_ms,
+        retry_count
+    );
+    -1
 }
 
 // 测试单个节点延迟：通过 IPC 调用 Clash API。
@@ -202,47 +221,55 @@ async fn test_single_node(node_name: &str, test_url: &str, timeout_ms: u32) -> i
         encoded_name, timeout_ms, test_url
     );
 
-    log::debug!("测试节点延迟：{}", node_name);
+    let start_time = Instant::now();
+    let timeout = Duration::from_millis(timeout_ms as u64);
+    let response = tokio::time::timeout(timeout, IpcClient::get_with_pool(&path)).await;
 
-    let max_http_retries = 5;
-    let mut http_retry_count = 0;
-
-    loop {
-        match IpcClient::get(&path).await {
+    match response {
+        Ok(result) => match result {
             Ok(body) => match serde_json::from_str::<serde_json::Value>(&body) {
                 Ok(json) => {
                     if let Some(delay) = json.get("delay").and_then(|v| v.as_i64()) {
                         let delay_i32 = delay as i32;
+                        let elapsed_ms = start_time.elapsed().as_millis();
                         if delay_i32 > 0 {
-                            log::info!("节点延迟测试成功：{} - {}ms", node_name, delay_i32);
+                            log::info!(
+                                "节点延迟测试成功：{} - {}ms（耗时 {}ms，重试 0 次）",
+                                node_name,
+                                delay_i32,
+                                elapsed_ms
+                            );
                         } else {
-                            log::warn!("节点延迟测试失败：{} - 超时", node_name);
+                            log::warn!(
+                                "节点延迟测试失败：{} - 超时（耗时 {}ms，重试 0 次）",
+                                node_name,
+                                elapsed_ms
+                            );
                         }
                         return delay_i32;
-                    } else {
-                        log::error!("节点延迟测试响应格式错误：{}", node_name);
-                        return -1;
                     }
+                    log::error!("节点延迟测试响应格式错误：{}", node_name);
+                    -1
                 }
                 Err(e) => {
                     log::error!("节点延迟测试 JSON 解析失败：{} - {}", node_name, e);
-                    return -1;
+                    -1
                 }
             },
             Err(e) => {
-                let is_http_busy = e.contains("HTTP 503") || e.contains("HTTP 504");
-                if is_http_busy && http_retry_count < max_http_retries {
-                    http_retry_count += 1;
-                    tokio::time::sleep(std::time::Duration::from_millis(
-                        80 * http_retry_count as u64,
-                    ))
-                    .await;
-                    continue;
+                if e.contains("HTTP 503") || e.contains("HTTP 504") {
+                    return timeout_result(
+                        node_name,
+                        timeout_ms,
+                        start_time.elapsed().as_millis(),
+                        0,
+                    );
                 }
 
                 log::warn!("节点延迟测试 IPC 请求失败：{} - {}", node_name, e);
-                return -1;
+                -1
             }
-        }
+        },
+        Err(_) => timeout_result(node_name, timeout_ms, start_time.elapsed().as_millis(), 0),
     }
 }

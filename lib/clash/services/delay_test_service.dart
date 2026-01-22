@@ -30,7 +30,7 @@ class DelayTestService {
       ).sendSignalToRust();
 
       final delay = await completer.future.timeout(
-        Duration(milliseconds: timeoutMs + 5000),
+        Duration(milliseconds: timeoutMs),
         onTimeout: () {
           Logger.warning('单节点延迟测试超时：$proxyName');
           return -1;
@@ -56,7 +56,7 @@ class DelayTestService {
       return {};
     }
 
-    final concurrency = ClashDefaults.dynamicDelayTestConcurrency;
+    final concurrency = ClashDefaults.delayTestConcurrency;
     final timeoutMs = ClashDefaults.proxyDelayTestTimeout;
     final url = testUrl ?? ClashDefaults.defaultTestUrl;
 

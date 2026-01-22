@@ -23,16 +23,13 @@ class ClashDefaults {
   static const int processKillTimeout = 5; // 进程停止超时（s）
   static const int subscriptionDownloadTimeout = 10; // 订阅下载超时（s）
   static const int overrideDownloadTimeout = 10; // 覆写文件下载超时（s）
-  static const int proxyDelayTestTimeout = 8000; // 延迟测试超时（ms）
+  static const int proxyDelayTestTimeout = 6000; // 延迟测试超时（ms）
   static const int apiRequestTimeout = 10; // API 请求超时（s）
   static const int apiLongRequestTimeout = 15; // API 长请求超时（s）
 
   // ==================== 并发配置 ====================
-  static const int delayTestConcurrency = 5; // 延迟测试并发数
+  static const int delayTestConcurrency = 15; // 延迟测试并发数
   static const int subscriptionUpdateConcurrency = 3; // 订阅更新并发数
-
-  // 延迟测试并发数
-  static const int dynamicDelayTestConcurrency = 20;
 
   // ==================== 其他配置 ====================
   static const String defaultTestUrl = 'https://www.gstatic.com/generate_204';

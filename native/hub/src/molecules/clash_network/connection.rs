@@ -9,7 +9,7 @@ use tokio::net::windows::named_pipe::ClientOptions;
 
 // Named Pipe 连接最大重试次数（避免无限等待）
 #[cfg(windows)]
-const MAX_PIPE_BUSY_RETRIES: u32 = 10;
+const MAX_PIPE_BUSY_RETRIES: u32 = 2;
 
 // Windows：连接到 Named Pipe（带重试机制和超时保护）
 #[cfg(windows)]
@@ -27,8 +27,6 @@ pub async fn connect_named_pipe(
                 return Ok(client);
             }
             Err(e) if e.raw_os_error() == Some(ERROR_PIPE_BUSY as i32) => {
-                retry_count += 1;
-
                 if retry_count >= MAX_PIPE_BUSY_RETRIES {
                     return Err(format!(
                         "Named Pipe 连接超时：管道繁忙，重试 {} 次后仍无法连接（{}）",
@@ -36,7 +34,8 @@ pub async fn connect_named_pipe(
                     ));
                 }
 
-                log::trace!(
+                retry_count += 1;
+                log::debug!(
                     "Named Pipe 繁忙，50 ms 后重试（{}/{}）",
                     retry_count,
                     MAX_PIPE_BUSY_RETRIES

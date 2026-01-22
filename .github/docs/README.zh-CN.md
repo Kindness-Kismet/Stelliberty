@@ -331,6 +331,9 @@ flutter run --dart-define=TEST_TYPE=override
 
 # 运行 IPC API 测试
 flutter run --dart-define=TEST_TYPE=ipc-api
+
+# 运行延迟测试流
+flutter run --dart-define=TEST_TYPE=delay-test
 ```
 
 **所需测试文件** 位于 `assets/test/`：
@@ -355,9 +358,17 @@ flutter run --dart-define=TEST_TYPE=ipc-api
       └── test.yaml          # 用于测试的基础配置文件
   ```
 
+- **`delay-test` 测试所需文件：**
+  > **提示**：建议在测试前运行预编译脚本（`dart run scripts/prebuild.dart`）以下载所需资源。
+  ```
+  assets/test/
+  └── config/
+      └── test.yaml          # 用于测试的基础配置文件
+  ```
+
 > 💡 **注意**：测试模式仅在 Debug 构建中可用，Release 模式下自动禁用。
 
-测试实现：`lib/dev_test/`（`override_test.dart`、`ipc_api_test.dart`）
+测试实现：`lib/dev_test/`（`override_test.dart`、`ipc_api_test.dart`、`delay_test_stream.dart`）
 
 </details>
 
