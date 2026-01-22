@@ -876,7 +876,6 @@
     "bypass_helper": "Use semicolon (;) to separate multiple addresses, supports wildcards (*)\nExample: localhost;127.*;192.168.*;10.*",
     "bypass_helper_linux": "Use comma (,) to separate multiple addresses, supports CIDR notation\nExample: localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8",
     "bypass_helper_mac": "Use comma (,) to separate multiple addresses, supports wildcards and CIDR\nExample: 127.0.0.1,*.local,192.168.0.0/16,<local>",
-    "hint": "Hint: Changes require restarting Clash to take effect. Proxy host supports IP addresses or hostnames.",
     "pac_mode": "PAC Mode",
     "pac_mode_desc": "Use PAC script for automatic proxy configuration",
     "pac_script_label": "PAC Script",
@@ -1017,8 +1016,7 @@
     "copy_address": "Copy Address",
     "copy_secret": "Copy Secret",
     "copied": "{label} copied to clipboard",
-    "saving": "Saving...",
-    "hint": "Changes require restarting Clash to take effect"
+    "saving": "Saving..."
   },
   "uwp_loopback": {
     "title": "UWP Loopback Manager",

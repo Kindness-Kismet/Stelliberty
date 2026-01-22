@@ -88,6 +88,7 @@
     "copy_link": "複製連結",
     "delete_card": "刪除",
     "auto_update_label": "自動更新",
+    "update_on_startup_label": "啟動時更新",
     "manual_update_label": "手動更新",
     "local_type_label": "本機類型",
     "update_card_title": "更新中",
@@ -874,7 +875,6 @@
     "bypass_helper": "使用分號（;）分隔多個位址，支援萬用字元（*）\n例如: localhost;127.*;192.168.*;10.*",
     "bypass_helper_linux": "使用逗號（,）分隔多個位址，支援 CIDR 表示法\n例如: localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8",
     "bypass_helper_mac": "使用逗號（,）分隔多個位址，支援萬用字元和 CIDR\n例如: 127.0.0.1,*.local,192.168.0.0/16,<local>",
-    "hint": "提示：變更需要重新啟動 Clash 才能生效。代理主機支援 IP 位址或主機名稱。",
     "pac_mode": "PAC 模式",
     "pac_mode_desc": "使用 PAC 指令碼自動設定代理",
     "pac_script_label": "PAC 指令碼",
@@ -1014,8 +1014,7 @@
     "copy_address": "複製位址",
     "copy_secret": "複製密鑰",
     "copied": "{label} 已複製到剪貼簿",
-    "saving": "儲存中...",
-    "hint": "變更需要重新啟動 Clash 才能生效"
+    "saving": "儲存中..."
   },
   "uwp_loopback": {
     "title": "UWP 回送管理員",
