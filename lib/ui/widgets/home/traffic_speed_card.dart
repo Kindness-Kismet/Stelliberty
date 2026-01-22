@@ -71,6 +71,38 @@ class TrafficSpeedCard extends StatelessWidget {
 
           return Stack(
             children: [
+              Align(
+                alignment: Alignment.bottomLeft,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    RepaintBoundary(
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 120,
+                        child: CustomPaint(
+                          size: const Size(double.infinity, 120),
+                          painter: _TrafficWavePainter(
+                            uploadHistory: trafficProvider.uploadHistory,
+                            downloadHistory: trafficProvider.downloadHistory,
+                            uploadColor: uploadColor,
+                            downloadColor: downloadColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTrafficTotals(
+                      context,
+                      uploadTotal: totalUpload,
+                      downloadTotal: totalDownload,
+                      uploadColor: uploadColor,
+                      downloadColor: downloadColor,
+                    ),
+                  ],
+                ),
+              ),
               Positioned(
                 top: 0,
                 left: 0,
@@ -103,38 +135,6 @@ class TrafficSpeedCard extends StatelessWidget {
                           icon: Icons.arrow_downward_rounded,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              Align(
-                alignment: Alignment.bottomLeft,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    RepaintBoundary(
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: 120,
-                        child: CustomPaint(
-                          size: const Size(double.infinity, 120),
-                          painter: _TrafficWavePainter(
-                            uploadHistory: trafficProvider.uploadHistory,
-                            downloadHistory: trafficProvider.downloadHistory,
-                            uploadColor: uploadColor,
-                            downloadColor: downloadColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildTrafficTotals(
-                      context,
-                      uploadTotal: totalUpload,
-                      downloadTotal: totalDownload,
-                      uploadColor: uploadColor,
-                      downloadColor: downloadColor,
                     ),
                   ],
                 ),
@@ -384,7 +384,7 @@ class _TrafficWavePainter extends CustomPainter {
 
     // 起始点
     final firstY =
-        rect.bottom - (history[0] / normalizedMax * rect.height * 0.8);
+        rect.bottom - (history[0] / normalizedMax * rect.height * 0.75);
     path.moveTo(rect.left, firstY);
     fillPath.moveTo(rect.left, rect.bottom);
     fillPath.lineTo(rect.left, firstY);
@@ -393,10 +393,10 @@ class _TrafficWavePainter extends CustomPainter {
     for (int i = 1; i < history.length - 1; i++) {
       final currentX = rect.left + i * stepX;
       final currentY =
-          rect.bottom - (history[i] / normalizedMax * rect.height * 0.8);
+          rect.bottom - (history[i] / normalizedMax * rect.height * 0.75);
       final nextX = rect.left + (i + 1) * stepX;
       final nextY =
-          rect.bottom - (history[i + 1] / normalizedMax * rect.height * 0.8);
+          rect.bottom - (history[i + 1] / normalizedMax * rect.height * 0.75);
 
       // 计算当前点和下一个点的中点
       final midX = (currentX + nextX) / 2;
@@ -412,7 +412,7 @@ class _TrafficWavePainter extends CustomPainter {
     if (history.length > 1) {
       final lastX = rect.left + (history.length - 1) * stepX;
       final lastY =
-          rect.bottom - (history.last / normalizedMax * rect.height * 0.8);
+          rect.bottom - (history.last / normalizedMax * rect.height * 0.75);
       path.lineTo(lastX, lastY);
       fillPath.lineTo(lastX, lastY);
       lastPoint = Offset(lastX, lastY);

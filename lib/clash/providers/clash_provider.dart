@@ -1223,8 +1223,8 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
       // 使用 Rust 层批量测试
       final proxyNames = allProxyNames.toList();
 
-        // 使用延迟测试并发数
-        final concurrency = ClashDefaults.delayTestConcurrency;
+      // 使用延迟测试并发数
+      final concurrency = ClashDefaults.delayTestConcurrency;
       final timeoutMs = ClashDefaults.proxyDelayTestTimeout;
       final url = testUrl ?? ClashDefaults.defaultTestUrl;
 
