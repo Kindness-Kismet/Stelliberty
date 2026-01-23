@@ -35,6 +35,8 @@ CLAUDE.md
 # Agent contributor guide (local only)
 AGENTS.md
 
+/.codex-skills/
+
 # Swift Package Manager
 .swiftpm/
 
@@ -260,4 +262,3 @@ tmp/
 *.aac
 *.ogg
 *.m4a
-
