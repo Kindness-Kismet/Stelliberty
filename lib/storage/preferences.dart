@@ -241,7 +241,7 @@ class AppPreferences {
   // 获取应用日志启用状态
   bool getAppLogEnabled() {
     _ensureInit();
-    return _prefs!.getBool(_kAppLogEnabled) ?? false; // 默认禁用
+    return _prefs!.getBool(_kAppLogEnabled) ?? true; // 默认启用
   }
 
   // 保存应用日志启用状态
