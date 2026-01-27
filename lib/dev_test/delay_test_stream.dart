@@ -119,6 +119,8 @@ class DelayTestStream {
     return ConfigInjector.injectCustomConfigParams(
       configPath: configPath,
       mixedPort: 17890,
+      socksPort: null,
+      httpPort: null,
       isIpv6Enabled: false,
       isTunEnabled: false,
       tunStack: 'mixed',

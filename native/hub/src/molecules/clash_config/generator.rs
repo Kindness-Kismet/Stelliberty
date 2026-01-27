@@ -93,6 +93,12 @@ fn log_config_summary(config_yaml: &str) {
             if let Some(mixed_port) = config.get("mixed-port").and_then(|v| v.as_i64()) {
                 log::debug!("混合端口：{}", mixed_port);
             }
+            if let Some(http_port) = config.get("port").and_then(|v| v.as_i64()) {
+                log::debug!("HTTP 端口：{}", http_port);
+            }
+            if let Some(socks_port) = config.get("socks-port").and_then(|v| v.as_i64()) {
+                log::debug!("SOCKS 端口：{}", socks_port);
+            }
 
             // 输出 TUN 配置
             if let Some(tun) = config.get("tun").and_then(|v| v.as_mapping())

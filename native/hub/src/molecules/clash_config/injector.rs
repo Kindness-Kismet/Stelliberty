@@ -84,6 +84,14 @@ pub fn inject_runtime_params(
         YamlValue::String("mixed-port".to_string()),
         YamlValue::Number(params.mixed_port.into()),
     );
+    config_map.insert(
+        YamlValue::String("port".to_string()),
+        YamlValue::Number(params.http_port.into()),
+    );
+    config_map.insert(
+        YamlValue::String("socks-port".to_string()),
+        YamlValue::Number(params.socks_port.into()),
+    );
 
     // 注入 bind-address
     let bind_address = if params.is_allow_lan_enabled {
@@ -96,10 +104,6 @@ pub fn inject_runtime_params(
         YamlValue::String(bind_address.to_string()),
     );
     log::info!("bind-address：{}", bind_address);
-
-    // 移除旧端口配置
-    config_map.remove(YamlValue::String("port".to_string()));
-    config_map.remove(YamlValue::String("socks-port".to_string()));
 
     // 注入出站模式
     config_map.insert(

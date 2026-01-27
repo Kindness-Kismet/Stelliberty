@@ -20,6 +20,8 @@ class ConfigInjector {
     String? configContent,
     List<OverrideConfig> overrides = const [],
     required int mixedPort,
+    required int? socksPort,
+    required int? httpPort,
     required bool isIpv6Enabled,
     required bool isTunEnabled,
     required String tunStack,
@@ -88,6 +90,8 @@ class ConfigInjector {
 
       final params = RuntimeConfigParams(
         mixedPort: mixedPort,
+        socksPort: socksPort ?? 0,
+        httpPort: httpPort ?? 0,
         isIpv6Enabled: isIpv6Enabled,
         isAllowLanEnabled: isAllowLanEnabled,
         isTcpConcurrentEnabled: isTcpConcurrentEnabled,

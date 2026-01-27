@@ -95,6 +95,8 @@ class ConfigManager {
       configPath: configPath,
       overrides: overrides,
       mixedPort: prefs.getMixedPort(),
+      socksPort: prefs.getSocksPort(),
+      httpPort: prefs.getHttpPort(),
       isIpv6Enabled: prefs.getIpv6(),
       isTunEnabled: prefs.getTunEnable(),
       tunStack: prefs.getTunStack(),

@@ -176,6 +176,8 @@ class LifecycleManager {
         configPath: configPath,
         overrides: overrides,
         mixedPort: mixedPort,
+        socksPort: socksPort,
+        httpPort: httpPort,
         isIpv6Enabled: isIpv6Enabled,
         isTunEnabled: actualTunEnabled,
         tunStack: tunStack,

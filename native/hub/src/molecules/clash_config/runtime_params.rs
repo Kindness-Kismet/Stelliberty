@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 pub struct RuntimeConfigParams {
     // 端口
     pub mixed_port: i32,
+    pub socks_port: i32, // 0 表示禁用单独 SOCKS 端口
+    pub http_port: i32,  // 0 表示禁用单独 HTTP 端口
 
     // 全局
     pub is_ipv6_enabled: bool,
