@@ -303,7 +303,7 @@ class _ProviderViewerDialogState extends State<ProviderViewerDialog> {
     final trans = context.translate;
     try {
       // 选择文件
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['yaml', 'yml'],
       );

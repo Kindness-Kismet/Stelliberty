@@ -194,7 +194,7 @@ class _FileSelectorWidgetState extends State<FileSelectorWidget> {
   // 选择文件
   Future<void> _selectFile() async {
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
+      FilePickerResult? result = await FilePicker.pickFiles(
         type: widget.fileType,
         allowedExtensions: widget.allowedExtensions,
         allowMultiple: false,
