@@ -1,6 +1,7 @@
 import 'package:stelliberty/ui/constants/spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:stelliberty/clash/providers/behavior_settings_provider.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
@@ -94,27 +95,29 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                         onChanged: provider.updateAutoStart,
                       ),
 
-                      const SizedBox(height: 16),
+                      // 静默启动卡片（仅桌面端）
+                      if (PlatformHelper.isDesktop) ...[
+                        const SizedBox(height: 16),
+                        _buildSwitchCard(
+                          icon: Icons.visibility_off_outlined,
+                          title: trans.behavior.silent_start_title,
+                          subtitle: trans.behavior.silent_start_description,
+                          value: provider.silentStartEnabled,
+                          onChanged: provider.updateSilentStart,
+                        ),
+                      ],
 
-                      // 静默启动卡片
-                      _buildSwitchCard(
-                        icon: Icons.visibility_off_outlined,
-                        title: trans.behavior.silent_start_title,
-                        subtitle: trans.behavior.silent_start_description,
-                        value: provider.silentStartEnabled,
-                        onChanged: provider.updateSilentStart,
-                      ),
-
-                      const SizedBox(height: 16),
-
-                      // 最小化到托盘卡片
-                      _buildSwitchCard(
-                        icon: Icons.remove_circle_outline,
-                        title: trans.behavior.minimize_to_tray_title,
-                        subtitle: trans.behavior.minimize_to_tray_description,
-                        value: provider.minimizeToTray,
-                        onChanged: provider.updateMinimizeToTray,
-                      ),
+                      // 最小化到托盘卡片（仅桌面端）
+                      if (PlatformHelper.isDesktop) ...[
+                        const SizedBox(height: 16),
+                        _buildSwitchCard(
+                          icon: Icons.remove_circle_outline,
+                          title: trans.behavior.minimize_to_tray_title,
+                          subtitle: trans.behavior.minimize_to_tray_description,
+                          value: provider.minimizeToTray,
+                          onChanged: provider.updateMinimizeToTray,
+                        ),
+                      ],
 
                       const SizedBox(height: 16),
 

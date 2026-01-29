@@ -18,6 +18,8 @@ import org.json.JSONTokener
 class MainActivity : FlutterActivity() {
     // VPN 方法通道名称
     private val vpnChannelName = "io.github.stelliberty/vpn"
+    // 开机自启设置方法通道名称
+    private val autoStartChannelName = "io.github.stelliberty/auto_start"
     // 核心日志事件通道名称
     private val coreLogChannelName = "io.github.stelliberty/core_log"
     // VPN 权限请求码
@@ -32,6 +34,10 @@ class MainActivity : FlutterActivity() {
     companion object {
         // 核心日志事件接收器（由 EventChannel 设置）
         @Volatile var coreLogEventSink: EventChannel.EventSink? = null
+        // SharedPreferences 文件名（与 shared_preferences 插件一致）
+        private const val PREFS_NAME = "FlutterSharedPreferences"
+        // 开机自启动开关键名
+        private const val KEY_AUTO_START = "flutter.auto_start_enabled"
     }
 
     override fun onDestroy() {
@@ -55,6 +61,29 @@ class MainActivity : FlutterActivity() {
                     }
                 }
             )
+
+        // 开机自启方法通道：管理开机自启设置
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, autoStartChannelName)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // 获取开机自启状态
+                    "getStatus" -> {
+                        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                        val enabled = prefs.getBoolean(KEY_AUTO_START, false)
+                        result.success(enabled)
+                    }
+
+                    // 设置开机自启状态
+                    "setStatus" -> {
+                        val enabled = call.argument<Boolean>("enabled") ?: false
+                        val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                        prefs.edit().putBoolean(KEY_AUTO_START, enabled).apply()
+                        result.success(true)
+                    }
+
+                    else -> result.notImplemented()
+                }
+            }
 
         // VPN 方法通道：处理核心初始化和 VPN 控制
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, vpnChannelName)

@@ -1,16 +1,23 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/storage/preferences.dart';
 import 'package:stelliberty/services/log_print_service.dart';
 
-// 开机自启动服务：跨平台单例实现（Windows/macOS/Linux）。
-// 提供状态缓存、持久化与 Flutter↔Rust 同步。
+// 开机自启动服务：跨平台单例实现。
+// 桌面端（Windows/macOS/Linux）通过 Rust 实现；Android 通过 MethodChannel 实现。
 class AutoStartService {
   // 私有构造函数，防止外部实例化
   AutoStartService._();
 
   // 单例实例
   static final AutoStartService instance = AutoStartService._();
+
+  // Android 平台方法通道
+  static const _androidChannel = MethodChannel(
+    'io.github.stelliberty/auto_start',
+  );
 
   // 状态缓存
   bool? _cachedStatus;
@@ -20,8 +27,32 @@ class AutoStartService {
     return _cachedStatus ?? AppPreferences.instance.getAutoStartEnabled();
   }
 
-  // 从 Rust 端查询自启动状态
+  // 从平台查询自启动状态
   Future<bool> getStatus() async {
+    // Android 平台使用 MethodChannel
+    if (Platform.isAndroid) {
+      return _getStatusAndroid();
+    }
+
+    // 桌面平台使用 Rust 信号
+    return _getStatusDesktop();
+  }
+
+  // Android 平台获取状态
+  Future<bool> _getStatusAndroid() async {
+    try {
+      final enabled = await _androidChannel.invokeMethod<bool>('getStatus');
+      final status = enabled ?? false;
+      _cachedStatus = status;
+      return status;
+    } catch (e) {
+      Logger.error('Android 获取自启动状态失败: $e');
+      return getCachedStatus();
+    }
+  }
+
+  // 桌面平台从 Rust 端获取状态
+  Future<bool> _getStatusDesktop() async {
     try {
       // 创建 Completer 等待 Rust 响应
       final completer = Completer<bool>();
@@ -68,6 +99,35 @@ class AutoStartService {
 
   // 设置开机自启动状态
   Future<bool> setStatus(bool enabled) async {
+    // Android 平台使用 MethodChannel
+    if (Platform.isAndroid) {
+      return _setStatusAndroid(enabled);
+    }
+
+    // 桌面平台使用 Rust 信号
+    return _setStatusDesktop(enabled);
+  }
+
+  // Android 平台设置状态
+  Future<bool> _setStatusAndroid(bool enabled) async {
+    try {
+      final success = await _androidChannel.invokeMethod<bool>('setStatus', {
+        'enabled': enabled,
+      });
+      if (success == true) {
+        _cachedStatus = enabled;
+        Logger.info('Android 开机自启动已${enabled ? '启用' : '禁用'}');
+        return true;
+      }
+      return false;
+    } catch (e) {
+      Logger.error('Android 设置自启动状态失败: $e');
+      return false;
+    }
+  }
+
+  // 桌面平台设置状态
+  Future<bool> _setStatusDesktop(bool enabled) async {
     try {
       // 创建 Completer 等待 Rust 响应
       final completer = Completer<bool>();

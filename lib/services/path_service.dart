@@ -15,6 +15,9 @@ class PathService {
   // 应用数据根目录，initialize() 后可用
   late final String appDataPath;
 
+  // 日志文件目录路径，Android 使用外部 Documents 目录
+  late final String logDirPath;
+
   // 应用名称（从 package_info_plus 获取）
   late final String _appName;
 
@@ -108,6 +111,9 @@ class PathService {
     // 确定应用数据路径
     appDataPath = await _determineAppDataPath();
 
+    // 确定日志目录路径
+    logDirPath = await _determineLogDirPath();
+
     // 初始化缓存路径，一次性计算避免重复拼接
     _subscriptionsDirCache = path.join(appDataPath, _subscriptionsDirName);
     _overridesDirCache = path.join(appDataPath, _overridesDirName);
@@ -171,5 +177,24 @@ class PathService {
       // 桌面平台使用可执行文件同级 data 目录
       return path.join(path.dirname(Platform.resolvedExecutable), 'data');
     }
+  }
+
+  // 确定日志文件目录路径
+  // Android 使用外部 Documents 目录便于用户查看；其他平台使用应用数据目录
+  Future<String> _determineLogDirPath() async {
+    if (Platform.isAndroid) {
+      final documentsDir = await getExternalStorageDirectory();
+      if (documentsDir != null) {
+        // 使用外部存储的 Documents 目录
+        final externalPath = documentsDir.path;
+        // /storage/emulated/0/Android/data/xxx/files -> /storage/emulated/0/Documents
+        final rootPath = externalPath.split('Android').first;
+        return path.join(rootPath, 'Documents', 'stelliberty');
+      }
+      // 回退到应用数据目录
+      return appDataPath;
+    }
+    // 其他平台使用应用数据目录
+    return appDataPath;
   }
 }

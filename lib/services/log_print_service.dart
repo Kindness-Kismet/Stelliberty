@@ -26,8 +26,15 @@ class Logger {
   // 初始化日志系统，在应用启动时调用
   static Future<void> initialize() async {
     try {
-      final appDataPath = PathService.instance.appDataPath;
-      _logFilePath = path.join(appDataPath, 'running.logs');
+      final logDirPath = PathService.instance.logDirPath;
+
+      // 确保日志目录存在
+      final logDir = Directory(logDirPath);
+      if (!await logDir.exists()) {
+        await logDir.create(recursive: true);
+      }
+
+      _logFilePath = path.join(logDirPath, 'running.logs');
     } catch (e) {
       // 初始化失败时静默处理，不影响应用运行
       if (kDebugMode) {
