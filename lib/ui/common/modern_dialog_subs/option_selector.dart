@@ -1,14 +1,11 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 
 // 横向选项间距常量（按选项数量调整）。
 const double _kHorizontalSpacingTwoOptions = 6.0;
 const double _kHorizontalSpacingThreeOptions = 4.0;
 const double _kHorizontalSpacingTwoOptionsMobile = 4.0;
 const double _kHorizontalSpacingThreeOptionsMobile = 3.0;
-
-// 判断是否为移动端
-bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 
 // 选项数据模型
 class OptionItem<T> {
@@ -65,7 +62,7 @@ class OptionSelectorWidget<T> extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
     final effectiveTitleColor = titleColor ?? colorScheme.primary;
-    final isMobile = _isMobile;
+    final isMobile = PlatformHelper.isMobile;
 
     final containerPadding = isMobile
         ? const EdgeInsets.all(12)
@@ -128,7 +125,7 @@ class OptionSelectorWidget<T> extends StatelessWidget {
     bool isDark,
     ColorScheme colorScheme,
   ) {
-    final isMobile = _isMobile;
+    final isMobile = PlatformHelper.isMobile;
     // 根据选项数量动态设置间距
     final spacing = options.length == 2
         ? (isMobile
@@ -163,7 +160,7 @@ class OptionSelectorWidget<T> extends StatelessWidget {
     bool isDark,
     ColorScheme colorScheme,
   ) {
-    final isMobile = _isMobile;
+    final isMobile = PlatformHelper.isMobile;
     return Column(
       children: options.map((option) {
         return Padding(
@@ -185,7 +182,7 @@ class OptionSelectorWidget<T> extends StatelessWidget {
   ) {
     final isSelected = option.value == selectedValue;
     final effectiveTitleColor = titleColor ?? colorScheme.primary;
-    final isMobile = _isMobile;
+    final isMobile = PlatformHelper.isMobile;
 
     final cardPadding = isMobile
         ? const EdgeInsets.all(10)

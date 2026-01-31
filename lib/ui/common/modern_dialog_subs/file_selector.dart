@@ -2,10 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:desktop_drop/desktop_drop.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:stelliberty/services/log_print_service.dart';
-
-// 判断是否为移动端
-bool get _isMobile => Platform.isAndroid || Platform.isIOS;
 
 // 文件选择结果
 class FileSelectionResult {
@@ -70,7 +68,7 @@ class _FileSelectorWidgetState extends State<FileSelectorWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = _isMobile;
+    final isMobile = PlatformHelper.isMobile;
     final mainIconSize = isMobile ? 18.0 : 20.0;
     final titleFontSize = isMobile ? 14.0 : 16.0;
     final subtitleFontSize = isMobile ? 11.0 : 12.0;

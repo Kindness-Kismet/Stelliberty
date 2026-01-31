@@ -301,7 +301,7 @@ class ProviderSetup {
 
   // 启动 Clash 核心（不阻塞 UI）
   static Future<void> startClash(ProviderBundle providers) async {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (PlatformHelper.isMobile) {
       Logger.info('移动端跳过 Clash 桌面核心自启动');
       return;
     }
@@ -369,7 +369,7 @@ class ProviderSetup {
     ];
 
     // 服务模式仅在桌面平台可用
-    if (Platform.isWindows || Platform.isMacOS || Platform.isLinux) {
+    if (PlatformHelper.isDesktop) {
       initFutures.add(serviceProvider.initialize());
     }
 

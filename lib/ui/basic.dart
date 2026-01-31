@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:stelliberty/theme/dynamic_theme.dart';
 import 'package:stelliberty/providers/window_effect_provider.dart';
 import 'package:stelliberty/providers/app_update_provider.dart';
@@ -130,13 +130,11 @@ class AppContent extends StatelessWidget {
 class _AppBody extends StatelessWidget {
   const _AppBody();
 
-  static bool get _isMobile => Platform.isAndroid || Platform.isIOS;
-
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        if (!_isMobile) const WindowTitleBar(),
+        if (!PlatformHelper.isMobile) const WindowTitleBar(),
         const Expanded(child: HomePage()),
       ],
     );

@@ -1,8 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-
-// 判断是否为移动端
-bool get _isMobile => Platform.isAndroid || Platform.isIOS;
+import 'package:stelliberty/atomic/platform_helper.dart';
 
 // 文本输入组件：支持图标前缀、校验与多行输入。
 // 提供半透明背景并适配明暗主题。
@@ -46,7 +43,7 @@ class TextInputField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isMobile = _isMobile;
+    final isMobile = PlatformHelper.isMobile;
 
     final iconSize = isMobile ? 18.0 : 20.0;
     final fontSize = isMobile ? 13.0 : 14.0;

@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 
 // 对话框样式常量
@@ -85,7 +85,7 @@ class DialogConstants {
   );
 
   // 判断是否为移动端
-  static bool get isMobile => Platform.isAndroid || Platform.isIOS;
+  static bool get isMobile => PlatformHelper.isMobile;
 }
 
 // 现代对话框基础组件：提供统一视觉风格与布局结构。

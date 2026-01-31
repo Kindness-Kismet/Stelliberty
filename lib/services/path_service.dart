@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -169,7 +170,7 @@ class PathService {
   // 根据平台确定应用数据根目录。
   // 移动端使用系统支持目录；桌面端使用可执行文件同级 data 目录。
   Future<String> _determineAppDataPath() async {
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (PlatformHelper.isMobile) {
       // 移动平台使用应用支持目录
       final appDir = await getApplicationSupportDirectory();
       return path.join(appDir.path, _appName);

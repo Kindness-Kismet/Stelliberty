@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:stelliberty/clash/model/traffic_data_model.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/resource_usage_provider.dart';
@@ -43,7 +44,7 @@ class _RunningStatusCardState extends State<RunningStatusCard> {
   Widget build(BuildContext context) {
     final trans = context.translate;
     final colorScheme = Theme.of(context).colorScheme;
-    final isMobilePlatform = Platform.isAndroid || Platform.isIOS;
+    final isMobilePlatform = PlatformHelper.isMobile;
     final desktopCoreRunning = context.select<ClashProvider, bool>(
       (provider) => provider.isCoreRunning,
     );

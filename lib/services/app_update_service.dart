@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:stelliberty/src/bindings/signals/signals.dart';
 import 'package:stelliberty/services/log_print_service.dart';
@@ -36,7 +37,7 @@ class AppUpdateService {
   // 检测是否为便携版（检查 data 目录下是否存在 .portable 标识文件）
   bool _checkIsPortable() {
     // 移动端不支持便携版
-    if (Platform.isAndroid || Platform.isIOS) {
+    if (PlatformHelper.isMobile) {
       return false;
     }
 
