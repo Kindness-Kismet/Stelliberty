@@ -7,7 +7,7 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <application
-        android:label="stelliberty"
+        android:label="Stelliberty"
         android:name="${applicationName}"
         android:extractNativeLibs="true"
         android:enableOnBackInvokedCallback="true"

@@ -263,3 +263,6 @@ tmp/
 *.aac
 *.ogg
 *.m4a
+
+# Android adaptive icon
+!android/app/src/main/res/mipmap-*/ic_launcher*.png
