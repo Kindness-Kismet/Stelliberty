@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:stelliberty/atomic/platform_helper.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/model/clash_model.dart';
 import 'package:stelliberty/ui/widgets/proxy/proxy_node_card.dart';
@@ -12,20 +13,53 @@ import 'package:stelliberty/i18n/i18n.dart';
 class _ProxyGridSpacing {
   _ProxyGridSpacing._();
 
-  static const gridLeftEdge = 16.0; // 最左侧卡片距左边距离
-  static const gridTopEdge = 10.0; // 第一行卡片距顶部距离
-  static const gridRightEdge =
-      16.0 - SpacingConstants.scrollbarRightCompensation; // 最右侧卡片距右边距离（补偿滚动条）
-  static const gridBottomEdge = 10.0; // 最后一行卡片距底部距离
-  static const cardColumnSpacing = 16.0; // 卡片列间距（左右间距）
-  static const cardRowSpacing = 16.0; // 卡片行间距（上下间距）
+  // 桌面端间距
+  static const desktopGridLeftEdge = 16.0;
+  static const desktopGridTopEdge = 10.0;
+  static const desktopGridRightEdge =
+      16.0 - SpacingConstants.scrollbarRightCompensation;
+  static const desktopGridBottomEdge = 10.0;
+  static const desktopCardColumnSpacing = 16.0;
+  static const desktopCardRowSpacing = 16.0;
+  static const desktopCardHeight = 88.0;
+  static const desktopCardMinWidth = 280.0;
 
-  static const gridPadding = EdgeInsets.fromLTRB(
-    gridLeftEdge,
-    gridTopEdge,
-    gridRightEdge,
-    gridBottomEdge,
-  );
+  // 移动端间距（更紧凑）
+  static const mobileGridLeftEdge = 10.0;
+  static const mobileGridTopEdge = 8.0;
+  static const mobileGridRightEdge = 10.0;
+  static const mobileGridBottomEdge = 8.0;
+  static const mobileCardColumnSpacing = 10.0;
+  static const mobileCardRowSpacing = 10.0;
+  static const mobileCardHeight = 64.0;
+  static const mobileCardMinWidth = 160.0;
+
+  static EdgeInsets get gridPadding => PlatformHelper.isMobile
+      ? const EdgeInsets.fromLTRB(
+          mobileGridLeftEdge,
+          mobileGridTopEdge,
+          mobileGridRightEdge,
+          mobileGridBottomEdge,
+        )
+      : const EdgeInsets.fromLTRB(
+          desktopGridLeftEdge,
+          desktopGridTopEdge,
+          desktopGridRightEdge,
+          desktopGridBottomEdge,
+        );
+
+  static double get cardColumnSpacing => PlatformHelper.isMobile
+      ? mobileCardColumnSpacing
+      : desktopCardColumnSpacing;
+
+  static double get cardRowSpacing =>
+      PlatformHelper.isMobile ? mobileCardRowSpacing : desktopCardRowSpacing;
+
+  static double get cardHeight =>
+      PlatformHelper.isMobile ? mobileCardHeight : desktopCardHeight;
+
+  static double get cardMinWidth =>
+      PlatformHelper.isMobile ? mobileCardMinWidth : desktopCardMinWidth;
 }
 
 // 代理节点网格状态（用于 Selector）
@@ -138,9 +172,10 @@ class _ProxyNodeGridWidgetState extends State<ProxyNodeGrid> {
 
                 return LayoutBuilder(
                   builder: (context, constraints) {
-                    final int crossAxisCount = (constraints.maxWidth / 280)
-                        .floor()
-                        .clamp(2, 999);
+                    final int crossAxisCount =
+                        (constraints.maxWidth / _ProxyGridSpacing.cardMinWidth)
+                            .floor()
+                            .clamp(2, 999);
 
                     // 只在列数变化时调用回调
                     if (crossAxisCount != _crossAxisCountCache) {
@@ -155,7 +190,7 @@ class _ProxyNodeGridWidgetState extends State<ProxyNodeGrid> {
                         crossAxisCount: crossAxisCount,
                         crossAxisSpacing: _ProxyGridSpacing.cardColumnSpacing,
                         mainAxisSpacing: _ProxyGridSpacing.cardRowSpacing,
-                        mainAxisExtent: 88.0,
+                        mainAxisExtent: _ProxyGridSpacing.cardHeight,
                       ),
                       itemCount: sortedGroup.all.length,
                       // 优化渲染性能
