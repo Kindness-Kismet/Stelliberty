@@ -410,7 +410,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
     outputs:
       mihomo_version: ${{ steps.get_mihomo_version.outputs.version }}
-
+o
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -454,7 +454,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
-          name: ${{ needs.prepare.outputs.pkg_capitalized }} ${{ needs.prepare.outputs.version }} 更新
+          name: ${{ needs.prepare.outputs.pkg_capitalized }} ${{ needs.prepare.outputs.version }} Latest
           body: |
             ### 📦 构建信息
 
