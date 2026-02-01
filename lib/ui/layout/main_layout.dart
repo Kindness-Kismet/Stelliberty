@@ -27,21 +27,15 @@ import 'package:stelliberty/ui/pages/rules_page.dart';
 import 'sidebar.dart';
 import 'mobile_bottom_nav.dart';
 
-// 主页面：根据平台选择不同布局。
-// 桌面端使用侧边栏；移动端使用底部导航。
+// 主页面：根据平台选择不同布局
+// 桌面端使用侧边栏；移动端使用底部导航
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (PlatformHelper.isMobile) {
-      // 移动端布局：底部导航栏 + SafeArea 处理状态栏
-      return Scaffold(
-        body: SafeArea(child: const _DynamicContentArea()),
-        bottomNavigationBar: const MobileBottomNav(),
-      );
-    } else {
-      // 桌面端布局：侧边栏
+    // 桌面端布局：侧边栏
+    if (!PlatformHelper.isMobile) {
       return const Row(
         children: [
           HomeSidebar(),
@@ -50,6 +44,25 @@ class HomePage extends StatelessWidget {
         ],
       );
     }
+
+    // 移动端布局：底部导航栏 + 预测性返回手势支持
+    return Consumer<ContentProvider>(
+      builder: (context, provider, child) {
+        return PopScope(
+          // 首页允许系统处理（预测性返回动画 + 退出），子页面由应用拦截
+          canPop: provider.currentView == ContentView.home,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            provider.handleBack();
+          },
+          child: child!,
+        );
+      },
+      child: const Scaffold(
+        body: SafeArea(child: _DynamicContentArea()),
+        bottomNavigationBar: MobileBottomNav(),
+      ),
+    );
   }
 }
 

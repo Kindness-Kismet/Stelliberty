@@ -10,6 +10,7 @@
         android:label="stelliberty"
         android:name="${applicationName}"
         android:extractNativeLibs="true"
+        android:enableOnBackInvokedCallback="true"
         tools:replace="android:extractNativeLibs"
         android:icon="@mipmap/ic_launcher">
         <activity

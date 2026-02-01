@@ -1,7 +1,7 @@
 // Android JNI 初始化器
 
-use jni::objects::{GlobalRef, JObject};
 use jni::JNIEnv;
+use jni::objects::{GlobalRef, JObject};
 use std::sync::OnceLock;
 
 static ACTIVITY_REF: OnceLock<GlobalRef> = OnceLock::new();

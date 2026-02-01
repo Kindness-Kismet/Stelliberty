@@ -33,33 +33,65 @@ enum ContentView {
 // 管理右侧内容区域的视图切换
 class ContentProvider extends ChangeNotifier {
   ContentView _currentView = ContentView.home;
-
-  // 防抖相关
   DateTime? _lastSwitchTime;
-  static const _switchDebounceMs = 200; // 切换防抖时间（毫秒）
+  static const _switchDebounceMs = 200;
 
-  // 获取当前视图类型
   ContentView get currentView => _currentView;
 
-  // 检查是否可以切换（防止快速连续切换）
   bool get _canSwitch {
     if (_lastSwitchTime == null) return true;
-    final elapsed = DateTime.now().difference(_lastSwitchTime!).inMilliseconds;
-    return elapsed >= _switchDebounceMs;
+    return DateTime.now().difference(_lastSwitchTime!).inMilliseconds >=
+        _switchDebounceMs;
   }
 
-  // 切换到指定视图，变化时通知监听器
-  // 添加防抖机制，防止快速连续切换导致页面重复初始化
+  // 切换视图，带防抖
   void switchView(ContentView nextView) {
-    if (_currentView == nextView) return;
-
-    // 防抖检查
-    if (!_canSwitch) {
-      return;
-    }
-
+    if (_currentView == nextView || !_canSwitch) return;
     _currentView = nextView;
     _lastSwitchTime = DateTime.now();
     notifyListeners();
   }
+
+  // 处理返回操作，返回 true 表示已处理
+  bool handleBack() {
+    final parentView = _getParentView(_currentView);
+    if (parentView == null) return false;
+    switchView(parentView);
+    return true;
+  }
+
+  // 获取父视图（用于返回导航）
+  ContentView? _getParentView(ContentView view) => switch (view) {
+    // 首页无父视图
+    ContentView.home => null,
+
+    // 底部导航一级页面 → 首页
+    ContentView.proxy ||
+    ContentView.subscriptions ||
+    ContentView.settingsOverview => ContentView.home,
+
+    // 订阅子页面 → 订阅页
+    ContentView.overrides || ContentView.rules => ContentView.subscriptions,
+
+    // 代理子页面 → 代理页
+    ContentView.connections => ContentView.proxy,
+
+    // 设置子页面 → 设置概览
+    ContentView.settingsAppearance ||
+    ContentView.settingsLanguage ||
+    ContentView.settingsClashFeatures ||
+    ContentView.settingsBehavior ||
+    ContentView.settingsBackup ||
+    ContentView.settingsAppUpdate ||
+    ContentView.settingsAccessControl ||
+    ContentView.logs => ContentView.settingsOverview,
+
+    // Clash 特性子页面 → Clash 特性页
+    ContentView.settingsClashNetworkSettings ||
+    ContentView.settingsClashPortControl ||
+    ContentView.settingsClashSystemIntegration ||
+    ContentView.settingsClashDnsConfig ||
+    ContentView.settingsClashPerformance ||
+    ContentView.settingsClashLogsDebug => ContentView.settingsClashFeatures,
+  };
 }
