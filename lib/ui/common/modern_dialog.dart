@@ -42,11 +42,11 @@ class DialogConstants {
 
   // 按钮内边距
   static const EdgeInsets buttonPadding = EdgeInsets.symmetric(
-    vertical: 12,
+    vertical: 10,
     horizontal: 16,
   );
   static const EdgeInsets buttonPaddingMobile = EdgeInsets.symmetric(
-    vertical: 8,
+    vertical: 6,
     horizontal: 12,
   );
 
@@ -75,7 +75,7 @@ class DialogConstants {
   );
   static const EdgeInsets actionsPaddingMobile = EdgeInsets.symmetric(
     horizontal: 16,
-    vertical: 12,
+    vertical: 10,
   );
 
   // 对话框外边距
@@ -368,7 +368,7 @@ class _ModernDialogState extends State<ModernDialog>
                 : Colors.white.withValues(alpha: 0.5),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
-              vertical: 12,
+              vertical: 10,
             ),
             hintStyle: TextStyle(
               fontSize: 14,
@@ -666,6 +666,8 @@ class _ModernDialogState extends State<ModernDialog>
         backgroundColor: isDark
             ? Colors.white.withValues(alpha: 0.04)
             : Colors.white.withValues(alpha: 0.6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
     );
   }
@@ -705,6 +707,8 @@ class _ModernDialogState extends State<ModernDialog>
             ),
           ),
           elevation: 0,
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           shadowColor: buttonColor.withValues(alpha: 0.5),
         ),
         child: action.isLoading
@@ -747,6 +751,8 @@ class _ModernDialogState extends State<ModernDialog>
           backgroundColor: isDark
               ? Colors.white.withValues(alpha: 0.04)
               : Colors.white.withValues(alpha: 0.6),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         ),
         child: Text(
           action.label,
