@@ -135,16 +135,25 @@ class PathService {
       _devPreferencesFileName,
     );
 
-    // Clash 核心路径（基于可执行文件目录）
-    final exeDir = path.dirname(Platform.resolvedExecutable);
-    _clashCoreBasePathCache = path.join(
-      exeDir,
-      'data',
-      'flutter_assets',
-      'assets',
-      'clash-core',
-    );
-    _clashCoreDataPathCache = path.join(_clashCoreBasePathCache, 'data');
+    // Clash 核心路径
+    if (PlatformHelper.isMobile) {
+      // 移动端：Geodata 由 Go 核心内置，使用应用数据目录下的 clash-core
+      // Go 核心会在初始化时自动解压 Geodata 到 homeDir
+      final appDir = await getApplicationSupportDirectory();
+      _clashCoreBasePathCache = path.join(appDir.path, 'clash-core');
+      _clashCoreDataPathCache = _clashCoreBasePathCache;
+    } else {
+      // 桌面端：基于可执行文件目录
+      final exeDir = path.dirname(Platform.resolvedExecutable);
+      _clashCoreBasePathCache = path.join(
+        exeDir,
+        'data',
+        'flutter_assets',
+        'assets',
+        'clash-core',
+      );
+      _clashCoreDataPathCache = path.join(_clashCoreBasePathCache, 'data');
+    }
 
     // 创建所有必要的目录
     await _createDirectories();

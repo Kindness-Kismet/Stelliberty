@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
+import '../config/clash_defaults.dart';
 import '../state/access_control_states.dart';
 
 // VPN 通道封装：通过 MethodChannel 控制原生 VpnService。
@@ -17,8 +18,8 @@ class VpnService {
     'io.github.stelliberty/core_log',
   );
 
-  // 核心日志事件流
-  static Stream<String>? _coreLogStream;
+  // 核心日志事件流（广播流，支持多订阅者）
+  static StreamController<String>? _coreLogController;
 
   // 是否支持当前平台
   static bool get isSupported => Platform.isAndroid;
@@ -26,10 +27,14 @@ class VpnService {
   // 获取核心日志事件流
   static Stream<String>? get coreLogStream {
     if (!isSupported) return null;
-    _coreLogStream ??= _coreLogChannel.receiveBroadcastStream().map(
-      (event) => event as String,
-    );
-    return _coreLogStream;
+    if (_coreLogController == null) {
+      _coreLogController = StreamController<String>.broadcast();
+      _coreLogChannel.receiveBroadcastStream().listen(
+        (event) => _coreLogController?.add(event as String),
+        onError: (error) => _coreLogController?.addError(error),
+      );
+    }
+    return _coreLogController?.stream;
   }
 
   static Future<Map<String, dynamic>?> initCore({
@@ -140,16 +145,16 @@ class VpnService {
   // 返回延迟（毫秒），-1 表示失败/超时
   static Future<int> testProxyDelay({
     required String proxyName,
-    String testUrl = 'https://www.gstatic.com/generate_204',
-    int timeoutMs = 5000,
+    String? testUrl,
+    int? timeoutMs,
   }) async {
     final res = await invokeAction(
       method: 'asyncTestDelay',
-      data: jsonEncode({
+      data: {
         'proxy-name': proxyName,
-        'test-url': testUrl,
-        'timeout': timeoutMs,
-      }),
+        'test-url': testUrl ?? ClashDefaults.defaultTestUrl,
+        'timeout': timeoutMs ?? ClashDefaults.proxyDelayTestTimeout,
+      },
     );
     if (res == null) return -1;
     final data = res['data'];

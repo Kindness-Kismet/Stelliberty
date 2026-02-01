@@ -314,7 +314,15 @@ fn get_platform_match_rules(
 
 // 获取平台名称
 fn get_platform_name() -> String {
-    std::env::consts::OS.to_string()
+    // Android 编译目标的 OS 常量是 "linux"，需要特殊处理
+    #[cfg(target_os = "android")]
+    {
+        "android".to_string()
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        std::env::consts::OS.to_string()
+    }
 }
 
 // 获取系统架构（标准化为常用命名）

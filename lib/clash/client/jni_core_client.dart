@@ -73,8 +73,8 @@ class JniCoreClient implements ClashCoreClient {
   }) async {
     return await VpnService.testProxyDelay(
       proxyName: proxyName,
-      testUrl: testUrl ?? 'https://www.gstatic.com/generate_204',
-      timeoutMs: timeoutMs ?? 5000,
+      testUrl: testUrl,
+      timeoutMs: timeoutMs,
     );
   }
 
