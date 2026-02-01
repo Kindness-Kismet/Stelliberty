@@ -169,9 +169,10 @@ class JniCoreClient implements ClashCoreClient {
       return false;
     }
 
+    // 传入配置路径让核心直接加载
     final res = await VpnService.invokeAction(
       method: 'setupConfig',
-      data: path,
+      data: {'config-path': path},
     );
     if (res == null) return false;
 
