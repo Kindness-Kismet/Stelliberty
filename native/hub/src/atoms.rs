@@ -1,6 +1,8 @@
 // L4 原子层模块入口
 
 pub mod ipc_client;
+#[cfg(target_os = "android")]
+pub mod jni_bridge;
 pub mod logger;
 pub mod network_interfaces;
 pub mod override_processor;

@@ -9,6 +9,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.net.VpnService as AndroidVpnService
+import android.util.Log
 import androidx.core.content.ContextCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -47,13 +48,22 @@ class MainActivity : FlutterActivity() {
     private val coreExecutor = Executors.newSingleThreadExecutor()
 
     companion object {
+        private const val TAG = "MainActivity"
         // 核心日志事件接收器（由 EventChannel 设置）
         @Volatile var coreLogEventSink: EventChannel.EventSink? = null
         // SharedPreferences 文件名（与 shared_preferences 插件一致）
         private const val PREFS_NAME = "FlutterSharedPreferences"
         // 开机自启动开关键名
         private const val KEY_AUTO_START = "flutter.auto_start_enabled"
+
+        init {
+            // 加载 Rust hub 库
+            System.loadLibrary("hub")
+        }
     }
+
+    // JNI 声明：初始化 Android context 到 Rust 端的 ndk-context
+    private external fun initAndroidContext(activity: Activity)
 
     override fun onDestroy() {
         coreExecutor.shutdownNow()
@@ -62,6 +72,14 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // 初始化 Rust 端的 ndk-context
+        try {
+            initAndroidContext(this)
+            Log.i(TAG, "ndk-context 初始化成功")
+        } catch (e: Exception) {
+            Log.e(TAG, "ndk-context 初始化失败: ${e.message}")
+        }
 
         // 核心日志事件通道：用于将核心日志转发到 Flutter 端
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, coreLogChannelName)

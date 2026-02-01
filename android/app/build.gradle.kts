@@ -1,9 +1,25 @@
+import groovy.json.JsonSlurper
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.diffplug.spotless") version "7.0.2"
+}
+
+// 查找 rustls-platform-verifier 的 Maven 仓库路径
+fun findRustlsPlatformVerifierProject(): String {
+    val dependencyText = providers.exec {
+        workingDir = file("../../native/hub")
+        commandLine("cargo", "metadata", "--format-version", "1", "--filter-platform", "aarch64-linux-android")
+    }.standardOutput.asText.get()
+
+    val dependencyJson = JsonSlurper().parseText(dependencyText) as Map<*, *>
+    val packages = dependencyJson["packages"] as List<*>
+    val pkg = packages.find { (it as Map<*, *>)["name"] == "rustls-platform-verifier-android" } as Map<*, *>
+    val manifestPath = file(pkg["manifest_path"] as String)
+    return File(manifestPath.parentFile, "maven").path
 }
 
 val shouldSplitPerAbi: Boolean =
@@ -69,6 +85,8 @@ android {
 
     buildTypes {
         release {
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("debug")
 
             proguardFiles(
@@ -94,4 +112,15 @@ spotless {
         target("src/**/*.kt")
         ktfmt().kotlinlangStyle()
     }
+}
+
+repositories {
+    maven {
+        url = uri(findRustlsPlatformVerifierProject())
+        metadataSources.artifact()
+    }
+}
+
+dependencies {
+    implementation("rustls:rustls-platform-verifier:latest.release")
 }
