@@ -217,6 +217,18 @@ jobs:
       - name: 生成多语言文件
         run: dart run slang
 
+      - name: 配置 Android 签名
+        if: matrix.platform == 'android' && env.ANDROID_KEYSTORE_BASE64 != ''
+        shell: bash
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > ${{ runner.temp }}/release.jks
+          echo "ANDROID_KEYSTORE_PATH=${{ runner.temp }}/release.jks" >> $GITHUB_ENV
+          echo "ANDROID_KEYSTORE_PASSWORD=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_ALIAS=${{ secrets.ANDROID_KEY_ALIAS }}" >> $GITHUB_ENV
+          echo "ANDROID_KEY_PASSWORD=${{ secrets.ANDROID_KEY_PASSWORD }}" >> $GITHUB_ENV
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
       - name: 运行构建脚本
         shell: bash
         run: |
