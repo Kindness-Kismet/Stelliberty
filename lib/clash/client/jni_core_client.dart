@@ -158,21 +158,25 @@ class JniCoreClient implements ClashCoreClient {
     String? configContent,
     bool force = true,
   }) async {
-    // Android 端使用 setupConfig 重载配置
+    // 构建 setupConfig 参数
+    final params = <String, dynamic>{};
+
+    // 优先使用 payload 模式（配置内容）
     if (configContent != null && configContent.isNotEmpty) {
-      Logger.debug('Android 端不支持 payload 重载，将忽略 payload');
+      params['payload'] = configContent;
+    } else {
+      // 文件模式
+      final path = configPath ?? _configPath;
+      if (path == null || path.isEmpty) {
+        Logger.warning('Android 端未指定配置路径，无法重载配置');
+        return false;
+      }
+      params['config-path'] = path;
     }
 
-    final path = configPath ?? _configPath;
-    if (path == null || path.isEmpty) {
-      Logger.warning('Android 端未指定配置路径，无法重载配置');
-      return false;
-    }
-
-    // 传入配置路径让核心直接加载
     final res = await VpnService.invokeAction(
       method: 'setupConfig',
-      data: {'config-path': path},
+      data: params,
     );
     if (res == null) return false;
 
@@ -182,8 +186,10 @@ class JniCoreClient implements ClashCoreClient {
       return false;
     }
 
-    // 更新当前配置路径
-    _configPath = path;
+    // 更新当前配置路径（仅文件模式）
+    if (configPath != null) {
+      _configPath = configPath;
+    }
     Logger.info('Android 端配置重载成功');
     return true;
   }
