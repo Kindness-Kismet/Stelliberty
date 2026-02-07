@@ -56,7 +56,21 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        if (!shouldSplitPerAbi) {
+        // 根据构建参数设置 ABI 过滤器
+        // 优先级：目标架构环境变量 > split-per-abi > 默认双架构
+        val targetAbi = project.findProperty("targetAbi")?.toString()
+        if (targetAbi != null) {
+            // 构建脚本指定了目标架构，只包含该架构
+            ndk {
+                abiFilters.clear()
+                when (targetAbi) {
+                    "x86_64" -> abiFilters += listOf("x86_64")
+                    "arm64-v8a" -> abiFilters += listOf("arm64-v8a")
+                    else -> abiFilters += listOf("x86_64", "arm64-v8a")
+                }
+            }
+        } else if (!shouldSplitPerAbi) {
+            // 未指定目标架构且未启用 split-per-abi 时，默认包含双架构
             ndk {
                 abiFilters.clear()
                 abiFilters += listOf("x86_64", "arm64-v8a")

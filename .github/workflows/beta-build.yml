@@ -233,7 +233,7 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.platform }}" = "android" ]; then
-            ARGS="--android --split-per-abi --android-arch=${{ matrix.arch }}"
+            ARGS="--android --android-arch=${{ matrix.arch }}"
           else
             ARGS=""
             if [ "$RUNNER_OS" != "macOS" ]; then

@@ -235,6 +235,20 @@ String? _getAndroidExpectedAbiLabel(String androidArch) {
   }
 }
 
+// 获取 Android 目标 ABI（用于 Gradle abiFilters）
+String? _getAndroidTargetAbi(String androidArch) {
+  switch (androidArch) {
+    case 'arm64':
+      return 'arm64-v8a';
+    case 'x64':
+      return 'x86_64';
+    case 'all':
+      return null;
+    default:
+      return null;
+  }
+}
+
 List<String> getAndroidBuildExtraArgs({
   required String androidArch,
   required bool shouldSplitPerAbi,
@@ -270,12 +284,28 @@ Future<void> runFlutterBuild({
   required String platform,
   required bool isRelease,
   List<String> extraArgs = const [],
+  String? androidTargetAbi,
 }) async {
   final flutterCmd = await resolveFlutterCmd();
   final mode = isRelease ? 'release' : 'debug';
 
   final buildTypeLabel = isRelease ? 'Release' : 'Debug';
   log('▶️  正在构建 $platform $buildTypeLabel 版本...');
+
+  // 如果指定了 Android 目标架构，设置 Gradle 属性
+  if (platform == 'android' && androidTargetAbi != null) {
+    final gradlePropsPath = p.join(projectRoot, 'android', 'gradle.properties');
+    final gradleProps = File(gradlePropsPath);
+    final lines = await gradleProps.readAsLines();
+
+    // 移除旧的 targetAbi 属性
+    final filteredLines = lines.where((l) => !l.startsWith('targetAbi=')).toList();
+    // 添加新的 targetAbi 属性
+    filteredLines.add('targetAbi=$androidTargetAbi');
+
+    await gradleProps.writeAsString(filteredLines.join('\n'));
+    log('📝 设置 Gradle targetAbi=$androidTargetAbi');
+  }
 
   // 构建命令
   final buildCommand = ['build', platform, '--$mode', ...extraArgs];
@@ -1084,6 +1114,7 @@ Future<void> main(List<String> args) async {
 
     // 步骤 4: 构建 Release
     if (shouldBuildRelease) {
+      final androidTargetAbi = isAndroid ? _getAndroidTargetAbi(androidArch) : null;
       await runFlutterBuild(
         projectRoot: projectRoot,
         platform: platform,
@@ -1094,6 +1125,7 @@ Future<void> main(List<String> args) async {
                 shouldSplitPerAbi: shouldSplitPerAbi,
               )
             : const [],
+        androidTargetAbi: androidTargetAbi,
       );
 
       if (needZipPack) {
@@ -1204,6 +1236,7 @@ Future<void> main(List<String> args) async {
 
     // 步骤 5: 构建 Debug
     if (shouldBuildDebug) {
+      final androidTargetAbi = isAndroid ? _getAndroidTargetAbi(androidArch) : null;
       await runFlutterBuild(
         projectRoot: projectRoot,
         platform: platform,
@@ -1214,6 +1247,7 @@ Future<void> main(List<String> args) async {
                 shouldSplitPerAbi: shouldSplitPerAbi,
               )
             : const [],
+        androidTargetAbi: androidTargetAbi,
       );
 
       if (needZipPack) {
