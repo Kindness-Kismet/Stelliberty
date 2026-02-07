@@ -292,19 +292,22 @@ Future<void> runFlutterBuild({
   final buildTypeLabel = isRelease ? 'Release' : 'Debug';
   log('▶️  正在构建 $platform $buildTypeLabel 版本...');
 
-  // 如果指定了 Android 目标架构，设置 Gradle 属性
-  if (platform == 'android' && androidTargetAbi != null) {
+  // 处理 Android 目标架构的 Gradle 属性
+  if (platform == 'android' || platform == 'apk') {
     final gradlePropsPath = p.join(projectRoot, 'android', 'gradle.properties');
     final gradleProps = File(gradlePropsPath);
     final lines = await gradleProps.readAsLines();
 
     // 移除旧的 targetAbi 属性
     final filteredLines = lines.where((l) => !l.startsWith('targetAbi=')).toList();
-    // 添加新的 targetAbi 属性
-    filteredLines.add('targetAbi=$androidTargetAbi');
+
+    // 如果指定了目标架构，添加 targetAbi 属性
+    if (androidTargetAbi != null) {
+      filteredLines.add('targetAbi=$androidTargetAbi');
+      log('📝 设置 Gradle targetAbi=$androidTargetAbi');
+    }
 
     await gradleProps.writeAsString(filteredLines.join('\n'));
-    log('📝 设置 Gradle targetAbi=$androidTargetAbi');
   }
 
   // 构建命令

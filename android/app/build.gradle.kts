@@ -108,6 +108,17 @@ android {
         }
     }
 
+    // 根据 targetAbi 排除不需要的架构 SO 文件
+    val targetAbi = project.findProperty("targetAbi")?.toString()
+    if (targetAbi != null) {
+        packagingOptions {
+            jniLibs {
+                val allAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+                excludes += allAbis.filter { it != targetAbi }.map { abi -> "lib/$abi/*" }
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
