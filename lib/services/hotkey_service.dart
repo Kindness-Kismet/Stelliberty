@@ -78,64 +78,92 @@ class HotkeyService {
       // 注册切换代理快捷键
       final toggleProxyStr = AppPreferences.instance.getHotkeyToggleProxy();
       if (toggleProxyStr != null && toggleProxyStr.isNotEmpty) {
-        _toggleProxyHotkey = _parseHotkey(toggleProxyStr);
-        if (_toggleProxyHotkey != null) {
-          await hotKeyManager.register(
-            _toggleProxyHotkey!,
-            keyDownHandler: (_) {
-              Logger.info('触发快捷键：切换系统代理');
-              _handleToggleProxy();
-            },
-          );
-          Logger.info('注册切换代理快捷键：$toggleProxyStr');
+        try {
+          _toggleProxyHotkey = _parseHotkey(toggleProxyStr);
+          if (_toggleProxyHotkey != null) {
+            await hotKeyManager.register(
+              _toggleProxyHotkey!,
+              keyDownHandler: (_) {
+                Logger.info('触发快捷键：切换系统代理');
+                _handleToggleProxy().catchError((e) {
+                  Logger.error('快捷键切换代理异常：$e');
+                });
+              },
+            );
+            Logger.info('注册切换代理快捷键：$toggleProxyStr');
+          }
+        } catch (e) {
+          Logger.error('注册切换代理快捷键失败：$e');
+          _toggleProxyHotkey = null;
         }
       }
 
       // 注册切换 TUN 快捷键
       final toggleTunStr = AppPreferences.instance.getHotkeyToggleTun();
       if (toggleTunStr != null && toggleTunStr.isNotEmpty) {
-        _toggleTunHotkey = _parseHotkey(toggleTunStr);
-        if (_toggleTunHotkey != null) {
-          await hotKeyManager.register(
-            _toggleTunHotkey!,
-            keyDownHandler: (_) {
-              Logger.info('触发快捷键：切换虚拟网卡');
-              _handleToggleTun();
-            },
-          );
-          Logger.info('注册切换虚拟网卡快捷键：$toggleTunStr');
+        try {
+          _toggleTunHotkey = _parseHotkey(toggleTunStr);
+          if (_toggleTunHotkey != null) {
+            await hotKeyManager.register(
+              _toggleTunHotkey!,
+              keyDownHandler: (_) {
+                Logger.info('触发快捷键：切换虚拟网卡');
+                _handleToggleTun().catchError((e) {
+                  Logger.error('快捷键切换虚拟网卡异常：$e');
+                });
+              },
+            );
+            Logger.info('注册切换虚拟网卡快捷键：$toggleTunStr');
+          }
+        } catch (e) {
+          Logger.error('注册切换虚拟网卡快捷键失败：$e');
+          _toggleTunHotkey = null;
         }
       }
 
       // 注册显示/隐藏窗口快捷键
       final showWindowStr = AppPreferences.instance.getHotkeyShowWindow();
       if (showWindowStr != null && showWindowStr.isNotEmpty) {
-        _showWindowHotkey = _parseHotkey(showWindowStr);
-        if (_showWindowHotkey != null) {
-          await hotKeyManager.register(
-            _showWindowHotkey!,
-            keyDownHandler: (_) {
-              Logger.info('触发快捷键：显示/隐藏窗口');
-              _handleShowWindow();
-            },
-          );
-          Logger.info('注册显示/隐藏窗口快捷键：$showWindowStr');
+        try {
+          _showWindowHotkey = _parseHotkey(showWindowStr);
+          if (_showWindowHotkey != null) {
+            await hotKeyManager.register(
+              _showWindowHotkey!,
+              keyDownHandler: (_) {
+                Logger.info('触发快捷键：显示/隐藏窗口');
+                _handleShowWindow().catchError((e) {
+                  Logger.error('快捷键显示/隐藏窗口异常：$e');
+                });
+              },
+            );
+            Logger.info('注册显示/隐藏窗口快捷键：$showWindowStr');
+          }
+        } catch (e) {
+          Logger.error('注册显示/隐藏窗口快捷键失败：$e');
+          _showWindowHotkey = null;
         }
       }
 
       // 注册退出应用快捷键
       final exitAppStr = AppPreferences.instance.getHotkeyExitApp();
       if (exitAppStr != null && exitAppStr.isNotEmpty) {
-        _exitAppHotkey = _parseHotkey(exitAppStr);
-        if (_exitAppHotkey != null) {
-          await hotKeyManager.register(
-            _exitAppHotkey!,
-            keyDownHandler: (_) {
-              Logger.info('触发快捷键：退出应用');
-              _handleExitApp();
-            },
-          );
-          Logger.info('注册退出应用快捷键：$exitAppStr');
+        try {
+          _exitAppHotkey = _parseHotkey(exitAppStr);
+          if (_exitAppHotkey != null) {
+            await hotKeyManager.register(
+              _exitAppHotkey!,
+              keyDownHandler: (_) {
+                Logger.info('触发快捷键：退出应用');
+                _handleExitApp().catchError((e) {
+                  Logger.error('快捷键退出应用异常：$e');
+                });
+              },
+            );
+            Logger.info('注册退出应用快捷键：$exitAppStr');
+          }
+        } catch (e) {
+          Logger.error('注册退出应用快捷键失败：$e');
+          _exitAppHotkey = null;
         }
       }
     } catch (e) {
@@ -481,24 +509,26 @@ class HotkeyService {
     );
 
     try {
+      // 关闭系统代理
       if (isSystemProxyEnabled) {
         await manager.disableSystemProxy();
         Logger.info('系统代理已通过快捷键关闭');
-      } else {
-        if (!isRunning) {
-          final configPath = _subscriptionProvider!.getSubscriptionConfigPath();
-          if (configPath == null) {
-            Logger.warning('没有可用的订阅配置文件，无法启动代理');
-            _isSwitching = false;
-            return;
-          }
-          await _clashProvider!.start(configPath: configPath);
-          Logger.info('核心已通过快捷键启动');
-        }
-
-        await manager.enableSystemProxy();
-        Logger.info('系统代理已通过快捷键启用');
+        return;
       }
+
+      // 启用系统代理前，确保核心在运行
+      if (!isRunning) {
+        final configPath = _subscriptionProvider!.getSubscriptionConfigPath();
+        if (configPath == null) {
+          Logger.warning('没有可用的订阅配置文件，无法启动代理');
+          return;
+        }
+        await _clashProvider!.start(configPath: configPath);
+        Logger.info('核心已通过快捷键启动');
+      }
+
+      await manager.enableSystemProxy();
+      Logger.info('系统代理已通过快捷键启用');
 
       // 更新托盘菜单状态
       AppTrayManager().updateTrayMenuManually();
@@ -512,6 +542,11 @@ class HotkeyService {
   Future<void> _handleToggleTun() async {
     if (_isSwitching) {
       Logger.debug('状态切换中，忽略快捷键');
+      return;
+    }
+
+    if (_clashProvider == null) {
+      Logger.warning('Provider 未设置，无法切换虚拟网卡');
       return;
     }
 

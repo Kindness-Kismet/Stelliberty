@@ -317,6 +317,14 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
       return;
     }
 
+    // 快捷键必须包含至少一个修饰键
+    if (!_checkModifierRequirement(hotKey)) {
+      setState(() {
+        _isRecordingProxy = false;
+      });
+      return;
+    }
+
     setState(() {
       _isRecordingProxy = false;
       _toggleProxyHotkey = hotkeyStr;
@@ -346,6 +354,19 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
     }
   }
 
+  // 检查修饰键要求（所有平台都要求至少一个修饰键）
+  bool _checkModifierRequirement(HotKey hotKey) {
+    final hasModifier = hotKey.modifiers != null && hotKey.modifiers!.isNotEmpty;
+    if (!hasModifier && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.translate.behavior.hotkey_modifier_required),
+        ),
+      );
+    }
+    return hasModifier;
+  }
+
   // 处理切换 TUN 快捷键录制完成
   Future<void> _onTunHotkeyRecorded(HotKey hotKey) async {
     if (_isModifierKey(hotKey.key)) {
@@ -354,6 +375,13 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
 
     final hotkeyStr = _hotKeyToString(hotKey);
     if (hotkeyStr.isEmpty) {
+      return;
+    }
+
+    if (!_checkModifierRequirement(hotKey)) {
+      setState(() {
+        _isRecordingTun = false;
+      });
       return;
     }
 
@@ -397,6 +425,13 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
       return;
     }
 
+    if (!_checkModifierRequirement(hotKey)) {
+      setState(() {
+        _isRecordingShowWindow = false;
+      });
+      return;
+    }
+
     setState(() {
       _isRecordingShowWindow = false;
       _showWindowHotkey = hotkeyStr;
@@ -434,6 +469,13 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
 
     final hotkeyStr = _hotKeyToString(hotKey);
     if (hotkeyStr.isEmpty) {
+      return;
+    }
+
+    if (!_checkModifierRequirement(hotKey)) {
+      setState(() {
+        _isRecordingExitApp = false;
+      });
       return;
     }
 

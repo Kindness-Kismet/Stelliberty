@@ -468,7 +468,8 @@
     "hotkey_recording": "Press a key...",
     "hotkey_clear": "Clear",
     "hotkey_set_success": "Hotkey set successfully",
-    "hotkey_set_failed": "Failed to set hotkey"
+    "hotkey_set_failed": "Failed to set hotkey",
+    "hotkey_modifier_required": "Hotkey must contain at least one modifier key (Ctrl/Alt/Shift/Win)"
   },
   "access_control": {
     "title": "App Access Control",

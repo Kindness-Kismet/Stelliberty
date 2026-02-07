@@ -468,7 +468,8 @@
     "hotkey_recording": "按下快捷键...",
     "hotkey_clear": "清除",
     "hotkey_set_success": "快捷键设置成功",
-    "hotkey_set_failed": "快捷键设置失败"
+    "hotkey_set_failed": "快捷键设置失败",
+    "hotkey_modifier_required": "快捷键必须包含至少一个修饰键（Ctrl/Alt/Shift/Win）"
   },
   "access_control": {
     "title": "应用访问控制",

@@ -468,7 +468,8 @@
     "hotkey_recording": "按下快捷鍵...",
     "hotkey_clear": "清除",
     "hotkey_set_success": "快捷鍵設定成功",
-    "hotkey_set_failed": "快捷鍵設定失敗"
+    "hotkey_set_failed": "快捷鍵設定失敗",
+    "hotkey_modifier_required": "快捷鍵必須包含至少一個修飾鍵（Ctrl/Alt/Shift/Win）"
   },
   "access_control": {
     "title": "應用存取控制",
