@@ -273,12 +273,12 @@ jobs:
           - platform: linux
             os: ubuntu-24.04-arm
             arch: arm64
-          - platform: android
-            os: ubuntu-latest
-            arch: x64
-          - platform: android
-            os: ubuntu-latest
-            arch: arm64
+          # - platform: android
+          #   os: ubuntu-latest
+          #   arch: x64
+          # - platform: android
+          #   os: ubuntu-latest
+          #   arch: arm64
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -477,14 +477,6 @@ jobs:
             | **Mihomo 核心** | `${{ needs.prepare.outputs.mihomo_version }}` |
 
             ${{ steps.decode_changelog.outputs.changelog }}
-
-            ---
-
-            ## 📱 Android 版本说明
-
-            > ⚠️ **注意**：Android 版本始终处于不稳定状态，建议仅用于体验和测试。
-            >
-            > 如遇问题，请在 [Issues](https://github.com/${{ github.repository }}/issues) 中反馈。
 
             ---
 

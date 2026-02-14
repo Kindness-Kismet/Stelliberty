@@ -666,8 +666,8 @@ class _ModernDialogState extends State<ModernDialog>
         backgroundColor: isDark
             ? Colors.white.withValues(alpha: 0.04)
             : Colors.white.withValues(alpha: 0.6),
-        minimumSize: Size.zero,
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        minimumSize: isMobile ? Size.zero : null,
+        tapTargetSize: isMobile ? MaterialTapTargetSize.shrinkWrap : null,
       ),
     );
   }
@@ -707,8 +707,8 @@ class _ModernDialogState extends State<ModernDialog>
             ),
           ),
           elevation: 0,
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          minimumSize: isMobile ? Size.zero : null,
+          tapTargetSize: isMobile ? MaterialTapTargetSize.shrinkWrap : null,
           shadowColor: buttonColor.withValues(alpha: 0.5),
         ),
         child: action.isLoading
@@ -751,8 +751,8 @@ class _ModernDialogState extends State<ModernDialog>
           backgroundColor: isDark
               ? Colors.white.withValues(alpha: 0.04)
               : Colors.white.withValues(alpha: 0.6),
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          minimumSize: isMobile ? Size.zero : null,
+          tapTargetSize: isMobile ? MaterialTapTargetSize.shrinkWrap : null,
         ),
         child: Text(
           action.label,
