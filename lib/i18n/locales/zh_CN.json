@@ -452,6 +452,7 @@
     "minimize_to_tray_description": "点击关闭按钮时最小化到系统托盘而不退出应用",
     "app_log_title": "应用日志",
     "app_log_description": "记录应用日志到文件 running.logs",
+    "export_log": "导出日志",
     "hotkey_title": "全局快捷键",
     "hotkey_description": "使用快捷键快速切换代理状态（仅桌面端）",
     "hotkey_enabled": "已启用全局快捷键",

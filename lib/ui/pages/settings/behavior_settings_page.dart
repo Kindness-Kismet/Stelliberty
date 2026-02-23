@@ -8,6 +8,8 @@ import 'package:stelliberty/ui/common/modern_switch.dart';
 import 'package:stelliberty/i18n/i18n.dart';
 import 'package:stelliberty/providers/content_provider.dart';
 import 'package:stelliberty/services/log_print_service.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
 import 'package:stelliberty/ui/widgets/setting/lazy_mode_card.dart';
 import 'package:stelliberty/ui/widgets/setting/hotkey_settings_card.dart';
 
@@ -122,12 +124,19 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                       const SizedBox(height: 16),
 
                       // 应用日志卡片
-                      _buildSwitchCard(
+                      ModernFeatureLayoutCard(
                         icon: Icons.description_outlined,
                         title: trans.behavior.app_log_title,
                         subtitle: trans.behavior.app_log_description,
-                        value: provider.appLogEnabled,
-                        onChanged: provider.updateAppLog,
+                        trailingLeadingButton: IconButton(
+                          icon: const Icon(Icons.save_alt, size: 20),
+                          tooltip: trans.behavior.export_log,
+                          onPressed: () => _exportLogFile(context),
+                        ),
+                        trailing: ModernSwitch(
+                          value: provider.appLogEnabled,
+                          onChanged: provider.updateAppLog,
+                        ),
                       ),
 
                       const SizedBox(height: 16),
@@ -196,5 +205,34 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
         ],
       ),
     );
+  }
+
+  // 导出日志文件到用户指定位置
+  Future<void> _exportLogFile(BuildContext context) async {
+    final trans = context.translate;
+    final logPath = Logger.getLogFilePath();
+    if (logPath == null) {
+      Logger.warning('日志文件路径不可用');
+      return;
+    }
+
+    final sourceFile = File(logPath);
+    if (!await sourceFile.exists()) {
+      Logger.warning('日志文件不存在');
+      return;
+    }
+
+    final savePath = await FilePicker.platform.saveFile(
+      dialogTitle: trans.behavior.export_log,
+      fileName: 'running.logs',
+    );
+    if (savePath == null) return;
+
+    try {
+      await sourceFile.copy(savePath);
+      Logger.info('日志文件已导出: $savePath');
+    } catch (e) {
+      Logger.error('导出日志文件失败: $e');
+    }
   }
 }

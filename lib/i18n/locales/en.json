@@ -452,6 +452,7 @@
     "minimize_to_tray_description": "Minimize to system tray instead of exiting when clicking close button",
     "app_log_title": "Application Log",
     "app_log_description": "Record application logs to running.logs file",
+    "export_log": "Export log",
     "hotkey_title": "Global Hotkeys",
     "hotkey_description": "Use hotkeys to quickly toggle proxy status (desktop only)",
     "hotkey_enabled": "Global hotkeys enabled",

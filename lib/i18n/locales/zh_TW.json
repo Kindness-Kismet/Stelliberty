@@ -452,6 +452,7 @@
     "minimize_to_tray_description": "點擊關閉按鈕時最小化到系統匣而不結束應用程式",
     "app_log_title": "應用程式記錄",
     "app_log_description": "記錄應用程式記錄到檔案 running.logs",
+    "export_log": "匯出記錄",
     "hotkey_title": "全域快捷鍵",
     "hotkey_description": "使用快捷鍵快速切換代理狀態（僅桌面端）",
     "hotkey_enabled": "已啟用全域快捷鍵",
