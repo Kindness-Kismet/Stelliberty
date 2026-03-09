@@ -694,7 +694,13 @@ mod macos_impl {
 #[cfg(target_os = "linux")]
 mod linux_impl {
     use super::{ProxyInfo, ProxyResult};
-    use std::process::Command;
+    use std::ffi::OsStr;
+    use std::process::{Command, Output};
+
+    const GNOME_PROXY_SCHEMA: &str = "org.gnome.system.proxy";
+    const PROXY_TYPES: [&str; 3] = ["http", "https", "socks"];
+    const KWRITECONFIG_COMMANDS: [&str; 2] = ["kwriteconfig6", "kwriteconfig5"];
+    const KREADCONFIG_COMMANDS: [&str; 2] = ["kreadconfig6", "kreadconfig5"];
 
     // 检测桌面环境类型
     fn detect_desktop_environment() -> String {
@@ -704,6 +710,457 @@ mod linux_impl {
     // 判断是否为 KDE 桌面
     fn is_kde() -> bool {
         detect_desktop_environment().to_uppercase().contains("KDE")
+    }
+
+    // 返回禁用状态的代理信息
+    fn disabled_proxy_info() -> ProxyInfo {
+        ProxyInfo {
+            is_enabled: false,
+            server: None,
+        }
+    }
+
+    // 按顺序选择第一个可执行成功的命令
+    fn find_working_command(candidates: &[&'static str], probe_arg: &str) -> Option<&'static str> {
+        candidates.iter().copied().find(|candidate| {
+            Command::new(candidate)
+                .arg(probe_arg)
+                .output()
+                .is_ok_and(|output| output.status.success())
+        })
+    }
+
+    // 选择可用的 KDE 写配置命令
+    fn kwriteconfig_command() -> Option<&'static str> {
+        find_working_command(&KWRITECONFIG_COMMANDS, "--help")
+    }
+
+    // 选择可用的 KDE 读配置命令
+    fn kreadconfig_command() -> Option<&'static str> {
+        find_working_command(&KREADCONFIG_COMMANDS, "--help")
+    }
+
+    // 转义 GVariant 字符串值
+    fn quote_variant_string(value: &str) -> String {
+        let escaped = value.replace('\\', "\\\\").replace('\'', "\\'");
+        format!("'{}'", escaped)
+    }
+
+    // 构造 GVariant 字符串数组
+    fn format_variant_string_list(values: &[String]) -> String {
+        if values.is_empty() {
+            return "[]".to_string();
+        }
+
+        let quoted_values = values
+            .iter()
+            .map(|value| quote_variant_string(value))
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("[{}]", quoted_values)
+    }
+
+    // 统一执行命令并返回输出
+    fn execute_command<I, S>(command: &str, args: I) -> Result<Output, String>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let output = Command::new(command)
+            .args(args)
+            .output()
+            .map_err(|e| format!("执行 {command} 失败：{e}"))?;
+
+        if output.status.success() {
+            return Ok(output);
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if stderr.is_empty() {
+            return Err(format!(
+                "{command} 执行失败，退出码：{:?}",
+                output.status.code()
+            ));
+        }
+
+        Err(format!("{command} 执行失败：{stderr}"))
+    }
+
+    // 执行命令并确保成功退出
+    fn run_command<I, S>(command: &str, args: I) -> Result<(), String>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        execute_command(command, args).map(|_| ())
+    }
+
+    // 执行命令并读取标准输出
+    fn read_command_output<I, S>(command: &str, args: I) -> Result<String, String>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let output = execute_command(command, args)?;
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    }
+
+    // 读取 KDE 配置文件路径
+    fn kioslaverc_path() -> Result<String, String> {
+        let home_dir = std::env::var("HOME").map_err(|_| "无法获取 HOME 环境变量".to_string())?;
+        Ok(format!("{}/.config/kioslaverc", home_dir))
+    }
+
+    // 启用 GNOME 系统代理
+    fn enable_proxy_gsettings(
+        host: &str,
+        port: u16,
+        bypass_domains: &[String],
+    ) -> Result<(), String> {
+        let mode = quote_variant_string("manual");
+        run_command(
+            "gsettings",
+            ["set", GNOME_PROXY_SCHEMA, "mode", mode.as_str()],
+        )?;
+
+        let ignore_hosts = format_variant_string_list(bypass_domains);
+        run_command(
+            "gsettings",
+            [
+                "set",
+                GNOME_PROXY_SCHEMA,
+                "ignore-hosts",
+                ignore_hosts.as_str(),
+            ],
+        )?;
+
+        let quoted_host = quote_variant_string(host);
+        let port_str = port.to_string();
+
+        for proxy_type in PROXY_TYPES {
+            let schema = format!("{GNOME_PROXY_SCHEMA}.{proxy_type}");
+            run_command(
+                "gsettings",
+                ["set", schema.as_str(), "host", quoted_host.as_str()],
+            )?;
+            run_command(
+                "gsettings",
+                ["set", schema.as_str(), "port", port_str.as_str()],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    // 直接写入 dconf，兼容仅读取该后端的程序
+    fn enable_proxy_dconf(host: &str, port: u16, bypass_domains: &[String]) -> Result<(), String> {
+        let mode = quote_variant_string("manual");
+        run_command("dconf", ["write", "/system/proxy/mode", mode.as_str()])?;
+
+        let ignore_hosts = format_variant_string_list(bypass_domains);
+        run_command(
+            "dconf",
+            ["write", "/system/proxy/ignore-hosts", ignore_hosts.as_str()],
+        )?;
+
+        let quoted_host = quote_variant_string(host);
+        let port_str = port.to_string();
+
+        for proxy_type in PROXY_TYPES {
+            let host_path = format!("/system/proxy/{proxy_type}/host");
+            let port_path = format!("/system/proxy/{proxy_type}/port");
+            run_command("dconf", ["write", host_path.as_str(), quoted_host.as_str()])?;
+            run_command("dconf", ["write", port_path.as_str(), port_str.as_str()])?;
+        }
+
+        Ok(())
+    }
+
+    // 启用 KDE 系统代理
+    fn enable_proxy_kde(
+        command: &str,
+        host: &str,
+        port: u16,
+        bypass_domains: &[String],
+    ) -> Result<(), String> {
+        let config_file = kioslaverc_path()?;
+
+        run_command(
+            command,
+            [
+                "--file",
+                config_file.as_str(),
+                "--group",
+                "Proxy Settings",
+                "--key",
+                "ProxyType",
+                "1",
+            ],
+        )?;
+
+        let bypasses = bypass_domains.join(",");
+        run_command(
+            command,
+            [
+                "--file",
+                config_file.as_str(),
+                "--group",
+                "Proxy Settings",
+                "--key",
+                "NoProxyFor",
+                bypasses.as_str(),
+            ],
+        )?;
+
+        for proxy_type in PROXY_TYPES {
+            let key = format!("{proxy_type}Proxy");
+            let scheme = if proxy_type == "socks" {
+                "socks"
+            } else {
+                "http"
+            };
+            let value = format!("{scheme}://{host} {port}");
+
+            run_command(
+                command,
+                [
+                    "--file",
+                    config_file.as_str(),
+                    "--group",
+                    "Proxy Settings",
+                    "--key",
+                    key.as_str(),
+                    value.as_str(),
+                ],
+            )?;
+        }
+
+        Ok(())
+    }
+
+    // 禁用 GNOME 系统代理
+    fn disable_proxy_gsettings() -> Result<(), String> {
+        let mode = quote_variant_string("none");
+        run_command(
+            "gsettings",
+            ["set", GNOME_PROXY_SCHEMA, "mode", mode.as_str()],
+        )
+    }
+
+    // 禁用 dconf 系统代理
+    fn disable_proxy_dconf() -> Result<(), String> {
+        let mode = quote_variant_string("none");
+        run_command("dconf", ["write", "/system/proxy/mode", mode.as_str()])
+    }
+
+    // 禁用 KDE 系统代理
+    fn disable_proxy_kde(command: &str) -> Result<(), String> {
+        let config_file = kioslaverc_path()?;
+        run_command(
+            command,
+            [
+                "--file",
+                config_file.as_str(),
+                "--group",
+                "Proxy Settings",
+                "--key",
+                "ProxyType",
+                "0",
+            ],
+        )
+    }
+
+    // 解析 KDE 代理配置值
+    fn parse_kde_proxy_server(proxy: &str) -> Option<String> {
+        let proxy = proxy.trim();
+        if proxy.is_empty() {
+            return None;
+        }
+
+        let server = proxy
+            .strip_prefix("http://")
+            .or_else(|| proxy.strip_prefix("https://"))
+            .or_else(|| proxy.strip_prefix("socks://"))
+            .unwrap_or(proxy)
+            .trim();
+
+        let parts = server.split_whitespace().collect::<Vec<_>>();
+        if parts.len() == 2 {
+            return Some(format!("{}:{}", parts[0], parts[1]));
+        }
+
+        Some(server.to_string())
+    }
+
+    // 获取 GNOME 系统代理状态
+    async fn get_proxy_info_gnome() -> ProxyInfo {
+        let mode = match read_command_output("gsettings", ["get", GNOME_PROXY_SCHEMA, "mode"]) {
+            Ok(mode) => mode,
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        if !mode.contains("manual") {
+            return disabled_proxy_info();
+        }
+
+        let host = match read_command_output(
+            "gsettings",
+            ["get", "org.gnome.system.proxy.http", "host"],
+        ) {
+            Ok(host) => host.trim_matches('\'').to_string(),
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        let port = match read_command_output(
+            "gsettings",
+            ["get", "org.gnome.system.proxy.http", "port"],
+        ) {
+            Ok(port) => port,
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        if host.is_empty() {
+            return disabled_proxy_info();
+        }
+
+        let server_str = format!("{}:{}", host, port);
+        log::info!("当前 Linux GNOME 系统代理：{}", server_str);
+        ProxyInfo {
+            is_enabled: true,
+            server: Some(server_str),
+        }
+    }
+
+    // 获取 dconf 系统代理状态
+    async fn get_proxy_info_dconf() -> ProxyInfo {
+        let mode = match read_command_output("dconf", ["read", "/system/proxy/mode"]) {
+            Ok(mode) => mode,
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        if !mode.contains("manual") {
+            return disabled_proxy_info();
+        }
+
+        let host = match read_command_output("dconf", ["read", "/system/proxy/http/host"]) {
+            Ok(host) => host.trim_matches('\'').to_string(),
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        let port = match read_command_output("dconf", ["read", "/system/proxy/http/port"]) {
+            Ok(port) => port,
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        if host.is_empty() {
+            return disabled_proxy_info();
+        }
+
+        let server_str = format!("{}:{}", host, port);
+        log::info!("当前 Linux dconf 系统代理：{}", server_str);
+        ProxyInfo {
+            is_enabled: true,
+            server: Some(server_str),
+        }
+    }
+
+    // 获取 KDE 系统代理状态
+    async fn get_proxy_info_kde() -> ProxyInfo {
+        let Some(command) = kreadconfig_command() else {
+            return disabled_proxy_info();
+        };
+
+        let config_file = match kioslaverc_path() {
+            Ok(path) => path,
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        let proxy_type = match read_command_output(
+            command,
+            [
+                "--file",
+                config_file.as_str(),
+                "--group",
+                "Proxy Settings",
+                "--key",
+                "ProxyType",
+            ],
+        ) {
+            Ok(proxy_type) => proxy_type,
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        if proxy_type != "1" {
+            return disabled_proxy_info();
+        }
+
+        let proxy = match read_command_output(
+            command,
+            [
+                "--file",
+                config_file.as_str(),
+                "--group",
+                "Proxy Settings",
+                "--key",
+                "httpProxy",
+            ],
+        ) {
+            Ok(proxy) => proxy,
+            Err(_) => return disabled_proxy_info(),
+        };
+
+        let Some(server_str) = parse_kde_proxy_server(&proxy) else {
+            return disabled_proxy_info();
+        };
+
+        log::info!("当前 Linux KDE 系统代理：{}", server_str);
+        ProxyInfo {
+            is_enabled: true,
+            server: Some(server_str),
+        }
+    }
+
+    // 聚合 Linux 代理后端执行结果
+    fn collect_backend_result(
+        backend_name: &'static str,
+        result: Result<(), String>,
+        applied_backends: &mut Vec<&'static str>,
+        errors: &mut Vec<String>,
+    ) {
+        match result {
+            Ok(()) => applied_backends.push(backend_name),
+            Err(e) => errors.push(e),
+        }
+    }
+
+    // 根据聚合结果构造 Linux 代理操作返回值
+    fn build_proxy_result(
+        action_label: &str,
+        success_log: &str,
+        applied_backends: Vec<&'static str>,
+        errors: Vec<String>,
+    ) -> ProxyResult {
+        if applied_backends.is_empty() {
+            if errors.is_empty() {
+                return ProxyResult::Error("未找到可用的 Linux 系统代理配置命令".to_string());
+            }
+            return ProxyResult::Error(errors.join("；"));
+        }
+
+        if !errors.is_empty() {
+            log::warn!(
+                "部分 Linux 代理后端{}失败：{}",
+                action_label,
+                errors.join("；")
+            );
+        }
+
+        log::info!(
+            "{}，已应用后端：{}",
+            success_log,
+            applied_backends.join(", ")
+        );
+        ProxyResult::Success
     }
 
     // 启用 Linux 系统代理
@@ -717,323 +1174,98 @@ mod linux_impl {
     ) -> ProxyResult {
         log::info!("正在设置 Linux 系统代理：{}:{}", host, port);
 
-        if is_kde() {
-            enable_proxy_kde(host, port, bypass_domains).await
-        } else {
-            enable_proxy_gnome(host, port, bypass_domains).await
-        }
-    }
+        let mut applied_backends = Vec::new();
+        let mut errors = Vec::new();
 
-    // 启用 GNOME 系统代理 (gsettings)
-    async fn enable_proxy_gnome(host: &str, port: u16, bypass_domains: Vec<String>) -> ProxyResult {
-        // 设置代理模式为手动
-        let result = Command::new("gsettings")
-            .args(["set", "org.gnome.system.proxy", "mode", "manual"])
-            .status();
-
-        match result {
-            Ok(_) => {}
-            Err(_) => return ProxyResult::Error("设置 GNOME 代理模式失败".to_string()),
+        if let Some(command) = kwriteconfig_command() {
+            collect_backend_result(
+                "KDE",
+                enable_proxy_kde(command, host, port, &bypass_domains),
+                &mut applied_backends,
+                &mut errors,
+            );
         }
 
-        // 设置忽略的主机列表
-        let ignore_hosts = format!("['{}']", bypass_domains.join("', '"));
-        let _ = Command::new("gsettings")
-            .args([
-                "set",
-                "org.gnome.system.proxy",
-                "ignore-hosts",
-                &ignore_hosts,
-            ])
-            .status();
+        collect_backend_result(
+            "gsettings",
+            enable_proxy_gsettings(host, port, &bypass_domains),
+            &mut applied_backends,
+            &mut errors,
+        );
 
-        let port_str = port.to_string();
+        collect_backend_result(
+            "dconf",
+            enable_proxy_dconf(host, port, &bypass_domains),
+            &mut applied_backends,
+            &mut errors,
+        );
 
-        // 为 HTTP、HTTPS、SOCKS 设置代理
-        for proxy_type in &["http", "https", "socks"] {
-            let schema = format!("org.gnome.system.proxy.{}", proxy_type);
-
-            let _ = Command::new("gsettings")
-                .args(["set", &schema, "host", host])
-                .status();
-
-            let _ = Command::new("gsettings")
-                .args(["set", &schema, "port", &port_str])
-                .status();
-        }
-
-        log::info!("Linux GNOME 系统代理设置成功");
-        ProxyResult::Success
-    }
-
-    // 启用 KDE 系统代理 (kwriteconfig5)
-    async fn enable_proxy_kde(host: &str, port: u16, bypass_domains: Vec<String>) -> ProxyResult {
-        let home_dir = match std::env::var("HOME") {
-            Ok(h) => h,
-            Err(_) => return ProxyResult::Error("无法获取 HOME 环境变量".to_string()),
-        };
-
-        let config_file = format!("{}/.config/kioslaverc", home_dir);
-
-        // 设置代理类型为手动 (1)
-        let _ = Command::new("kwriteconfig5")
-            .args([
-                "--file",
-                &config_file,
-                "--group",
-                "Proxy Settings",
-                "--key",
-                "ProxyType",
-                "1",
-            ])
-            .status();
-
-        // 设置绕过域名
-        let bypasses = bypass_domains.join(",");
-        let _ = Command::new("kwriteconfig5")
-            .args([
-                "--file",
-                &config_file,
-                "--group",
-                "Proxy Settings",
-                "--key",
-                "NoProxyFor",
-                &bypasses,
-            ])
-            .status();
-
-        // 为 HTTP、HTTPS、SOCKS 设置代理
-        for proxy_type in &["http", "https", "socks"] {
-            let key = format!("{}Proxy", proxy_type);
-            let value = format!("{}://{}:{}", proxy_type, host, port);
-
-            let _ = Command::new("kwriteconfig5")
-                .args([
-                    "--file",
-                    &config_file,
-                    "--group",
-                    "Proxy Settings",
-                    "--key",
-                    &key,
-                    &value,
-                ])
-                .status();
-        }
-
-        log::info!("Linux KDE 系统代理设置成功");
-        ProxyResult::Success
+        build_proxy_result("设置", "Linux 系统代理设置成功", applied_backends, errors)
     }
 
     // 禁用 Linux 系统代理
     pub async fn disable_proxy() -> ProxyResult {
         log::info!("正在禁用 Linux 系统代理");
 
-        if is_kde() {
-            disable_proxy_kde().await
-        } else {
-            disable_proxy_gnome().await
-        }
-    }
+        let mut applied_backends = Vec::new();
+        let mut errors = Vec::new();
 
-    // 禁用 GNOME 系统代理
-    async fn disable_proxy_gnome() -> ProxyResult {
-        let result = Command::new("gsettings")
-            .args(["set", "org.gnome.system.proxy", "mode", "none"])
-            .status();
-
-        match result {
-            Ok(_) => {}
-            Err(_) => return ProxyResult::Error("禁用 GNOME 代理失败".to_string()),
+        if let Some(command) = kwriteconfig_command() {
+            collect_backend_result(
+                "KDE",
+                disable_proxy_kde(command),
+                &mut applied_backends,
+                &mut errors,
+            );
         }
 
-        log::info!("Linux GNOME 系统代理已禁用");
-        ProxyResult::Success
-    }
+        collect_backend_result(
+            "gsettings",
+            disable_proxy_gsettings(),
+            &mut applied_backends,
+            &mut errors,
+        );
 
-    // 禁用 KDE 系统代理
-    async fn disable_proxy_kde() -> ProxyResult {
-        let home_dir = match std::env::var("HOME") {
-            Ok(h) => h,
-            Err(_) => return ProxyResult::Error("无法获取 HOME 环境变量".to_string()),
-        };
+        collect_backend_result(
+            "dconf",
+            disable_proxy_dconf(),
+            &mut applied_backends,
+            &mut errors,
+        );
 
-        let config_file = format!("{}/.config/kioslaverc", home_dir);
-
-        // 设置代理类型为无代理 (0)
-        let result = Command::new("kwriteconfig5")
-            .args([
-                "--file",
-                &config_file,
-                "--group",
-                "Proxy Settings",
-                "--key",
-                "ProxyType",
-                "0",
-            ])
-            .status();
-
-        match result {
-            Ok(_) => {}
-            Err(_) => return ProxyResult::Error("禁用 KDE 代理失败".to_string()),
-        }
-
-        log::info!("Linux KDE 系统代理已禁用");
-        ProxyResult::Success
+        build_proxy_result("禁用", "Linux 系统代理已禁用", applied_backends, errors)
     }
 
     // 获取 Linux 系统代理状态
     pub async fn get_proxy_info() -> ProxyInfo {
         log::info!("正在查询 Linux 系统代理状态");
 
-        if is_kde() {
-            get_proxy_info_kde().await
-        } else {
-            get_proxy_info_gnome().await
-        }
-    }
-
-    // 获取 GNOME 系统代理状态
-    async fn get_proxy_info_gnome() -> ProxyInfo {
-        // 查询代理模式
-        let mode_output = Command::new("gsettings")
-            .args(["get", "org.gnome.system.proxy", "mode"])
-            .output();
-
-        let mode = match mode_output {
-            Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
-            Err(_) => {
-                return ProxyInfo {
-                    is_enabled: false,
-                    server: None,
-                };
+        let should_prefer_kde = is_kde();
+        if should_prefer_kde {
+            let kde_proxy_info = get_proxy_info_kde().await;
+            if kde_proxy_info.is_enabled {
+                return kde_proxy_info;
             }
-        };
-
-        if !mode.contains("manual") {
-            return ProxyInfo {
-                is_enabled: false,
-                server: None,
-            };
         }
 
-        // 查询 HTTP 代理
-        let host_output = Command::new("gsettings")
-            .args(["get", "org.gnome.system.proxy.http", "host"])
-            .output();
-
-        let port_output = Command::new("gsettings")
-            .args(["get", "org.gnome.system.proxy.http", "port"])
-            .output();
-
-        match (host_output, port_output) {
-            (Ok(h), Ok(p)) => {
-                let host = String::from_utf8_lossy(&h.stdout)
-                    .trim()
-                    .trim_matches('\'')
-                    .to_string();
-                let port = String::from_utf8_lossy(&p.stdout).trim().to_string();
-
-                if !host.is_empty() && host != "''" {
-                    let server_str = format!("{}:{}", host, port);
-                    log::info!("当前 Linux GNOME 系统代理：{}", server_str);
-                    return ProxyInfo {
-                        is_enabled: true,
-                        server: Some(server_str),
-                    };
-                }
-
-                ProxyInfo {
-                    is_enabled: false,
-                    server: None,
-                }
-            }
-            _ => ProxyInfo {
-                is_enabled: false,
-                server: None,
-            },
-        }
-    }
-
-    // 获取 KDE 系统代理状态
-    async fn get_proxy_info_kde() -> ProxyInfo {
-        let home_dir = match std::env::var("HOME") {
-            Ok(h) => h,
-            Err(_) => {
-                return ProxyInfo {
-                    is_enabled: false,
-                    server: None,
-                };
-            }
-        };
-
-        let config_file = format!("{}/.config/kioslaverc", home_dir);
-
-        // 查询代理类型
-        let type_output = Command::new("kreadconfig5")
-            .args([
-                "--file",
-                &config_file,
-                "--group",
-                "Proxy Settings",
-                "--key",
-                "ProxyType",
-            ])
-            .output();
-
-        let proxy_type = match type_output {
-            Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
-            Err(_) => {
-                return ProxyInfo {
-                    is_enabled: false,
-                    server: None,
-                };
-            }
-        };
-
-        // 1 = 手动代理
-        if proxy_type != "1" {
-            return ProxyInfo {
-                is_enabled: false,
-                server: None,
-            };
+        let gnome_proxy_info = get_proxy_info_gnome().await;
+        if gnome_proxy_info.is_enabled {
+            return gnome_proxy_info;
         }
 
-        // 查询 HTTP 代理
-        let http_output = Command::new("kreadconfig5")
-            .args([
-                "--file",
-                &config_file,
-                "--group",
-                "Proxy Settings",
-                "--key",
-                "httpProxy",
-            ])
-            .output();
-
-        match http_output {
-            Ok(o) => {
-                let proxy = String::from_utf8_lossy(&o.stdout).trim().to_string();
-
-                if !proxy.is_empty() {
-                    // 格式：http://host:port
-                    let server_str = proxy.trim_start_matches("http://").to_string();
-                    log::info!("当前 Linux KDE 系统代理：{}", server_str);
-                    return ProxyInfo {
-                        is_enabled: true,
-                        server: Some(server_str),
-                    };
-                }
-
-                ProxyInfo {
-                    is_enabled: false,
-                    server: None,
-                }
-            }
-            Err(_) => ProxyInfo {
-                is_enabled: false,
-                server: None,
-            },
+        let dconf_proxy_info = get_proxy_info_dconf().await;
+        if dconf_proxy_info.is_enabled {
+            return dconf_proxy_info;
         }
+
+        if !should_prefer_kde {
+            let kde_proxy_info = get_proxy_info_kde().await;
+            if kde_proxy_info.is_enabled {
+                return kde_proxy_info;
+            }
+        }
+
+        disabled_proxy_info()
     }
 }
 
