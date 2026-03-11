@@ -98,13 +98,9 @@ void main(List<String> args) async {
 
   // 加载窗口状态（仅桌面平台）
   if (PlatformHelper.needsWindowManagement) {
-    if (Platform.isWindows) {
-      doWhenWindowReady(() async {
-        await WindowStateManager.loadAndApplyState(forceSilent: isSilentStart);
-      });
-    } else {
+    doWhenWindowReady(() async {
       await WindowStateManager.loadAndApplyState(forceSilent: isSilentStart);
-    }
+    });
   }
 }
 
