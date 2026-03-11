@@ -7,6 +7,45 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+// 跳过 bitsdojo_window_linux，单独验证其 GTK hook 是否影响文本输入。
+#include <desktop_drop/desktop_drop_plugin.h>
+#include <flutter_acrylic/flutter_acrylic_plugin.h>
+#include <hotkey_manager_linux/hotkey_manager_linux_plugin.h>
+#include <screen_retriever_linux/screen_retriever_linux_plugin.h>
+#include <system_theme/system_theme_plugin.h>
+#include <tray_manager/tray_manager_plugin.h>
+#include <window_manager/window_manager_plugin.h>
+
+static void register_plugins_skip_bitsdojo(FlPluginRegistry* registry) {
+  g_autoptr(FlPluginRegistrar) desktop_drop_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(registry, "DesktopDropPlugin");
+  desktop_drop_plugin_register_with_registrar(desktop_drop_registrar);
+  g_autoptr(FlPluginRegistrar) flutter_acrylic_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(
+          registry, "FlutterAcrylicPlugin");
+  flutter_acrylic_plugin_register_with_registrar(flutter_acrylic_registrar);
+  g_autoptr(FlPluginRegistrar) hotkey_manager_linux_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(
+          registry, "HotkeyManagerLinuxPlugin");
+  hotkey_manager_linux_plugin_register_with_registrar(
+      hotkey_manager_linux_registrar);
+  g_autoptr(FlPluginRegistrar) screen_retriever_linux_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(
+          registry, "ScreenRetrieverLinuxPlugin");
+  screen_retriever_linux_plugin_register_with_registrar(
+      screen_retriever_linux_registrar);
+  g_autoptr(FlPluginRegistrar) system_theme_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(registry, "SystemThemePlugin");
+  system_theme_plugin_register_with_registrar(system_theme_registrar);
+  g_autoptr(FlPluginRegistrar) tray_manager_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(registry, "TrayManagerPlugin");
+  tray_manager_plugin_register_with_registrar(tray_manager_registrar);
+  g_autoptr(FlPluginRegistrar) window_manager_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(
+          registry, "WindowManagerPlugin");
+  window_manager_plugin_register_with_registrar(window_manager_registrar);
+}
+
 struct _MyApplication {
   GtkApplication parent_instance;
   char** dart_entrypoint_arguments;
@@ -14,15 +53,23 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+// 等待首帧后再显示窗口，避免视图未就绪时抢占输入焦点。
+static void first_frame_cb(MyApplication* self, FlView* view) {
+  GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(view));
+  if (window != nullptr) {
+    gtk_widget_show(window);
+  }
+  gtk_widget_grab_focus(GTK_WIDGET(view));
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // 禁用窗口装饰
+  // 仅关闭系统窗口装饰，避免与 Flutter 自绘标题栏叠加。
   gtk_window_set_decorated(window, FALSE);
-
   gtk_window_set_default_size(window, 900, 660);
 
   // 设置窗口图标
@@ -39,17 +86,19 @@ static void my_application_activate(GApplication* application) {
     }
   }
 
-  gtk_widget_show(GTK_WIDGET(window));
-
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
 
   FlView* view = fl_view_new(project);
+  gtk_widget_set_can_focus(GTK_WIDGET(view), TRUE);
   gtk_widget_show(GTK_WIDGET(view));
   gtk_container_add(GTK_CONTAINER(window), GTK_WIDGET(view));
 
-  fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  g_signal_connect_swapped(view, "first-frame", G_CALLBACK(first_frame_cb),
+                           self);
+  gtk_widget_realize(GTK_WIDGET(view));
+  register_plugins_skip_bitsdojo(FL_PLUGIN_REGISTRY(view));
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

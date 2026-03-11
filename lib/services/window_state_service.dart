@@ -33,10 +33,17 @@ class WindowStateManager {
   static Future<void> loadAndApplyState({bool forceSilent = false}) async {
     try {
       // 设置窗口最小尺寸
-      appWindow.minSize = _minSize;
+      if (Platform.isWindows) {
+        appWindow.minSize = _minSize;
+      } else {
+        await windowManager.setMinimumSize(_minSize);
+      }
       await windowManager.setTitle(
         LocaleSettings.instance.currentTranslations.common.app_name,
       );
+      if (Platform.isLinux) {
+        await windowManager.setTitleBarStyle(TitleBarStyle.hidden);
+      }
 
       // 预计算所需值
       final state = _getState();
