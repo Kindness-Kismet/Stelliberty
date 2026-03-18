@@ -620,6 +620,12 @@
         "title": "局域网代理",
         "subtitle": "允许局域网内其他设备使用代理"
       },
+      "lan_auth": {
+        "title": "局域网认证",
+        "subtitle": "为局域网代理设置认证，防止未授权设备连接",
+        "username": "用户名",
+        "password": "密码"
+      },
       "ipv6": {
         "title": "IPv6 支持",
         "subtitle": "启用 IPv6 网络支持"

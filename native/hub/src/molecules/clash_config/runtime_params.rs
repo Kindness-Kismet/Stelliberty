@@ -44,4 +44,7 @@ pub struct RuntimeConfigParams {
     // DNS 覆写
     pub is_dns_override_enabled: bool,
     pub dns_override_content: Option<String>,
+
+    // 局域网认证（格式：["user:pass"]）
+    pub lan_authentication: Vec<String>,
 }

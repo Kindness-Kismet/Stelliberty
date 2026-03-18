@@ -186,6 +186,10 @@ class ClashPreferences {
   // 代理节点排序模式键
   static const String _kProxyNodeSortMode = 'clash_proxy_node_sort_mode';
 
+  // 局域网认证配置键
+  static const String _kLanAuthUsername = 'clash_lan_auth_username';
+  static const String _kLanAuthPassword = 'clash_lan_auth_password';
+
   // 懒惰模式配置键
   static const String _kLazyMode = 'clash_lazy_mode';
 
@@ -196,6 +200,22 @@ class ClashPreferences {
 
   // 保存局域网代理启用状态
   Future<void> setAllowLan(bool enabled) => _setBool(_kAllowLan, enabled);
+
+  // ==================== 局域网认证 ====================
+
+  // 获取局域网认证用户名
+  String getLanAuthUsername() => _getString(_kLanAuthUsername, '');
+
+  // 保存局域网认证用户名
+  Future<void> setLanAuthUsername(String username) =>
+      _setString(_kLanAuthUsername, username);
+
+  // 获取局域网认证密码
+  String getLanAuthPassword() => _getString(_kLanAuthPassword, '');
+
+  // 保存局域网认证密码
+  Future<void> setLanAuthPassword(String password) =>
+      _setString(_kLanAuthPassword, password);
 
   // ==================== IPv6 ====================
 
@@ -514,6 +534,8 @@ class ClashPreferences {
       _kOutboundMode,
       _kProxyNodeSortMode,
       _kLazyMode,
+      _kLanAuthUsername,
+      _kLanAuthPassword,
     ];
 
     final Map<String, dynamic> settings = {};
@@ -566,6 +588,8 @@ class ClashPreferences {
       _kSystemProxyPacScript,
       _kCurrentSubscriptionId,
       _kLazyMode,
+      _kLanAuthUsername,
+      _kLanAuthPassword,
     ];
 
     for (final key in keys) {

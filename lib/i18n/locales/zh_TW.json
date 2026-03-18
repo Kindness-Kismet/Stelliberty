@@ -620,6 +620,12 @@
         "title": "區域網路代理",
         "subtitle": "允許區域網路內其他裝置使用代理"
       },
+      "lan_auth": {
+        "title": "區域網路驗證",
+        "subtitle": "為區域網路代理設定驗證，防止未授權裝置連線",
+        "username": "使用者名稱",
+        "password": "密碼"
+      },
       "ipv6": {
         "title": "IPv6 支援",
         "subtitle": "啟用 IPv6 網路支援"

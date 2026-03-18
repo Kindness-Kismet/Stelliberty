@@ -81,6 +81,7 @@ class ConfigInjector {
     String? externalControllerSecret,
     required bool isUnifiedDelayEnabled,
     required String outboundMode,
+    List<String> lanAuthentication = const [],
   }) async {
     try {
       // 1. 读取基础配置内容
@@ -137,6 +138,7 @@ class ConfigInjector {
         keepAliveInterval: keepAliveInterval,
         isDnsOverrideEnabled: isDnsOverrideEnabled,
         dnsOverrideContent: dnsOverrideContent,
+        lanAuthentication: lanAuthentication,
       );
 
       // 3. 调用 Rust 处理

@@ -395,6 +395,17 @@ class ClashManager {
     return success;
   }
 
+  Future<bool> setLanAuthentication(String username, String password) async {
+    final success = await _configManager.setLanAuthentication(
+      username,
+      password,
+    );
+    if (success) {
+      _scheduleConfigReload('局域网认证');
+    }
+    return success;
+  }
+
   Future<bool> setIpv6(bool enabled) async {
     final success = await _configManager.setIpv6(enabled);
     if (success) {

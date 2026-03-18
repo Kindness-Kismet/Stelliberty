@@ -124,27 +124,63 @@ class ConfigManager {
       externalControllerSecret: prefs.getExternalControllerSecret(),
       isUnifiedDelayEnabled: prefs.getUnifiedDelayEnabled(),
       outboundMode: prefs.getOutboundMode(),
+      lanAuthentication: _buildLanAuthentication(prefs),
     );
+  }
+
+  // 构建局域网认证列表
+  static List<String> _buildLanAuthentication(ClashPreferences prefs) {
+    final username = prefs.getLanAuthUsername();
+    final password = prefs.getLanAuthPassword();
+    if (username.isEmpty || password.isEmpty) return const [];
+    return ['$username:$password'];
   }
 
   // 设置局域网代理状态
   Future<bool> setAllowLan(bool enabled) async {
     try {
-      // 先保存到持久化
       await ClashPreferences.instance.setAllowLan(enabled);
 
-      // 如果核心正在运行，调用 API
       if (_isCoreRunning()) {
         final success = await _coreClient.setAllowLan(enabled);
+        if (!success) return false;
+
+        // 开启时同步 patch 认证，避免无认证窗口
+        if (enabled) {
+          final auth = _buildLanAuthentication(ClashPreferences.instance);
+          await _coreClient.setLanAuthentication(auth);
+        }
+
+        Logger.info('局域网代理（支持重载）：${enabled ? "启用" : "禁用"}');
+        return true;
+      }
+
+      return true;
+    } catch (e) {
+      Logger.error('设置局域网代理状态失败：$e');
+      return false;
+    }
+  }
+
+  // 设置局域网认证（支持运行时重载）
+  Future<bool> setLanAuthentication(String username, String password) async {
+    try {
+      final prefs = ClashPreferences.instance;
+      await prefs.setLanAuthUsername(username);
+      await prefs.setLanAuthPassword(password);
+
+      if (_isCoreRunning()) {
+        final auth = _buildLanAuthentication(prefs);
+        final success = await _coreClient.setLanAuthentication(auth);
         if (success) {
-          Logger.info('局域网代理（支持重载）：${enabled ? "启用" : "禁用"}');
+          Logger.info('局域网认证（支持重载）：${auth.isEmpty ? "已清除" : "已设置"}');
         }
         return success;
       }
 
       return true;
     } catch (e) {
-      Logger.error('设置局域网代理状态失败：$e');
+      Logger.error('设置局域网认证失败：$e');
       return false;
     }
   }

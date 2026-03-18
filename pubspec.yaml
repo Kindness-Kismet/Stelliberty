@@ -75,7 +75,7 @@ dependencies:
   gpt_markdown: ^1.1.4
 
   # 品牌图标支持
-  font_awesome_flutter: ^10.8.0
+  font_awesome_flutter: ^11.0.0
 
   # 网络图片缓存
   cached_network_image: ^3.4.1

@@ -7,6 +7,7 @@ import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/storage/clash_preferences.dart';
 import 'package:stelliberty/ui/common/modern_feature_card.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
+import 'package:stelliberty/ui/widgets/setting/lan_auth_card.dart';
 import 'package:stelliberty/services/log_print_service.dart';
 
 class NetworkSettingsPage extends StatefulWidget {
@@ -19,7 +20,6 @@ class NetworkSettingsPage extends StatefulWidget {
 class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
   final _scrollController = ScrollController();
   late bool _unifiedDelay;
-  late bool _allowLan;
   late bool _ipv6;
   late bool _tcpConcurrent;
 
@@ -33,7 +33,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
   void _loadSettings() {
     final prefs = ClashPreferences.instance;
     _unifiedDelay = prefs.getUnifiedDelayEnabled();
-    _allowLan = prefs.getAllowLan();
     _ipv6 = prefs.getIpv6();
     _tcpConcurrent = prefs.getTcpConcurrent();
   }
@@ -54,7 +53,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 自定义标题栏
         Padding(
           padding: const EdgeInsets.all(8.0),
           child: Row(
@@ -72,7 +70,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
             ],
           ),
         ),
-        // 可滚动内容
         Expanded(
           child: Padding(
             padding: SpacingConstants.scrollbarPadding,
@@ -88,22 +85,11 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 统一延迟
                   _buildSwitchCard(
                     context: context,
                     icon: Icons.speed,
-                    title: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .unified_delay
-                        .title,
-                    subtitle: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .unified_delay
-                        .subtitle,
+                    title: trans.clash_features.network_settings.unified_delay.title,
+                    subtitle: trans.clash_features.network_settings.unified_delay.subtitle,
                     value: _unifiedDelay,
                     onChanged: (value) {
                       setState(() => _unifiedDelay = value);
@@ -111,47 +97,13 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // 局域网代理
-                  _buildSwitchCard(
-                    context: context,
-                    icon: Icons.lan,
-                    title: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .allow_lan
-                        .title,
-                    subtitle: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .allow_lan
-                        .subtitle,
-                    value: _allowLan,
-                    onChanged: (value) {
-                      setState(() => _allowLan = value);
-                      clashProvider.setAllowLan(value);
-                    },
-                  ),
+                  const LanAuthCard(),
                   const SizedBox(height: 16),
-
-                  // IPv6
                   _buildSwitchCard(
                     context: context,
                     icon: Icons.language,
-                    title: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .ipv6
-                        .title,
-                    subtitle: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .ipv6
-                        .subtitle,
+                    title: trans.clash_features.network_settings.ipv6.title,
+                    subtitle: trans.clash_features.network_settings.ipv6.subtitle,
                     value: _ipv6,
                     onChanged: (value) {
                       setState(() => _ipv6 = value);
@@ -159,23 +111,11 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-
-                  // TCP 并发
                   _buildSwitchCard(
                     context: context,
                     icon: Icons.multiple_stop,
-                    title: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .tcp_concurrent
-                        .title,
-                    subtitle: context
-                        .translate
-                        .clash_features
-                        .network_settings
-                        .tcp_concurrent
-                        .subtitle,
+                    title: trans.clash_features.network_settings.tcp_concurrent.title,
+                    subtitle: trans.clash_features.network_settings.tcp_concurrent.subtitle,
                     value: _tcpConcurrent,
                     onChanged: (value) {
                       setState(() => _tcpConcurrent = value);
@@ -191,7 +131,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
     );
   }
 
-  // 构建带开关的卡片
   Widget _buildSwitchCard({
     required BuildContext context,
     required IconData icon,
@@ -209,7 +148,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 左侧图标和标题
           Row(
             children: [
               Icon(icon),
@@ -232,7 +170,6 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
               ),
             ],
           ),
-          // 右侧开关
           ModernSwitch(value: value, onChanged: onChanged),
         ],
       ),

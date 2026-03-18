@@ -6,6 +6,8 @@ import 'package:stelliberty/storage/clash_preferences.dart';
 class ConfigState {
   // 通用配置
   final bool isAllowLanEnabled;
+  final String lanAuthUsername;
+  final String lanAuthPassword;
   final bool isIpv6Enabled;
   final bool isTcpConcurrentEnabled;
   final bool isUnifiedDelayEnabled;
@@ -36,6 +38,8 @@ class ConfigState {
 
   const ConfigState({
     this.isAllowLanEnabled = false,
+    this.lanAuthUsername = '',
+    this.lanAuthPassword = '',
     this.isIpv6Enabled = false,
     this.isTcpConcurrentEnabled = false,
     this.isUnifiedDelayEnabled = false,
@@ -65,6 +69,8 @@ class ConfigState {
   static ConfigState fromPreferences(ClashPreferences prefs) {
     return ConfigState(
       isAllowLanEnabled: prefs.getAllowLan(),
+      lanAuthUsername: prefs.getLanAuthUsername(),
+      lanAuthPassword: prefs.getLanAuthPassword(),
       isIpv6Enabled: prefs.getIpv6(),
       isTcpConcurrentEnabled: prefs.getTcpConcurrent(),
       isUnifiedDelayEnabled: prefs.getUnifiedDelayEnabled(),
@@ -95,6 +101,8 @@ class ConfigState {
 
   ConfigState copyWith({
     bool? isAllowLanEnabled,
+    String? lanAuthUsername,
+    String? lanAuthPassword,
     bool? isIpv6Enabled,
     bool? isTcpConcurrentEnabled,
     bool? isUnifiedDelayEnabled,
@@ -121,6 +129,8 @@ class ConfigState {
   }) {
     return ConfigState(
       isAllowLanEnabled: isAllowLanEnabled ?? this.isAllowLanEnabled,
+      lanAuthUsername: lanAuthUsername ?? this.lanAuthUsername,
+      lanAuthPassword: lanAuthPassword ?? this.lanAuthPassword,
       isIpv6Enabled: isIpv6Enabled ?? this.isIpv6Enabled,
       isTcpConcurrentEnabled:
           isTcpConcurrentEnabled ?? this.isTcpConcurrentEnabled,

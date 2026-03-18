@@ -1692,6 +1692,18 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
     return success;
   }
 
+  Future<bool> setLanAuthentication(String username, String password) async {
+    final success = await _clashManager.setLanAuthentication(
+      username,
+      password,
+    );
+    if (success) {
+      _syncConfigFromManager();
+      notifyListeners();
+    }
+    return success;
+  }
+
   Future<bool> setIpv6(bool enabled) async {
     final success = await _clashManager.setIpv6(enabled);
     if (success) {

@@ -228,6 +228,11 @@ class JniCoreClient implements ClashCoreClient {
   }
 
   @override
+  Future<bool> setLanAuthentication(List<String> authentication) async {
+    return await updateConfig({'authentication': authentication});
+  }
+
+  @override
   Future<bool> setIpv6(bool enable) async {
     return await updateConfig({'ipv6': enable});
   }

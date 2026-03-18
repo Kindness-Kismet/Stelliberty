@@ -235,6 +235,22 @@ pub fn inject_runtime_params(
     );
     log::info!("TUN 配置已注入（enabled={}）", params.is_tun_enabled);
 
+    // 注入局域网认证
+    if !params.lan_authentication.is_empty() {
+        let auth_list: Vec<YamlValue> = params
+            .lan_authentication
+            .iter()
+            .map(|s| YamlValue::String(s.clone()))
+            .collect();
+        config_map.insert(
+            YamlValue::String("authentication".to_string()),
+            YamlValue::Sequence(auth_list),
+        );
+        log::info!("局域网认证已注入（{}条）", params.lan_authentication.len());
+    } else {
+        config_map.remove(YamlValue::String("authentication".to_string()));
+    }
+
     // 注入 DNS（优先级：用户覆写 > TUN 默认 > 不注入）
     if params.is_dns_override_enabled {
         inject_user_dns_override(config_map, params)?;

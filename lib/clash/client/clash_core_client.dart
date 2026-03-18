@@ -87,6 +87,7 @@ abstract class ClashCoreClient {
 
   // 配置项快捷方法
   Future<bool> setAllowLan(bool allow);
+  Future<bool> setLanAuthentication(List<String> authentication);
   Future<bool> setIpv6(bool enable);
   Future<bool> setTcpConcurrent(bool enable);
   Future<bool> setUnifiedDelay(bool enable);

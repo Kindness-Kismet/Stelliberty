@@ -621,6 +621,12 @@
         "title": "Allow LAN",
         "subtitle": "Allow other LAN devices to use proxy"
       },
+      "lan_auth": {
+        "title": "LAN Authentication",
+        "subtitle": "Set credentials for LAN proxy to prevent unauthorized access",
+        "username": "Username",
+        "password": "Password"
+      },
       "ipv6": {
         "title": "IPv6 Support",
         "subtitle": "Enable IPv6 network support"

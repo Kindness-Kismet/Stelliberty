@@ -286,6 +286,18 @@ class IpcCoreClient implements ClashCoreClient {
   }
 
   @override
+  Future<bool> setLanAuthentication(List<String> authentication) async {
+    try {
+      await _patch('/configs', {'authentication': authentication});
+      _clearConfigCache();
+      return true;
+    } catch (e) {
+      Logger.error('设置局域网认证出错：$e');
+      rethrow;
+    }
+  }
+
+  @override
   Future<bool> setIpv6(bool enable) async {
     try {
       await _patch('/configs', {'ipv6': enable});
