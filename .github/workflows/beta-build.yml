@@ -39,6 +39,7 @@ jobs:
       datetime: ${{ steps.tag.outputs.datetime }}
       pkg: ${{ steps.pkg.outputs.pkg }}
       version: ${{ steps.ver.outputs.version }}
+      version_changed: ${{ steps.ver.outputs.version_changed }}
       commit_subject: ${{ steps.commit.outputs.subject }}
       commit_body: ${{ steps.commit.outputs.body }}
       commit_author: ${{ steps.commit.outputs.author }}
@@ -47,6 +48,8 @@ jobs:
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: 读取 pubspec.yaml 包名
         id: pkg
@@ -68,13 +71,22 @@ jobs:
           if [ -z "$raw" ]; then
             echo "::warning::无法从 pubspec.yaml 找到 version 字段"
             echo "version=" >> $GITHUB_OUTPUT
+            echo "version_changed=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
           version="${raw%%+*}"
-
           echo "📦 主版本号: $version"
           echo "version=$version" >> $GITHUB_OUTPUT
+
+          tag="v${version}"
+          if git tag -l "$tag" | grep -q .; then
+            echo "📌 标签 $tag 已存在，版本号未变化"
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "🆕 标签 $tag 不存在，检测到版本号更新"
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: 生成版本标签
         id: tag
@@ -115,6 +127,7 @@ jobs:
   build:
     name: 构建 ${{ matrix.platform }}-${{ matrix.arch }}
     needs: prepare
+    if: needs.prepare.outputs.version_changed == 'false' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -290,6 +303,7 @@ jobs:
   release:
     name: 发布构建
     needs: [prepare, build]
+    if: "!cancelled() && needs.build.result == 'success'"
     runs-on: ubuntu-latest
 
     steps:
@@ -394,3 +408,4 @@ jobs:
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

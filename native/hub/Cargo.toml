@@ -1,6 +1,7 @@
 [package]
 # Do not change the name of this crate.
 name = "hub"
+version = "1.2.271"
 edition = "2024"
 
 [lib]

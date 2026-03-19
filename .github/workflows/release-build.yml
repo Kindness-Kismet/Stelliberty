@@ -2,19 +2,16 @@ name: 正式版构建
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - '**'
+    paths-ignore:
+      - '.github/workflows/**'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.gitignore'
+      - 'docs/**'
   workflow_dispatch:
-    inputs:
-      version:
-        description: '发布版本号 (例如: 1.0.0)'
-        required: true
-        type: string
-      create_release:
-        description: '是否创建 GitHub Release'
-        required: true
-        type: boolean
-        default: true
 
 permissions:
   contents: write
@@ -28,7 +25,8 @@ jobs:
       pkg: ${{ steps.pkg.outputs.pkg }}
       pkg_capitalized: ${{ steps.pkg_capitalized.outputs.pkg_capitalized }}
       version: ${{ steps.ver.outputs.version }}
-      tag: ${{ steps.tag.outputs.tag }}
+      version_changed: ${{ steps.ver.outputs.version_changed }}
+      tag: ${{ steps.ver.outputs.tag }}
       changelog: ${{ steps.changelog.outputs.changelog }}
       mihomo_version: ${{ steps.get_mihomo_version.outputs.version }}
 
@@ -60,31 +58,25 @@ jobs:
           echo "✨ 首字母大写包名: $pkg_capitalized"
           echo "pkg_capitalized=$pkg_capitalized" >> $GITHUB_OUTPUT
 
-      - name: 读取或生成版本号
+      - name: 读取版本号并检测变更
         id: ver
         run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            version="${{ github.event.inputs.version }}"
-            echo "📝 手动指定版本: $version"
-          else
-            raw=$(grep '^version:' pubspec.yaml | awk '{print $2}')
-            version="${raw%%+*}"
-            echo "📦 从 pubspec.yaml 读取版本: $version"
-          fi
-          echo "version=$version" >> $GITHUB_OUTPUT
+          raw=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          version="${raw%%+*}"
+          tag="v${version}"
 
-      - name: 确定 Tag 名称
-        id: tag
-        run: |
-          if [ -n "${{ github.event.inputs.version }}" ]; then
-            tag="v${{ github.event.inputs.version }}"
-          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            tag="${{ github.ref_name }}"
-          else
-            tag="v${{ steps.ver.outputs.version }}"
-          fi
-          echo "🏷️ Tag 名称: $tag"
+          echo "📦 版本号: $version"
+          echo "🏷️ Tag: $tag"
+          echo "version=$version" >> $GITHUB_OUTPUT
           echo "tag=$tag" >> $GITHUB_OUTPUT
+
+          if git tag -l "$tag" | grep -q .; then
+            echo "📌 标签 $tag 已存在，版本号未变化"
+            echo "version_changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "🆕 标签 $tag 不存在，检测到版本号更新"
+            echo "version_changed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: 获取 Mihomo 核心版本号
         id: get_mihomo_version
@@ -106,157 +98,29 @@ jobs:
             echo "version=未知" >> $env:GITHUB_OUTPUT
           }
 
-      - name: 验证版本一致性
-        run: |
-          tag_version="${{ steps.tag.outputs.tag }}"
-          
-          # 移除 tag 中的 'v' 前缀
-          tag_version_clean="${tag_version#v}"
-          
-          # 始终从 pubspec.yaml 读取实际版本号（不使用缓存的输出）
-          actual_pubspec_version=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
-          
-          echo "🔍 版本对比："
-          echo "  Tag 版本:           $tag_version_clean"
-          echo "  pubspec.yaml 版本:  $actual_pubspec_version"
-          
-          if [ "$tag_version_clean" != "$actual_pubspec_version" ]; then
-            echo ""
-            echo "❌ 错误：版本号不一致！"
-            echo ""
-            echo "推送的 tag 版本 ($tag_version) 与 pubspec.yaml 中的实际版本 ($actual_pubspec_version) 不匹配。"
-            echo ""
-            echo "请执行以下操作之一："
-            echo "  1. 更新 pubspec.yaml 中的版本号为 $tag_version_clean"
-            echo "  2. 删除当前 tag 并推送正确的 tag: v$actual_pubspec_version"
-            echo ""
-            exit 1
-          fi
-          
-          echo "✅ 版本号验证通过"
-
-      - name: 生成更新日志
+      - name: 读取更新日志
         id: changelog
         run: |
-          echo "📝 正在生成更新日志..."
-          echo ""
-          
-          current_tag="${{ steps.tag.outputs.tag }}"
-          
-          # 获取所有正式版 tag（按版本号降序）
-          all_release_tags=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
-          
-          # 排除当前 tag，获取上一个正式版
-          previous_tag=$(echo "$all_release_tags" | grep -v "^${current_tag}$" | head -n 1 || true)
-          
-          if [ -z "$previous_tag" ]; then
-            echo "⚠️  未找到上一个版本 tag，使用首个提交"
-            previous_tag=$(git rev-list --max-parents=0 HEAD)
+          changelog_file=".github/CHANGELOG.md"
+          if [ ! -f "${changelog_file}" ]; then
+            echo "::error::缺少更新日志文件: ${changelog_file}"
+            exit 1
           fi
-          
-          echo "📍 版本范围: $previous_tag → $current_tag"
-          echo ""
-          
-          # 定义要忽略的文件路径模式
-          IGNORE_FILE_PATTERNS="^\.github/|^scripts/|\.yml$|\.yaml$|^README|^LICENSE|^\.gitignore|^\.metadata|^analysis_options\.yaml|^pubspec\.lock$"
-          
-          # 生成提交日志
-          {
-            echo "## 📋 更新日志"
-            echo ""
-            echo "自 $previous_tag 以来的功能和修复："
-            echo ""
 
-            # 获取所有提交并处理
-            total_count=0
-            filtered_count=0
-            included_count=0
-            
-            # 获取所有提交哈希
-            commit_hashes=$(git rev-list $previous_tag..HEAD --no-merges)
-            
-            # 遍历每个提交
-            for hash in $commit_hashes; do
-              total_count=$((total_count + 1))
-
-              # 获取提交信息（标题和正文）
-              subject=$(git log -1 --pretty=format:"%s" "$hash")
-              body=$(git log -1 --pretty=format:"%b" "$hash")
-
-              # 检查提交信息是否包含"无作用"相关关键词（中英文）
-              # 中文关键词：
-              #   - 无 X 变化/影响/改动：无作用、无影响、无效果、无实际作用、无功能变化、无功能影响、无功能改动、
-              #     无逻辑变化、无逻辑改动、无逻辑影响、无行为变化、无行为改动、无行为影响、无业务变化、无业务影响、
-              #     无实质变化、无实质改动
-              #   - 不 X 功能：不影响、不改变功能、不影响功能、不涉及功能
-              #   - 仅/纯 X：仅调整、仅格式、仅重命名、仅命名、仅重构、纯重构、纯格式、纯样式
-              #   - X 调整：格式调整、样式调整、空白调整、注释调整、命名调整、缩进调整、导入排序
-              #   - 其他：无关紧要、无意义、命名规范、变量命名、代码风格、代码清理、代码整理
-              # 英文关键词：
-              #   - no X change：no effect、no impact、no change、no functional change、no behavior change、
-              #     no behavioural change、no logic change
-              #   - X only：formatting only、style only、comment only、rename only、refactor only、cleanup only
-              #   - 其他：cosmetic、whitespace、trivial、code style、style fix、lint fix、linting、
-              #     noop、no-op、reformat、reformatting、import sort、organize imports
-              if echo "$subject $body" | grep -qiE '无作用|无影响|无效果|无实际作用|无功能变化|无功能影响|无功能改动|无逻辑变化|无逻辑改动|无逻辑影响|无行为变化|无行为改动|无行为影响|无业务变化|无业务影响|无实质变化|无实质改动|不影响|不改变功能|不影响功能|不涉及功能|仅调整|仅格式|仅重命名|仅命名|仅重构|纯重构|纯格式|纯样式|格式调整|样式调整|空白调整|注释调整|命名调整|缩进调整|导入排序|无关紧要|无意义|命名规范|变量命名|代码风格|代码清理|代码整理|no effect|no impact|no change|no functional change|no behavior change|no behavioural change|no logic change|formatting only|style only|comment only|rename only|refactor only|cleanup only|cosmetic|whitespace|trivial|code style|style fix|lint fix|linting|noop|no-op|reformat|reformatting|import sort|organize imports'; then
-                filtered_count=$((filtered_count + 1))
-                continue
-              fi
-
-              # 获取提交涉及的文件列表
-              changed_files=$(git diff-tree --no-commit-id --name-only -r "$hash")
-
-              # 检查是否所有文件都匹配忽略模式
-              should_ignore=true
-              for file in $changed_files; do
-                if ! echo "$file" | grep -qE "$IGNORE_FILE_PATTERNS"; then
-                  should_ignore=false
-                  break
-                fi
-              done
-
-              # 如果所有文件都是要忽略的类型，跳过这个提交
-              if [ "$should_ignore" = true ]; then
-                filtered_count=$((filtered_count + 1))
-                continue
-              fi
-
-              included_count=$((included_count + 1))
-
-              author=$(git log -1 --pretty=format:"%an" "$hash")
-              
-              # 输出格式化的提交信息
-              echo "### $subject"
-              echo ""
-              
-              # 如果有正文，则输出
-              if [ -n "$body" ]; then
-                echo "$body"
-                echo ""
-              fi
-              
-              echo "**提交**: [\`${hash:0:7}\`](https://github.com/${{ github.repository }}/commit/$hash) | **作者**: $author"
-              echo ""
-            done
-            
-
-          } > changelog.md
-          
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📋 生成的更新日志预览："
+          echo "📋 更新日志预览："
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          cat changelog.md
+          cat "${changelog_file}"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          
-          # 输出到 GitHub Actions（使用 base64 编码避免特殊字符问题）
-          changelog_base64=$(base64 -w 0 changelog.md)
+
+          changelog_base64=$(base64 -w 0 "${changelog_file}")
           echo "changelog=$changelog_base64" >> $GITHUB_OUTPUT
 
   # ------------ 构建 job（依赖 prepare） ------------
   build:
     name: 构建 ${{ matrix.platform }}-${{ matrix.arch }}
     needs: prepare
+    if: needs.prepare.outputs.version_changed == 'true' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -419,13 +283,13 @@ jobs:
     name: 创建正式发布
     needs: [prepare, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
-    outputs:
-      mihomo_version: ${{ steps.get_mihomo_version.outputs.version }}
+    if: "!cancelled() && needs.build.result == 'success'"
 
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: 解码更新日志
         id: decode_changelog
@@ -450,6 +314,7 @@ jobs:
             {
               echo 'changelog<<EOF'
               cat changelog.md
+              echo ""
               echo EOF
             } >> $GITHUB_OUTPUT
           else
