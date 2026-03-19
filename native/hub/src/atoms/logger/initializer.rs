@@ -72,11 +72,11 @@ static LOGGER: Lazy<()> = Lazy::new(|| {
 
                     // 等级标签
                     let level_str = match record.level() {
-                        log::Level::Error => "[RustError]",
-                        log::Level::Warn => "[RustWarn]",
-                        log::Level::Info => "[RustInfo]",
-                        log::Level::Debug => "[RustDebug]",
-                        log::Level::Trace => "[RustTrace]",
+                        log::Level::Error => "[RsError]",
+                        log::Level::Warn => "[RsWarn]",
+                        log::Level::Info => "[RsInfo]",
+                        log::Level::Debug => "[RsDebug]",
+                        log::Level::Trace => "[RsTrace]",
                     };
 
                     write!(f, "{} {} {} >> {}", level_str, timestamp, path_with_dots, record.args())
@@ -108,11 +108,11 @@ static LOGGER: Lazy<()> = Lazy::new(|| {
                 const RESET: &str = "\x1B[0m";
 
                 let (level_str, color) = match record.level() {
-                    log::Level::Error => ("RustError", RED),
-                    log::Level::Warn => ("RustWarn", YELLOW),
-                    log::Level::Info => ("RustInfo", GREEN),
-                    log::Level::Debug => ("RustDebug", CYAN),
-                    log::Level::Trace => ("RustTrace", CYAN),
+                    log::Level::Error => ("RsError", RED),
+                    log::Level::Warn => ("RsWarn", YELLOW),
+                    log::Level::Info => ("RsInfo", GREEN),
+                    log::Level::Debug => ("RsDebug", CYAN),
+                    log::Level::Trace => ("RsTrace", CYAN),
                 };
 
                 // 控制台输出：所有模式（临时调试）
@@ -197,7 +197,7 @@ fn check_and_rotate_log(path: &PathBuf) -> std::io::Result<()> {
             .open(path)?;
 
         let clear_msg = format!(
-            "[RustInfo] {} >> 日志文件已达 {:.2} MB，已轮转\n",
+            "[RsInfo] {} >> 日志文件已达 {:.2} MB，已轮转\n",
             Local::now().format("%Y/%m/%d %H:%M:%S"),
             metadata.len() as f64 / 1024.0 / 1024.0
         );

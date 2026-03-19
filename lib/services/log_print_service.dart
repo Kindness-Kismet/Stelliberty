@@ -218,7 +218,7 @@ class Logger {
               '${now.minute.toString().padLeft(2, '0')}:'
               '${now.second.toString().padLeft(2, '0')}';
           await File(_logFilePath!).writeAsString(
-            '[DartInfo] $timestamp >> 应用日志文件已达到 ${(size / 1024 / 1024).toStringAsFixed(2)} MB，已轮转到 running.logs.old\n',
+            '[DtInfo] $timestamp >> 应用日志文件已达到 ${(size / 1024 / 1024).toStringAsFixed(2)} MB，已轮转到 running.logs.old\n',
             mode: FileMode.write,
             flush: true,
           );
@@ -276,13 +276,13 @@ class Logger {
 
     switch (level) {
       case LogLevel.debug:
-        return '$cyan[DartDebug]$reset';
+        return '$cyan[DtDebug]$reset';
       case LogLevel.info:
-        return '$green[DartInfo]$reset';
+        return '$green[DtInfo]$reset';
       case LogLevel.warning:
-        return '$yellow[DartWarn]$reset';
+        return '$yellow[DtWarn]$reset';
       case LogLevel.error:
-        return '$red[DartError]$reset';
+        return '$red[DtError]$reset';
     }
   }
 
@@ -290,13 +290,13 @@ class Logger {
   static String _getLevelPrefixPlain(LogLevel level) {
     switch (level) {
       case LogLevel.debug:
-        return '[DartDebug]';
+        return '[DtDebug]';
       case LogLevel.info:
-        return '[DartInfo]';
+        return '[DtInfo]';
       case LogLevel.warning:
-        return '[DartWarn]';
+        return '[DtWarn]';
       case LogLevel.error:
-        return '[DartError]';
+        return '[DtError]';
     }
   }
 }
