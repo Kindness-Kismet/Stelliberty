@@ -328,25 +328,25 @@ fn build_network_isolation_error_message(api_name: &str, error_code: u32) -> Str
 }
 
 #[cfg(windows)]
-fn log_current_process_context(operation: &str) {
-    if !log::log_enabled!(log::Level::Debug) {
-        return;
-    }
-
+fn current_process_context() -> String {
     let exe_path = std::env::current_exe()
         .map(|path| path.display().to_string())
         .unwrap_or_else(|e| format!("<unavailable: {}>", e));
     let is_user_an_admin = unsafe { IsUserAnAdmin().as_bool() };
 
-    log::debug!(
-        "{} 上下文：pid={}，arch={}，pointer_width={}bit，exe_path={}，is_user_an_admin={}",
-        operation,
+    format!(
+        "pid={}，arch={}，pointer_width={}bit，exe_path={}，is_user_an_admin={}",
         std::process::id(),
         std::env::consts::ARCH,
         std::mem::size_of::<usize>() * 8,
         exe_path,
         is_user_an_admin
-    );
+    )
+}
+
+#[cfg(windows)]
+fn log_current_process_context(operation: &str) {
+    log::info!("{} 上下文：{}", operation, current_process_context());
 }
 
 #[cfg(windows)]
@@ -452,7 +452,7 @@ pub fn enumerate_app_containers() -> Result<Vec<AppContainer>, String> {
         let mut count: u32 = 0;
         let mut containers: *mut INET_FIREWALL_APP_CONTAINER = ptr::null_mut();
 
-        log::debug!(
+        log::info!(
             "调用 NetworkIsolationEnumAppContainers：flags={}，initial_count={}，initial_containers_is_null={}",
             APP_CONTAINER_ENUM_FLAGS,
             count,
@@ -471,11 +471,12 @@ pub fn enumerate_app_containers() -> Result<Vec<AppContainer>, String> {
                 error_code,
             );
             log::error!(
-                "{}，flags={}，returned_count={}，containers_is_null={}",
+                "{}，flags={}，returned_count={}，containers_is_null={}，{}",
                 error_message,
                 APP_CONTAINER_ENUM_FLAGS,
                 count,
-                containers.is_null()
+                containers.is_null(),
+                current_process_context()
             );
             return Err(error_message);
         }
@@ -745,7 +746,7 @@ pub fn set_loopback_exemption(package_family_name: &str, enabled: bool) -> Resul
         let mut count: u32 = 0;
         let mut containers: *mut INET_FIREWALL_APP_CONTAINER = ptr::null_mut();
 
-        log::debug!(
+        log::info!(
             "set_loopback_exemption 调用枚举：package_family_name={}，enabled={}，flags={}，initial_count={}，initial_containers_is_null={}",
             package_family_name,
             enabled,
@@ -766,12 +767,13 @@ pub fn set_loopback_exemption(package_family_name: &str, enabled: bool) -> Resul
                 error_code,
             );
             log::error!(
-                "{}，package_family_name={}，flags={}，returned_count={}，containers_is_null={}",
+                "{}，package_family_name={}，flags={}，returned_count={}，containers_is_null={}，{}",
                 error_message,
                 package_family_name,
                 APP_CONTAINER_ENUM_FLAGS,
                 count,
-                containers.is_null()
+                containers.is_null(),
+                current_process_context()
             );
             return Err(error_message);
         }
