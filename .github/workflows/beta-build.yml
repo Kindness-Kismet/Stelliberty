@@ -303,7 +303,7 @@ jobs:
   release:
     name: 发布构建
     needs: [prepare, build]
-    if: "!cancelled() && needs.build.result == 'success'"
+    if: "!cancelled() && (needs.build.result == 'success' || needs.build.result == 'failure')"
     runs-on: ubuntu-latest
 
     steps:

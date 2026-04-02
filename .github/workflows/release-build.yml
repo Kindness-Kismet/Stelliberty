@@ -283,7 +283,7 @@ jobs:
     name: 创建正式发布
     needs: [prepare, build]
     runs-on: ubuntu-latest
-    if: "!cancelled() && needs.build.result == 'success'"
+    if: "!cancelled() && (needs.build.result == 'success' || needs.build.result == 'failure')"
 
     steps:
       - name: 检出代码
