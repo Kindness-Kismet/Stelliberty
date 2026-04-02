@@ -85,6 +85,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                 children: [
                   // 创建备份卡片
                   ModernFeatureLayoutCard(
+                    key: const ValueKey('backup_create'),
                     icon: Icons.backup_outlined,
                     title: trans.backup.create_backup,
                     subtitle: trans.backup.description,
@@ -95,6 +96,7 @@ class _BackupSettingsPageState extends State<BackupSettingsPage> {
                   const SizedBox(height: 16),
                   // 还原备份卡片
                   ModernFeatureLayoutCard(
+                    key: const ValueKey('backup_restore'),
                     icon: Icons.restore_outlined,
                     title: trans.backup.restore_backup,
                     subtitle: trans.backup.description,

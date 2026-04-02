@@ -71,10 +71,10 @@ class _HomePageContentState extends State<HomePageContent> {
                   children: [
                     // 第一行：代理控制卡片 + TUN 模式卡片
                     if (isCompactLayout) ...[
-                      ProxySwitchCard(),
+                      ProxySwitchCard(key: const ValueKey('home_proxy_switch')),
                       if (shouldShowTunCard) ...[
                         SizedBox(height: sectionSpacing),
-                        TunModeCard(),
+                        TunModeCard(key: const ValueKey('home_tun_mode')),
                       ],
                     ] else ...[
                       if (shouldShowTunCard)
@@ -82,29 +82,51 @@ class _HomePageContentState extends State<HomePageContent> {
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(child: ProxySwitchCard()),
+                              Expanded(
+                                child: ProxySwitchCard(
+                                  key: const ValueKey('home_proxy_switch'),
+                                ),
+                              ),
                               SizedBox(width: cardSpacing),
-                              Expanded(child: TunModeCard()),
+                              Expanded(
+                                child: TunModeCard(
+                                  key: const ValueKey('home_tun_mode'),
+                                ),
+                              ),
                             ],
                           ),
                         )
                       else
-                        ProxySwitchCard(),
+                        ProxySwitchCard(
+                          key: const ValueKey('home_proxy_switch'),
+                        ),
                     ],
                     SizedBox(height: sectionSpacing),
                     // 第二行：运行状态卡片 + 出站模式卡片
                     if (isCompactLayout) ...[
-                      const RunningStatusCard(),
+                      const RunningStatusCard(
+                        key: ValueKey('home_running_status'),
+                      ),
                       SizedBox(height: sectionSpacing),
-                      const OutboundModeCard(),
+                      const OutboundModeCard(
+                        key: ValueKey('home_outbound_mode'),
+                      ),
                     ] else ...[
                       IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Expanded(child: RunningStatusCard()),
+                            const Expanded(
+                              child: RunningStatusCard(
+                                key: ValueKey('home_running_status'),
+                              ),
+                            ),
                             SizedBox(width: cardSpacing),
-                            const Expanded(child: OutboundModeCard()),
+                            const Expanded(
+                              child: OutboundModeCard(
+                                key: ValueKey('home_outbound_mode'),
+                              ),
+                            ),
                           ],
                         ),
                       ),

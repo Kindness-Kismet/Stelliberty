@@ -73,11 +73,11 @@ class _SystemIntegrationPageState extends State<SystemIntegrationPage> {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SystemProxyCard(),
+                  SystemProxyCard(key: ValueKey('system_proxy')),
                   SizedBox(height: 16),
-                  TunConfigCard(),
+                  TunConfigCard(key: ValueKey('system_tun')),
                   SizedBox(height: 16),
-                  UwpLoopbackCard(),
+                  UwpLoopbackCard(key: ValueKey('system_uwp_loopback')),
                 ],
               ),
             ),

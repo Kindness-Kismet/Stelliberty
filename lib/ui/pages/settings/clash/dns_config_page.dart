@@ -70,7 +70,7 @@ class _DnsConfigPageState extends State<DnsConfigPage> {
               ),
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [DnsConfigCard()],
+                children: [DnsConfigCard(key: ValueKey('dns_config'))],
               ),
             ),
           ),

@@ -126,6 +126,7 @@ class _PerformancePageState extends State<PerformancePage> {
                 children: [
                   // GEO 数据加载模式
                   ModernFeatureCard(
+                    key: const ValueKey('perf_geodata_loader'),
                     isSelected: false,
                     onTap: () {},
                     isHoverEnabled: true,
@@ -204,6 +205,7 @@ class _PerformancePageState extends State<PerformancePage> {
 
                   // 查找进程模式
                   ModernFeatureCard(
+                    key: const ValueKey('perf_find_process'),
                     isSelected: false,
                     onTap: () {},
                     isHoverEnabled: true,
@@ -281,7 +283,7 @@ class _PerformancePageState extends State<PerformancePage> {
                   const SizedBox(height: 16),
 
                   // TCP 保持活动
-                  const KeepAliveCard(),
+                  const KeepAliveCard(key: ValueKey('perf_keep_alive')),
                 ],
               ),
             ),

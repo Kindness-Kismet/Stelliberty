@@ -71,7 +71,11 @@ class _LogsDebugPageState extends State<LogsDebugPage> {
               ),
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [LogLevelCard(), SizedBox(height: 16), TestUrlCard()],
+                children: [
+                  LogLevelCard(key: ValueKey('logs_log_level')),
+                  SizedBox(height: 16),
+                  TestUrlCard(key: ValueKey('logs_test_url')),
+                ],
               ),
             ),
           ),

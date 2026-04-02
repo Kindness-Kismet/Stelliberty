@@ -72,9 +72,11 @@ class _PortControlPageState extends State<PortControlPage> {
               child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  PortSettingsCard(),
+                  PortSettingsCard(key: ValueKey('port_settings')),
                   SizedBox(height: 16),
-                  ExternalControllerCard(),
+                  ExternalControllerCard(
+                    key: ValueKey('port_external_controller'),
+                  ),
                 ],
               ),
             ),

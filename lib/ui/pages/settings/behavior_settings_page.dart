@@ -95,6 +95,7 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                         subtitle: trans.behavior.auto_start_description,
                         value: provider.autoStartEnabled,
                         onChanged: provider.updateAutoStart,
+                        key: const ValueKey('behavior_auto_start'),
                       ),
 
                       // 静默启动卡片（仅桌面端）
@@ -106,6 +107,7 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                           subtitle: trans.behavior.silent_start_description,
                           value: provider.silentStartEnabled,
                           onChanged: provider.updateSilentStart,
+                          key: const ValueKey('behavior_silent_start'),
                         ),
                       ],
 
@@ -118,6 +120,7 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                           subtitle: trans.behavior.minimize_to_tray_description,
                           value: provider.minimizeToTray,
                           onChanged: provider.updateMinimizeToTray,
+                          key: const ValueKey('behavior_minimize_to_tray'),
                         ),
                       ],
 
@@ -125,6 +128,7 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
 
                       // 应用日志卡片
                       ModernFeatureLayoutCard(
+                        key: const ValueKey('behavior_app_log'),
                         icon: Icons.description_outlined,
                         title: trans.behavior.app_log_title,
                         subtitle: trans.behavior.app_log_description,
@@ -142,12 +146,14 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
                       const SizedBox(height: 16),
 
                       // 懒惰模式卡片
-                      const LazyModeCard(),
+                      const LazyModeCard(key: ValueKey('behavior_lazy_mode')),
 
                       const SizedBox(height: 16),
 
                       // 全局快捷键卡片
-                      const HotkeySettingsCard(),
+                      const HotkeySettingsCard(
+                        key: ValueKey('behavior_hotkey'),
+                      ),
                     ],
                   ),
                 ),
@@ -166,8 +172,10 @@ class _BehaviorSettingsPageState extends State<BehaviorSettingsPage> {
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
+    Key? key,
   }) {
     return ModernFeatureCard(
+      key: key,
       isSelected: false,
       onTap: () {},
       isHoverEnabled: true,

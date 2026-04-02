@@ -63,6 +63,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 children: [
                   ListTile(
+                    key: const ValueKey('clash_network_settings'),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -89,6 +90,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     splashColor: Colors.transparent,
                   ),
                   ListTile(
+                    key: const ValueKey('clash_port_control'),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -115,6 +117,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     splashColor: Colors.transparent,
                   ),
                   ListTile(
+                    key: const ValueKey('clash_system_integration'),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -148,6 +151,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     splashColor: Colors.transparent,
                   ),
                   ListTile(
+                    key: const ValueKey('clash_dns_config'),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -173,6 +177,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     splashColor: Colors.transparent,
                   ),
                   ListTile(
+                    key: const ValueKey('clash_performance'),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -199,6 +204,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                     splashColor: Colors.transparent,
                   ),
                   ListTile(
+                    key: const ValueKey('clash_logs_debug'),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -226,6 +232,7 @@ class _ClashFeaturesPageState extends State<ClashFeaturesPage> {
                   // 应用访问控制（仅 Android）
                   if (PlatformHelper.isMobile)
                     ListTile(
+                      key: const ValueKey('clash_access_control'),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),

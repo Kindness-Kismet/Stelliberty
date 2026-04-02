@@ -43,36 +43,42 @@ class HomeSidebar extends StatelessWidget {
                   ),
                   children: [
                     HomeSidebarItem(
+                      key: const ValueKey('sidebar_home'),
                       icon: Icons.home_rounded,
                       title: trans.sidebar.home,
                       isSelected: currentView == ContentView.home,
                       onTap: () => provider.switchView(ContentView.home),
                     ),
                     HomeSidebarItem(
+                      key: const ValueKey('sidebar_proxy'),
                       icon: Icons.wifi,
                       title: trans.sidebar.proxy,
                       isSelected: currentView == ContentView.proxy,
                       onTap: () => provider.switchView(ContentView.proxy),
                     ),
                     HomeSidebarItem(
+                      key: const ValueKey('sidebar_connections'),
                       icon: Icons.swap_horiz_rounded,
                       title: trans.sidebar.connections,
                       isSelected: currentView == ContentView.connections,
                       onTap: () => provider.switchView(ContentView.connections),
                     ),
                     HomeSidebarItem(
+                      key: const ValueKey('sidebar_logs'),
                       icon: Icons.description_rounded,
                       title: trans.sidebar.logs,
                       isSelected: currentView == ContentView.logs,
                       onTap: () => provider.switchView(ContentView.logs),
                     ),
                     HomeSidebarItem(
+                      key: const ValueKey('sidebar_rules'),
                       icon: Icons.rule_rounded,
                       title: trans.sidebar.rules,
                       isSelected: currentView == ContentView.rules,
                       onTap: () => provider.switchView(ContentView.rules),
                     ),
                     HomeSidebarItem(
+                      key: const ValueKey('sidebar_subscriptions'),
                       icon: Icons.storage,
                       title: trans.sidebar.subscriptions,
                       isSelected:
@@ -91,6 +97,7 @@ class HomeSidebar extends StatelessWidget {
                   vertical: 10,
                 ),
                 child: HomeSidebarItem(
+                  key: const ValueKey('sidebar_settings'),
                   icon: Icons.settings_rounded,
                   title: trans.common.settings,
                   isSelected: currentView.name.startsWith('settings'),

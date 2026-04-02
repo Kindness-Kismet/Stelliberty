@@ -70,6 +70,7 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
             ),
             const SizedBox(height: 20),
             ListTile(
+              key: const ValueKey('settings_appearance'),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -81,6 +82,7 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
               splashColor: Colors.transparent,
             ),
             ListTile(
+              key: const ValueKey('settings_language'),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -92,6 +94,7 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
               splashColor: Colors.transparent,
             ),
             ListTile(
+              key: const ValueKey('settings_clash_features'),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -104,6 +107,7 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
               splashColor: Colors.transparent,
             ),
             ListTile(
+              key: const ValueKey('settings_behavior'),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -115,6 +119,7 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
               splashColor: Colors.transparent,
             ),
             ListTile(
+              key: const ValueKey('settings_backup'),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -127,6 +132,7 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
             // 应用更新选项只在 Windows 平台显示
             if (Platform.isWindows)
               ListTile(
+                key: const ValueKey('settings_app_update'),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -138,6 +144,7 @@ class _SettingsOverviewPageState extends State<SettingsOverviewPage> {
                 splashColor: Colors.transparent,
               ),
             ListTile(
+              key: const ValueKey('settings_about'),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),

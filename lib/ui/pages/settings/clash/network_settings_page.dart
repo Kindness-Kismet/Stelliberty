@@ -87,9 +87,18 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                 children: [
                   _buildSwitchCard(
                     context: context,
+                    key: const ValueKey('network_unified_delay'),
                     icon: Icons.speed,
-                    title: trans.clash_features.network_settings.unified_delay.title,
-                    subtitle: trans.clash_features.network_settings.unified_delay.subtitle,
+                    title: trans
+                        .clash_features
+                        .network_settings
+                        .unified_delay
+                        .title,
+                    subtitle: trans
+                        .clash_features
+                        .network_settings
+                        .unified_delay
+                        .subtitle,
                     value: _unifiedDelay,
                     onChanged: (value) {
                       setState(() => _unifiedDelay = value);
@@ -97,13 +106,15 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  const LanAuthCard(),
+                  const LanAuthCard(key: ValueKey('network_lan_auth')),
                   const SizedBox(height: 16),
                   _buildSwitchCard(
                     context: context,
+                    key: const ValueKey('network_ipv6'),
                     icon: Icons.language,
                     title: trans.clash_features.network_settings.ipv6.title,
-                    subtitle: trans.clash_features.network_settings.ipv6.subtitle,
+                    subtitle:
+                        trans.clash_features.network_settings.ipv6.subtitle,
                     value: _ipv6,
                     onChanged: (value) {
                       setState(() => _ipv6 = value);
@@ -113,9 +124,18 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
                   const SizedBox(height: 16),
                   _buildSwitchCard(
                     context: context,
+                    key: const ValueKey('network_tcp_concurrent'),
                     icon: Icons.multiple_stop,
-                    title: trans.clash_features.network_settings.tcp_concurrent.title,
-                    subtitle: trans.clash_features.network_settings.tcp_concurrent.subtitle,
+                    title: trans
+                        .clash_features
+                        .network_settings
+                        .tcp_concurrent
+                        .title,
+                    subtitle: trans
+                        .clash_features
+                        .network_settings
+                        .tcp_concurrent
+                        .subtitle,
                     value: _tcpConcurrent,
                     onChanged: (value) {
                       setState(() => _tcpConcurrent = value);
@@ -138,8 +158,10 @@ class _NetworkSettingsPageState extends State<NetworkSettingsPage> {
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
+    Key? key,
   }) {
     return ModernFeatureCard(
+      key: key,
       isSelected: false,
       onTap: () {},
       isHoverEnabled: true,
