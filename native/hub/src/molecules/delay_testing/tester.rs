@@ -290,23 +290,6 @@ async fn handle_single_delay_test_request(request: SingleDelayTestRequest) {
     );
 
     let session = register_delay_test_session(request_id, DelayTestSessionKind::Single);
-    if session.is_cancelled() {
-        log::info!(
-            "单节点延迟测试在开始前已取消：request_id={}，{}",
-            request_id,
-            node_name
-        );
-
-        let _ = finish_delay_test_session(&session);
-        SingleDelayTestResult {
-            request_id,
-            node_name,
-            delay_ms: -1,
-            is_cancelled: true,
-        }
-        .send_signal_to_dart();
-        return;
-    }
 
     let outcome = test_single_node_with_cancel(
         request_id,
@@ -357,21 +340,6 @@ async fn handle_batch_delay_test_request(request: BatchDelayTestRequest) {
     );
 
     let session = register_delay_test_session(request_id, DelayTestSessionKind::Batch);
-    if session.is_cancelled() {
-        log::info!("批量延迟测试在开始前已取消：request_id={}", request_id);
-
-        let _ = finish_delay_test_session(&session);
-        BatchDelayTestComplete {
-            request_id,
-            is_successful: false,
-            is_cancelled: true,
-            total_count,
-            success_count: 0,
-            error_message: None,
-        }
-        .send_signal_to_dart();
-        return;
-    }
 
     // 进度回调：每个节点测试完成后发送进度信号。
     let progress_session = session.clone();

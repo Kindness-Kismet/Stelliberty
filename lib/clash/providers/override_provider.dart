@@ -245,11 +245,11 @@ class OverrideProvider extends ChangeNotifier {
     ); // '开始更新远程覆写');
     notifyListeners();
 
-    if (cancelDelayTests) {
-      await _onCancelDelayTests?.call();
-    }
-
     try {
+      if (cancelDelayTests) {
+        await _onCancelDelayTests?.call();
+      }
+
       Logger.info('开始更新远程覆写：${override.name}');
 
       // 下载远程覆写
@@ -448,11 +448,11 @@ class OverrideProvider extends ChangeNotifier {
     );
     notifyListeners();
 
-    await _onCancelDelayTests?.call();
-
-    Logger.info('开始批量更新 ${remoteOverrides.length} 个远程覆写');
-
     try {
+      await _onCancelDelayTests?.call();
+
+      Logger.info('开始批量更新 ${remoteOverrides.length} 个远程覆写');
+
       // 并发更新所有远程覆写
       final results = await Future.wait(
         remoteOverrides.map((override) async {
