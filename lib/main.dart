@@ -247,7 +247,12 @@ class ProviderSetup {
     await HotkeyService.instance.initialize();
 
     // 初始化电源事件服务
-    PowerEventService().init();
+    final powerEventService = PowerEventService();
+    powerEventService.setOnCoreRestoreCompleted(() async {
+      await providers.subscriptionProvider
+          .handleCoreRunningRestoredForAutoDelayTest();
+    });
+    powerEventService.init();
 
     // 设置覆写系统集成
     await providers.subscriptionProvider.setupOverrideIntegration(
@@ -298,6 +303,7 @@ class ProviderSetup {
     ClashManager.instance.setOnThirdLevelFallback(() async {
       Logger.warning('使用默认配置启动成功，清除失败的订阅选择');
       await providers.subscriptionProvider.clearCurrentSubscription();
+      await providers.subscriptionProvider.handleCoreStoppedForAutoDelayTest();
     });
   }
 

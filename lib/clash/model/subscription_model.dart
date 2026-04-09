@@ -136,6 +136,8 @@ class Subscription {
   final List<String> failedOverrideIds; // 失败的覆写 ID 列表(启动失败时记录)
   final String userAgent; // User-Agent（仅远程订阅有效，默认为 clash.meta）
   final bool hasConfigLoadFailed; // 配置加载失败标记（用于 UI 显示警告）
+  final bool autoTestAllDelaysEnabled; // 是否启用自动测试全部延迟
+  final int autoTestAllDelaysIntervalMinutes; // 自动测试全部延迟间隔（分钟）
 
   const Subscription({
     required this.id,
@@ -155,6 +157,8 @@ class Subscription {
     this.failedOverrideIds = const [],
     this.userAgent = ClashDefaults.defaultUserAgent,
     this.hasConfigLoadFailed = false,
+    this.autoTestAllDelaysEnabled = false,
+    this.autoTestAllDelaysIntervalMinutes = 10,
   });
 
   // 创建新订阅
@@ -215,6 +219,8 @@ class Subscription {
     List<String>? failedOverrideIds,
     String? userAgent,
     bool? hasConfigLoadFailed,
+    bool? autoTestAllDelaysEnabled,
+    int? autoTestAllDelaysIntervalMinutes,
   }) {
     return Subscription(
       id: id ?? this.id,
@@ -236,6 +242,11 @@ class Subscription {
       failedOverrideIds: failedOverrideIds ?? this.failedOverrideIds,
       userAgent: userAgent ?? this.userAgent,
       hasConfigLoadFailed: hasConfigLoadFailed ?? this.hasConfigLoadFailed,
+      autoTestAllDelaysEnabled:
+          autoTestAllDelaysEnabled ?? this.autoTestAllDelaysEnabled,
+      autoTestAllDelaysIntervalMinutes:
+          autoTestAllDelaysIntervalMinutes ??
+          this.autoTestAllDelaysIntervalMinutes,
     );
   }
 
@@ -256,6 +267,8 @@ class Subscription {
     'failedOverrideIds': failedOverrideIds,
     'userAgent': userAgent,
     'hasConfigLoadFailed': hasConfigLoadFailed,
+    'autoTestAllDelaysEnabled': autoTestAllDelaysEnabled,
+    'autoTestAllDelaysIntervalMinutes': autoTestAllDelaysIntervalMinutes,
   };
 
   factory Subscription.fromJson(Map<String, dynamic> json) {
@@ -290,6 +303,10 @@ class Subscription {
           : const [],
       userAgent: json['userAgent'] as String? ?? ClashDefaults.defaultUserAgent,
       hasConfigLoadFailed: json['hasConfigLoadFailed'] as bool? ?? false,
+      autoTestAllDelaysEnabled:
+          json['autoTestAllDelaysEnabled'] as bool? ?? false,
+      autoTestAllDelaysIntervalMinutes:
+          json['autoTestAllDelaysIntervalMinutes'] as int? ?? 10,
     );
   }
 

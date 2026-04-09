@@ -11,12 +11,17 @@ class PowerEventService {
   PowerEventService._internal();
 
   StreamSubscription? _subscription;
+  Future<void> Function()? _onCoreRestoreCompleted;
 
   DateTime? _lastRestartAt;
   static const _restartCooldown = Duration(seconds: 10);
 
   bool _isRestarting = false;
   bool _shouldRestoreAfterResume = false;
+
+  void setOnCoreRestoreCompleted(Future<void> Function() handler) {
+    _onCoreRestoreCompleted = handler;
+  }
 
   void init() {
     if (_subscription != null) {
@@ -96,6 +101,7 @@ class PowerEventService {
         }
 
         Logger.info('系统唤醒核心重启完成');
+        await _onCoreRestoreCompleted?.call();
         return;
       }
 
@@ -111,6 +117,7 @@ class PowerEventService {
       }
 
       Logger.info('系统唤醒核心启动完成');
+      await _onCoreRestoreCompleted?.call();
     } catch (e) {
       Logger.error('系统唤醒核心恢复失败：$e');
     } finally {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stelliberty/atomic/platform_helper.dart';
 
 // 文本输入组件：支持图标前缀、校验与多行输入。
@@ -25,8 +26,20 @@ class TextInputField extends StatelessWidget {
   // 验证函数
   final String? Function(String?)? validator;
 
+  // 焦点节点
+  final FocusNode? focusNode;
+
+  // 点击回调
+  final VoidCallback? onTap;
+
   // 是否启用
   final bool enabled;
+
+  // 输入格式限制
+  final List<TextInputFormatter>? inputFormatters;
+
+  // 键盘类型
+  final TextInputType? keyboardType;
 
   const TextInputField({
     super.key,
@@ -37,7 +50,11 @@ class TextInputField extends StatelessWidget {
     this.minLines,
     this.maxLines = 1,
     this.validator,
+    this.focusNode,
+    this.onTap,
     this.enabled = true,
+    this.inputFormatters,
+    this.keyboardType,
   });
 
   @override
@@ -68,10 +85,14 @@ class TextInputField extends StatelessWidget {
         ),
         child: TextFormField(
           controller: controller,
+          focusNode: focusNode,
+          onTap: onTap,
           enabled: enabled,
           minLines: minLines,
           maxLines: maxLines,
           validator: validator,
+          keyboardType: keyboardType,
+          inputFormatters: inputFormatters,
           style: TextStyle(fontSize: fontSize),
           decoration: InputDecoration(
             labelText: label,

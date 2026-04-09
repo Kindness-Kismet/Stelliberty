@@ -1326,6 +1326,10 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   // ========== 延迟测试方法 ==========
 
+  Future<void> cancelDelayTestsKeepingResults() async {
+    await cancelAllDelayTests(clearResults: false);
+  }
+
   Future<void> cancelAllDelayTests({bool clearResults = true}) async {
     final singleRequestIds = _activeSingleDelayTestRequestIds.toList();
     final batchRequestId = _activeBatchDelayTestRequestId;

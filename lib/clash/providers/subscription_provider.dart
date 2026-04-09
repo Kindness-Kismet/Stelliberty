@@ -28,9 +28,13 @@ class SubscriptionProvider extends ChangeNotifier {
 
   // ClashProvider 引用（用于配置切换时重新加载代理信息）
   ClashProvider? _clashProvider;
+  bool _wasCoreRunning = false;
 
   // 自动更新定时器
   Timer? _autoUpdateTimer;
+
+  // 自动测试所有延迟定时器
+  Timer? _autoDelayTestTimer;
 
   // 启动时更新是否已完成
   bool _isStartupUpdateDone = false;
@@ -94,7 +98,14 @@ class SubscriptionProvider extends ChangeNotifier {
   // 设置 ClashProvider 引用
   // 用于在订阅切换时通知 ClashProvider 重新加载配置
   void setClashProvider(ClashProvider clashProvider) {
+    if (identical(_clashProvider, clashProvider)) {
+      return;
+    }
+
+    _clashProvider?.removeListener(_handleClashProviderChanged);
     _clashProvider = clashProvider;
+    _wasCoreRunning = clashProvider.isCoreRunning;
+    clashProvider.addListener(_handleClashProviderChanged);
     Logger.debug('已设置 ClashProvider 引用到 SubscriptionProvider');
   }
 
@@ -242,6 +253,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
       // 启动动态自动更新定时器
       _restartAutoUpdateTimer();
+      await _restartAutoDelayTestTimer();
 
       _updateState(SubscriptionState.idle());
     } catch (e) {
@@ -268,6 +280,8 @@ class SubscriptionProvider extends ChangeNotifier {
     bool downloadNow = true,
     SubscriptionProxyMode proxyMode = SubscriptionProxyMode.direct,
     String? userAgent,
+    bool autoTestAllDelaysEnabled = false,
+    int autoTestAllDelaysIntervalMinutes = 10,
   }) async {
     // 不清除全局错误，单个订阅操作不影响全局状态
 
@@ -293,6 +307,8 @@ class SubscriptionProvider extends ChangeNotifier {
         shouldUpdateOnStartup: shouldUpdateOnStartup,
         proxyMode: proxyMode,
         userAgent: effectiveUserAgent,
+        autoTestAllDelaysEnabled: autoTestAllDelaysEnabled,
+        autoTestAllDelaysIntervalMinutes: autoTestAllDelaysIntervalMinutes,
       );
 
       // 如果需要立即下载
@@ -347,6 +363,9 @@ class SubscriptionProvider extends ChangeNotifier {
 
       // 重新计算定时器间隔（新订阅可能启用了自动更新）
       _restartAutoUpdateTimer();
+      if (_currentSubscriptionId == subscription.id) {
+        await _restartAutoDelayTestTimer();
+      }
 
       Logger.info('添加订阅成功：$name');
       return true;
@@ -405,8 +424,121 @@ class SubscriptionProvider extends ChangeNotifier {
     return SubscriptionErrorState.unknown;
   }
 
-  Future<void> _cancelDelayTestsBeforeUpdate() async {
-    await _clashProvider?.cancelAllDelayTests();
+  Duration? resolveAutoDelayTestInterval(Subscription? subscription) {
+    if (subscription == null) return null;
+    if (!subscription.autoTestAllDelaysEnabled) return null;
+    if (subscription.autoTestAllDelaysIntervalMinutes < 1) return null;
+    return Duration(minutes: subscription.autoTestAllDelaysIntervalMinutes);
+  }
+
+  bool _isCurrentSubscription(String subscriptionId) {
+    return _currentSubscriptionId == subscriptionId;
+  }
+
+  bool _currentSubscriptionUsesOverride(String overrideId) {
+    final subscription = currentSubscription;
+    if (subscription == null) {
+      return false;
+    }
+
+    return subscription.overrideIds.contains(overrideId);
+  }
+
+  Future<void> _cancelDelayTestsForCurrentSubscriptionUpdate() async {
+    final clashProvider = _clashProvider;
+    if (clashProvider == null) {
+      return;
+    }
+
+    _stopAutoDelayTestTimer();
+    await clashProvider.cancelDelayTestsKeepingResults();
+  }
+
+  void _handleClashProviderChanged() {
+    final clashProvider = _clashProvider;
+    if (clashProvider == null) {
+      return;
+    }
+
+    final isCoreRunning = clashProvider.isCoreRunning;
+    if (isCoreRunning == _wasCoreRunning) {
+      return;
+    }
+    _wasCoreRunning = isCoreRunning;
+
+    if (isCoreRunning) {
+      unawaited(handleCoreRunningRestoredForAutoDelayTest());
+      return;
+    }
+
+    unawaited(handleCoreStoppedForAutoDelayTest());
+  }
+
+  void _stopAutoDelayTestTimer() {
+    _autoDelayTestTimer?.cancel();
+    _autoDelayTestTimer = null;
+  }
+
+  Future<void> _restartAutoDelayTestTimer() async {
+    _stopAutoDelayTestTimer();
+
+    final subscription = currentSubscription;
+    final interval = resolveAutoDelayTestInterval(subscription);
+    if (subscription == null) {
+      Logger.debug('自动测试延迟未启动：当前没有生效订阅');
+      return;
+    }
+    if (interval == null) {
+      Logger.debug(
+        '自动测试延迟未启动：${subscription.name} 已禁用或间隔无效 (${subscription.autoTestAllDelaysIntervalMinutes} 分钟)',
+      );
+      return;
+    }
+
+    Logger.info('自动测试延迟已启动：${subscription.name}，间隔 ${interval.inMinutes} 分钟');
+    _autoDelayTestTimer = Timer.periodic(interval, (_) {
+      Logger.debug('自动测试延迟定时触发：${subscription.name}');
+      unawaited(_runAutoDelayTestTick(subscription.id));
+    });
+  }
+
+  Future<void> _runAutoDelayTestTick(String subscriptionId) async {
+    final subscription = currentSubscription;
+    final clashProvider = _clashProvider;
+    if (subscription == null) {
+      Logger.debug('自动测试延迟已停止：当前没有生效订阅');
+      _stopAutoDelayTestTimer();
+      return;
+    }
+    if (subscription.id != subscriptionId) {
+      Logger.debug('自动测试延迟已停止：当前订阅已切换为 ${subscription.name}');
+      _stopAutoDelayTestTimer();
+      return;
+    }
+    if (!subscription.autoTestAllDelaysEnabled) {
+      Logger.debug('自动测试延迟已停止：${subscription.name} 当前已禁用');
+      _stopAutoDelayTestTimer();
+      return;
+    }
+    if (clashProvider == null || !clashProvider.isCoreRunning) {
+      Logger.debug('自动测试延迟已停止：Clash 核心当前未运行');
+      _stopAutoDelayTestTimer();
+      return;
+    }
+
+    Logger.info('开始自动测试延迟：${subscription.name}');
+    await clashProvider.testAllProxiesDelays();
+  }
+
+  Future<void> handleCoreStoppedForAutoDelayTest() async {
+    Logger.info('Clash 核心停止，停止自动测试延迟');
+    _stopAutoDelayTestTimer();
+    await _clashProvider?.cancelDelayTestsKeepingResults();
+  }
+
+  Future<void> handleCoreRunningRestoredForAutoDelayTest() async {
+    Logger.info('Clash 核心恢复运行，重建自动测试延迟');
+    await _restartAutoDelayTestTimer();
   }
 
   // 更新订阅
@@ -423,9 +555,11 @@ class SubscriptionProvider extends ChangeNotifier {
     }
 
     final subscription = _subscriptions[index];
+    var didCancelCurrentDelayTests = false;
 
-    if (cancelDelayTests) {
-      await _cancelDelayTestsBeforeUpdate();
+    if (cancelDelayTests && _isCurrentSubscription(subscriptionId)) {
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
+      didCancelCurrentDelayTests = true;
     }
 
     try {
@@ -436,6 +570,9 @@ class SubscriptionProvider extends ChangeNotifier {
           lastError: null, // 清除可能存在的旧错误
         );
         notifyListeners();
+        if (didCancelCurrentDelayTests) {
+          await _restartAutoDelayTestTimer();
+        }
         return true;
       }
 
@@ -470,6 +607,7 @@ class SubscriptionProvider extends ChangeNotifier {
         _clashProvider?.pauseConfigWatcher();
         try {
           await _reloadCurrentSubscriptionConfig(reason: '订阅更新');
+          await _restartAutoDelayTestTimer();
         } finally {
           await _clashProvider?.resumeConfigWatcher();
         }
@@ -513,6 +651,10 @@ class SubscriptionProvider extends ChangeNotifier {
       }
       await _manager.saveSubscriptionList(_subscriptions);
 
+      if (didCancelCurrentDelayTests) {
+        await _restartAutoDelayTestTimer();
+      }
+
       return false;
     } finally {
       // 从更新中列表移除
@@ -540,7 +682,12 @@ class SubscriptionProvider extends ChangeNotifier {
       return errors;
     }
 
-    await _cancelDelayTestsBeforeUpdate();
+    final hasCurrentSubscription =
+        _currentSubscriptionId != null &&
+        _subscriptions.any((s) => s.id == _currentSubscriptionId);
+    if (hasCurrentSubscription) {
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
+    }
 
     Logger.info('开始并发更新 ${_subscriptions.length} 个订阅');
 
@@ -616,6 +763,7 @@ class SubscriptionProvider extends ChangeNotifier {
       _clashProvider?.pauseConfigWatcher();
       try {
         await _reloadCurrentSubscriptionConfig(reason: '批量更新包含当前订阅');
+        await _restartAutoDelayTestTimer();
       } finally {
         await _clashProvider?.resumeConfigWatcher();
       }
@@ -724,7 +872,12 @@ class SubscriptionProvider extends ChangeNotifier {
       return;
     }
 
-    await _cancelDelayTestsBeforeUpdate();
+    final includesCurrentSubscription = needUpdateSubscriptions.any(
+      (subscription) => subscription.id == _currentSubscriptionId,
+    );
+    if (includesCurrentSubscription) {
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
+    }
 
     Logger.info('发现 ${needUpdateSubscriptions.length} 个订阅需要更新');
 
@@ -747,6 +900,7 @@ class SubscriptionProvider extends ChangeNotifier {
 
     // 批量更新完成后重新计算定时器（避免单个更新时频繁重启）
     _restartAutoUpdateTimer();
+    await _restartAutoDelayTestTimer();
   }
 
   // 执行启动时更新（确保只执行一次）
@@ -767,7 +921,12 @@ class SubscriptionProvider extends ChangeNotifier {
       return;
     }
 
-    await _cancelDelayTestsBeforeUpdate();
+    final includesCurrentSubscription = startupUpdateSubscriptions.any(
+      (subscription) => subscription.id == _currentSubscriptionId,
+    );
+    if (includesCurrentSubscription) {
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
+    }
 
     Logger.info('发现 ${startupUpdateSubscriptions.length} 个启用启动时更新的订阅');
 
@@ -787,6 +946,10 @@ class SubscriptionProvider extends ChangeNotifier {
       await Future.wait(batchFutures);
     }
 
+    if (includesCurrentSubscription) {
+      await _restartAutoDelayTestTimer();
+    }
+
     Logger.info('启动时更新完成');
   }
 
@@ -794,6 +957,8 @@ class SubscriptionProvider extends ChangeNotifier {
   Future<bool> importLocalFile({
     required String name,
     required String filePath,
+    bool autoTestAllDelaysEnabled = false,
+    int autoTestAllDelaysIntervalMinutes = 10,
   }) async {
     try {
       // 调用 Manager 解析文件
@@ -804,6 +969,8 @@ class SubscriptionProvider extends ChangeNotifier {
         name: name,
         filePath: filePath,
         content: parsedConfig,
+        autoTestAllDelaysEnabled: autoTestAllDelaysEnabled,
+        autoTestAllDelaysIntervalMinutes: autoTestAllDelaysIntervalMinutes,
       );
     } catch (e) {
       Logger.error('导入本地文件失败：$e');
@@ -816,6 +983,8 @@ class SubscriptionProvider extends ChangeNotifier {
     required String name,
     required String filePath,
     required String content,
+    bool autoTestAllDelaysEnabled = false,
+    int autoTestAllDelaysIntervalMinutes = 10,
   }) async {
     // 不清除全局错误，单个操作不影响全局状态
 
@@ -828,6 +997,8 @@ class SubscriptionProvider extends ChangeNotifier {
           ).copyWith(
             autoUpdateMode: AutoUpdateMode.disabled, // 本地文件不支持自动更新
             isLocalFile: true, // 标记为本地文件
+            autoTestAllDelaysEnabled: autoTestAllDelaysEnabled,
+            autoTestAllDelaysIntervalMinutes: autoTestAllDelaysIntervalMinutes,
           );
 
       // 保存配置文件内容到订阅目录
@@ -876,6 +1047,9 @@ class SubscriptionProvider extends ChangeNotifier {
 
       // 本地订阅不支持自动更新，但仍需重新计算定时器
       _restartAutoUpdateTimer();
+      if (_currentSubscriptionId == subscription.id) {
+        await _restartAutoDelayTestTimer();
+      }
 
       Logger.info('添加本地订阅成功：$name');
       return true;
@@ -951,6 +1125,11 @@ class SubscriptionProvider extends ChangeNotifier {
 
       // 重新计算定时器间隔（订阅减少可能影响最短间隔）
       _restartAutoUpdateTimer();
+      if (_currentSubscriptionId != null) {
+        await _restartAutoDelayTestTimer();
+      } else {
+        _stopAutoDelayTestTimer();
+      }
 
       Logger.info('删除订阅成功：${subscription.name}');
       return true;
@@ -982,6 +1161,7 @@ class SubscriptionProvider extends ChangeNotifier {
     Logger.info('从所有订阅中移除覆写引用：$overrideId');
 
     bool hasChanges = false;
+    bool didUpdateCurrentSubscription = false;
     for (int i = 0; i < _subscriptions.length; i++) {
       final subscription = _subscriptions[i];
       if (subscription.overrideIds.contains(overrideId)) {
@@ -991,50 +1171,75 @@ class SubscriptionProvider extends ChangeNotifier {
             .toList();
         _subscriptions[i] = subscription.copyWith(overrideIds: nextOverrideIds);
         hasChanges = true;
+        if (_isCurrentSubscription(subscription.id)) {
+          didUpdateCurrentSubscription = true;
+        }
       }
     }
 
-    if (hasChanges) {
-      await _manager.saveSubscriptionList(_subscriptions);
-      notifyListeners();
-      Logger.info('已从订阅中移除覆写引用');
-    } else {
+    if (!hasChanges) {
       Logger.debug('没有订阅使用该覆写');
+      return;
+    }
+
+    if (didUpdateCurrentSubscription) {
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
+    }
+
+    await _manager.saveSubscriptionList(_subscriptions);
+    notifyListeners();
+    Logger.info('已从订阅中移除覆写引用');
+
+    if (didUpdateCurrentSubscription) {
+      Logger.info('当前订阅使用的覆写已删除，重新加载配置');
+      _clashProvider?.pauseConfigWatcher();
+      try {
+        await _reloadCurrentSubscriptionConfig(reason: '覆写删除');
+        await _restartAutoDelayTestTimer();
+      } finally {
+        await _clashProvider?.resumeConfigWatcher();
+      }
     }
   }
 
   // 如果当前订阅使用了指定覆写，重载配置
   // 用于在覆写内容更新时自动应用新配置
-  Future<void> _reloadSubscriptionIfOverrideUsed(String overrideId) async {
+  Future<void> _reloadSubscriptionIfOverridesUsed(
+    List<String> overrideIds,
+  ) async {
     if (_currentSubscriptionId == null) {
       Logger.debug('没有当前订阅，无需重载');
       return;
     }
 
-    final subscriptionIndex = _subscriptions.indexWhere(
-      (s) => s.id == _currentSubscriptionId,
-    );
-    if (subscriptionIndex == -1) {
+    final subscription = currentSubscription;
+    if (subscription == null) {
       Logger.error('当前订阅不存在 (ID: $_currentSubscriptionId)');
       return;
     }
 
-    final currentSubscription = _subscriptions[subscriptionIndex];
-
-    if (!currentSubscription.overrideIds.contains(overrideId)) {
-      Logger.debug('当前订阅未使用该覆写，无需重载');
+    final matchedOverrideIds = overrideIds
+        .where(subscription.overrideIds.contains)
+        .toList();
+    if (matchedOverrideIds.isEmpty) {
+      Logger.debug('当前订阅未使用本次更新的覆写，无需重载');
       return;
     }
 
-    await _cancelDelayTestsBeforeUpdate();
+    await _cancelDelayTestsForCurrentSubscriptionUpdate();
 
-    Logger.info('当前订阅使用了更新的覆写，重新加载配置');
+    Logger.info('当前订阅使用了更新的覆写，重新加载配置：$matchedOverrideIds');
     _clashProvider?.pauseConfigWatcher();
     try {
       await _reloadCurrentSubscriptionConfig(reason: '覆写内容更新');
+      await _restartAutoDelayTestTimer();
     } finally {
       await _clashProvider?.resumeConfigWatcher();
     }
+  }
+
+  Future<void> _reloadSubscriptionIfOverrideUsed(String overrideId) async {
+    await _reloadSubscriptionIfOverridesUsed([overrideId]);
   }
 
   // 修改订阅信息
@@ -1047,6 +1252,8 @@ class SubscriptionProvider extends ChangeNotifier {
     bool? shouldUpdateOnStartup,
     SubscriptionProxyMode? proxyMode,
     String? userAgent,
+    bool? autoTestAllDelaysEnabled,
+    int? autoTestAllDelaysIntervalMinutes,
   }) async {
     // 不清除全局错误，单个操作不影响全局状态
     final index = _subscriptions.indexWhere((s) => s.id == subscriptionId);
@@ -1067,6 +1274,11 @@ class SubscriptionProvider extends ChangeNotifier {
             shouldUpdateOnStartup ?? subscription.shouldUpdateOnStartup,
         proxyMode: proxyMode ?? subscription.proxyMode,
         userAgent: userAgent ?? subscription.userAgent,
+        autoTestAllDelaysEnabled:
+            autoTestAllDelaysEnabled ?? subscription.autoTestAllDelaysEnabled,
+        autoTestAllDelaysIntervalMinutes:
+            autoTestAllDelaysIntervalMinutes ??
+            subscription.autoTestAllDelaysIntervalMinutes,
       );
 
       await _manager.saveSubscriptionList(_subscriptions);
@@ -1077,6 +1289,9 @@ class SubscriptionProvider extends ChangeNotifier {
           intervalMinutes != null ||
           shouldUpdateOnStartup != null) {
         _restartAutoUpdateTimer();
+      }
+      if (subscriptionId == _currentSubscriptionId) {
+        await _restartAutoDelayTestTimer();
       }
 
       Logger.info('修改订阅信息成功：${_subscriptions[index].name}');
@@ -1102,19 +1317,24 @@ class SubscriptionProvider extends ChangeNotifier {
       return false;
     }
 
-    await _cancelDelayTestsBeforeUpdate();
+    final isCurrentSubscription = _isCurrentSubscription(subscriptionId);
+    if (isCurrentSubscription) {
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
+    }
 
     try {
       final subscription = _subscriptions[subscriptionIndex];
       final previousOverrideIds = subscription.overrideIds;
-
-      final addedCount = overrideIds
-          .where((id) => !previousOverrideIds.contains(id))
-          .length;
-      final removedCount = previousOverrideIds
-          .where((id) => !overrideIds.contains(id))
-          .length;
-      final hasOverrideChanges = addedCount > 0 || removedCount > 0;
+      final previousSortPreferences = subscription.overrideSortPreferences;
+      final hasOverrideChanges =
+          previousOverrideIds.length != overrideIds.length ||
+          previousOverrideIds.asMap().entries.any(
+            (entry) => entry.value != overrideIds[entry.key],
+          ) ||
+          previousSortPreferences.length != overrideSortPreferences.length ||
+          previousSortPreferences.asMap().entries.any(
+            (entry) => entry.value != overrideSortPreferences[entry.key],
+          );
 
       Logger.info(
         '更新订阅覆写 - ${subscription.name}: '
@@ -1131,18 +1351,24 @@ class SubscriptionProvider extends ChangeNotifier {
       await _manager.saveSubscriptionList(_subscriptions);
       notifyListeners();
 
-      if (hasOverrideChanges && subscriptionId == _currentSubscriptionId) {
+      if (hasOverrideChanges && isCurrentSubscription) {
         Logger.info('当前订阅的覆写已更新，重新加载配置');
         _clashProvider?.pauseConfigWatcher();
         try {
           await _reloadCurrentSubscriptionConfig(reason: '覆写配置更新');
+          await _restartAutoDelayTestTimer();
         } finally {
           await _clashProvider?.resumeConfigWatcher();
         }
+      } else if (isCurrentSubscription) {
+        await _restartAutoDelayTestTimer();
       }
 
       return true;
     } catch (e) {
+      if (isCurrentSubscription) {
+        await _restartAutoDelayTestTimer();
+      }
       Logger.error('更新覆写配置失败 (ID：$subscriptionId) - $e');
       return false;
     }
@@ -1158,7 +1384,10 @@ class SubscriptionProvider extends ChangeNotifier {
       orElse: () => throw Exception('订阅不存在'),
     );
 
-    await _cancelDelayTestsBeforeUpdate();
+    final isCurrentSubscription = _isCurrentSubscription(subscriptionId);
+    if (isCurrentSubscription) {
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
+    }
 
     try {
       // 保存文件到订阅目录
@@ -1177,11 +1406,12 @@ class SubscriptionProvider extends ChangeNotifier {
       }
 
       // 如果是当前选中的订阅，重新加载配置
-      if (subscriptionId == _currentSubscriptionId) {
+      if (isCurrentSubscription) {
         Logger.info('当前订阅文件已修改，重新加载配置');
         _clashProvider?.pauseConfigWatcher();
         try {
           await _reloadCurrentSubscriptionConfig(reason: '订阅文件编辑');
+          await _restartAutoDelayTestTimer();
         } finally {
           await _clashProvider?.resumeConfigWatcher();
         }
@@ -1189,6 +1419,9 @@ class SubscriptionProvider extends ChangeNotifier {
 
       return true;
     } catch (e) {
+      if (isCurrentSubscription) {
+        await _restartAutoDelayTestTimer();
+      }
       Logger.error('保存订阅文件失败：${subscription.name} - $e');
       return false;
     }
@@ -1209,11 +1442,12 @@ class SubscriptionProvider extends ChangeNotifier {
     await ClashPreferences.instance.setCurrentSubscriptionId(subscriptionId);
     Logger.info('选择订阅：$subscriptionId');
 
-    await _cancelDelayTestsBeforeUpdate();
+    await _cancelDelayTestsForCurrentSubscriptionUpdate();
 
     try {
       // 重新加载配置文件
       await _reloadCurrentSubscriptionConfig(reason: '订阅切换');
+      await _restartAutoDelayTestTimer();
     } finally {
       // 清除切换状态
       _updateState(SubscriptionState.idle());
@@ -1233,6 +1467,7 @@ class SubscriptionProvider extends ChangeNotifier {
     // 保存到持久化存储
     await ClashPreferences.instance.setCurrentSubscriptionId(null);
 
+    _stopAutoDelayTestTimer();
     notifyListeners();
 
     Logger.info('已清除选中的订阅（ID：$previousId），下次启动将使用默认配置');
@@ -1379,6 +1614,7 @@ class SubscriptionProvider extends ChangeNotifier {
         Logger.error(
           '配置重载失败 (耗时: ${reloadStopwatch.elapsedMilliseconds}ms)，开始回退流程',
         );
+        _stopAutoDelayTestTimer();
 
         // 获取当前订阅信息
         final failedSubscription = currentSubscription;
@@ -1588,9 +1824,13 @@ class SubscriptionProvider extends ChangeNotifier {
       await removeOverrideFromAllSubscriptions(overrideId);
     });
 
-    // 2.25 设置覆写更新前取消测速回调。
-    overrideProvider.setOnCancelDelayTests(() async {
-      await _cancelDelayTestsBeforeUpdate();
+    // 2.25 设置覆写更新前取消测试延迟回调。
+    overrideProvider.setOnCancelDelayTests((overrideId) async {
+      if (!_currentSubscriptionUsesOverride(overrideId)) {
+        return;
+      }
+
+      await _cancelDelayTestsForCurrentSubscriptionUpdate();
     });
 
     // 2.5 设置覆写内容更新回调（重载使用该覆写的当前订阅）
@@ -1602,6 +1842,23 @@ class SubscriptionProvider extends ChangeNotifier {
         Logger.error('重载配置失败：$e');
         // 不抛出异常，避免影响覆写文件保存操作
       }
+    });
+
+    overrideProvider.setOnOverrideContentsUpdated((overrideIds) async {
+      try {
+        Logger.debug('批量覆写内容已更新：$overrideIds');
+        await _reloadSubscriptionIfOverridesUsed(overrideIds);
+      } catch (e) {
+        Logger.error('批量重载配置失败：$e');
+      }
+    });
+
+    overrideProvider.setOnRestoreDelayTests((overrideId) async {
+      if (!_currentSubscriptionUsesOverride(overrideId)) {
+        return;
+      }
+
+      await _restartAutoDelayTestTimer();
     });
 
     // 3. 清理无效的覆写引用（启动时一次性清理）
@@ -1627,9 +1884,14 @@ class SubscriptionProvider extends ChangeNotifier {
 
   @override
   void dispose() {
+    _clashProvider?.removeListener(_handleClashProviderChanged);
+
     // 取消自动更新定时器
     _autoUpdateTimer?.cancel();
     Logger.debug('自动更新定时器已取消');
+
+    _stopAutoDelayTestTimer();
+    Logger.debug('自动测试所有延迟定时器已取消');
 
     super.dispose();
   }

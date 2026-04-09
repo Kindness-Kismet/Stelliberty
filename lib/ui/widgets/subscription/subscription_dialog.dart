@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stelliberty/clash/model/subscription_model.dart';
 import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/storage/clash_preferences.dart';
@@ -36,6 +37,8 @@ class SubscriptionDialog extends StatefulWidget {
   final bool? initialUpdateOnStartup;
   final SubscriptionProxyMode? initialProxyMode;
   final String? initialUserAgent;
+  final bool? initialAutoTestAllDelaysEnabled;
+  final int? initialAutoTestAllDelaysIntervalMinutes;
   final String confirmText;
   final IconData titleIcon;
   final bool isAddMode;
@@ -52,6 +55,8 @@ class SubscriptionDialog extends StatefulWidget {
     this.initialUpdateOnStartup,
     this.initialProxyMode,
     this.initialUserAgent,
+    this.initialAutoTestAllDelaysEnabled,
+    this.initialAutoTestAllDelaysIntervalMinutes,
     this.confirmText = 'Confirm',
     this.titleIcon = Icons.rss_feed,
     this.isAddMode = false,
@@ -98,6 +103,9 @@ class SubscriptionDialog extends StatefulWidget {
         initialUpdateOnStartup: subscription.shouldUpdateOnStartup,
         initialProxyMode: subscription.proxyMode,
         initialUserAgent: subscription.userAgent,
+        initialAutoTestAllDelaysEnabled: subscription.autoTestAllDelaysEnabled,
+        initialAutoTestAllDelaysIntervalMinutes:
+            subscription.autoTestAllDelaysIntervalMinutes,
         confirmText: trans.subscription_dialog.save_button,
         titleIcon: Icons.edit_outlined,
         isLocalFile: subscription.isLocalFile,
@@ -113,7 +121,10 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _urlController;
   late final TextEditingController _intervalController;
+  late final TextEditingController _autoDelayTestIntervalController;
   late final TextEditingController _userAgentController;
+  late final FocusNode _autoDelayTestIntervalFocusNode;
+  late int _autoDelayTestIntervalMinutes;
   late AutoUpdateMode _autoUpdateMode;
   late SubscriptionProxyMode _proxyMode;
 
@@ -128,6 +139,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _didSyncAutoDelayTestIntervalDisplay = false;
 
   // 重建延迟标志，避免输入时频繁重建
   bool _needsRebuild = false;
@@ -145,6 +157,14 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     _intervalController = TextEditingController(
       text: (widget.initialIntervalMinutes ?? 60).toString(),
     );
+    _autoDelayTestIntervalMinutes =
+        widget.initialAutoTestAllDelaysEnabled ?? false
+        ? (widget.initialAutoTestAllDelaysIntervalMinutes ?? 10)
+        : 0;
+    _autoDelayTestIntervalController = TextEditingController(
+      text: _autoDelayTestIntervalMinutes.toString(),
+    );
+    _autoDelayTestIntervalFocusNode = FocusNode();
     // 编辑模式：使用订阅的 UA；添加模式：留空（使用 placeholder 显示默认值）
     _userAgentController = TextEditingController(
       text: widget.initialUserAgent ?? '',
@@ -158,7 +178,25 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     _nameController.addListener(_checkForChanges);
     _urlController.addListener(_checkForChanges);
     _intervalController.addListener(_checkForChanges);
+    _autoDelayTestIntervalController.addListener(_checkForChanges);
+    _autoDelayTestIntervalController.addListener(
+      _handleAutoDelayTestIntervalChanged,
+    );
     _userAgentController.addListener(_checkForChanges);
+    _autoDelayTestIntervalFocusNode.addListener(
+      _handleAutoDelayTestFocusChanged,
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didSyncAutoDelayTestIntervalDisplay) {
+      return;
+    }
+
+    _didSyncAutoDelayTestIntervalDisplay = true;
+    _syncAutoDelayTestIntervalDisplay();
   }
 
   // 检查内容是否发生变化
@@ -194,7 +232,68 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
       }
     }
 
+    final initialAutoDelayTestIntervalMinutes =
+        widget.initialAutoTestAllDelaysEnabled ?? false
+        ? (widget.initialAutoTestAllDelaysIntervalMinutes ?? 10)
+        : 0;
+    if (_autoDelayTestIntervalMinutes != initialAutoDelayTestIntervalMinutes) {
+      return true;
+    }
+
     return false;
+  }
+
+  int? _parseAutoDelayTestIntervalValue(String rawValue) {
+    if (rawValue.isEmpty) {
+      return 0;
+    }
+
+    if (rawValue ==
+        context
+            .translate
+            .subscription_dialog
+            .auto_delay_test_interval_disabled) {
+      return 0;
+    }
+
+    return int.tryParse(rawValue);
+  }
+
+  void _handleAutoDelayTestIntervalChanged() {
+    final minutes = _parseAutoDelayTestIntervalValue(
+      _autoDelayTestIntervalController.text.trim(),
+    );
+    if (minutes == null || minutes == _autoDelayTestIntervalMinutes) {
+      return;
+    }
+
+    _autoDelayTestIntervalMinutes = minutes;
+  }
+
+  void _handleAutoDelayTestFocusChanged() {
+    _syncAutoDelayTestIntervalDisplay();
+  }
+
+  void _syncAutoDelayTestIntervalDisplay() {
+    final nextText = _autoDelayTestIntervalFocusNode.hasFocus
+        ? (_autoDelayTestIntervalMinutes == 0
+              ? ''
+              : _autoDelayTestIntervalMinutes.toString())
+        : (_autoDelayTestIntervalMinutes == 0
+              ? context
+                    .translate
+                    .subscription_dialog
+                    .auto_delay_test_interval_disabled
+              : _autoDelayTestIntervalMinutes.toString());
+
+    if (_autoDelayTestIntervalController.text == nextText) {
+      return;
+    }
+
+    _autoDelayTestIntervalController.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextText.length),
+    );
   }
 
   // 内容变化时标记需要重建，延迟到下一帧执行
@@ -217,12 +316,21 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
     _nameController.removeListener(_checkForChanges);
     _urlController.removeListener(_checkForChanges);
     _intervalController.removeListener(_checkForChanges);
+    _autoDelayTestIntervalController.removeListener(_checkForChanges);
+    _autoDelayTestIntervalController.removeListener(
+      _handleAutoDelayTestIntervalChanged,
+    );
     _userAgentController.removeListener(_checkForChanges);
+    _autoDelayTestIntervalFocusNode.removeListener(
+      _handleAutoDelayTestFocusChanged,
+    );
     // 释放控制器
     _nameController.dispose();
     _urlController.dispose();
     _intervalController.dispose();
+    _autoDelayTestIntervalController.dispose();
     _userAgentController.dispose();
+    _autoDelayTestIntervalFocusNode.dispose();
     super.dispose();
   }
 
@@ -237,25 +345,17 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
       maxWidth: 720,
       maxHeightRatio: 0.85,
       content: _buildContent(),
-      actionsLeft: widget.isAddMode
-          ? Text(
-              trans.subscription_dialog.add_mode_hint,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            )
-          : Text(
-              trans.subscription_dialog.edit_mode_hint,
-              style: TextStyle(
-                fontSize: 12,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
+      actionsLeft: Text(
+        widget.isAddMode
+            ? trans.subscription_dialog.add_mode_hint
+            : trans.subscription_dialog.edit_mode_hint,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
+      ),
       actionsRight: [
         DialogActionButton(
           label: trans.subscription_dialog.cancel_button,
@@ -360,6 +460,8 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
               ),
               const SizedBox(height: _dialogItemSpacing),
               _buildUserAgentField(),
+              const SizedBox(height: _dialogItemSpacing),
+              _buildAutoTestAllDelaysSection(),
             ] else if (widget.isAddMode &&
                 _importMethod == SubscriptionImportMethod.localFile) ...[
               const SizedBox(height: _dialogItemSpacing),
@@ -425,6 +527,38 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
       selectedValue: _proxyMode,
       onChanged: (value) {
         setState(() => _proxyMode = value);
+      },
+    );
+  }
+
+  Widget _buildAutoTestAllDelaysSection() {
+    final dialogTrans = context.translate.subscription_dialog;
+
+    return TextInputField(
+      key: const ValueKey('subscription_auto_test_all_delays_interval_field'),
+      controller: _autoDelayTestIntervalController,
+      focusNode: _autoDelayTestIntervalFocusNode,
+      onTap: () {
+        if (_autoDelayTestIntervalMinutes == 0) {
+          _autoDelayTestIntervalController.clear();
+        }
+      },
+      label: dialogTrans.auto_delay_test_interval_label,
+      hint: dialogTrans.auto_delay_test_interval_hint,
+      icon: Icons.schedule,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        TextInputFormatter.withFunction((oldValue, newValue) {
+          final isValidInput = RegExp(r'^\d*$').hasMatch(newValue.text);
+          return isValidInput ? newValue : oldValue;
+        }),
+      ],
+      validator: (value) {
+        final minutes = _parseAutoDelayTestIntervalValue(value?.trim() ?? '');
+        if (minutes == null || minutes < 0) {
+          return dialogTrans.auto_delay_test_interval_error;
+        }
+        return null;
       },
     );
   }
@@ -526,6 +660,8 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
         localFilePath: _selectedFile?.file.path,
         proxyMode: _proxyMode,
         userAgent: userAgent.isEmpty ? _defaultUserAgent : userAgent,
+        autoTestAllDelaysIntervalMinutes: _autoDelayTestIntervalMinutes,
+        autoTestAllDelaysEnabled: _autoDelayTestIntervalMinutes > 0,
       );
 
       // 如果有确认回调，调用它并等待结果
@@ -596,6 +732,8 @@ class SubscriptionDialogResult {
   final String? localFilePath;
   final SubscriptionProxyMode proxyMode;
   final String userAgent;
+  final bool autoTestAllDelaysEnabled;
+  final int autoTestAllDelaysIntervalMinutes;
 
   const SubscriptionDialogResult({
     required this.name,
@@ -607,5 +745,7 @@ class SubscriptionDialogResult {
     this.localFilePath,
     this.proxyMode = SubscriptionProxyMode.direct,
     String? userAgent,
+    this.autoTestAllDelaysEnabled = false,
+    this.autoTestAllDelaysIntervalMinutes = 10,
   }) : userAgent = userAgent ?? ClashDefaults.defaultUserAgent;
 }

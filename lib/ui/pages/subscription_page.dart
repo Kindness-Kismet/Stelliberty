@@ -368,6 +368,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
           shouldUpdateOnStartup: result.shouldUpdateOnStartup,
           proxyMode: result.proxyMode,
           userAgent: result.userAgent,
+          autoTestAllDelaysEnabled: result.autoTestAllDelaysEnabled,
+          autoTestAllDelaysIntervalMinutes:
+              result.autoTestAllDelaysIntervalMinutes,
         );
       },
     );
@@ -413,6 +416,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         shouldUpdateOnStartup: result.shouldUpdateOnStartup,
         proxyMode: result.proxyMode,
         userAgent: result.userAgent,
+        autoTestAllDelaysEnabled: result.autoTestAllDelaysEnabled,
+        autoTestAllDelaysIntervalMinutes:
+            result.autoTestAllDelaysIntervalMinutes,
       );
     }
   }
@@ -686,6 +692,8 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     return await provider.importLocalFile(
       name: result.name,
       filePath: result.localFilePath!,
+      autoTestAllDelaysEnabled: result.autoTestAllDelaysEnabled,
+      autoTestAllDelaysIntervalMinutes: result.autoTestAllDelaysIntervalMinutes,
     );
   }
 }
