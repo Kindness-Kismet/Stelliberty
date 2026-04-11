@@ -375,6 +375,11 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
   Widget _buildContent() {
     final trans = context.translate;
+    final shouldShowRemoteFields =
+        (widget.isAddMode && _importMethod == SubscriptionImportMethod.link) ||
+        (!widget.isAddMode && !widget.isLocalFile);
+    final shouldShowLocalFileSelector =
+        widget.isAddMode && _importMethod == SubscriptionImportMethod.localFile;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(_dialogContentPadding),
@@ -405,9 +410,7 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
 
             // 根据导入方式选择输入控件。
             // 编辑本地文件订阅时隐藏 URL 字段。
-            if (widget.isAddMode &&
-                    _importMethod == SubscriptionImportMethod.link ||
-                !widget.isAddMode && !widget.isLocalFile) ...[
+            if (shouldShowRemoteFields) ...[
               const SizedBox(height: _dialogItemSpacing),
               TextInputField(
                 controller: _urlController,
@@ -460,19 +463,17 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
               ),
               const SizedBox(height: _dialogItemSpacing),
               _buildUserAgentField(),
-              const SizedBox(height: _dialogItemSpacing),
-              _buildAutoTestAllDelaysSection(),
-            ] else if (widget.isAddMode &&
-                _importMethod == SubscriptionImportMethod.localFile) ...[
+            ] else if (shouldShowLocalFileSelector) ...[
               const SizedBox(height: _dialogItemSpacing),
               _buildFileSelector(),
             ],
 
+            const SizedBox(height: _dialogItemSpacing),
+            _buildAutoTestAllDelaysSection(),
+
             // 自动更新仅在链接导入场景显示。
             // 编辑模式下，本地文件订阅不显示该区域。
-            if ((widget.isAddMode &&
-                    _importMethod == SubscriptionImportMethod.link) ||
-                (!widget.isAddMode && !widget.isLocalFile)) ...[
+            if (shouldShowRemoteFields) ...[
               const SizedBox(height: _dialogItemSpacing),
               _buildAutoUpdateSection(),
               const SizedBox(height: _dialogItemSpacing),
@@ -587,12 +588,10 @@ class _SubscriptionDialogState extends State<SubscriptionDialog> {
         OptionItem(
           value: SubscriptionImportMethod.link,
           title: dialogTrans.import_link,
-          subtitle: dialogTrans.import_link_support,
         ),
         OptionItem(
           value: SubscriptionImportMethod.localFile,
           title: dialogTrans.import_local,
-          subtitle: dialogTrans.import_local_no_support,
         ),
       ],
       selectedValue: _importMethod,

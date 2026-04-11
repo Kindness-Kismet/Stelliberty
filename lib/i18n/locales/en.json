@@ -223,8 +223,6 @@
     "import_method_title": "Import Method",
     "import_link": "Link Import",
     "import_local": "Local Import",
-    "import_link_support": "Supports auto update",
-    "import_local_no_support": "Does not support auto update",
     "select_file_label": "Select Config File",
     "file_selected_label": "Config file selected",
     "drop_to_import": "Drop to import file",

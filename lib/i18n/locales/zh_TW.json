@@ -223,8 +223,6 @@
     "import_method_title": "匯入方式",
     "import_link": "連結匯入",
     "import_local": "本機匯入",
-    "import_link_support": "支援自動更新",
-    "import_local_no_support": "不支援自動更新",
     "select_file_label": "選擇設定檔",
     "file_selected_label": "已選擇設定檔",
     "drop_to_import": "釋放以匯入檔案",
