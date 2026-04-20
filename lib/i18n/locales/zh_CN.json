@@ -952,7 +952,7 @@
     "stack_system": "系统核心网络栈",
     "mtu_error": "MTU 不能为空",
     "mtu_invalid": "请输入有效的数字",
-    "mtu_range": "MTU 范围: 1280-9000",
+    "mtu_range": "MTU 超出允许范围",
     "save_success": "虚拟网卡配置已保存",
     "save_failed": "保存虚拟网卡配置失败: {error}",
     "saving": "保存中..."

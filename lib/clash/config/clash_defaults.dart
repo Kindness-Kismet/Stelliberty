@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 // Clash 默认配置常量
@@ -49,11 +51,28 @@ class ClashDefaults {
   static const List<String> defaultTunDnsHijack = ['any:53']; // DNS 劫持规则
   static const int defaultTunMtu = 1500; // TUN MTU 值
 
+  static int get platformDefaultTunMtu {
+    if (Platform.isAndroid) return 9000;
+    if (Platform.isIOS) return 4064;
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      return 65535;
+    }
+    return 1500;
+  }
+
+  static int get platformMaxTunMtu {
+    if (Platform.isIOS) return 4064;
+    if (Platform.isAndroid) return 9000;
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      return 65535;
+    }
+    return 9000;
+  }
+
   // ==================== 端口范围验证 ====================
   static const int minPort = 1; // 最小端口号
   static const int maxPort = 65535; // 最大端口号
   static const int minTunMtu = 1280; // 最小 MTU 值（IPv6 要求）
-  static const int maxTunMtu = 9000; // 最大 MTU 值（支持 Jumbo Frame）
 
   // ==================== 防抖延迟配置 ====================
   static const int configReloadDebounceMs = 500; // 配置重载防抖延迟（ms）

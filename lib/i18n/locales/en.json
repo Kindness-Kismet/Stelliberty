@@ -952,7 +952,7 @@
     "stack_system": "System Kernel Network Stack",
     "mtu_error": "MTU cannot be empty",
     "mtu_invalid": "Please enter a valid number",
-    "mtu_range": "MTU range: 1280-9000",
+    "mtu_range": "MTU out of allowed range",
     "save_success": "TUN configuration saved",
     "save_failed": "Failed to save TUN configuration: {error}",
     "saving": "Saving..."

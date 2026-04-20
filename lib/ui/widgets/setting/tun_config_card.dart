@@ -10,6 +10,7 @@ import 'package:stelliberty/ui/common/modern_dropdown_button.dart';
 import 'package:stelliberty/ui/common/modern_text_field.dart';
 import 'package:stelliberty/ui/common/modern_switch.dart';
 import 'package:stelliberty/ui/widgets/modern_toast.dart';
+import 'package:stelliberty/clash/config/clash_defaults.dart';
 import 'package:stelliberty/clash/manager/clash_manager.dart';
 import 'package:stelliberty/clash/providers/clash_provider.dart';
 import 'package:stelliberty/clash/providers/service_provider.dart';
@@ -231,7 +232,8 @@ class _TunConfigCardState extends State<TunConfigCard> {
       return trans.tun_config.mtu_invalid;
     }
 
-    if (mtu < 1280 || mtu > 9000) {
+    if (mtu < ClashDefaults.minTunMtu ||
+        mtu > ClashDefaults.platformMaxTunMtu) {
       return trans.tun_config.mtu_range;
     }
 
@@ -577,7 +579,7 @@ class _TunConfigCardState extends State<TunConfigCard> {
             child: ModernTextField(
               controller: _tunMtuController,
               keyboardType: TextInputType.number,
-              hintText: '1500',
+              hintText: ClashDefaults.platformDefaultTunMtu.toString(),
               height: 36,
               errorText: _tunMtuError,
               inputFormatters: [

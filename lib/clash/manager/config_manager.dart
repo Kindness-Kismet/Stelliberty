@@ -776,9 +776,10 @@ class ConfigManager {
   // 设置虚拟网卡 MTU 值
   Future<bool> setTunMtu(int mtu) async {
     try {
-      if (mtu < ClashDefaults.minTunMtu || mtu > ClashDefaults.maxTunMtu) {
+      if (mtu < ClashDefaults.minTunMtu ||
+          mtu > ClashDefaults.platformMaxTunMtu) {
         Logger.error(
-          '无效的 MTU 值：$mtu（应在 ${ClashDefaults.minTunMtu}-${ClashDefaults.maxTunMtu} 之间）',
+          '无效的 MTU 值：$mtu（应在 ${ClashDefaults.minTunMtu}-${ClashDefaults.platformMaxTunMtu} 之间）',
         );
         return false;
       }

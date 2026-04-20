@@ -299,7 +299,9 @@ Future<void> runFlutterBuild({
     final lines = await gradleProps.readAsLines();
 
     // 移除旧的 targetAbi 属性
-    final filteredLines = lines.where((l) => !l.startsWith('targetAbi=')).toList();
+    final filteredLines = lines
+        .where((l) => !l.startsWith('targetAbi='))
+        .toList();
 
     // 如果指定了目标架构，添加 targetAbi 属性
     if (androidTargetAbi != null) {
@@ -1117,7 +1119,9 @@ Future<void> main(List<String> args) async {
 
     // 步骤 4: 构建 Release
     if (shouldBuildRelease) {
-      final androidTargetAbi = isAndroid ? _getAndroidTargetAbi(androidArch) : null;
+      final androidTargetAbi = isAndroid
+          ? _getAndroidTargetAbi(androidArch)
+          : null;
       await runFlutterBuild(
         projectRoot: projectRoot,
         platform: platform,
@@ -1239,7 +1243,9 @@ Future<void> main(List<String> args) async {
 
     // 步骤 5: 构建 Debug
     if (shouldBuildDebug) {
-      final androidTargetAbi = isAndroid ? _getAndroidTargetAbi(androidArch) : null;
+      final androidTargetAbi = isAndroid
+          ? _getAndroidTargetAbi(androidArch)
+          : null;
       await runFlutterBuild(
         projectRoot: projectRoot,
         platform: platform,

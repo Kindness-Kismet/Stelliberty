@@ -951,7 +951,7 @@
     "stack_system": "系統核心網路堆疊",
     "mtu_error": "MTU 不能為空",
     "mtu_invalid": "請輸入有效的數字",
-    "mtu_range": "MTU 範圍: 1280-9000",
+    "mtu_range": "MTU 超出允許範圍",
     "save_success": "虛擬網路卡設定已儲存",
     "save_failed": "儲存虛擬網路卡設定失敗: {error}",
     "saving": "儲存中..."

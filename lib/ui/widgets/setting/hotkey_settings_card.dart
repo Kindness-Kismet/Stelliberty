@@ -356,7 +356,8 @@ class _HotkeySettingsCardState extends State<HotkeySettingsCard> {
 
   // 检查修饰键要求（所有平台都要求至少一个修饰键）
   bool _checkModifierRequirement(HotKey hotKey) {
-    final hasModifier = hotKey.modifiers != null && hotKey.modifiers!.isNotEmpty;
+    final hasModifier =
+        hotKey.modifiers != null && hotKey.modifiers!.isNotEmpty;
     if (!hasModifier && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

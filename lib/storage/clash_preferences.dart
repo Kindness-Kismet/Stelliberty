@@ -457,7 +457,7 @@ class ClashPreferences {
       _setBool(_kTunDisableIcmpForwarding, disabled);
 
   // 获取虚拟网卡 MTU 值
-  int getTunMtu() => _getInt(_kTunMtu, 1500);
+  int getTunMtu() => _getInt(_kTunMtu, ClashDefaults.platformDefaultTunMtu);
 
   // 保存虚拟网卡 MTU 值
   Future<void> setTunMtu(int mtu) => _setInt(_kTunMtu, mtu);

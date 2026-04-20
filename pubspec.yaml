@@ -3,7 +3,7 @@ description: "星辰自由"
 
 publish_to: 'none'
 
-version: 1.2.277
+version: 1.2.278
 
 environment:
   sdk: '^3.8.0'
@@ -65,7 +65,10 @@ dependencies:
   package_info_plus: ^9.0.0
 
   # 代码编辑器支持
-  re_editor: ^0.8.0
+  re_editor:
+    git:
+      url: https://github.com/Kindness-Kismet/re-editor
+      ref: 10fdbc13ac96600f63ea16cebda5799771bdb898
   re_highlight: ^0.0.3
 
   # 可拖动排序的网格视图

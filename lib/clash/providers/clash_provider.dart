@@ -1557,7 +1557,6 @@ class ClashProvider extends ChangeNotifier with WidgetsBindingObserver {
               if (node != null) {
                 _proxyNodes[nodeName] = node.copyWith(delay: delayMs);
                 hasPendingUpdates = true;
-
               }
 
               // 从测试集合中移除
