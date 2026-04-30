@@ -1,7 +1,10 @@
+import 'dart:async';
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 // 现代化的 Tooltip 组件
-class ModernTooltip extends StatelessWidget {
+class ModernTooltip extends StatefulWidget {
   final String message;
   final Widget child;
   final bool? preferBelow;
@@ -9,6 +12,7 @@ class ModernTooltip extends StatelessWidget {
   final EdgeInsetsGeometry? margin;
   final double? verticalOffset;
   final Duration? waitDuration;
+  final Duration? strictWaitDuration;
   final bool isFeedbackEnabled;
 
   const ModernTooltip({
@@ -20,11 +24,70 @@ class ModernTooltip extends StatelessWidget {
     this.margin,
     this.verticalOffset,
     this.waitDuration,
+    this.strictWaitDuration,
     this.isFeedbackEnabled = true,
   });
 
   @override
-  Widget build(BuildContext context) {
+  State<ModernTooltip> createState() => _ModernTooltipState();
+}
+
+class _ModernTooltipState extends State<ModernTooltip> {
+  final _tooltipKey = GlobalKey<TooltipState>();
+  Timer? _strictWaitTimer;
+  bool _isStrictTooltipEnabled = false;
+
+  bool get _hasStrictWaitDuration => widget.strictWaitDuration != null;
+
+  void _handleStrictEnter(PointerEnterEvent event) {
+    final strictWaitDuration = widget.strictWaitDuration;
+    if (strictWaitDuration == null) return;
+
+    _strictWaitTimer?.cancel();
+    _strictWaitTimer = Timer(strictWaitDuration, () {
+      if (!mounted) return;
+      setState(() => _isStrictTooltipEnabled = true);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_isStrictTooltipEnabled) return;
+        _tooltipKey.currentState?.ensureTooltipVisible();
+      });
+    });
+  }
+
+  void _handleStrictExit(PointerExitEvent event) {
+    if (!_hasStrictWaitDuration) return;
+
+    _strictWaitTimer?.cancel();
+    _strictWaitTimer = null;
+    if (_isStrictTooltipEnabled) {
+      setState(() => _isStrictTooltipEnabled = false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(ModernTooltip oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message == widget.message &&
+        oldWidget.strictWaitDuration == widget.strictWaitDuration) {
+      return;
+    }
+
+    _strictWaitTimer?.cancel();
+    _strictWaitTimer = null;
+    _isStrictTooltipEnabled = false;
+  }
+
+  @override
+  void dispose() {
+    _strictWaitTimer?.cancel();
+    super.dispose();
+  }
+
+  Widget _buildTooltip({
+    GlobalKey<TooltipState>? key,
+    Duration? waitDuration,
+    TooltipTriggerMode? triggerMode,
+  }) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -33,7 +96,8 @@ class ModernTooltip extends StatelessWidget {
     final textColor = colorScheme.onSurface;
 
     return Tooltip(
-      message: message,
+      key: key,
+      message: widget.message,
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(6),
@@ -53,13 +117,34 @@ class ModernTooltip extends StatelessWidget {
         height: 1.2,
       ),
       padding:
-          padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      margin: margin ?? const EdgeInsets.all(8),
-      preferBelow: preferBelow,
-      verticalOffset: verticalOffset ?? 16,
+          widget.padding ??
+          const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: widget.margin ?? const EdgeInsets.all(8),
+      preferBelow: widget.preferBelow,
+      verticalOffset: widget.verticalOffset ?? 16,
       waitDuration: waitDuration,
-      enableFeedback: isFeedbackEnabled,
-      child: child,
+      triggerMode: triggerMode,
+      enableFeedback: widget.isFeedbackEnabled,
+      child: widget.child,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_hasStrictWaitDuration) {
+      return _buildTooltip(waitDuration: widget.waitDuration);
+    }
+
+    return MouseRegion(
+      onEnter: _handleStrictEnter,
+      onExit: _handleStrictExit,
+      child: _isStrictTooltipEnabled
+          ? _buildTooltip(
+              key: _tooltipKey,
+              waitDuration: Duration.zero,
+              triggerMode: TooltipTriggerMode.manual,
+            )
+          : widget.child,
     );
   }
 }

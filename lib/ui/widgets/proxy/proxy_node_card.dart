@@ -84,7 +84,7 @@ class _ProxyNodeCardState extends State<ProxyNodeCard> {
 
     return ModernTooltip(
       message: widget.node.name,
-      waitDuration: const Duration(seconds: 3),
+      strictWaitDuration: const Duration(seconds: 1),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(borderRadius),

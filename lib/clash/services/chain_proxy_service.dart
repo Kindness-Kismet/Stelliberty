@@ -54,7 +54,9 @@ class ChainProxyService {
       if (name == null || name.isEmpty) {
         return true;
       }
-      return !subscription.customChainProxies.any((customProxy) => customProxy.displayName == name);
+      return !subscription.customChainProxies.any(
+        (customProxy) => customProxy.displayName == name,
+      );
     }).toList();
 
     for (final customProxy in subscription.customChainProxies) {
@@ -187,10 +189,11 @@ class ChainProxyService {
     final entries = value.entries.toList();
     for (var i = 0; i < entries.length; i++) {
       final entry = entries[i];
+      final entryIndent = isListItem ? indent + 2 : indent;
       final leading = isListItem && i == 0
           ? '${' ' * indent}- ${entry.key}:'
-          : '${' ' * (isListItem ? indent + 2 : indent)}${entry.key}:';
-      _writeEntry(buffer, leading, entry.value, indent + 2);
+          : '${' ' * entryIndent}${entry.key}:';
+      _writeEntry(buffer, leading, entry.value, entryIndent + 2);
     }
   }
 
