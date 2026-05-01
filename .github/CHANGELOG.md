@@ -1,8 +1,8 @@
-- 修复 JS 覆写偶尔未生效的问题，避免代理分组和 DNS 设置在启动或切换配置时丢失
+- 修复 Windows 剪贴板历史无法在应用内正常粘贴的问题
 
 <details>
 <summary>English Version</summary>
 
-- Fixed an issue where JS overrides could occasionally fail to apply, preventing proxy groups and DNS settings from being lost during startup or configuration changes
+- Fixed Windows clipboard history not pasting correctly inside the app
 
 </details>

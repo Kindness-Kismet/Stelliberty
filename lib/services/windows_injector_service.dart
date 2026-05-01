@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 
 // Windows 键盘事件注入器
@@ -6,105 +7,149 @@ class WindowsInjector {
   static WindowsInjector get instance => _instance;
   static final WindowsInjector _instance = WindowsInjector._();
 
+  static const Duration _injectInterval = Duration(milliseconds: 100);
+  static const int _maxInjectAttempts = 50;
+  static const int _physicalControlLeft = 0x700e0;
+  static const int _physicalV = 0x70019;
+  static const int _logicalControlLeft = 0x200000100;
+  static const int _logicalV = 0x76;
+  static const int _oldTargetPhysical = 0x1600000000;
+
   bool _startInjectKeyData = false;
+  bool _hasInjectedVDown = false;
+  bool _hasInjectedVUp = false;
+  int _remainingInjectAttempts = 0;
+  Timer? _injectTimer;
+  KeyDataCallback? _delegateCallback;
+  late final KeyDataCallback _patchedCallback = _handleKeyData;
 
   WindowsInjector._();
 
   // 注入键盘数据拦截器
   void injectKeyData() {
-    // 等待 500 毫秒后注入 KeyData 回调
-    Future.delayed(const Duration(milliseconds: 500), _injectKeyData);
+    _injectTimer?.cancel();
+    _remainingInjectAttempts = _maxInjectAttempts;
+    _injectTimer = Timer.periodic(_injectInterval, (_) => _injectKeyData());
+    _injectKeyData();
   }
 
   // 执行键盘数据注入
   void _injectKeyData() {
-    final KeyDataCallback? callback = PlatformDispatcher.instance.onKeyData;
-    if (callback == null) {
-      // 获取内置回调失败，跳过注入
+    final callback = PlatformDispatcher.instance.onKeyData;
+    if (callback != null && !identical(callback, _patchedCallback)) {
+      _delegateCallback = callback;
+      PlatformDispatcher.instance.onKeyData = _patchedCallback;
+    }
+
+    _remainingInjectAttempts--;
+    if (_remainingInjectAttempts > 0) {
       return;
     }
-    PlatformDispatcher.instance.onKeyData = (data) {
-      // 缓存字段值，避免重复访问
-      final physical = data.physical;
-      final logical = data.logical;
-      final type = data.type;
-      final synthesized = data.synthesized;
 
-      // 检查是否为目标按键
-      final isTargetKey = physical == 0x1600000000 && logical == 0x200000100;
+    _injectTimer?.cancel();
+    _injectTimer = null;
+  }
 
-      // 快速路径：非目标按键且未在序列中
-      if (!isTargetKey && !_startInjectKeyData) {
-        return callback(data);
+  bool _handleKeyData(KeyData data) {
+    final callback = _delegateCallback;
+    if (callback == null) {
+      return false;
+    }
+
+    final physical = data.physical;
+    final logical = data.logical;
+    final type = data.type;
+    final synthesized = data.synthesized;
+    final isTargetKey =
+        physical == _oldTargetPhysical && logical == _logicalControlLeft;
+    final isTargetV = physical == _oldTargetPhysical && logical == _logicalV;
+
+    if (!isTargetKey && !isTargetV && !_startInjectKeyData) {
+      return callback(data);
+    }
+
+    if (!_startInjectKeyData &&
+        isTargetKey &&
+        type == KeyEventType.down &&
+        !synthesized) {
+      _startInjectKeyData = true;
+      _hasInjectedVDown = false;
+      _hasInjectedVUp = false;
+      data = KeyData(
+        timeStamp: data.timeStamp,
+        type: KeyEventType.down,
+        physical: _physicalControlLeft,
+        logical: _logicalControlLeft,
+        character: null,
+        synthesized: false,
+      );
+      return callback(data);
+    }
+
+    if (_startInjectKeyData &&
+        physical == 0 &&
+        logical == 0 &&
+        type == KeyEventType.down &&
+        !synthesized) {
+      return true;
+    }
+
+    if (_startInjectKeyData && isTargetKey) {
+      if (type == KeyEventType.up && synthesized && !_hasInjectedVUp) {
+        return true;
       }
 
-      // 序列开始：目标按键 Down 未合成
-      if (!_startInjectKeyData &&
-          isTargetKey &&
-          type == KeyEventType.down &&
-          !synthesized) {
-        _startInjectKeyData = true;
-        // 修改为 Control Left 键按下事件
+      if (type == KeyEventType.up && synthesized && _hasInjectedVUp) {
+        _startInjectKeyData = false;
+        _hasInjectedVDown = false;
+        _hasInjectedVUp = false;
         data = KeyData(
           timeStamp: data.timeStamp,
-          type: KeyEventType.down,
-          physical: 0x700e0,
-          logical: 0x200000100,
+          type: KeyEventType.up,
+          physical: _physicalControlLeft,
+          logical: _logicalControlLeft,
           character: null,
           synthesized: false,
         );
         return callback(data);
       }
 
-      // 序列中的无效事件：跳过
-      if (_startInjectKeyData &&
-          physical == 0 &&
-          logical == 0 &&
-          type == KeyEventType.down &&
-          !synthesized) {
-        return true;
-      }
+      return true;
+    }
 
-      // 序列中：目标按键处理
-      if (_startInjectKeyData && isTargetKey) {
-        if (type == KeyEventType.up && !synthesized) {
-          // 修改为 V 键按下事件
-          data = KeyData(
-            timeStamp: data.timeStamp,
-            type: KeyEventType.down,
-            physical: 0x70019,
-            logical: 0x76,
-            character: null,
-            synthesized: false,
-          );
-        } else if (type == KeyEventType.down && synthesized) {
-          // 修改为 V 键释放事件
-          data = KeyData(
-            timeStamp: data.timeStamp,
-            type: KeyEventType.up,
-            physical: 0x70019,
-            logical: 0x76,
-            character: null,
-            synthesized: false,
-          );
-        } else if (type == KeyEventType.up && synthesized) {
-          // 修改为 Control Left 键释放事件，序列结束
-          _startInjectKeyData = false;
-          data = KeyData(
-            timeStamp: data.timeStamp,
-            type: KeyEventType.up,
-            physical: 0x700e0,
-            logical: 0x200000100,
-            character: null,
-            synthesized: false,
-          );
-        }
+    if (_startInjectKeyData && isTargetV) {
+      if (type == KeyEventType.down && !synthesized) {
+        _hasInjectedVDown = true;
+        data = KeyData(
+          timeStamp: data.timeStamp,
+          type: KeyEventType.down,
+          physical: _physicalV,
+          logical: _logicalV,
+          character: null,
+          synthesized: false,
+        );
         return callback(data);
       }
 
-      // 其他情况：重置状态
-      _startInjectKeyData = false;
-      return callback(data);
-    };
+      if (type == KeyEventType.up && !synthesized && _hasInjectedVDown) {
+        _hasInjectedVUp = true;
+        data = KeyData(
+          timeStamp: data.timeStamp,
+          type: KeyEventType.up,
+          physical: _physicalV,
+          logical: _logicalV,
+          character: null,
+          synthesized: false,
+        );
+        return callback(data);
+      }
+
+      return true;
+    }
+
+    _startInjectKeyData = false;
+    _hasInjectedVDown = false;
+    _hasInjectedVUp = false;
+    return callback(data);
   }
 }
