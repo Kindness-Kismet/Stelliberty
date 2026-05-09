@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:path/path.dart' as path;
 import 'package:stelliberty/clash/config/config_injector.dart';
 import 'package:stelliberty/clash/model/clash_model.dart';
+import 'package:stelliberty/clash/model/subscription_model.dart';
 import 'package:stelliberty/clash/client/ipc_request_helper.dart';
+import 'package:stelliberty/clash/services/chain_proxy_service.dart';
 import 'package:stelliberty/clash/services/delay_test_service.dart';
 import 'package:stelliberty/clash/services/process_service.dart';
 import 'package:stelliberty/services/log_print_service.dart';
@@ -118,8 +120,14 @@ class DelayTestStream {
   }
 
   static Future<String?> _buildRuntimeConfig(String configPath) async {
+    final rawConfig = await File(configPath).readAsString();
+    final chainConfig = await const ChainProxyService().analyzeAndApply(
+      rawConfig,
+      const Subscription(id: 'delay-test', name: 'Delay Test', url: ''),
+    );
+
     final generatedConfig = await ConfigInjector.generateRuntimeConfig(
-      configPath: configPath,
+      configContent: chainConfig.configContent,
       mixedPort: 17890,
       socksPort: null,
       httpPort: null,

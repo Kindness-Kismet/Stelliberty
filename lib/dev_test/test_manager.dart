@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:stelliberty/dev_test/chain_proxy_test.dart';
 import 'package:stelliberty/dev_test/delay_test_stream.dart';
 import 'package:stelliberty/dev_test/ipc_api_test.dart';
 import 'package:stelliberty/dev_test/override_test.dart';
@@ -27,6 +28,9 @@ class TestManager {
     switch (testType) {
       case 'override':
         await OverrideTest.run();
+        break;
+      case 'chain-proxy':
+        await ChainProxyTest.run();
         break;
       case 'ipc-api':
         await IpcApiTest.run();

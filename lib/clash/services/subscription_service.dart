@@ -180,7 +180,7 @@ class SubscriptionService {
       // 验证配置文件
       _validateConfig(parsedConfigContent);
 
-      final chainRuntimeConfig = _chainProxyService.analyzeAndApply(
+      final chainRuntimeConfig = await _chainProxyService.analyzeAndApply(
         parsedConfigContent,
         subscription,
       );
@@ -303,7 +303,7 @@ class SubscriptionService {
     Subscription subscription,
   ) async {
     final rawConfig = await readSubscriptionConfig(subscription);
-    return _chainProxyService.analyzeAndApply(rawConfig, subscription);
+    return await _chainProxyService.analyzeAndApply(rawConfig, subscription);
   }
 
   Future<String> buildChainProxyConfigContent(Subscription subscription) async {
@@ -562,7 +562,7 @@ class SubscriptionService {
     // 验证配置文件格式
     _validateConfig(content);
 
-    final runtimeConfig = _chainProxyService.analyzeAndApply(
+    final runtimeConfig = await _chainProxyService.analyzeAndApply(
       content,
       subscription,
     );
