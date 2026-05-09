@@ -331,6 +331,9 @@ flutter run --dart-define=TEST_TYPE=override
 # Run IPC API test
 flutter run --dart-define=TEST_TYPE=ipc-api
 
+# Run chain proxy structure test
+flutter run --dart-define=TEST_TYPE=chain-proxy
+
 # Run delay test stream
 flutter run --dart-define=TEST_TYPE=delay-test
 ```
@@ -349,7 +352,7 @@ flutter run --dart-define=TEST_TYPE=delay-test
       └── final.yaml         # Expected final output after applying overrides
   ```
 
-- **For `ipc-api` test:**
+- **For `ipc-api` and `chain-proxy` tests:**
   > **Note**: It is recommended to run the pre-build script (`dart run scripts/prebuild.dart`) before this test to download the necessary resources.
   ```
   assets/test/
@@ -367,7 +370,7 @@ flutter run --dart-define=TEST_TYPE=delay-test
 
 > 💡 **Note**: Test mode is only available in Debug builds and automatically disabled in Release mode.
 
-Test implementations: `lib/dev_test/` (`override_test.dart`, `ipc_api_test.dart`, `delay_test_stream.dart`)
+Test implementations: `lib/dev_test/` (`override_test.dart`, `ipc_api_test.dart`, `chain_proxy_test.dart`, `delay_test_stream.dart`)
 
 </details>
 

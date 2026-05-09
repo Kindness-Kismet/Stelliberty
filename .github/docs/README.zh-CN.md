@@ -332,6 +332,9 @@ flutter run --dart-define=TEST_TYPE=override
 # 运行 IPC API 测试
 flutter run --dart-define=TEST_TYPE=ipc-api
 
+# 运行链式代理结构测试
+flutter run --dart-define=TEST_TYPE=chain-proxy
+
 # 运行延迟测试流
 flutter run --dart-define=TEST_TYPE=delay-test
 ```
@@ -350,7 +353,7 @@ flutter run --dart-define=TEST_TYPE=delay-test
       └── final.yaml         # 应用覆写后预期的最终输出文件
   ```
 
-- **`ipc-api` 测试所需文件：**
+- **`ipc-api` 和 `chain-proxy` 测试所需文件：**
   > **提示**：建议在测试前运行预编译脚本（`dart run scripts/prebuild.dart`）以下载所需资源。
   ```
   assets/test/
@@ -368,7 +371,7 @@ flutter run --dart-define=TEST_TYPE=delay-test
 
 > 💡 **注意**：测试模式仅在 Debug 构建中可用，Release 模式下自动禁用。
 
-测试实现：`lib/dev_test/`（`override_test.dart`、`ipc_api_test.dart`、`delay_test_stream.dart`）
+测试实现：`lib/dev_test/`（`override_test.dart`、`ipc_api_test.dart`、`chain_proxy_test.dart`、`delay_test_stream.dart`）
 
 </details>
 
