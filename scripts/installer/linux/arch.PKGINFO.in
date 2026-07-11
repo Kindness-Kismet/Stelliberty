@@ -1,0 +1,16 @@
+pkgname = @APP_PACKAGE@
+pkgbase = @APP_PACKAGE@
+xdata = pkgtype=pkg
+pkgver = @ARCH_VERSION@
+pkgdesc = @APP_NAME@ network proxy client
+url = https://@APP_PACKAGE@.local
+builddate = @BUILD_DATE@
+packager = @APP_NAME@ Team <support@@APP_PACKAGE@.local>
+size = @INSTALLED_SIZE_BYTES@
+arch = @ARCH_PKG_ARCH@
+license = Proprietary
+depend = glibc
+depend = fontconfig
+depend = libice
+depend = libsm
+depend = libx11

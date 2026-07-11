@@ -1,0 +1,183 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsAppLogView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+<!-- 应用日志 -->
+<StackPanel Spacing="14" IsVisible="{Binding Settings.IsAppLogVisible}">
+  <StackPanel Spacing="14"
+              DataContext="{Binding AppLog}"
+              x:DataType="vm:SettingsAppLogViewModel">
+  <Border Classes="surface-panel">
+    <StackPanel Spacing="12">
+      <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+        <TextBox Grid.Column="0"
+                 Classes="settings-input"
+                 AutomationProperties.AutomationId="AppLogs.SearchBox"
+                 PlaceholderText="{loc:Loc AppLogs.Search.Placeholder}"
+                 Text="{Binding SearchKeyword, Mode=TwoWay}">
+          <TextBox.InnerLeftContent>
+            <Border Padding="10,0,4,0">
+              <iconPacks:PackIconMingCuteIcons Width="14" Height="14"
+                                               Kind="SearchLine"
+                                               Foreground="{DynamicResource AppTextSecondaryBrush}" />
+            </Border>
+          </TextBox.InnerLeftContent>
+        </TextBox>
+        <Button Grid.Column="1"
+                Classes="soft-action"
+                AutomationProperties.AutomationId="AppLogs.ExportButton"
+                Click="OnExportAppLogsClicked"
+                IsEnabled="{Binding IsLogListVisible}"
+                Content="{loc:Loc AppLogs.Export}"
+                VerticalAlignment="Center" />
+        <Button Grid.Column="2"
+                Classes="settings-icon-entry"
+                AutomationProperties.AutomationId="AppLogs.RefreshButton"
+                Command="{Binding RefreshCommand}">
+          <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Refresh1Line" />
+        </Button>
+      </Grid>
+
+      <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+        <ComboBox Grid.Column="0"
+                  MinWidth="130"
+                  AutomationProperties.AutomationId="AppLogs.LevelFilterComboBox"
+                  ItemsSource="{Binding LevelOptions}"
+                  SelectedItem="{Binding SelectedLevelOption, Mode=TwoWay}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ISelectionOption">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <ComboBox Grid.Column="1"
+                  MinWidth="130"
+                  AutomationProperties.AutomationId="AppLogs.DateFilterComboBox"
+                  ItemsSource="{Binding DateRangeOptions}"
+                  SelectedItem="{Binding SelectedDateRangeOption, Mode=TwoWay}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ISelectionOption">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal" Spacing="16"
+                    HorizontalAlignment="Right" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="settings-row-subtitle" VerticalAlignment="Center"
+                       Text="{loc:Loc CoreLogs.Stat.Total}" />
+            <TextBlock FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                       Text="{Binding FilteredLogCount}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="settings-row-subtitle" VerticalAlignment="Center"
+                       Text="{loc:Loc AppLogs.Level.Warning}" />
+            <TextBlock FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppWarningBrush}"
+                       Text="{Binding WarningLogCount}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Classes="settings-row-subtitle" VerticalAlignment="Center"
+                       Text="{loc:Loc AppLogs.Level.Error}" />
+            <TextBlock FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                       Foreground="{DynamicResource AppDangerBrush}"
+                       Text="{Binding ErrorLogCount}" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+  </Border>
+
+  <Border Classes="surface-panel"
+          IsVisible="{Binding IsStatusVisible}">
+    <TextBlock Classes="settings-row-subtitle"
+               AutomationProperties.AutomationId="AppLogs.StatusText"
+               Text="{Binding StatusText}"
+               TextWrapping="Wrap" />
+  </Border>
+
+  <Border Classes="surface-panel"
+          MinHeight="150"
+          AutomationProperties.AutomationId="AppLogs.LoadingText"
+          IsVisible="{Binding IsLoading}">
+    <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <iconPacks:PackIconMingCuteIcons Width="26" Height="26" Kind="Refresh1Line"
+                                       Foreground="{DynamicResource AppAccentBrush}"
+                                       HorizontalAlignment="Center" />
+      <TextBlock Classes="settings-row-subtitle" HorizontalAlignment="Center"
+                 Text="{loc:Loc Common.Refreshing}" />
+    </StackPanel>
+  </Border>
+
+  <Border Classes="surface-panel"
+          MinHeight="150"
+          AutomationProperties.AutomationId="AppLogs.EmptyText"
+          IsVisible="{Binding IsEmptyVisible}">
+    <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+      <iconPacks:PackIconMingCuteIcons Width="26" Height="26" Kind="FileLine"
+                                       Foreground="{DynamicResource AppTextTertiaryBrush}"
+                                       HorizontalAlignment="Center" />
+      <TextBlock Classes="settings-row-subtitle" HorizontalAlignment="Center"
+                 Text="{Binding EmptyText}" />
+      <TextBlock Classes="settings-row-subtitle" HorizontalAlignment="Center"
+                 Opacity="0.7"
+                 Text="{loc:Loc AppLogs.Empty.Hint}" />
+    </StackPanel>
+  </Border>
+
+  <ItemsControl AutomationProperties.AutomationId="AppLogs.List"
+                IsVisible="{Binding IsLogListVisible}"
+                ItemsSource="{Binding FilteredLogRows}">
+    <ItemsControl.ItemTemplate>
+      <DataTemplate x:DataType="vm:AppLogRowViewModel">
+        <Border Classes="surface-row"
+                Padding="0"
+                Margin="0,0,0,8"
+                AutomationProperties.AutomationId="{Binding RowAutomationId}">
+          <Grid ColumnDefinitions="Auto,78,70,*" MinHeight="52">
+            <Border Classes="list-color-bar"
+                    Tag="{Binding LevelStyleClass}"
+                    Width="3" Margin="10,11,0,11" CornerRadius="2"
+                    VerticalAlignment="Stretch"
+                    HorizontalAlignment="Left" />
+            <TextBlock Grid.Column="1"
+                       AutomationProperties.AutomationId="{Binding TimeAutomationId}"
+                       Text="{Binding FormattedTime}"
+                       FontFamily="Consolas"
+                       Foreground="{DynamicResource AppTextTertiaryBrush}"
+                       FontSize="12"
+                       Margin="14,0,0,0"
+                       VerticalAlignment="Center" />
+            <Border Grid.Column="2"
+                    Classes="list-pill"
+                    Tag="{Binding LevelStyleClass}"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center">
+              <TextBlock AutomationProperties.AutomationId="{Binding LevelAutomationId}"
+                         Text="{Binding LevelText}" />
+            </Border>
+            <TextBlock Grid.Column="3"
+                       AutomationProperties.AutomationId="{Binding MessageAutomationId}"
+                       Text="{Binding Message}"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                       FontSize="13"
+                       TextWrapping="Wrap"
+                       TextTrimming="CharacterEllipsis"
+                       MaxLines="3"
+                       Margin="10,11,16,11"
+                       VerticalAlignment="Center" />
+          </Grid>
+        </Border>
+      </DataTemplate>
+    </ItemsControl.ItemTemplate>
+  </ItemsControl>
+  </StackPanel>
+</StackPanel>
+</UserControl>

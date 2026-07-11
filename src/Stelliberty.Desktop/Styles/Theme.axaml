@@ -1,0 +1,190 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Light">
+      <SolidColorBrush x:Key="AppRootSurfaceBrush" Color="#EFEFEF" />
+      <SolidColorBrush x:Key="AppDialogSurfaceBrush" Color="#EFEFEF" />
+      <SolidColorBrush x:Key="AppPopupSurfaceBrush" Color="#EFEFEF" />
+      <SolidColorBrush x:Key="ComboBoxPopupBackground" Color="#EFEFEF" />
+
+      <SolidColorBrush x:Key="AppSurfaceBrush" Color="#CCFFFFFF" />
+      <SolidColorBrush x:Key="AppCardBrush" Color="#CCFFFFFF" />
+      <SolidColorBrush x:Key="AppSettingsGroupBrush" Color="#CCFFFFFF" />
+
+      <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#0F172A" />
+      <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#475569" />
+      <SolidColorBrush x:Key="AppTextTertiaryBrush" Color="#64748B" />
+
+      <SolidColorBrush x:Key="CodeSyntaxKeyBrush" Color="#8839EF" />
+      <SolidColorBrush x:Key="CodeSyntaxMarkerBrush" Color="#1E66F5" />
+      <SolidColorBrush x:Key="CodeSyntaxFunctionBrush" Color="#1E66F5" />
+      <SolidColorBrush x:Key="CodeSyntaxBooleanBrush" Color="#A16207" />
+      <SolidColorBrush x:Key="CodeSyntaxNumberBrush" Color="#D9480F" />
+      <SolidColorBrush x:Key="CodeSyntaxStringBrush" Color="#2F8F1B" />
+      <SolidColorBrush x:Key="CodeSyntaxCommentBrush" Color="#7C7F93" />
+
+      <SolidColorBrush x:Key="AppBorderBrush" Color="#E5E7EB" />
+      <SolidColorBrush x:Key="AppOverlaySubtleBrush" Color="#0A000000" />
+      <SolidColorBrush x:Key="AppOverlayBrush" Color="#1A212121" />
+      <SolidColorBrush x:Key="AppInputBrush" Color="#1A000000" />
+      <SolidColorBrush x:Key="AppInputHoverBrush" Color="#26000000" />
+
+      <SolidColorBrush x:Key="AppSuccessBrush" Color="#15803D" />
+      <SolidColorBrush x:Key="AppDangerBrush" Color="#DC2626" />
+      <SolidColorBrush x:Key="AppWarningBrush" Color="#B45309" />
+      <SolidColorBrush x:Key="AppDangerHoverBrush" Color="#EF4444" />
+
+      <SolidColorBrush x:Key="TitleBarButtonForegroundBrush" Color="#334155" />
+      <SolidColorBrush x:Key="DebugBadgeBackgroundBrush" Color="#F1F5F9" />
+      <SolidColorBrush x:Key="DebugBadgeBorderBrush" Color="#CBD5E1" />
+      <SolidColorBrush x:Key="DebugBadgeForegroundBrush" Color="#475569" />
+
+      <SolidColorBrush x:Key="AppSubtleFillBrush" Color="#1A000000" />
+      <SolidColorBrush x:Key="ToastSurfaceBrush" Color="#FFFFFF" />
+      <SolidColorBrush x:Key="ToastBorderBrush" Color="#E2E8F0" />
+      <SolidColorBrush x:Key="ToastForegroundBrush" Color="#0F172A" />
+      <BoxShadows x:Key="AppNavItemSelectedShadow">0 4 12 0 #141A2438</BoxShadows>
+      <BoxShadows x:Key="AppSidebarShadow">12 0 28 -18 #24000000, 2 0 8 -4 #22000000</BoxShadows>
+      <!-- 表面海拔阴影分主题: Raised 抬起层(顶栏/主页/设置卡), List 内容列表层 -->
+      <BoxShadows x:Key="AppSurfaceRaisedShadow">0 12 32 -18 #40000000</BoxShadows>
+      <BoxShadows x:Key="AppSurfaceListShadow">0 4 14 -12 #2A000000</BoxShadows>
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Dark">
+      <SolidColorBrush x:Key="AppRootSurfaceBrush" Color="#212121" />
+      <SolidColorBrush x:Key="AppDialogSurfaceBrush" Color="#212121" />
+      <SolidColorBrush x:Key="AppPopupSurfaceBrush" Color="#212121" />
+      <SolidColorBrush x:Key="ComboBoxPopupBackground" Color="#212121" />
+
+      <SolidColorBrush x:Key="AppSurfaceBrush" Color="#CC000000" />
+      <SolidColorBrush x:Key="AppCardBrush" Color="#CC000000" />
+      <SolidColorBrush x:Key="AppSettingsGroupBrush" Color="#CC000000" />
+
+      <SolidColorBrush x:Key="AppTextPrimaryBrush" Color="#F4F4F5" />
+      <SolidColorBrush x:Key="AppTextSecondaryBrush" Color="#C0C2C7" />
+      <SolidColorBrush x:Key="AppTextTertiaryBrush" Color="#8B8E96" />
+
+      <SolidColorBrush x:Key="CodeSyntaxKeyBrush" Color="#CBA6F7" />
+      <SolidColorBrush x:Key="CodeSyntaxMarkerBrush" Color="#89DCEB" />
+      <SolidColorBrush x:Key="CodeSyntaxFunctionBrush" Color="#89B4FA" />
+      <SolidColorBrush x:Key="CodeSyntaxBooleanBrush" Color="#FAB387" />
+      <SolidColorBrush x:Key="CodeSyntaxNumberBrush" Color="#FAB387" />
+      <SolidColorBrush x:Key="CodeSyntaxStringBrush" Color="#A6E3A1" />
+      <SolidColorBrush x:Key="CodeSyntaxCommentBrush" Color="#9399B2" />
+
+      <SolidColorBrush x:Key="AppBorderBrush" Color="#3A3A3A" />
+      <SolidColorBrush x:Key="AppOverlaySubtleBrush" Color="#14FFFFFF" />
+      <SolidColorBrush x:Key="AppOverlayBrush" Color="#1AFAFAFA" />
+      <SolidColorBrush x:Key="AppInputBrush" Color="#1AFFFFFF" />
+      <SolidColorBrush x:Key="AppInputHoverBrush" Color="#26FFFFFF" />
+
+      <SolidColorBrush x:Key="AppSuccessBrush" Color="#34D399" />
+      <SolidColorBrush x:Key="AppDangerBrush" Color="#F87171" />
+      <SolidColorBrush x:Key="AppWarningBrush" Color="#FBBF24" />
+      <SolidColorBrush x:Key="AppDangerHoverBrush" Color="#EF4444" />
+
+      <SolidColorBrush x:Key="TitleBarButtonForegroundBrush" Color="#CBD5E1" />
+      <SolidColorBrush x:Key="DebugBadgeBackgroundBrush" Color="#334155" />
+      <SolidColorBrush x:Key="DebugBadgeBorderBrush" Color="#64748B" />
+      <SolidColorBrush x:Key="DebugBadgeForegroundBrush" Color="#E2E8F0" />
+
+      <SolidColorBrush x:Key="AppSubtleFillBrush" Color="#1AFFFFFF" />
+      <SolidColorBrush x:Key="ToastSurfaceBrush" Color="#FF212121" />
+      <SolidColorBrush x:Key="ToastBorderBrush" Color="#334155" />
+      <SolidColorBrush x:Key="ToastForegroundBrush" Color="#F8FAFC" />
+      <BoxShadows x:Key="AppNavItemSelectedShadow">0 4 12 0 #2E000000</BoxShadows>
+      <BoxShadows x:Key="AppSidebarShadow">12 0 28 -18 #32FFFFFF, 2 0 8 -4 #26FFFFFF</BoxShadows>
+      <!-- 深色背景吃光, 透明度整体高于浅色才可见 -->
+      <BoxShadows x:Key="AppSurfaceRaisedShadow">0 12 32 -18 #66000000</BoxShadows>
+      <BoxShadows x:Key="AppSurfaceListShadow">0 4 14 -12 #48000000</BoxShadows>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+
+  <SolidColorBrush x:Key="AppAccentBrush" Color="#60A5FA" />
+  <SolidColorBrush x:Key="AppAccentSubtleBrush" Color="#3860A5FA" />
+  <SolidColorBrush x:Key="AppAccentBorderBrush" Color="#9960A5FA" />
+  <SolidColorBrush x:Key="AppAccentTintBrush" Color="#1F60A5FA" />
+  <SolidColorBrush x:Key="AppOnAccentBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="AppOnDangerBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="TitleBarCloseButtonHoverBrush" Color="#DC2626" />
+  <SolidColorBrush x:Key="AppSwitchThumbOnBrush" Color="#FFFFFFFF" />
+  <SolidColorBrush x:Key="AppSpinnerForegroundBrush" Color="#FFFFFFFF" />
+
+  <SolidColorBrush x:Key="AppNeutralPillBrush" Color="#2542A5F5" />
+  <SolidColorBrush x:Key="AppNeutralPillBorderBrush" Color="#5542A5F5" />
+  <SolidColorBrush x:Key="AppNeutralPillTextBrush" Color="#42A5F5" />
+
+  <SolidColorBrush x:Key="AppVioletBrush" Color="#A78BFA" />
+  <SolidColorBrush x:Key="AppCyanBrush" Color="#22D3EE" />
+  <SolidColorBrush x:Key="AppDownloadBrush" Color="#4ADE80" />
+  <SolidColorBrush x:Key="AppMemoryBrush" Color="#3B82F6" />
+
+  <SolidColorBrush x:Key="AppSuccessTintBrush" Color="#1F34D399" />
+  <SolidColorBrush x:Key="AppWarningTintBrush" Color="#24FBBF24" />
+  <SolidColorBrush x:Key="AppVioletTintBrush" Color="#24A78BFA" />
+  <SolidColorBrush x:Key="AppCyanTintBrush" Color="#1F22D3EE" />
+  <SolidColorBrush x:Key="AppDownloadTintBrush" Color="#1F4ADE80" />
+  <SolidColorBrush x:Key="AppMemoryTintBrush" Color="#403B82F6" />
+  <SolidColorBrush x:Key="AppDangerTintBrush" Color="#24F87171" />
+
+  <SolidColorBrush x:Key="TagDebugBrush" Color="#25AB47BC" />
+  <SolidColorBrush x:Key="TagDebugBorderBrush" Color="#55AB47BC" />
+  <SolidColorBrush x:Key="TagDebugForegroundBrush" Color="#D4A6E0" />
+  <SolidColorBrush x:Key="TagDebugBarBrush" Color="#AB47BC" />
+
+  <SolidColorBrush x:Key="TagInfoBrush" Color="#2542A5F5" />
+  <SolidColorBrush x:Key="TagInfoBorderBrush" Color="#5542A5F5" />
+  <SolidColorBrush x:Key="TagInfoForegroundBrush" Color="#90C5F5" />
+  <SolidColorBrush x:Key="TagInfoBarBrush" Color="#42A5F5" />
+
+  <SolidColorBrush x:Key="TagSuccessBrush" Color="#2534D399" />
+  <SolidColorBrush x:Key="TagSuccessBorderBrush" Color="#5534D399" />
+  <SolidColorBrush x:Key="TagWarningBrush" Color="#25FBBF24" />
+  <SolidColorBrush x:Key="TagWarningBorderBrush" Color="#55FBBF24" />
+  <SolidColorBrush x:Key="TagDangerBrush" Color="#25F87171" />
+  <SolidColorBrush x:Key="TagDangerBorderBrush" Color="#55F87171" />
+
+  <SolidColorBrush x:Key="TagDomainBrush" Color="#2538BDF8" />
+  <SolidColorBrush x:Key="TagDomainBorderBrush" Color="#5538BDF8" />
+  <SolidColorBrush x:Key="TagDomainForegroundBrush" Color="#7DD3FC" />
+
+  <SolidColorBrush x:Key="TagIpBrush" Color="#25FB923C" />
+  <SolidColorBrush x:Key="TagIpBorderBrush" Color="#55FB923C" />
+  <SolidColorBrush x:Key="TagIpForegroundBrush" Color="#FDBA74" />
+
+  <SolidColorBrush x:Key="TagRulesetBrush" Color="#25A78BFA" />
+  <SolidColorBrush x:Key="TagRulesetBorderBrush" Color="#55A78BFA" />
+  <SolidColorBrush x:Key="TagRulesetForegroundBrush" Color="#C4B5FD" />
+
+  <SolidColorBrush x:Key="TagTcpBrush" Color="#2506B6D4" />
+  <SolidColorBrush x:Key="TagTcpBorderBrush" Color="#5506B6D4" />
+  <SolidColorBrush x:Key="TagTcpForegroundBrush" Color="#0E97B0" />
+
+  <SolidColorBrush x:Key="TagUdpBrush" Color="#25F472B6" />
+  <SolidColorBrush x:Key="TagUdpBorderBrush" Color="#55F472B6" />
+  <SolidColorBrush x:Key="TagUdpForegroundBrush" Color="#F9A8D4" />
+
+  <SolidColorBrush x:Key="ToastInfoBrush" Color="#60A5FA" />
+  <SolidColorBrush x:Key="ToastSuccessBrush" Color="#22C55E" />
+  <SolidColorBrush x:Key="ToastWarningBrush" Color="#F59E0B" />
+  <SolidColorBrush x:Key="ToastErrorBrush" Color="#EF4444" />
+
+  <SolidColorBrush x:Key="HomeUploadSeriesBrush" Color="#38D5FF" />
+  <SolidColorBrush x:Key="HomeDownloadSeriesBrush" Color="#FCA5A5" />
+  <LinearGradientBrush x:Key="HomeUploadSeriesFillBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Color="#3338D5FF" Offset="0" />
+    <GradientStop Color="#0038D5FF" Offset="1" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="HomeDownloadSeriesFillBrush" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Color="#40FCA5A5" Offset="0" />
+    <GradientStop Color="#00FCA5A5" Offset="1" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="HomeHeaderCardBrush" StartPoint="0%,0%" EndPoint="100%,0%">
+    <GradientStop Color="#3360A5FA" Offset="0" />
+    <GradientStop Color="#0D60A5FA" Offset="1" />
+  </LinearGradientBrush>
+
+  <BoxShadows x:Key="AppDialogShadow">0 8 28 0 #40000000</BoxShadows>
+  <BoxShadows x:Key="AppDropdownShadow">0 4 12 -2 #26000000</BoxShadows>
+  <BoxShadows x:Key="ToastShadow">0 4 16 -4 #38000000</BoxShadows>
+</ResourceDictionary>

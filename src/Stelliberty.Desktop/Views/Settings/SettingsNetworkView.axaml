@@ -1,0 +1,120 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsNetworkView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+<!-- 网络 -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsNetworkVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding CoreConfig.NetworkDelaySectionText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.NetworkUnifiedDelayText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.UnifiedDelayToggle"
+                        IsChecked="{Binding CoreConfig.IsUnifiedDelayEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="20">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.NetworkDelayUrlText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.DelayTestUrlBox"
+                   Text="{Binding CoreConfig.DelayTestUrl, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{Binding CoreConfig.NetworkLanSectionText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.NetworkAllowLanText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.AllowLanToggle"
+                        IsChecked="{Binding CoreConfig.IsAllowLanEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="20">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.NetworkLanAuthUserNameText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.LanAuthenticationUserNameBox"
+                   Text="{Binding CoreConfig.LanAuthenticationUserName, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="220,*" ColumnSpacing="20">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.NetworkLanAuthPasswordText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.LanAuthenticationPasswordBox"
+                   Text="{Binding CoreConfig.LanAuthenticationPassword, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.NetworkLanAllowedIpsText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.LanAllowedIpsBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.LanAllowedIpsText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.NetworkLanDisallowedIpsText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.LanDisallowedIpsBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.LanDisallowedIpsText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.NetworkSkipAuthPrefixesText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.SkipAuthPrefixesBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.SkipAuthPrefixesText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{Binding CoreConfig.NetworkConnectionSectionText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.NetworkIpv6Text}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.Ipv6Toggle"
+                        IsChecked="{Binding CoreConfig.IsIpv6Enabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.NetworkTcpConcurrentText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.TcpConcurrentToggle"
+                        IsChecked="{Binding CoreConfig.IsTcpConcurrentEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+</StackPanel>
+</UserControl>

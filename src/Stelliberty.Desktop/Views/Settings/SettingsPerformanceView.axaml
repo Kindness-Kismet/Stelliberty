@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsPerformanceView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+<!-- 性能 -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsPerformanceVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding Settings.HeaderText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PerformanceGeoLoaderText}" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.GeoDataLoaderComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding CoreConfig.GeoDataLoaderOptions}"
+                    SelectedItem="{Binding CoreConfig.SelectedGeoDataLoaderOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PerformanceFindProcessText}" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.FindProcessModeComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding CoreConfig.FindProcessModeOptions}"
+                    SelectedItem="{Binding CoreConfig.SelectedFindProcessModeOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PerformanceKeepAliveText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.TcpKeepAliveToggle"
+                        IsChecked="{Binding CoreConfig.IsTcpKeepAliveEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,160">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PerformanceKeepAliveIntervalText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.TcpKeepAliveIntervalBox"
+                   Text="{Binding CoreConfig.TcpKeepAliveIntervalText, Mode=TwoWay, Delay=500}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+</StackPanel>
+</UserControl>

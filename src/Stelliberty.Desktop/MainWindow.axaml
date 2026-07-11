@@ -1,0 +1,204 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+        xmlns:views="clr-namespace:Stelliberty.Desktop.Views"
+        xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+        x:Class="Stelliberty.Desktop.MainWindow"
+        x:CompileBindings="True"
+        x:DataType="vm:MainWindowViewModel"
+        Width="1280"
+        Height="840"
+        MinWidth="1040"
+        MinHeight="680"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="Full"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaTitleBarHeightHint="36"
+        TransparencyLevelHint="None"
+        Background="{DynamicResource AppRootSurfaceBrush}"
+        UseLayoutRounding="True"
+        Title="{Binding Title}">
+  <Window.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://stelliberty/Styles/Theme.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+      <views:PageToViewConverter x:Key="PageToView" />
+    </ResourceDictionary>
+  </Window.Resources>
+
+  <Window.Styles>
+    <StyleInclude Source="avares://stelliberty/Styles/ShellStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/PrimitivesStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/ScrollStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/ListPageStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/HomeStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/ProxyStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/ComboBoxStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/MenuStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/SwitchStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/DialogStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/ToastStyles.axaml" />
+    <StyleInclude Source="avares://stelliberty/Styles/SettingsStyles.axaml" />
+  </Window.Styles>
+
+  <Grid RowDefinitions="36,*">
+    <Border x:Name="TitleBarSurface"
+            AutomationProperties.AutomationId="TitleBar.Root"
+            Background="Transparent"
+            PointerPressed="OnTitleBarPointerPressed">
+      <Grid x:Name="TitleBarLayout" ColumnDefinitions="*,Auto">
+        <StackPanel x:Name="CaptionButtons"
+                    Grid.Column="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Stretch">
+          <Button Classes="titlebar-button"
+                  AutomationProperties.AutomationId="TitleBar.MinimizeButton"
+                  Click="OnMinimizeClicked">
+            <Path Width="13" Height="13"
+                  Data="M 2 6 L 10 6"
+                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                  StrokeThickness="1.4"
+                  StrokeLineCap="Square" />
+          </Button>
+          <Button Classes="titlebar-button"
+                  AutomationProperties.AutomationId="TitleBar.MaximizeButton"
+                  Click="OnMaximizeClicked">
+            <Grid Width="13" Height="13">
+              <Rectangle x:Name="MaximizeIcon" Width="9" Height="9"
+                         HorizontalAlignment="Center" VerticalAlignment="Center"
+                         Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                         StrokeThickness="1.25" />
+              <Path x:Name="RestoreIcon" IsVisible="False"
+                    Data="M 4 2.5 H 9.5 V 8 M 2.5 4 H 8 V 9.5 H 2.5 Z"
+                    Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                    StrokeThickness="1.25" />
+            </Grid>
+          </Button>
+          <Button Classes="titlebar-button close"
+                  AutomationProperties.AutomationId="TitleBar.CloseButton"
+                  Click="OnCloseClicked">
+            <Path Width="13" Height="13"
+                  Data="M 3 3 L 9 9 M 9 3 L 3 9"
+                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                  StrokeThickness="1.45"
+                  StrokeLineCap="Round" />
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1" ColumnDefinitions="220,*" ClipToBounds="True">
+      <Border AutomationProperties.AutomationId="Sidebar.Root"
+              Classes="sidebar-shadow"
+              Padding="12,24,12,20"
+              Background="Transparent">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <TextBlock AutomationProperties.AutomationId="Sidebar.BrandText"
+                     Margin="0,4,0,28"
+                     Text="{Binding Title}"
+                     FontSize="20"
+                     FontWeight="SemiBold"
+                     HorizontalAlignment="Center"
+                     Foreground="{DynamicResource AppAccentBrush}" />
+
+          <StackPanel Grid.Row="1" Spacing="6">
+            <Button Classes="nav-item"
+                    Classes.selected="{Binding IsHomeSelected}"
+                    AutomationProperties.AutomationId="Navigation.HomeButton"
+                    Command="{Binding ShowHomeCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-home" /></Border><TextBlock Text="{Binding HomeNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav-item"
+                    Classes.selected="{Binding IsProxySelected}"
+                    AutomationProperties.AutomationId="Navigation.ProxyButton"
+                    Command="{Binding ShowProxyCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-proxy" /></Border><TextBlock Text="{Binding ProxyNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav-item"
+                    Classes.selected="{Binding IsConnectionsSelected}"
+                    AutomationProperties.AutomationId="Navigation.ConnectionsButton"
+                    Command="{Binding ShowConnectionsCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-connections" /></Border><TextBlock Text="{Binding ConnectionsNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav-item"
+                    Classes.selected="{Binding IsCoreLogsSelected}"
+                    AutomationProperties.AutomationId="Navigation.CoreLogsButton"
+                    Command="{Binding ShowCoreLogsCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-log" /></Border><TextBlock Text="{Binding CoreLogsNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav-item"
+                    Classes.selected="{Binding IsRulesSelected}"
+                    AutomationProperties.AutomationId="Navigation.RulesButton"
+                    Command="{Binding ShowRulesCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-rules" /></Border><TextBlock Text="{Binding RulesNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav-item"
+                    Classes.selected="{Binding IsSubscriptionsSelected}"
+                    AutomationProperties.AutomationId="Navigation.SubscriptionsButton"
+                    Command="{Binding ShowSubscriptionsCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-subscription" /></Border><TextBlock Text="{Binding SubscriptionsNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+              </StackPanel>
+            </Button>
+            <Button Classes="nav-item"
+                    Classes.selected="{Binding IsOverridesSelected}"
+                    AutomationProperties.AutomationId="Navigation.OverridesButton"
+                    Command="{Binding ShowOverridesCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="10">
+                <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-overrides" /></Border><TextBlock Text="{Binding OverridesNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+
+          <Button Grid.Row="2"
+                  Classes="nav-item"
+                  Classes.selected="{Binding IsSettingsSelected}"
+                  AutomationProperties.AutomationId="Navigation.SettingsButton"
+                  Command="{Binding ShowSettingsCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Border Classes="nav-icon-pill"><iconPacks:PackIconMingCuteIcons Classes="icon nav-icon nav-icon-settings" /></Border><TextBlock Text="{Binding SettingsNavText}" Classes="nav-label" VerticalAlignment="Center" FontSize="14" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1"
+              Classes="content-host"
+              Classes.settings="{Binding IsSettingsSelected}"
+              Background="Transparent">
+                    <!-- 页面常驻堆叠，导航只切透明度，避免重建视图。 -->
+          <Grid>
+            <ContentControl x:Name="HomePageHost" Classes="page-host" />
+            <ContentControl x:Name="ProxyPageHost" Classes="page-host" />
+            <ContentControl x:Name="ConnectionsPageHost" Classes="page-host" />
+            <ContentControl x:Name="CoreLogsPageHost" Classes="page-host" />
+            <ContentControl x:Name="RulesPageHost" Classes="page-host" />
+            <ContentControl x:Name="SubscriptionsPageHost" Classes="page-host" />
+            <ContentControl x:Name="OverridesPageHost" Classes="page-host" />
+            <ContentControl x:Name="SettingsPageHost" Classes="page-host" />
+          </Grid>
+      </Border>
+    </Grid>
+
+    <controls:OverlayDialogHost x:Name="DialogHost"
+                                Grid.RowSpan="2" />
+
+    <controls:ToastNotification Grid.RowSpan="2"
+                                IsOpen="{Binding IsToastVisible}"
+                                Type="{Binding ToastType}"
+                                Message="{Binding ToastMessage}" />
+  </Grid>
+</Window>

@@ -1,0 +1,387 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.ConnectionView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel"
+             controls:InputDefocusBehavior.IsEnabled="True"
+             Background="Transparent">
+  <Grid x:Name="ConnectionPageRoot"
+        RowDefinitions="Auto,*" RowSpacing="16"
+        DataContext="{Binding ConnectionPage}"
+        x:DataType="vm:ConnectionPageViewModel">
+
+      <Border Classes="surface-header"
+            Margin="8,0,25,0"
+            AutomationProperties.AutomationId="Connections.Toolbar">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+          <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="signal-dot" />
+              <TextBlock Classes="list-eyebrow" Text="{loc:Loc Connections.Header.Eyebrow}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Classes="list-count"
+                         Text="{Binding FilteredConnectionCount}" />
+              <TextBlock Classes="list-count-unit" Text="{loc:Loc Connections.Count.Unit}" />
+            </StackPanel>
+          </StackPanel>
+
+          <StackPanel Grid.Column="1"
+                      Orientation="Horizontal" Spacing="8"
+                      VerticalAlignment="Center">
+            <Border Classes="list-stat">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="list-stat-label" Text="{loc:Loc Connections.Stat.Direct}" />
+                <TextBlock Classes="list-stat-value" Text="{Binding DirectConnectionCount}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="list-stat">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="list-stat-label" Text="{loc:Loc Connections.Stat.Proxy}" />
+                <TextBlock Classes="list-stat-value" Text="{Binding ProxyConnectionCount}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="list-stat" MinWidth="112">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="list-stat-label" Text="{loc:Loc Common.Upload}" />
+                <TextBlock Classes="list-stat-value small"
+                           AutomationProperties.AutomationId="Connections.TotalUploadSpeedText"
+                           Text="{Binding TotalUploadSpeedText}" />
+              </StackPanel>
+            </Border>
+            <Border Classes="list-stat" MinWidth="112">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="list-stat-label" Text="{loc:Loc Common.Download}" />
+                <TextBlock Classes="list-stat-value small"
+                           AutomationProperties.AutomationId="Connections.TotalDownloadSpeedText"
+                           Text="{Binding TotalDownloadSpeedText}" />
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsAllConnectionsSelected}"
+                    AutomationProperties.AutomationId="Connections.Filter.AllButton"
+                    Command="{Binding ShowAllConnectionsCommand}"
+                    Content="{loc:Loc Common.Filter.All}" />
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsDirectConnectionsSelected}"
+                    AutomationProperties.AutomationId="Connections.Filter.DirectButton"
+                    Command="{Binding ShowDirectConnectionsCommand}"
+                    Content="{loc:Loc Connections.Filter.Direct}" />
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsProxyConnectionsSelected}"
+                    AutomationProperties.AutomationId="Connections.Filter.ProxyButton"
+                    Command="{Binding ShowProxyConnectionsCommand}"
+                    Content="{loc:Loc Connections.Filter.Proxy}" />
+          </StackPanel>
+
+          <TextBox Grid.Column="1"
+                   Classes="list-search"
+                   AutomationProperties.AutomationId="Connections.SearchBox"
+                   PlaceholderText="{loc:Loc Connections.Search.Placeholder}"
+                   Text="{Binding SearchKeyword, Mode=TwoWay}"
+                   MinWidth="220" MaxWidth="360"
+                   HorizontalAlignment="Right">
+            <TextBox.InnerLeftContent>
+              <Border Padding="10,0,4,0">
+                <iconPacks:PackIconMingCuteIcons Width="14" Height="14"
+                                                   Kind="SearchLine"
+                                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
+              </Border>
+            </TextBox.InnerLeftContent>
+          </TextBox>
+
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6">
+            <Button Classes="toolbar-icon"
+                    AutomationProperties.AutomationId="Connections.RefreshButton"
+                    Command="{Binding RefreshConnectionsCommand}"
+                    ToolTip.Tip="{loc:Loc Connections.Action.Refresh}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="Refresh1Line" />
+            </Button>
+            <Button Classes="toolbar-icon"
+                    AutomationProperties.AutomationId="Connections.TogglePauseButton"
+                    Command="{Binding TogglePauseCommand}"
+                    ToolTip.Tip="{loc:Loc Connections.Action.Pause}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="PauseLine" />
+            </Button>
+            <Button Classes="toolbar-icon"
+                    AutomationProperties.AutomationId="Connections.CloseAllButton"
+                    Command="{Binding CloseAllConnectionsCommand}"
+                    ToolTip.Tip="{loc:Loc Connections.Action.CloseAll}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="ListCheckLine" />
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Border Classes="list-empty"
+              AutomationProperties.AutomationId="Connections.EmptyText"
+              IsVisible="{Binding IsEmptyVisible}">
+        <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Panel HorizontalAlignment="Center">
+            <Border Classes="list-empty-halo" />
+            <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="TransferHorizontalLine" />
+          </Panel>
+          <StackPanel Spacing="7">
+            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-hint" Text="{loc:Loc Connections.Empty.Hint}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <ScrollViewer AutomationProperties.AutomationId="Connections.ListScroll"
+                    IsVisible="{Binding !IsEmptyVisible}"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl AutomationProperties.AutomationId="Connections.List"
+                      Margin="8,0,25,15"
+                      ItemsSource="{Binding FilteredConnectionRows}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <controls:VirtualizingWrapPanel MinItemWidth="344" ItemHeight="182" ColumnSpacing="12" RowSpacing="12" EdgePadding="0" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ConnectionRowViewModel">
+              <Border Classes="surface-card">
+                <Grid>
+                  <Button Classes="card-hit-area"
+                          AutomationProperties.AutomationId="{Binding RowAutomationId}"
+                          Command="{Binding #ConnectionPageRoot.((vm:ConnectionPageViewModel)DataContext).ShowDetailCommand}"
+                          CommandParameter="{Binding Id}" />
+
+                  <Grid Margin="16" RowDefinitions="Auto,*,Auto" RowSpacing="12" IsHitTestVisible="False">
+                    <Grid ColumnDefinitions="Auto,*,36" ColumnSpacing="10">
+                      <Border Classes="list-pill" Tag="{Binding NetworkPillTag}">
+                        <TextBlock AutomationProperties.AutomationId="{Binding NetworkAutomationId}"
+                                   Text="{Binding NetworkLabel}" />
+                      </Border>
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding DisplayAddress}"
+                                 Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                 FontWeight="SemiBold"
+                                 FontSize="14"
+                                 TextTrimming="CharacterEllipsis"
+                                 VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Grid Grid.Row="1" RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
+                      <Grid ColumnDefinitions="72,*" ColumnSpacing="8">
+                        <TextBlock Text="{loc:Loc Connections.Card.Process}"
+                                   Classes="metric-label"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Process}"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}"
+                                   FontSize="12"
+                                   TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                      <Grid Grid.Row="1" ColumnDefinitions="72,*" ColumnSpacing="8">
+                        <TextBlock Text="{loc:Loc Connections.Card.Rule}"
+                                   Classes="metric-label"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding Rule}"
+                                   Foreground="{DynamicResource AppTextSecondaryBrush}"
+                                   FontSize="12"
+                                   TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                      <Grid Grid.Row="2" ColumnDefinitions="72,*" ColumnSpacing="8">
+                        <TextBlock Text="{loc:Loc Connections.Card.Chain}"
+                                   Classes="metric-label"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1"
+                                   AutomationProperties.AutomationId="{Binding ChainAutomationId}"
+                                   Text="{Binding ChainSummaryText}"
+                                   Foreground="{DynamicResource AppAccentBrush}"
+                                   FontSize="12"
+                                   TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                    </Grid>
+
+                    <Grid Grid.Row="2" ColumnDefinitions="*,*,Auto" ColumnSpacing="8">
+                      <Border Classes="list-mini-stat">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="metric-label" Text="{loc:Loc Common.Upload}" />
+                          <TextBlock Text="{Binding UploadSpeedText}"
+                                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                     FontSize="12"
+                                     FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Column="1" Classes="list-mini-stat">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="metric-label" Text="{loc:Loc Common.Download}" />
+                          <TextBlock Text="{Binding DownloadSpeedText}"
+                                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                     FontSize="12"
+                                     FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                      </Border>
+                      <Border Grid.Column="2" Classes="list-mini-stat" MinWidth="82">
+                        <StackPanel Spacing="2">
+                          <TextBlock Classes="metric-label" Text="{loc:Loc Connections.Card.Duration}" />
+                          <TextBlock AutomationProperties.AutomationId="{Binding DurationAutomationId}"
+                                     Text="{Binding DurationText}"
+                                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                     FontFamily="Consolas"
+                                     FontSize="12"
+                                     FontWeight="SemiBold" />
+                        </StackPanel>
+                      </Border>
+                    </Grid>
+                  </Grid>
+
+                  <Button Classes="toolbar-icon"
+                          Width="28" Height="28"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Top"
+                          Margin="0,16,16,0"
+                          AutomationProperties.AutomationId="{Binding CloseAutomationId}"
+                          Command="{Binding #ConnectionPageRoot.((vm:ConnectionPageViewModel)DataContext).CloseConnectionCommand}"
+                          CommandParameter="{Binding Id}">
+                    <iconPacks:PackIconMingCuteIcons Classes="icon" Width="12" Height="12" Kind="CloseLine" />
+                  </Button>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <controls:OverlayDialogHost AutomationProperties.AutomationId="Connections.DialogOverlay"
+                                  IsOpen="{Binding IsDetailVisible}">
+        <controls:OverlayDialogHost.DialogContent>
+          <controls:DialogPanel PanelWidth="520"
+                                ContentPadding="0,0,2,0"
+                                AutomationProperties.AutomationId="Connections.DetailPanel"
+                                IsOpen="{Binding IsDetailVisible}">
+            <controls:DialogPanel.DialogContent>
+              <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                  <TextBlock Classes="dialog-title"
+                             Text="{loc:Loc Connections.Detail.Title}"
+                             VerticalAlignment="Center" />
+                  <Button Grid.Column="1"
+                          Classes="dialog-close"
+                          AutomationProperties.AutomationId="Connections.Detail.CloseButton"
+                          Command="{Binding CloseDetailCommand}">
+                    <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                  </Button>
+                </Grid>
+
+                <ScrollViewer Grid.Row="1"
+                              AutomationProperties.AutomationId="Connections.Detail.ScrollViewer"
+                              MaxHeight="560"
+                              VerticalScrollBarVisibility="Auto">
+                  <StackPanel Spacing="12" Margin="24,0,22,0">
+                    <Border Classes="dialog-section">
+                      <StackPanel Spacing="10">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                          <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="RouteLine"
+                                                           Foreground="{DynamicResource AppAccentBrush}"
+                                                           VerticalAlignment="Center" />
+                          <TextBlock Classes="dialog-section-title" Text="{loc:Loc Connections.Card.Chain}" />
+                        </StackPanel>
+                        <TextBlock FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AppAccentBrush}"
+                                   TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Connections.Detail.SummaryChain"
+                                   Text="{Binding DetailSummaryChain}" />
+                        <Border Background="{DynamicResource AppInputBrush}" CornerRadius="10" Padding="12,8">
+                          <StackPanel Spacing="3">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Connections.Card.Rule}" />
+                            <TextBlock Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                       Text="{Binding DetailSummaryRule}"
+                                       TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Connections.Detail.SummaryRule" />
+                          </StackPanel>
+                        </Border>
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                          <StackPanel Spacing="2">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Common.Upload}" />
+                            <TextBlock FontFamily="Consolas" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                       AutomationProperties.AutomationId="Connections.Detail.SummaryUpload"
+                                       Text="{Binding DetailSummaryUpload}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Common.Download}" />
+                            <TextBlock FontFamily="Consolas" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                       AutomationProperties.AutomationId="Connections.Detail.SummaryDownload"
+                                       Text="{Binding DetailSummaryDownload}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="2" Spacing="2">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Connections.Card.Duration}" />
+                            <TextBlock FontFamily="Consolas" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                       AutomationProperties.AutomationId="Connections.Detail.SummaryDuration"
+                                       Text="{Binding DetailSummaryDuration}" />
+                          </StackPanel>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
+
+                    <ItemsControl AutomationProperties.AutomationId="Connections.Detail.Groups"
+                                  ItemsSource="{Binding SelectedConnectionDetailGroups}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <StackPanel Spacing="10" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ConnectionDetailGroupViewModel">
+                          <Border Classes="dialog-section">
+                            <StackPanel Spacing="8">
+                              <TextBlock Classes="dialog-section-title" Text="{Binding Title}" />
+                              <ItemsControl ItemsSource="{Binding Rows}">
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate x:DataType="vm:ConnectionDetailRowViewModel">
+                                    <Border Classes="connection-detail-row dense">
+                                      <Grid ColumnDefinitions="104,*" ColumnSpacing="12">
+                                        <TextBlock Classes="dialog-label" Text="{Binding Label}" />
+                                        <TextBlock Grid.Column="1"
+                                                   Classes="connection-detail-value"
+                                                   Tag="{Binding Emphasis}"
+                                                   Text="{Binding Value}" />
+                                      </Grid>
+                                    </Border>
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </StackPanel>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </StackPanel>
+                </ScrollViewer>
+
+                <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+                  <Button Classes="dialog-secondary"
+                          AutomationProperties.AutomationId="Connections.Detail.CloseFooterButton"
+                          Command="{Binding CloseDetailCommand}"
+                          Content="{loc:Loc Common.Close}" />
+                </StackPanel>
+              </Grid>
+            </controls:DialogPanel.DialogContent>
+          </controls:DialogPanel>
+        </controls:OverlayDialogHost.DialogContent>
+      </controls:OverlayDialogHost>
+    </Grid>
+  </Grid>
+</UserControl>

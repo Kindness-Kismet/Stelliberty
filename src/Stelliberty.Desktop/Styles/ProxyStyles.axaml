@@ -1,0 +1,132 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+        x:CompileBindings="True">
+
+  <Style Selector="Button.proxy-group-tab">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Background="Transparent">
+          <ContentPresenter Content="{TemplateBinding Content}"
+                            Foreground="{TemplateBinding Foreground}"
+                            FontSize="{TemplateBinding FontSize}"
+                            FontWeight="{TemplateBinding FontWeight}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+          <Border x:Name="TabUnderline"
+                  Height="2" CornerRadius="1"
+                  VerticalAlignment="Bottom"
+                  HorizontalAlignment="Center"
+                  Background="{DynamicResource AppAccentBrush}" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+
+  <Style Selector="Button.proxy-group-tab /template/ Border#TabUnderline">
+    <Setter Property="Width" Value="0" />
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Width" Duration="0:0:0.5" Easing="CubicEaseOut" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.4" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="Button.proxy-group-tab:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button.proxy-group-tab.selected">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.proxy-group-tab.selected /template/ Border#TabUnderline">
+    <Setter Property="Width" Value="40" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <Style Selector="TextBlock.delay-badge">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="TextBlock.delay-badge[Tag=delay-good]">
+    <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
+  </Style>
+  <Style Selector="TextBlock.delay-badge[Tag=delay-mid]">
+    <Setter Property="Foreground" Value="{DynamicResource TagInfoForegroundBrush}" />
+  </Style>
+  <Style Selector="TextBlock.delay-badge[Tag=delay-slow]">
+    <Setter Property="Foreground" Value="{DynamicResource AppWarningBrush}" />
+  </Style>
+  <Style Selector="TextBlock.delay-badge[Tag=delay-bad]">
+    <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+
+  <Style Selector="Button.delay-test-button">
+    <Setter Property="Padding" Value="3,1" />
+    <Setter Property="MinWidth" Value="0" />
+    <Setter Property="MinHeight" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="7" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button.delay-test-button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.delay-test-button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.delay-test-button:pointerover TextBlock.delay-badge">
+    <Setter Property="Opacity" Value="0.72" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.delay-spinner">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+    <Style.Animations>
+      <Animation Duration="0:0:0.8" IterationCount="Infinite" Easing="LinearEasing">
+        <KeyFrame Cue="0%">
+          <Setter Property="RotateTransform.Angle" Value="0" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="RotateTransform.Angle" Value="360" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Button.delay-test-button:pointerover iconPacks|PackIconMingCuteIcons.delay-spinner">
+    <Setter Property="Opacity" Value="0.7" />
+  </Style>
+
+  <Style Selector="TextBlock.proxy-node-tooltip">
+    <Setter Property="MaxWidth" Value="520" />
+    <Setter Property="TextWrapping" Value="NoWrap" />
+    <Setter Property="TextTrimming" Value="None" />
+  </Style>
+</Styles>

@@ -1,0 +1,313 @@
+using System.Diagnostics;
+using System.Text.Json;
+using Stelliberty.Application.Diagnostics;
+using Stelliberty.Application.Platform;
+using Stelliberty.Application.Runtime;
+using Stelliberty.Domain.CoreLogs;
+using Stelliberty.Infrastructure.Proxies;
+
+namespace Stelliberty.Desktop.Services;
+
+internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
+{
+    private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan ReadyPollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan StatePollInterval = TimeSpan.FromSeconds(2);
+
+    private readonly IServiceModeManager _serviceModeManager;
+    private readonly HttpClient _mihomoClient;
+    private readonly MihomoPipeLogStreamer _logStreamer;
+    private readonly Func<string, string> _writeActiveConfig;
+    private readonly Action<bool> _setCoreHostActive;
+    private readonly object _monitorGate = new();
+    private CancellationTokenSource? _monitorCancellation;
+    private Task? _monitorTask;
+    private CoreSnapshot? _lastSnapshot;
+    private bool _isDisposed;
+
+    public ServiceModeCoreManager(
+        IServiceModeManager serviceModeManager,
+        string mihomoPipe,
+        Func<string, string> writeActiveConfig,
+        Action<bool> setCoreHostActive)
+    {
+        _serviceModeManager = serviceModeManager;
+        _mihomoClient = PipeCoreProxyClient.CreatePipeHttpClient(mihomoPipe);
+        _logStreamer = new MihomoPipeLogStreamer(mihomoPipe);
+        _logStreamer.MessageReceived += OnLogMessageReceived;
+        _writeActiveConfig = writeActiveConfig;
+        _setCoreHostActive = setCoreHostActive;
+    }
+
+    public event EventHandler<CoreSnapshot>? StateChanged;
+
+    public event EventHandler<CoreLogMessage>? CoreLogReceived;
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        StopStatusMonitor();
+        _logStreamer.MessageReceived -= OnLogMessageReceived;
+        _logStreamer.Dispose();
+        _mihomoClient.Dispose();
+    }
+
+    public async Task<CoreSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+        var snapshot = ToSnapshot(status);
+        PublishSnapshot(snapshot);
+        return snapshot;
+    }
+
+    public async Task EnsureReadyAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
+        _logStreamer.Restart();
+        StartStatusMonitor();
+        PublishState(CoreState.Running, null, null);
+    }
+
+    public async Task<CoreApplyConfigResult> ApplyConfigAsync(CoreApplyConfigRequest request, CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        var activePath = _writeActiveConfig(await File.ReadAllTextAsync(request.RuntimeYamlPath, cancellationToken).ConfigureAwait(false));
+        var serviceRequest = new ServiceModeCoreHostRequest(
+            DesktopApplicationLayout.CoreBinaryPath,
+            DesktopApplicationLayout.CoreDirectory,
+            activePath);
+        var result = await _serviceModeManager.StartCoreHostAsync(serviceRequest, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            throw new InvalidOperationException(result.Message);
+        }
+
+        var pid = ParsePid(result.Message) ?? 0;
+        await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
+        _logStreamer.Restart();
+        StartStatusMonitor();
+        PublishState(CoreState.Running, pid, null);
+        return new CoreApplyConfigResult(CoreApplyMode.Restart, pid);
+    }
+
+    public async Task RestartAsync(CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        var stopwatch = Stopwatch.StartNew();
+        var result = await _serviceModeManager.RestartCoreHostAsync(cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            throw new InvalidOperationException(result.Message);
+        }
+
+        var pid = ParsePid(result.Message);
+        await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
+        _logStreamer.Restart();
+        StartStatusMonitor();
+        PublishState(CoreState.Running, pid, null);
+        AppLogger.Info($"Service-mode core restart is ready: pid={pid?.ToString() ?? "unknown"} elapsed={stopwatch.Elapsed.TotalMilliseconds:0}ms");
+    }
+
+    private void StartStatusMonitor()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        lock (_monitorGate)
+        {
+            if (_isDisposed || _monitorCancellation is not null)
+            {
+                return;
+            }
+
+            _monitorCancellation = new CancellationTokenSource();
+            _monitorTask = Task.Run(() => MonitorStatusAsync(_monitorCancellation.Token));
+        }
+    }
+
+    private void StopStatusMonitor()
+    {
+        CancellationTokenSource? cancellation;
+        Task? task;
+        lock (_monitorGate)
+        {
+            cancellation = _monitorCancellation;
+            task = _monitorTask;
+            _monitorCancellation = null;
+            _monitorTask = null;
+        }
+
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        cancellation.Cancel();
+        DisposeCancellationAfterTask(cancellation, task);
+    }
+
+    private static void DisposeCancellationAfterTask(CancellationTokenSource cancellation, Task? task)
+    {
+        if (task is null || task.IsCompleted)
+        {
+            cancellation.Dispose();
+            return;
+        }
+
+        task.ContinueWith(
+            _ => cancellation.Dispose(),
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private void OnLogMessageReceived(object? sender, CoreLogMessage message)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        CoreLogReceived?.Invoke(this, message);
+    }
+
+    private async Task MonitorStatusAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(StatePollInterval, cancellationToken).ConfigureAwait(false);
+                var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+                PublishSnapshot(ToSnapshot(status));
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception exception)
+            {
+                PublishSnapshot(new CoreSnapshot(CoreState.Unavailable, null, HubStartupCoordinator.MihomoPipe, exception.Message));
+            }
+        }
+    }
+
+    private async Task WaitReadyAsync(CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        while (stopwatch.Elapsed < ReadyTimeout)
+        {
+            var version = await ProbeVersionAsync(cancellationToken).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(version))
+            {
+                return;
+            }
+
+            await Task.Delay(ReadyPollInterval, cancellationToken).ConfigureAwait(false);
+        }
+
+        PublishState(CoreState.Crashed, null, "Service-mode core startup timed out");
+        throw new TimeoutException($"Service-mode core was not ready within {ReadyTimeout.TotalSeconds:N0} seconds.");
+    }
+
+    private void PublishState(CoreState state, int? pid, string? lastError)
+    {
+        PublishSnapshot(new CoreSnapshot(state, pid, HubStartupCoordinator.MihomoPipe, lastError));
+    }
+
+    private void PublishSnapshot(CoreSnapshot snapshot)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        if (snapshot.State != CoreState.Running)
+        {
+            _logStreamer.Stop();
+        }
+        _setCoreHostActive(snapshot.State == CoreState.Running);
+        if (_lastSnapshot == snapshot)
+        {
+            return;
+        }
+
+        _lastSnapshot = snapshot;
+        StateChanged?.Invoke(this, snapshot);
+    }
+
+    private async Task<string?> ProbeVersionAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await _mihomoClient.GetAsync("version", cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("version", out var version) && version.ValueKind == JsonValueKind.String
+                ? version.GetString()
+                : null;
+        }
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        {
+            return null;
+        }
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+    }
+
+    private static int? ParsePid(string message)
+    {
+        foreach (var part in message.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!part.StartsWith("pid=", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (int.TryParse(part["pid=".Length..], out var pid) && pid > 0)
+            {
+                return pid;
+            }
+        }
+
+        return null;
+    }
+
+    private static CoreState ParseCoreState(string? value)
+    {
+        return value switch
+        {
+            "running" => CoreState.Running,
+            "stopping" => CoreState.Stopping,
+            "stopped" => CoreState.Stopped,
+            "crashed" => CoreState.Crashed,
+            _ => CoreState.Unavailable,
+        };
+    }
+
+    private static CoreSnapshot ToSnapshot(ServiceModeStatus status)
+    {
+        return new CoreSnapshot(
+            ParseCoreState(status.CoreState),
+            status.CorePid,
+            HubStartupCoordinator.MihomoPipe,
+            status.CoreLastError);
+    }
+}

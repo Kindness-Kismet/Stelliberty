@@ -1,0 +1,370 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsDataManagementView"
+             x:Name="SettingsDataManagementPageRoot"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+  <Grid>
+<!-- 数据管理 -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsDataManagementVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding Settings.HeaderText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Button Classes="settings-row first"
+              AutomationProperties.AutomationId="Settings.CreateDataBackupButton"
+              Click="OnCreateBackupClicked">
+        <Grid>
+          <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+            <TextBlock Classes="settings-row-title" Text="{Binding DataManagement.BackupText}" />
+            <TextBlock Classes="settings-row-subtitle" Text="{Binding DataManagement.BackupDescriptionText}" />
+          </StackPanel>
+        </Grid>
+      </Button>
+      <Border Classes="settings-row-divider" />
+      <Button Classes="settings-row last"
+              AutomationProperties.AutomationId="Settings.RestoreDataBackupButton"
+              Click="OnRestoreFromFileClicked">
+        <Grid>
+          <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+            <TextBlock Classes="settings-row-title" Text="{Binding DataManagement.RestoreText}" />
+            <TextBlock Classes="settings-row-subtitle" Text="{Binding DataManagement.RestoreDescriptionText}" />
+          </StackPanel>
+        </Grid>
+      </Button>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{Binding DataManagement.WebDavGroupText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Classes="settings-row-title"
+                     Text="{Binding DataManagement.WebDavEnableText}"
+                     VerticalAlignment="Center" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.WebDavEnableToggle"
+                        IsChecked="{Binding DataManagement.IsWebDavBackupEnabled}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding DataManagement.WebDavUrlText}" />
+          <TextBox Grid.Column="1"
+                   Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.WebDavUrlBox"
+                   Text="{Binding DataManagement.WebDavUrl, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding DataManagement.WebDavUserNameText}" />
+          <TextBox Grid.Column="1"
+                   Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.WebDavUserNameBox"
+                   Text="{Binding DataManagement.WebDavUserName, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding DataManagement.WebDavPasswordText}" />
+          <TextBox Grid.Column="1"
+                   Classes="settings-input"
+                   PasswordChar="•"
+                   AutomationProperties.AutomationId="Settings.WebDavPasswordBox"
+                   Text="{Binding DataManagement.WebDavPassword, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="180,*" ColumnSpacing="16">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding DataManagement.WebDavRemoteDirectoryText}" />
+          <TextBox Grid.Column="1"
+                   Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.WebDavRemotePathBox"
+                   Text="{Binding DataManagement.WebDavRemoteDirectory, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Grid.Column="0"
+                     Classes="settings-row-title"
+                     Text="{Binding DataManagement.WebDavIntervalText}"
+                     VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.WebDavIntervalHoursComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding DataManagement.WebDavBackupIntervalOptions}"
+                    SelectedItem="{Binding DataManagement.SelectedWebDavBackupIntervalOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Grid.Column="0"
+                     Classes="settings-row-title"
+                     Text="{Binding DataManagement.WebDavRetentionText}"
+                     VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.WebDavRetentionCountComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding DataManagement.WebDavBackupRetentionOptions}"
+                    SelectedItem="{Binding DataManagement.SelectedWebDavBackupRetentionOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Grid>
+        <Button Classes="settings-row last"
+                AutomationProperties.AutomationId="Settings.WebDavBackupManageButton"
+                Command="{Binding DataManagement.OpenWebDavBackupDialogCommand}"
+                IsEnabled="{Binding DataManagement.CanManageWebDavBackups}">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Grid.Column="0"
+                       Classes="settings-row-title"
+                       Text="{Binding DataManagement.WebDavManageText}"
+                       VerticalAlignment="Center" />
+            <Border Grid.Column="1" Width="96" />
+          </Grid>
+        </Button>
+        <StackPanel Orientation="Horizontal"
+                    Spacing="8"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="0,0,20,0">
+          <Button Classes="dialog-primary"
+                  AutomationProperties.AutomationId="Settings.WebDavTestConnectionButton"
+                  Command="{Binding DataManagement.TestWebDavConnectionCommand}"
+                  IsEnabled="{Binding DataManagement.CanManageWebDavBackups}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Text="{Binding DataManagement.WebDavTestText}" VerticalAlignment="Center" />
+              <iconPacks:PackIconMingCuteIcons Classes="button-spinner"
+                                                IsVisible="{Binding DataManagement.IsTestingWebDavConnection}"
+                                                Kind="LoadingFill" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </StackPanel>
+  </Border>
+</StackPanel>
+
+<controls:OverlayDialogHost AutomationProperties.AutomationId="Settings.RestoreDialogOverlay"
+                            IsOpen="{Binding DataManagement.IsRestoreDialogVisible}">
+  <controls:OverlayDialogHost.DialogContent>
+    <controls:DialogPanel PanelWidth="520"
+                          ContentPadding="0,0,2,0"
+                          AutomationProperties.AutomationId="Settings.RestoreDialog"
+                          IsOpen="{Binding DataManagement.IsRestoreDialogVisible}">
+      <controls:DialogPanel.DialogContent>
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
+          <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+            <TextBlock Classes="dialog-title"
+                       Text="{Binding DataManagement.RestoreDialogTitleText}"
+                       VerticalAlignment="Center" />
+            <Button Grid.Column="1"
+                    Classes="dialog-close"
+                    AutomationProperties.AutomationId="Settings.RestoreDialog.CloseButton"
+                    Command="{Binding DataManagement.CancelRestoreCommand}">
+              <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+            </Button>
+          </Grid>
+
+          <Border Grid.Row="1" Classes="dialog-section" Margin="24,0,22,0">
+            <StackPanel Spacing="11">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Refresh1Line"
+                                                 Foreground="{DynamicResource AppAccentBrush}"
+                                                 VerticalAlignment="Center" />
+                <TextBlock Classes="dialog-section-title" Text="{Binding DataManagement.RestoreTargetText}" />
+              </StackPanel>
+              <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <ToggleButton Classes="radio-card"
+                              AutomationProperties.AutomationId="Settings.RestoreDialog.OverwriteButton"
+                              Command="{Binding DataManagement.SelectOverwriteModeCommand}"
+                              IsChecked="{Binding DataManagement.IsOverwriteSelected}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="rc-title" Text="{Binding DataManagement.RestoreModeOverwriteText}" />
+                  </StackPanel>
+                </ToggleButton>
+                <ToggleButton Grid.Column="1"
+                              Classes="radio-card"
+                              AutomationProperties.AutomationId="Settings.RestoreDialog.MergeButton"
+                              Command="{Binding DataManagement.SelectMergeModeCommand}"
+                              IsChecked="{Binding DataManagement.IsMergeSelected}">
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="rc-title" Text="{Binding DataManagement.RestoreModeMergeText}" />
+                  </StackPanel>
+                </ToggleButton>
+              </Grid>
+            </StackPanel>
+          </Border>
+
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+            <Button Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="Settings.RestoreDialog.CancelButton"
+                    Command="{Binding DataManagement.CancelRestoreCommand}"
+                    Content="{Binding DataManagement.RestoreCancelText}" />
+            <Button Classes="dialog-primary"
+                    AutomationProperties.AutomationId="Settings.RestoreDialog.ConfirmButton"
+                    Command="{Binding DataManagement.ConfirmRestoreCommand}"
+                    Content="{Binding DataManagement.RestoreConfirmText}" />
+          </StackPanel>
+        </Grid>
+      </controls:DialogPanel.DialogContent>
+    </controls:DialogPanel>
+  </controls:OverlayDialogHost.DialogContent>
+</controls:OverlayDialogHost>
+
+<controls:OverlayDialogHost AutomationProperties.AutomationId="Settings.WebDavBackupDialogOverlay"
+                            AnimateScale="False"
+                            IsOpen="{Binding DataManagement.IsWebDavBackupDialogVisible}">
+  <controls:OverlayDialogHost.DialogContent>
+    <controls:DialogPanel PanelWidth="600"
+                          ContentPadding="0,0,2,0"
+                          AutomationProperties.AutomationId="Settings.WebDavBackupDialog"
+                          IsOpen="{Binding DataManagement.IsWebDavBackupDialogVisible}">
+      <controls:DialogPanel.DialogContent>
+        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="16">
+          <StackPanel Grid.Row="0" Margin="24,24,24,0">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Classes="dialog-title"
+                         Text="{Binding DataManagement.WebDavBackupDialogTitleText}"
+                         VerticalAlignment="Center" />
+              <Button Grid.Column="1"
+                      Classes="dialog-close"
+                      AutomationProperties.AutomationId="Settings.WebDavBackupDialog.CloseButton"
+                      Command="{Binding DataManagement.CloseWebDavBackupDialogCommand}"
+                      IsEnabled="{Binding !DataManagement.IsWebDavBackupDialogBusy}">
+                <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+              </Button>
+            </Grid>
+          </StackPanel>
+
+          <Grid Grid.Row="1">
+            <ScrollViewer AutomationProperties.AutomationId="Settings.WebDavBackupDialog.Scroll"
+                          Height="360"
+                          IsEnabled="{Binding !DataManagement.IsLoadingWebDavBackups}"
+                          VerticalScrollBarVisibility="Auto">
+              <ItemsControl AutomationProperties.AutomationId="Settings.WebDavBackupDialog.List"
+                            Margin="24,0,22,0"
+                            ItemsSource="{Binding DataManagement.WebDavBackupItems}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <VirtualizingStackPanel />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:WebDavBackupItemViewModel">
+                    <Border Classes="surface-panel list"
+                            Margin="0,0,0,4"
+                            Opacity="{Binding ItemOpacity}">
+                      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                        <Border Classes="surface-card-badge">
+                          <iconPacks:PackIconMingCuteIcons Width="18"
+                                                           Height="18"
+                                                           Kind="Folder2Line"
+                                                           HorizontalAlignment="Center"
+                                                           VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                          <TextBlock Classes="settings-row-title"
+                                     Text="{Binding DisplayName}"
+                                     TextTrimming="CharacterEllipsis" />
+                          <TextBlock Classes="settings-row-subtitle"
+                                     IsVisible="{Binding HasDetailText}"
+                                     Text="{Binding DetailText}"
+                                     TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2"
+                                    Orientation="Horizontal"
+                                    Spacing="4"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                          <Button Classes="toolbar-icon card-toolbar-icon"
+                                  AutomationProperties.AutomationId="{Binding RestoreAutomationId}"
+                                  Command="{Binding #SettingsDataManagementPageRoot.((vm:MainWindowViewModel)DataContext).DataManagement.RestoreWebDavBackupCommand}"
+                                  CommandParameter="{Binding FileName}"
+                                  IsEnabled="{Binding CanAct}">
+                            <Grid Width="14" Height="14">
+                              <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                               Width="12"
+                                                               Height="12"
+                                                               Kind="Download3Fill"
+                                                               IsVisible="{Binding IsRestoreIconVisible}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                              <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding IsRestoring}" Kind="LoadingFill" />
+                            </Grid>
+                          </Button>
+                          <Button Classes="toolbar-icon card-toolbar-icon"
+                                  AutomationProperties.AutomationId="{Binding DeleteAutomationId}"
+                                  Command="{Binding #SettingsDataManagementPageRoot.((vm:MainWindowViewModel)DataContext).DataManagement.DeleteWebDavBackupCommand}"
+                                  CommandParameter="{Binding FileName}"
+                                  IsEnabled="{Binding CanAct}">
+                            <Grid Width="14" Height="14">
+                              <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                               Width="12"
+                                                               Height="12"
+                                                               Kind="Delete2Fill"
+                                                               IsVisible="{Binding IsDeleteIconVisible}"
+                                                               HorizontalAlignment="Center"
+                                                               VerticalAlignment="Center" />
+                              <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding IsDeleting}" Kind="LoadingFill" />
+                            </Grid>
+                          </Button>
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Grid>
+
+          <StackPanel Grid.Row="2"
+                      Orientation="Horizontal"
+                      Spacing="8"
+                      HorizontalAlignment="Right"
+                      Margin="24,0,24,24">
+            <Button Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="Settings.WebDavBackupDialog.CancelButton"
+                    Command="{Binding DataManagement.CloseWebDavBackupDialogCommand}"
+                    IsEnabled="{Binding !DataManagement.IsWebDavBackupDialogBusy}"
+                    Content="{Binding DataManagement.RestoreCancelText}" />
+            <Button Classes="dialog-primary"
+                    AutomationProperties.AutomationId="Settings.WebDavBackupDialog.BackupButton"
+                    Command="{Binding DataManagement.CreateWebDavBackupCommand}"
+                    IsEnabled="{Binding DataManagement.CanRunWebDavOperations}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{Binding DataManagement.WebDavBackupText}" VerticalAlignment="Center" />
+                <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding DataManagement.IsCreatingWebDavBackup}" Kind="LoadingFill" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </Grid>
+      </controls:DialogPanel.DialogContent>
+    </controls:DialogPanel>
+  </controls:OverlayDialogHost.DialogContent>
+</controls:OverlayDialogHost>
+  </Grid>
+</UserControl>

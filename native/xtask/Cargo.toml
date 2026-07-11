@@ -1,0 +1,11 @@
+[package]
+name = "stelliberty_xtask"
+edition = "2024"
+publish = false
+
+[dependencies]
+interoptopus_csharp = "^0.16.0"
+hub = { path = "../hub" }
+
+[lints]
+workspace = true

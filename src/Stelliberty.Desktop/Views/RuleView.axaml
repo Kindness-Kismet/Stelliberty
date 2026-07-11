@@ -1,0 +1,174 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.RuleView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel"
+             controls:InputDefocusBehavior.IsEnabled="True"
+             Background="Transparent">
+  <Grid x:Name="RulePageRoot"
+        RowDefinitions="Auto,*" RowSpacing="16"
+        DataContext="{Binding RulePage}"
+        x:DataType="vm:RulePageViewModel">
+
+      <Border Classes="surface-header"
+            Margin="8,0,25,0"
+            AutomationProperties.AutomationId="Rules.Toolbar">
+      <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
+        <Grid ColumnDefinitions="*">
+          <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="signal-dot" Tag="{Binding MonitorSignalTag}" />
+              <TextBlock Classes="list-eyebrow"
+                         Text="{loc:Loc Rules.Header.Eyebrow}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Classes="list-count"
+                         Text="{Binding FilteredRules.Count}" />
+              <TextBlock Classes="list-count-unit" Text="{loc:Loc Rules.Count.Unit}" />
+            </StackPanel>
+          </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <StackPanel Orientation="Horizontal" Spacing="4">
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsAllTypesSelected}"
+                    AutomationProperties.AutomationId="Rules.Filter.AllButton"
+                    Command="{Binding ShowAllTypesCommand}"
+                    Content="{loc:Loc Common.Filter.All}" />
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsDomainRulesSelected}"
+                    AutomationProperties.AutomationId="Rules.Filter.DomainButton"
+                    Command="{Binding ShowDomainRulesCommand}"
+                    Content="{loc:Loc Rules.Filter.Domain}" />
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsIpRulesSelected}"
+                    AutomationProperties.AutomationId="Rules.Filter.IpButton"
+                    Command="{Binding ShowIpRulesCommand}"
+                    Content="{loc:Loc Rules.Filter.Ip}" />
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsRuleSetRulesSelected}"
+                    AutomationProperties.AutomationId="Rules.Filter.RuleSetButton"
+                    Command="{Binding ShowRuleSetRulesCommand}"
+                    Content="{loc:Loc Rules.Filter.RuleSet}" />
+            <Button Classes="list-chip"
+                    Classes.selected="{Binding IsOtherRulesSelected}"
+                    AutomationProperties.AutomationId="Rules.Filter.OtherButton"
+                    Command="{Binding ShowOtherRulesCommand}"
+                    Content="{loc:Loc Rules.Filter.Other}" />
+          </StackPanel>
+
+          <TextBox Grid.Column="1"
+                   Classes="list-search"
+                   AutomationProperties.AutomationId="Rules.SearchBox"
+                   PlaceholderText="{loc:Loc Rules.Search.Placeholder}"
+                   Text="{Binding SearchKeyword, Mode=TwoWay}"
+                   MinWidth="220" MaxWidth="360"
+                   HorizontalAlignment="Right">
+            <TextBox.InnerLeftContent>
+              <Border Padding="10,0,4,0">
+                <iconPacks:PackIconMingCuteIcons Width="14" Height="14"
+                                                   Kind="SearchLine"
+                                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
+              </Border>
+            </TextBox.InnerLeftContent>
+          </TextBox>
+
+          <Button Grid.Column="2"
+                  Classes="toolbar-icon"
+                  AutomationProperties.AutomationId="Rules.RefreshButton"
+                  Command="{Binding RefreshRulesCommand}"
+                  ToolTip.Tip="{loc:Loc Rules.Action.Refresh}">
+            <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="Refresh1Line" />
+          </Button>
+        </Grid>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Border Classes="list-empty"
+              AutomationProperties.AutomationId="Rules.EmptyText"
+              IsVisible="{Binding IsEmptyVisible}">
+        <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Panel HorizontalAlignment="Center">
+            <Border Classes="list-empty-halo" />
+            <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="PencilRulerLine" />
+          </Panel>
+          <StackPanel Spacing="7">
+            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-hint" Text="{loc:Loc Rules.Empty.Hint}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <ScrollViewer AutomationProperties.AutomationId="Rules.ListScroll"
+                    IsVisible="{Binding !IsEmptyVisible}"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl AutomationProperties.AutomationId="Rules.List"
+                      Margin="8,0,25,15"
+                      ItemsSource="{Binding FilteredRuleRows}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <controls:VirtualizingWrapPanel MinItemWidth="344" ItemHeight="94" ColumnSpacing="12" RowSpacing="12" EdgePadding="0" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:RuleRowViewModel">
+              <Border Classes="surface-card rule"
+                      AutomationProperties.AutomationId="{Binding RowAutomationId}"
+                      Tag="{Binding Payload}">
+                <Grid Margin="15,12,15,12" RowDefinitions="Auto,*,Auto" RowSpacing="5">
+
+                  <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Border Classes="list-pill" Tag="{Binding TypePillTag}">
+                      <TextBlock AutomationProperties.AutomationId="{Binding TypeAutomationId}"
+                                 Text="{Binding Type}" />
+                    </Border>
+                    <TextBlock Grid.Column="1"
+                               AutomationProperties.AutomationId="{Binding ProxyAutomationId}"
+                               Text="{Binding Proxy}"
+                               Foreground="{DynamicResource AppAccentBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="13"
+                               TextTrimming="CharacterEllipsis"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center" />
+                  </Grid>
+
+                  <TextBlock Grid.Row="1"
+                             AutomationProperties.AutomationId="{Binding PayloadAutomationId}"
+                             Text="{Binding Payload}"
+                             Foreground="{DynamicResource AppTextPrimaryBrush}"
+                             FontWeight="SemiBold"
+                             FontSize="13.5"
+                             TextTrimming="CharacterEllipsis"
+                             VerticalAlignment="Center" />
+
+                  <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <TextBlock AutomationProperties.AutomationId="{Binding SourceAutomationId}"
+                               Text="{Binding SourceText}"
+                               Foreground="{DynamicResource AppTextTertiaryBrush}"
+                               FontSize="11.5"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1"
+                               AutomationProperties.AutomationId="{Binding RuleCountAutomationId}"
+                               Text="{Binding RuleCountText}"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}"
+                               FontSize="11.5"
+                               VerticalAlignment="Center" />
+                  </Grid>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

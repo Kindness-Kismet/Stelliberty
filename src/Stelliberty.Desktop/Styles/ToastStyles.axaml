@@ -1,0 +1,57 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia">
+  <Style Selector="Border.toast">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Bottom" />
+    <Setter Property="Margin" Value="0,0,0,45" />
+    <Setter Property="Background" Value="{DynamicResource ToastSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ToastBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="14,10" />
+    <Setter Property="MaxWidth" Value="520" />
+    <Setter Property="BoxShadow" Value="{DynamicResource ToastShadow}" />
+  </Style>
+  <Style Selector="Border.toast:light">
+    <Setter Property="Background" Value="{DynamicResource ToastSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource ToastBorderBrush}" />
+  </Style>
+
+  <Style Selector="Grid.toast-content">
+    <Setter Property="ColumnSpacing" Value="10" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.toast-icon">
+    <Setter Property="Width" Value="20" />
+    <Setter Property="Height" Value="20" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.toast.info iconPacks|PackIconMingCuteIcons.toast-icon">
+    <Setter Property="Foreground" Value="{DynamicResource ToastInfoBrush}" />
+  </Style>
+  <Style Selector="Border.toast.success iconPacks|PackIconMingCuteIcons.toast-icon">
+    <Setter Property="Foreground" Value="{DynamicResource ToastSuccessBrush}" />
+  </Style>
+  <Style Selector="Border.toast.warning iconPacks|PackIconMingCuteIcons.toast-icon">
+    <Setter Property="Foreground" Value="{DynamicResource ToastWarningBrush}" />
+    <Setter Property="Width" Value="22" />
+    <Setter Property="Height" Value="22" />
+  </Style>
+  <Style Selector="Border.toast.error iconPacks|PackIconMingCuteIcons.toast-icon">
+    <Setter Property="Foreground" Value="{DynamicResource ToastErrorBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.toast-message">
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource ToastForegroundBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    <Setter Property="MaxLines" Value="3" />
+  </Style>
+  <Style Selector="Border.toast:light TextBlock.toast-message">
+    <Setter Property="Foreground" Value="{DynamicResource ToastForegroundBrush}" />
+  </Style>
+</Styles>

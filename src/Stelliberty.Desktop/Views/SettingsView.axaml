@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:settingsViews="clr-namespace:Stelliberty.Desktop.Views.Settings"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.SettingsView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel"
+             controls:InputDefocusBehavior.IsEnabled="True"
+             AutomationProperties.AutomationId="Settings.Root"
+             Background="Transparent">
+  <Border AutomationProperties.AutomationId="Settings.Page" Background="Transparent">
+    <!-- 页头固定，下方内容区滚动 -->
+    <Grid RowDefinitions="Auto,*" RowSpacing="22">
+
+      <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+        <Button Classes="settings-back"
+                AutomationProperties.AutomationId="Settings.BackButton"
+                IsVisible="{Binding Settings.IsBackVisible}"
+                Command="{Binding Settings.BackCommand}">
+          <iconPacks:PackIconMingCuteIcons Classes="settings-back-icon"
+                                            Kind="ArrowLeftLine" />
+        </Button>
+        <TextBlock Text="{Binding Settings.HeaderText}"
+                   FontSize="26"
+                   FontWeight="SemiBold"
+                   VerticalAlignment="Center"
+                   Foreground="{DynamicResource AppTextPrimaryBrush}" />
+      </StackPanel>
+
+      <!-- 承载全部设置子页面板 -->
+      <ScrollViewer Grid.Row="1"
+                    AutomationProperties.AutomationId="Settings.ScrollViewer"
+                    HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <Grid HorizontalAlignment="Stretch" Margin="8,0,25,12">
+          <StackPanel x:Name="SettingsContentPanel" HorizontalAlignment="Stretch">
+            <!-- 以下各面板靠 Settings.IsXxxVisible 互斥显隐，等价于设置内部路由 -->
+            <settingsViews:SettingsRootView />
+
+            <settingsViews:SettingsThemeView />
+
+            <settingsViews:SettingsLanguageView />
+
+            <settingsViews:SettingsClashFeaturesView />
+            <settingsViews:SettingsAppBehaviorView />
+            <settingsViews:SettingsDataManagementView />
+            <settingsViews:SettingsUpdateView />
+            <settingsViews:SettingsAboutView />
+            <settingsViews:SettingsAppLogView />
+            <settingsViews:SettingsNetworkView />
+            <settingsViews:SettingsPortControlView />
+            <settingsViews:SettingsSystemIntegrationView />
+            <settingsViews:SettingsDnsView />
+            <settingsViews:SettingsPerformanceView />
+            <settingsViews:SettingsCoreLogView />
+          </StackPanel>
+
+
+
+        </Grid>
+      </ScrollViewer>
+    </Grid>
+  </Border>
+</UserControl>

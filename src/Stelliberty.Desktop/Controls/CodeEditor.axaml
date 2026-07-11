@@ -1,0 +1,75 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ae="https://github.com/avaloniaui/avaloniaedit"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             x:Class="Stelliberty.Desktop.Controls.CodeEditor"
+             x:CompileBindings="True"
+             SyntaxKeyBrush="{DynamicResource CodeSyntaxKeyBrush}"
+             SyntaxMarkerBrush="{DynamicResource CodeSyntaxMarkerBrush}"
+             SyntaxFunctionBrush="{DynamicResource CodeSyntaxFunctionBrush}"
+             SyntaxBooleanBrush="{DynamicResource CodeSyntaxBooleanBrush}"
+             SyntaxNumberBrush="{DynamicResource CodeSyntaxNumberBrush}"
+             SyntaxStringBrush="{DynamicResource CodeSyntaxStringBrush}"
+             SyntaxCommentBrush="{DynamicResource CodeSyntaxCommentBrush}">
+
+  <!-- 代码编辑器 -->
+  <Grid RowDefinitions="Auto,*" RowSpacing="8">
+    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+      <TextBox x:Name="SearchBox"
+               Grid.Column="0"
+               Classes="dialog-input"
+               AutomationProperties.AutomationId="{Binding SearchAutomationId, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}}"
+               PlaceholderText="{loc:Loc CodeEditor.Search.Placeholder}"
+               Text="{Binding SearchText, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+        <TextBox.InnerRightContent>
+          <TextBlock x:Name="SearchStatusText"
+                     Margin="6,0,12,0"
+                     AutomationProperties.AutomationId="{Binding SearchStatusAutomationId, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}}"
+                     FontSize="11.5"
+                     Foreground="{DynamicResource AppTextTertiaryBrush}"
+                     VerticalAlignment="Center"
+                     Text="{Binding SearchStatus, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}}" />
+        </TextBox.InnerRightContent>
+      </TextBox>
+      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+        <Button Classes="code-editor-nav"
+                AutomationProperties.AutomationId="{Binding PreviousAutomationId, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}}"
+                Command="{Binding PreviousCommand, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}}">
+          <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ArrowUpLine"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+        </Button>
+        <Button Classes="code-editor-nav"
+                AutomationProperties.AutomationId="{Binding NextAutomationId, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}}"
+                Command="{Binding NextCommand, RelativeSource={RelativeSource AncestorType=controls:CodeEditor}}">
+          <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ArrowDownLine"
+                                           Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+        </Button>
+      </StackPanel>
+    </Grid>
+
+    <Border x:Name="RootBorder"
+            Grid.Row="1"
+            Background="{DynamicResource AppInputBrush}"
+            BorderBrush="{DynamicResource AppBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            ClipToBounds="True">
+      <Border.Transitions>
+        <Transitions>
+          <BrushTransition Property="Background" Duration="0:0:0.15" />
+          <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+        </Transitions>
+      </Border.Transitions>
+      <ae:TextEditor x:Name="Editor"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     Padding="5,0,5,0"
+                     FontSize="13"
+                     LetterSpacing="1.25"
+                     HorizontalScrollBarVisibility="Auto"
+                     VerticalScrollBarVisibility="Auto" />
+    </Border>
+  </Grid>
+</UserControl>

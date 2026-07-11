@@ -1,0 +1,233 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+        x:CompileBindings="True">
+  <!-- 窗口外壳: 内容宿主、标题栏、侧边导航; 页面级与通用样式已拆出 -->
+
+  <Styles.Resources>
+    <ControlTemplate x:Key="Shell.PackIconMingCuteIcons.Template"
+                     TargetType="iconPacks:PackIconMingCuteIcons">
+      <Border CornerRadius="{TemplateBinding CornerRadius}"
+              ClipToBounds="{TemplateBinding ClipToBounds}"
+              Padding="{TemplateBinding Padding}"
+              Background="{TemplateBinding Background}"
+              BorderBrush="{TemplateBinding BorderBrush}"
+              BorderThickness="{TemplateBinding BorderThickness}">
+        <Grid x:Name="PART_InnerGrid"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              RenderTransformOrigin="0.5,0.5">
+          <Viewbox Stretch="Uniform">
+            <Grid>
+              <Path Data="{TemplateBinding Data}"
+                    Stretch="Uniform"
+                    Fill="{TemplateBinding Foreground}"
+                    UseLayoutRounding="False" />
+              <iconPacks:PackIconLayerView Layers="{TemplateBinding Layers}"
+                                           Foreground="{TemplateBinding Foreground}" />
+            </Grid>
+          </Viewbox>
+        </Grid>
+      </Border>
+    </ControlTemplate>
+  </Styles.Resources>
+
+  <Style Selector="Border.content-host">
+    <Setter Property="Padding" Value="20,10,3,5" />
+  </Style>
+  <Style Selector="Border.content-host.settings">
+    <Setter Property="Padding" Value="20,5,3,5" />
+  </Style>
+  <Style Selector="Border.sidebar-shadow">
+    <Setter Property="BoxShadow" Value="{DynamicResource AppSidebarShadow}" />
+  </Style>
+  <!-- 初始隐藏；进出过渡由 MainWindow 代码错峰驱动，避免两页叠加闪烁。 -->
+  <Style Selector="ContentControl.page-host">
+    <Setter Property="Opacity" Value="0" />
+    <Setter Property="IsHitTestVisible" Value="False" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons">
+    <Setter Property="ClipToBounds" Value="True" />
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="FlowDirection" Value="LeftToRight" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template" Value="{StaticResource Shell.PackIconMingCuteIcons.Template}" />
+  </Style>
+
+  <Style Selector="Button.titlebar-button">
+    <Setter Property="Width" Value="46" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Foreground" Value="{DynamicResource TitleBarButtonForegroundBrush}" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}">
+          <ContentPresenter HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.titlebar-button:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+  </Style>
+  <Style Selector="Button.titlebar-button.close:pointerover">
+    <Setter Property="Background" Value="{DynamicResource TitleBarCloseButtonHoverBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppOnDangerBrush}" />
+  </Style>
+
+  <Style Selector="Border.debug-badge">
+    <Setter Property="Margin" Value="12,0,0,0" />
+    <Setter Property="Padding" Value="9,2" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="{DynamicResource DebugBadgeBackgroundBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource DebugBadgeBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+
+  <Style Selector="TextBlock.debug-badge-text">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="LetterSpacing" Value="0.8" />
+    <Setter Property="Foreground" Value="{DynamicResource DebugBadgeForegroundBrush}" />
+  </Style>
+
+  <Style Selector="Button.nav-item">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="8,8" />
+    <Setter Property="MinHeight" Value="52" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Left" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="NavRoot"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.nav-item:pointerover /template/ Border#NavRoot">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+  </Style>
+  <Style Selector="Button.nav-item.selected /template/ Border#NavRoot">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="BoxShadow" Value="{DynamicResource AppNavItemSelectedShadow}" />
+  </Style>
+  <Style Selector="Button.nav-item.selected:pointerover /template/ Border#NavRoot">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.nav-item.selected">
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <Style Selector="Border.nav-icon-pill">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-home">
+    <Setter Property="Kind" Value="Home3Line" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-proxy">
+    <Setter Property="Kind" Value="WifiLine" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-connections">
+    <Setter Property="Kind" Value="TransferHorizontalLine" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-log">
+    <Setter Property="Kind" Value="FileLine" />
+    <Setter Property="RenderTransform">
+      <TranslateTransform Y="0" />
+    </Setter>
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-rules">
+    <Setter Property="Kind" Value="PencilRulerLine" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-subscription">
+    <Setter Property="Kind" Value="ServerLine" />
+    <Setter Property="RenderTransform">
+      <TranslateTransform Y="0" />
+    </Setter>
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-overrides">
+    <Setter Property="Kind" Value="EditLine" />
+  </Style>
+
+  <Style Selector="iconPacks|PackIconMingCuteIcons.nav-icon-settings">
+    <Setter Property="Kind" Value="Settings3Line" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-home">
+    <Setter Property="Kind" Value="Home3Fill" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-proxy">
+    <Setter Property="Kind" Value="WifiFill" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-connections">
+    <Setter Property="Kind" Value="TransferHorizontalFill" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-log">
+    <Setter Property="Kind" Value="FileFill" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-rules">
+    <Setter Property="Kind" Value="PencilRulerFill" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-subscription">
+    <Setter Property="Kind" Value="ServerFill" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-overrides">
+    <Setter Property="Kind" Value="EditFill" />
+  </Style>
+
+  <Style Selector="Button.nav-item.selected iconPacks|PackIconMingCuteIcons.nav-icon-settings">
+    <Setter Property="Kind" Value="Settings3Fill" />
+  </Style>
+
+  <Style Selector="TextBlock.nav-label" x:DataType="vm:MainWindowViewModel">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="LetterSpacing" Value="{Binding NavLabelLetterSpacing}" />
+    <Setter Property="Margin" Value="25,0,0,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+</Styles>

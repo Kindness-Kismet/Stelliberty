@@ -1,0 +1,193 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsUpdateView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+  <Grid>
+<!-- 软件更新 -->
+<StackPanel Spacing="14" IsVisible="{Binding Settings.IsUpdateVisible}">
+  <TextBlock Classes="surface-group-title" Text="{loc:Loc Settings.Update.Section.Check}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Classes="settings-row-title"
+                     Text="{Binding Update.ManualText}"
+                     VerticalAlignment="Center" />
+          <Button Grid.Column="1"
+                  Classes="soft-action primary"
+                  AutomationProperties.AutomationId="Settings.CheckForUpdatesButton"
+                  Command="{Binding Update.CheckCommand}"
+                  IsEnabled="{Binding !Update.IsChecking}"
+                  VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding Update.IsChecking}" Kind="LoadingFill" />
+              <TextBlock Text="{loc:Loc Settings.Update.CheckNow}" VerticalAlignment="Center" />
+            </StackPanel>
+          </Button>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Classes="settings-row-title"
+                     Text="{Binding Update.AutoCheckText}"
+                     VerticalAlignment="Center" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.AutoCheckUpdateToggle"
+                        IsChecked="{Binding Update.IsAutoCheckEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Classes="settings-row-title"
+                     Text="{Binding Update.FixedIntervalText}"
+                     VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.UpdateIntervalComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding Update.CheckIntervalOptions}"
+                    SelectedItem="{Binding Update.SelectedCheckIntervalOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Classes="settings-row-title"
+                     Text="{Binding Update.ChannelText}"
+                     VerticalAlignment="Center" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.UpdateChannelComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding Update.ChannelOptions}"
+                    SelectedItem="{Binding Update.SelectedChannelOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{loc:Loc Settings.Update.Section.Version}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Classes="settings-row-title" Text="{loc:Loc Settings.Update.CurrentVersion}" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Classes="settings-row-subtitle" Text="{Binding Settings.AppVersionText}" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Classes="settings-row-title" Text="{loc:Loc Settings.Update.Metric.LastCheck}" VerticalAlignment="Center" />
+          <TextBlock Grid.Column="1" Classes="settings-row-subtitle" Text="{Binding Update.LastCheckText}" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <TextBlock Classes="settings-row-title"
+                     Text="{loc:Loc Settings.Update.IgnoreCurrent}"
+                     VerticalAlignment="Center" />
+          <Button Grid.Column="1"
+                  Classes="soft-action"
+                  AutomationProperties.AutomationId="Settings.IgnoreLatestUpdateVersionButton"
+                  Command="{Binding Update.IgnoreLatestVersionCommand}"
+                  IsEnabled="{Binding Update.CanIgnoreLatestVersion}"
+                  Content="{loc:Loc Settings.Update.Ignore}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+</StackPanel>
+
+<controls:OverlayDialogHost AutomationProperties.AutomationId="Settings.UpdateDialogOverlay"
+                            IsOpen="{Binding Update.IsUpdateDialogVisible}">
+  <controls:OverlayDialogHost.DialogContent>
+    <controls:DialogPanel PanelWidth="500"
+                          ContentPadding="0"
+                          AutomationProperties.AutomationId="Settings.UpdateDialog"
+                          IsOpen="{Binding Update.IsUpdateDialogVisible}">
+      <controls:DialogPanel.DialogContent>
+        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="18">
+          <!-- 标题栏：徽章 + 标题 + 副说明，右上角关闭 -->
+          <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" Margin="24,24,24,0">
+            <Border Classes="surface-card-badge" VerticalAlignment="Top">
+              <iconPacks:PackIconMingCuteIcons Width="20" Height="20" Kind="DownloadLine"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+            <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+              <TextBlock Classes="dialog-title"
+                         Text="{loc:Loc Settings.Update.Dialog.Title}" />
+              <TextBlock Classes="dialog-subtitle"
+                         Text="{loc:Loc Settings.Update.Dialog.Message}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="2"
+                    Classes="dialog-close"
+                    VerticalAlignment="Top"
+                    AutomationProperties.AutomationId="Settings.UpdateDialog.CloseButton"
+                    Command="{Binding Update.CloseUpdateDialogCommand}">
+              <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+            </Button>
+          </Grid>
+
+          <!-- 版本对比：旧版 → 新版，新版加 .accent 强调 -->
+          <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" ColumnSpacing="12" Margin="24,0,24,0">
+            <Border Classes="update-version-slot">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="uv-label" Text="{loc:Loc Settings.Update.CurrentVersion}" />
+                <TextBlock Classes="uv-value"
+                           AutomationProperties.AutomationId="Settings.UpdateDialog.CurrentVersionText"
+                           Text="{Binding Settings.AppVersionText}" />
+              </StackPanel>
+            </Border>
+            <iconPacks:PackIconMingCuteIcons Grid.Column="1" Width="18" Height="18" Kind="ArrowRightLine"
+                                             Foreground="{DynamicResource AppTextTertiaryBrush}"
+                                             VerticalAlignment="Center" />
+            <Border Grid.Column="2" Classes="update-version-slot accent">
+              <StackPanel Spacing="3">
+                <TextBlock Classes="uv-label" Text="{loc:Loc Settings.Update.LatestVersion}" />
+                <TextBlock Classes="uv-value"
+                           AutomationProperties.AutomationId="Settings.UpdateDialog.LatestVersionText"
+                           Text="{Binding Update.LatestVersionText}" />
+              </StackPanel>
+            </Border>
+          </Grid>
+
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8"
+                      HorizontalAlignment="Right" Margin="24,0,24,24">
+            <Button Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="Settings.UpdateDialog.LaterButton"
+                    Command="{Binding Update.CloseUpdateDialogCommand}"
+                    Content="{loc:Loc Common.Close}" />
+            <Button Classes="dialog-primary"
+                    AutomationProperties.AutomationId="Settings.UpdateDialog.OpenReleaseButton"
+                    IsVisible="{Binding Update.CanOpenLatestRelease}"
+                    Tag="{Binding Update.LatestReleaseUrl}"
+                    Click="OnOpenExternalLinkClicked"
+                    Content="{loc:Loc Settings.Update.OpenRelease}" />
+          </StackPanel>
+        </Grid>
+      </controls:DialogPanel.DialogContent>
+    </controls:DialogPanel>
+  </controls:OverlayDialogHost.DialogContent>
+</controls:OverlayDialogHost>
+  </Grid>
+</UserControl>

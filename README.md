@@ -1,0 +1,383 @@
+<div align="center">
+
+# Stelliberty Remake
+
+[![English](https://img.shields.io/badge/English-red?style=flat-square)](README.md)
+&nbsp;
+[![简体中文](https://img.shields.io/badge/简体中文-blue?style=flat-square)](.github/docs/README.zh-CN.md)
+
+<br>
+
+[![Avalonia](https://img.shields.io/badge/Avalonia-UI-9b4fdb?logo=avaloniaui&logoColor=white&style=flat-square)](https://avaloniaui.net)
+[![.NET 11](https://img.shields.io/badge/.NET-11-512BD4?logo=dotnet&logoColor=white&style=flat-square)](https://dotnet.microsoft.com)
+[![Windows](https://img.shields.io/badge/Windows-0078D6?logo=windows&logoColor=white&style=flat-square)](#)
+[![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black&style=flat-square)](#)
+[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white&style=flat-square)](#)
+
+</div>
+
+<br>
+
+| Home · Light | Home · Dark |
+|---|---|
+| ![Home light](.github/images/home-light.png) | ![Home dark](.github/images/home-dark.png) |
+
+| Settings · Light | Settings · Dark |
+|---|---|
+| ![Settings light](.github/images/settings-light.png) | ![Settings dark](.github/images/settings-dark.png) |
+
+Stelliberty is a cross-platform desktop proxy client for Windows, Linux, and macOS.
+
+Import Clash-standard and Base64 subscriptions. It starts quickly and uses little resources. On Windows and macOS, platform-level frosted window effects are available, with a simple native look.
+
+It also ships with a large set of simulation and prewritten test flows that walk through real user actions, so ongoing maintenance stays easier.
+
+<br>
+
+---
+
+## Navigation
+
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [FAQ](#-faq)
+- [Development Guide](#-development-guide)
+  - [Architecture](#architecture)
+  - [C# Conventions](#c-conventions)
+  - [Rust Conventions](#rust-conventions)
+  - [Avalonia / MVVM](#avalonia--mvvm)
+  - [Control Test IDs](#control-test-ids)
+  - [Build & Test](#build--test)
+- [PR Guidelines](#-pr-guidelines)
+- [Acknowledgements](#-acknowledgements)
+- [License](#-license)
+- [Friends](#-friends)
+
+<br>
+
+---
+
+## 📦 Installation
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+### Download
+
+Grab the package for your platform from the **[Releases page](https://github.com/Kindness-Kismet/stelliberty/releases/latest)**:
+
+| Platform | Recommended | Alternative |
+|---|---|---|
+| Windows · x64 / arm64 | `*-setup.exe` (installer) | `*.zip` (portable) |
+| Linux · x64 / arm64 | `*.AppImage` | `*.deb` · `*.rpm` · `*.pkg.tar.zst` |
+| macOS · arm64 | `*.dmg` | `*.pkg` |
+
+### System Requirements
+
+| Platform | Minimum |
+|---|---|
+| Windows | 10 (1809+) or 11 · x64 / arm64 |
+| Linux | glibc desktop with fontconfig + X11 |
+| macOS | 22+ · Apple Silicon |
+
+<br>
+
+---
+
+## 🚀 Quick Start
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+1. Launch the app and import your subscription or config file.
+2. Select nodes on the Nodes page; set an outbound mode on the Home page (Rule / Global / Direct).
+3. Enable system proxy or virtual network mode for full-device traffic coverage.
+
+Config format is fully compatible with Clash Meta — see the [mihomo documentation](https://wiki.metacubex.one/en/config/) for details.
+
+<br>
+
+---
+
+## ❓ FAQ
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+### Installing .NET 11 Runtime
+
+Before running Stelliberty, make sure the [.NET 11 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/11.0) is installed.
+
+### UWP Loopback & Administrator Privileges
+
+UWP apps on Windows (e.g. Microsoft Store apps) are blocked from accessing the local proxy loopback address by default. Stelliberty provides a **UWP loopback exemption** toggle to remove this restriction.
+
+Notes:
+
+- Administrator privileges are usually not required; the system only prompts for elevation when permission is insufficient.
+- Virtual network mode is unaffected — it takes over traffic at the adapter level and never goes through loopback.
+- If you use system proxy mode and want UWP apps (such as Microsoft Store apps) to go through the proxy, turn this option on.
+
+### Do system proxy / virtual network require admin?
+
+- **System proxy**: No administrator privileges required.
+- **Virtual network**: Creating a virtual network adapter requires administrator privileges. Install service mode on first use to avoid repeated UAC prompts.
+- **UWP loopback exemption** (Windows): usually no administrator privileges required; elevate only if permission is insufficient.
+
+<br>
+
+---
+
+## 🛠 Development Guide
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+### Prerequisites
+
+| Tool | Version | Get it |
+|---|---|---|
+| .NET SDK | `11.0.x` | https://dotnet.microsoft.com/download/dotnet/11.0 |
+| Rust | stable (rustup) | https://rustup.rs |
+| Python | `3.x` | https://www.python.org/downloads/ |
+
+### Architecture
+
+Modular monolith + Clean Architecture + MVVM.
+
+```
+src/Stelliberty.Desktop         Avalonia host, windows, platform services
+src/Stelliberty.Presentation    ViewModels, UI state, command bindings
+src/Stelliberty.Application     Use cases, service & capability interfaces
+src/Stelliberty.Domain          Entities, value objects, domain rules
+src/Stelliberty.Infrastructure  File system, persistence, external services
+src/Stelliberty.Native          C# wrappers over the native FFI layer
+native/hub                      Native library: config override, parsing, capabilities
+native/service                  Service mode
+scripts/                        build.py · prebuild.py · test.py
+```
+
+Dependency direction: `Desktop → Presentation → Application → Domain`
+
+`Infrastructure` and `Native` implement interfaces defined by `Application`; `Application` has no dependency on desktop, Avalonia, or FFI details.
+
+Prohibited:
+
+- Views accessing databases, file system, or Rust FFI directly
+- ViewModels holding platform APIs, file paths, or window lifecycle details
+- Domain depending on Avalonia, databases, networking, logging, or config files
+- Rust crates being aware of C#, Avalonia, or window lifecycle
+
+### C# Conventions
+
+**Naming**
+
+- Types, enums, interfaces, properties, methods: `PascalCase`
+- Local variables, parameters, private instance fields: `camelCase`; private readonly instance fields: `_camelCase`
+- Interfaces use `I` prefix only when expressing an abstract capability
+- Async methods end with `Async`; cancellable operations take `CancellationToken`
+- Booleans use affirmative semantics: `IsEnabled`, `CanSave`, `HasSelection`
+
+**Practices**
+
+- Use `var` when the type is obvious from the right side; explicit types otherwise
+- Use result objects for complex state (`SaveResult`, `ParseResult`), not bare `bool`
+- Guard clauses at system boundaries; no excessive defensiveness for impossible internal states
+- Never use `.Result` or `.Wait()` to block async tasks
+- Comments state intent, constraints, and pitfalls; concise, max 2 lines per block
+
+### Rust Conventions
+
+**Naming**
+
+- crate, module, function, variable: `snake_case`
+- type, trait, enum, struct: `PascalCase`
+- const, static: `SCREAMING_SNAKE_CASE`
+
+**Practices**
+
+- Immutable by default, prefer borrowing
+- Use `Result<T, E>` and `?` for error propagation; no `unwrap()` for recoverable errors
+- `unsafe` is prohibited by default; when necessary, minimize scope and comment the safety precondition
+- No `mod.rs` — use Rust 2018+ same-name file style
+- FFI function naming: `hub_<capability>_<action>`
+
+**Capability module structure**
+
+```
+native/hub/src/
+├── lib.rs              // module declarations only
+├── ffi.rs              // root FFI aggregation
+├── capabilities/       // one file per capability
+├── infra/              // HTTP client, runtime, etc.
+└── util/               // pure utility functions
+```
+
+### Avalonia / MVVM
+
+- Views handle display and binding only — no business logic
+- ViewModels expose immutable or observable state; never manipulate control instances directly
+- UI thread handles UI updates only; heavy work goes to background threads
+- Platform capabilities (windows, tray, permissions) are implemented in the host layer and exposed via `Application` interfaces
+
+### Control Test IDs
+
+All interactive controls must have `AutomationProperties.AutomationId` set.
+
+- Format: `PageOrArea.SemanticName`, e.g. `Main.SaveButton`, `Library.SearchBox`
+- IDs are stable — they don't change with display text, language, or layout
+- No duplicates within the same View
+- No random numbers, indices, or visual-position naming
+
+### Build & Test
+
+Development workflow: **prebuild → test → build**.
+
+#### 1. Prebuild
+
+Downloads the core binary, GeoIP data, and fonts; builds the service-mode binary.
+
+```bash
+python scripts/prebuild.py
+```
+
+| Flag | Effect |
+|---|---|
+| *(default)* | Release service binary |
+| `--dev` | Debug service binary |
+| `--all` | Both Debug and Release |
+| `--platform <rid>` | `current` · `win-x64` · `win-arm64` · `linux-x64` · `linux-arm64` · `macos-x64` · `macos-arm64` |
+| `--clean` | Clean `build/` and `bin/obj/` before fetching |
+
+#### 2. Test
+
+```bash
+python scripts/test.py --all
+```
+
+| Flag | Effect |
+|---|---|
+| `<name>` | Run a specific test by name |
+| `--all` | Run every pre-build test |
+| `--rust` | Run only Rust scenario integration tests |
+| `--csharp` | Run only C# business tests |
+
+**Rust scenario tests:**
+
+| Name | Description |
+|---|---|
+| `empty-start` | Hub IPC starts the core with an empty config |
+| `hub-ipc-contract` | IPC contract: methods, fields, error codes, lifecycle |
+| `yaml-override` | YAML override output verification |
+| `js-override` | JS override output verification |
+| `combo` | Combined YAML + JS override chain |
+| `config-switch` | `apply_config` switches config while core is running |
+
+**C# business tests:**
+
+| Name | Description |
+|---|---|
+| `proxy-selection` | Default nodes, fixed groups, persistence, sync, outbound mode |
+| `proxy-page` | Groups, node switching, search, sorting, delay tests |
+| `home-state` | System proxy, virtual network, outbound mode, runtime refresh, service mode |
+| `shell-navigation` | Page visibility, settings navigation, localization refresh |
+| `runtime-config` | Ports, DNS overrides, virtual network, LAN, external controller, transforms |
+| `core-ipc-contract` | C# wrapper methods, parameters, response parsing, error codes |
+| `chain-proxy` | Detection, disabling, custom chain generation, naming conflicts |
+| `monitoring-pages` | Connection/log/rule parsing, pause, filtering, closing, refresh |
+| `subscription-page` | Add, edit, override selection, chain proxy, update, scheduling |
+| `override-page` | Validation, import, save, reference cleanup, ordering, metadata |
+| `settings-page` | Core config, permissions, data management, language, theme |
+| `webdav` | Connection validation, folder creation, upload, list, download, delete |
+
+#### 3. Build
+
+```bash
+python scripts/build.py
+```
+
+| Flag | Effect |
+|---|---|
+| *(default)* | Release build |
+| `--dev` | Debug build |
+| `--all` | Both Debug and Release |
+| `--platform <rid>` | Same as prebuild, plus `desktop` (win-x64 + linux-x64 + macos-arm64) |
+| `--pack <format>` | `zip` · `installer` · `all` |
+| `--clean` | Clean target output directory before building |
+
+**Full release build:**
+
+```bash
+python scripts/prebuild.py
+python scripts/build.py --pack all
+```
+
+#### Formatting
+
+```bash
+dotnet format
+cargo fmt
+```
+
+<br>
+
+---
+
+## 📋 PR Guidelines
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+Before submitting a Pull Request, confirm the following:
+
+### Requirements
+
+| Check | Description |
+|---|---|
+| Debug commands | New or modified business logic must be wrapped as debug commands under `src/Stelliberty.Desktop/Debug` |
+| Control IDs | New interactive controls must have `AutomationProperties.AutomationId` set |
+| Pre-merge tests | Must include pre-tests or simulation tests to ensure independent verification before merge |
+| Formatting | C#: `dotnet format`, Rust: `cargo fmt` |
+
+### Debug Command Requirements
+
+Debug commands are wrapped under `src/Stelliberty.Desktop/Debug` and invoked through the debug control port. When business logic changes, add or update the corresponding `Debug/Commands/*.cs` implementation.
+
+### Control ID Requirements
+
+When adding clickable, input-capable, selectable, or state-assertable controls:
+
+```xml
+<Button AutomationProperties.AutomationId="Settings.SaveButton" />
+<TextBox AutomationProperties.AutomationId="Subscription.UrlInput" />
+```
+
+Naming rule: `PageOrArea.SemanticName` — stable, unique, independent of visual layout.
+
+<br>
+
+---
+
+## 💖 Acknowledgements
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+Stelliberty is built with help from open-source projects such as Avalonia and mihomo.
+
+For complete third-party license and copyright information, see [License](#-license).
+
+<br>
+
+---
+
+## 📄 License
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+Third-party open-source projects used by Stelliberty retain their original licenses and copyright notices.
+
+<br>
+
+---
+
+## 🤝 Friends
+
+<sub>[↑ Back to Navigation](#navigation)</sub>
+
+- [Telegram Updates](https://t.me/MaterialDesign3) — Project updates and release notices.
+- [LINUX DO](https://linux.do/) — A friendly community for technology enthusiasts.

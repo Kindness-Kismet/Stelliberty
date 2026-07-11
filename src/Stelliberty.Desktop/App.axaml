@@ -1,0 +1,34 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:chrome="clr-namespace:Avalonia.Controls.Chrome;assembly=Avalonia.Controls"
+             xmlns:semi="https://irihi.tech/semi"
+             x:Class="Stelliberty.Desktop.App">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ControlTheme x:Key="{x:Type chrome:WindowDrawnDecorations}"
+                    TargetType="chrome:WindowDrawnDecorations">
+        <Setter Property="DefaultTitleBarHeight" Value="36" />
+        <Setter Property="DefaultFrameThickness" Value="1" />
+        <Setter Property="DefaultShadowThickness" Value="12" />
+        <Setter Property="Template">
+          <WindowDrawnDecorationsTemplate>
+            <chrome:WindowDrawnDecorationsContent>
+              <chrome:WindowDrawnDecorationsContent.Overlay>
+                <DockPanel Height="{TemplateBinding TitleBarHeight}"
+                           VerticalAlignment="Top"
+                           Margin="{TemplateBinding ShadowThickness}" />
+              </chrome:WindowDrawnDecorationsContent.Overlay>
+            </chrome:WindowDrawnDecorationsContent>
+          </WindowDrawnDecorationsTemplate>
+        </Setter>
+      </ControlTheme>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <semi:SemiTheme Locale="zh-CN" />
+    <semi:DataGridSemiTheme />
+    <semi:ColorPickerSemiTheme />
+    <semi:AvaloniaEditSemiTheme />
+  </Application.Styles>
+</Application>

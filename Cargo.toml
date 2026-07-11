@@ -1,0 +1,29 @@
+[workspace]
+members = [
+    "native/hub",
+    "native/service",
+    "native/features_test",
+    "native/xtask",
+]
+resolver = "3"
+
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+indexing_slicing = "deny"
+
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"
+strip = "symbols"
+lto = true
+codegen-units = 1
+opt-level = "z"

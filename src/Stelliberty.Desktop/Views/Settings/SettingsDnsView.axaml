@@ -1,0 +1,259 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsDnsView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+<!-- DNS -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsDnsVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding Settings.HeaderText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsOverrideText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DnsOverrideToggle"
+                        IsChecked="{Binding CoreConfig.IsDnsOverrideEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsEnableText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DnsEnableToggle"
+                        IsChecked="{Binding CoreConfig.IsDnsEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,200">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsListenText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.DnsListenBox"
+                   Text="{Binding CoreConfig.DnsListen, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsModeText}" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.DnsEnhancedModeComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding CoreConfig.DnsEnhancedModeOptions}"
+                    SelectedItem="{Binding CoreConfig.SelectedDnsEnhancedModeOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,200">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsFakeIpText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.FakeIpRangeBox"
+                   Text="{Binding CoreConfig.FakeIpRange, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsRespectRulesText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DnsRespectRulesToggle"
+                        IsChecked="{Binding CoreConfig.IsDnsRespectRulesEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsNameserverText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.NameServersBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.NameServersText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsFallbackText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.FallbackNameServersBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.FallbackNameServersText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsProxyServerNameserverText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.ProxyServerNameServersBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.ProxyServerNameServersText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsDefaultNameserverText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.DefaultNameServersBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.DefaultNameServersText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsFakeIpFilterText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.FakeIpFiltersBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.FakeIpFiltersText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,200">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsFallbackFilterGeoIpCodeText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.FallbackFilterGeoIpCodeBox"
+                   Text="{Binding CoreConfig.FallbackFilterGeoIpCode, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsHostsText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.HostsBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.HostsText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsIpv6Text}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DnsIpv6Toggle"
+                        IsChecked="{Binding CoreConfig.IsDnsIpv6Enabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsUseHostsText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DnsUseHostsToggle"
+                        IsChecked="{Binding CoreConfig.IsDnsUseHostsEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsUseSystemHostsText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DnsUseSystemHostsToggle"
+                        IsChecked="{Binding CoreConfig.IsDnsUseSystemHostsEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsDirectNameserverText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.DirectNameServersBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.DirectNameServersText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsNameServerPolicyText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.NameServerPolicyBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.NameServerPolicyText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsPreferH3Text}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DnsPreferH3Toggle"
+                        IsChecked="{Binding CoreConfig.IsDnsPreferH3Enabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsFakeIpFilterModeText}" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.FakeIpFilterModeComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding CoreConfig.FakeIpFilterModeOptions}"
+                    SelectedItem="{Binding CoreConfig.SelectedFakeIpFilterModeOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsDirectNameServerFollowPolicyText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.DirectNameServerFollowPolicyToggle"
+                        IsChecked="{Binding CoreConfig.IsDirectNameServerFollowPolicyEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.DnsFallbackFilterGeoIpText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.FallbackFilterGeoIpToggle"
+                        IsChecked="{Binding CoreConfig.IsFallbackFilterGeoIpEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsFallbackFilterIpCidrText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.FallbackFilterIpCidrsBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.FallbackFilterIpCidrsText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.DnsFallbackFilterDomainText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.FallbackFilterDomainsBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.FallbackFilterDomainsText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </Border>
+</StackPanel>
+</UserControl>

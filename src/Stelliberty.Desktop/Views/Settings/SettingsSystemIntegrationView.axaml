@@ -1,0 +1,311 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsSystemIntegrationView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+  <Grid>
+<!-- 系统集成 -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsSystemIntegrationVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding SystemIntegration.SystemProxyConfigText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,220">
+          <TextBlock Grid.Column="0" Classes="settings-row-title"
+                     Text="{Binding SystemIntegration.SystemProxyHostText}" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.ProxyHostComboBox"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    ItemsSource="{Binding SystemIntegration.SystemProxyHostCandidates}"
+                    SelectedItem="{Binding SystemIntegration.ProxyHost, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding SystemIntegration.SystemPacModeText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.PacModeToggle"
+                        IsChecked="{Binding SystemIntegration.IsPacModeEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" IsVisible="{Binding SystemIntegration.IsSystemProxyBypassVisible}" />
+      <Border Classes="settings-inline-row" IsVisible="{Binding SystemIntegration.IsSystemProxyBypassVisible}">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <StackPanel Grid.Column="0" Spacing="3">
+              <TextBlock Classes="settings-row-title" Text="{Binding SystemIntegration.SystemBypassText}" />
+              <TextBlock Classes="settings-row-subtitle"
+                         Text="{Binding SystemIntegration.SystemBypassDescriptionText}"
+                         TextWrapping="Wrap" />
+            </StackPanel>
+            <Button Grid.Column="1"
+                    Classes="settings-reset"
+                    VerticalAlignment="Top"
+                    AutomationProperties.AutomationId="Settings.RestoreDefaultSystemProxyBypassButton"
+                    Command="{Binding SystemIntegration.RestoreDefaultSystemProxyBypassCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Refresh2Line" />
+                <TextBlock Text="{Binding SystemIntegration.RestoreDefaultBypassText}" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.SystemProxyBypassBox"
+                   AcceptsReturn="True"
+                   MinLines="3"
+                   Text="{Binding SystemIntegration.SystemProxyBypass, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" IsVisible="{Binding SystemIntegration.IsPacScriptVisible}" />
+      <Border Classes="settings-inline-row" IsVisible="{Binding SystemIntegration.IsPacScriptVisible}">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <TextBlock Grid.Column="0"
+                       Classes="settings-row-title"
+                       Text="{Binding SystemIntegration.SystemPacScriptText}" />
+            <Button Grid.Column="1"
+                    Classes="settings-reset"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="Settings.RestoreDefaultPacScriptButton"
+                    Command="{Binding SystemIntegration.RestoreDefaultPacScriptCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="7">
+                <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Refresh2Line" />
+                <TextBlock Text="{Binding SystemIntegration.RestoreDefaultPacScriptText}" />
+              </StackPanel>
+            </Button>
+          </Grid>
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.PacScriptBox"
+                   AcceptsReturn="True"
+                   MinLines="3"
+                   TextWrapping="NoWrap"
+                   Text="{Binding SystemIntegration.PacScript, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{Binding CoreConfig.SystemTunText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,180">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunStackText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.TunStackBox"
+                   Text="{Binding CoreConfig.TunStack, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,180">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunDeviceText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.TunDeviceBox"
+                   Text="{Binding CoreConfig.TunDevice, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunAutoRouteText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.TunAutoRouteToggle"
+                        IsChecked="{Binding CoreConfig.IsTunAutoRouteEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunAutoRedirectText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.TunAutoRedirectToggle"
+                        IsChecked="{Binding CoreConfig.IsTunAutoRedirectEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunAutoDetectInterfaceText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.TunAutoDetectInterfaceToggle"
+                        IsChecked="{Binding CoreConfig.IsTunAutoDetectInterfaceEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunStrictRouteText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.TunStrictRouteToggle"
+                        IsChecked="{Binding CoreConfig.IsTunStrictRouteEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunDnsHijackText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.TunDnsHijackBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.TunDnsHijackText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <StackPanel Spacing="8">
+          <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunRouteExcludeText}" />
+          <TextBox Classes="settings-input multiline"
+                   AutomationProperties.AutomationId="Settings.TunRouteExcludeAddressesBox"
+                   AcceptsReturn="True"
+                   Text="{Binding CoreConfig.TunRouteExcludeAddressesText, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunDisableIcmpForwardingText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.TunDisableIcmpForwardingToggle"
+                        IsChecked="{Binding CoreConfig.IsTunIcmpForwardingDisabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,160">
+          <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+            <TextBlock Classes="settings-row-title" Text="{Binding CoreConfig.SystemTunMtuText}" />
+            <TextBlock Classes="settings-row-subtitle" Text="{Binding CoreConfig.SystemTunMtuDescriptionText}" />
+          </StackPanel>
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.TunMtuBox"
+                   Text="{Binding CoreConfig.TunMtuText, Mode=TwoWay, Delay=500}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{Binding SystemIntegration.SystemUwpText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Button Classes="settings-row only"
+              AutomationProperties.AutomationId="Settings.UwpLoopbackButton"
+              Command="{Binding SystemIntegration.ShowUwpLoopbackDialogCommand}">
+        <Grid>
+          <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+            <TextBlock Classes="settings-row-title" Text="{Binding SystemIntegration.SystemUwpText}" />
+          </StackPanel>
+        </Grid>
+      </Button>
+    </StackPanel>
+  </Border>
+</StackPanel>
+
+<controls:OverlayDialogHost AutomationProperties.AutomationId="Settings.UwpLoopbackDialogOverlay"
+                            AnimateScale="False"
+                            IsOpen="{Binding SystemIntegration.IsUwpLoopbackDialogVisible}">
+  <controls:OverlayDialogHost.DialogContent>
+    <controls:DialogPanel PanelWidth="600"
+                          ContentPadding="0,0,2,0"
+                          AutomationProperties.AutomationId="Settings.UwpLoopbackDialog"
+                          IsOpen="{Binding SystemIntegration.IsUwpLoopbackDialogVisible}">
+      <controls:DialogPanel.DialogContent>
+        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="16">
+          <StackPanel Grid.Row="0" Spacing="12" Margin="24,24,24,0">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+              <TextBlock Classes="dialog-title" VerticalAlignment="Center"
+                         Text="{Binding SystemIntegration.SystemUwpText}" />
+              <Button Grid.Column="1" Classes="dialog-close"
+                      AutomationProperties.AutomationId="Settings.UwpLoopbackDialog.HeaderCloseButton"
+                      Command="{Binding SystemIntegration.CloseUwpLoopbackDialogCommand}">
+                <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+              </Button>
+            </Grid>
+            <TextBox Classes="dialog-input"
+                     AutomationProperties.AutomationId="Settings.UwpLoopbackSearchBox"
+                     PlaceholderText="{Binding SystemIntegration.UwpSearchWatermarkText}"
+                     Text="{Binding SystemIntegration.UwpSearchText, Mode=TwoWay}" />
+            <TextBlock AutomationProperties.AutomationId="Settings.UwpLoopbackStatusText"
+                       Classes="settings-row-subtitle"
+                       IsVisible="{Binding SystemIntegration.IsUwpLoopbackStatusVisible}"
+                       Text="{Binding SystemIntegration.UwpLoopbackStatusText}"
+                       TextWrapping="Wrap" />
+          </StackPanel>
+          <ScrollViewer Grid.Row="1"
+                        AutomationProperties.AutomationId="Settings.UwpLoopbackPackageScroll"
+                        Height="360"
+                        VerticalScrollBarVisibility="Auto">
+            <ItemsControl AutomationProperties.AutomationId="Settings.UwpLoopbackPackageList"
+                          Margin="24,0,22,0"
+                          ItemsSource="{Binding SystemIntegration.UwpLoopbackItems}">
+              <!-- 入场动画期间只渲染可见卡片，避免首帧阻塞。 -->
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <VirtualizingStackPanel />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:UwpLoopbackItemViewModel">
+                  <Border Classes="surface-panel list" Margin="0,0,0,4">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                      <Border Classes="surface-card-badge">
+                        <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="Package2Line"
+                                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="settings-row-subtitle"
+                                   IsVisible="{Binding ShowPackageFamilyName}"
+                                   Text="{Binding PackageFamilyName}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="settings-row-subtitle"
+                                   IsVisible="{Binding ShowAppContainerName}"
+                                   Text="{Binding AppContainerName}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Classes="settings-row-subtitle"
+                                   IsVisible="{Binding HasSid}"
+                                   Text="{Binding Sid}" TextTrimming="CharacterEllipsis" />
+                      </StackPanel>
+                      <ToggleSwitch Grid.Column="2"
+                                    AutomationProperties.AutomationId="{Binding PackageFamilyName}"
+                                    IsChecked="{Binding IsSelected, Mode=TwoWay}"
+                                    VerticalAlignment="Center" />
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+          <Grid Grid.Row="2" Margin="24,0,24,24" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="8">
+            <Button Grid.Column="0"
+                    Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="Settings.UwpLoopbackDialog.SelectAllButton"
+                    Command="{Binding SystemIntegration.SelectAllUwpCommand}"
+                    Content="{Binding SystemIntegration.UwpSelectAllText}" />
+            <Button Grid.Column="1"
+                    Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="Settings.UwpLoopbackDialog.InvertButton"
+                    Command="{Binding SystemIntegration.InvertUwpSelectionCommand}"
+                    Content="{Binding SystemIntegration.UwpInvertText}" />
+            <Button Grid.Column="3"
+                    Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="Settings.UwpLoopbackDialog.CancelButton"
+                    Command="{Binding SystemIntegration.CloseUwpLoopbackDialogCommand}"
+                    Content="{Binding SystemIntegration.UwpCancelText}" />
+            <Button Grid.Column="4"
+                    Classes="dialog-primary"
+                    AutomationProperties.AutomationId="Settings.UwpLoopbackDialog.SaveButton"
+                    Command="{Binding SystemIntegration.SaveUwpLoopbackCommand}"
+                    Content="{Binding SystemIntegration.UwpSaveText}" />
+          </Grid>
+        </Grid>
+      </controls:DialogPanel.DialogContent>
+    </controls:DialogPanel>
+  </controls:OverlayDialogHost.DialogContent>
+</controls:OverlayDialogHost>
+  </Grid>
+</UserControl>

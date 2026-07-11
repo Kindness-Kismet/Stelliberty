@@ -1,0 +1,362 @@
+name: Stable Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Stable release version, such as x.x.x
+        required: true
+        type: string
+  push:
+    branches:
+      - stable
+    paths:
+      - Directory.Build.props
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+  PYTHONUTF8: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  detect-version-change:
+    name: Detect version change
+    runs-on: ubuntu-22.04
+    outputs:
+      should_build: ${{ steps.detect.outputs.should_build }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 2
+
+      - name: Detect AppVersion change
+        id: detect
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo 'should_build=true' >> "$GITHUB_OUTPUT"
+            echo 'Manual trigger: build enabled.'
+          elif git diff --unified=0 "${{ github.event.before }}" "${{ github.sha }}" -- Directory.Build.props | grep -Eq '^[+-].*<AppVersion>'; then
+            echo 'should_build=true' >> "$GITHUB_OUTPUT"
+            echo 'AppVersion changed: build enabled.'
+          else
+            echo 'should_build=false' >> "$GITHUB_OUTPUT"
+            echo 'AppVersion did not change: build skipped.'
+          fi
+
+  prepare:
+    name: Prepare release metadata
+    needs: detect-version-change
+    if: needs.detect-version-change.outputs.should_build == 'true'
+    runs-on: ubuntu-22.04
+    outputs:
+      app_name: ${{ steps.meta.outputs.app_name }}
+      app_display_name: ${{ steps.meta.outputs.app_display_name }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      release_notes: ${{ steps.notes.outputs.release_notes }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Read app metadata
+        id: names
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_name="$(sed -n 's:.*<AppName>\(.*\)</AppName>.*:\1:p' Directory.Build.props)"
+          app_display_name="$(sed -n 's:.*<AppDisplayName>\(.*\)</AppDisplayName>.*:\1:p' Directory.Build.props)"
+          test -n "${app_name}"
+          printf 'app_name=%s\n' "${app_name}" >> "$GITHUB_OUTPUT"
+          printf 'app_display_name=%s\n' "${app_display_name:-$app_name}" >> "$GITHUB_OUTPUT"
+
+      - name: Read stable version
+        id: ver
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            version="${{ inputs.version }}"
+          else
+            version="$(sed -n 's:.*<AppVersion>\(.*\)</AppVersion>.*:\1:p' Directory.Build.props)"
+          fi
+          if [[ ! "${version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version must use major.minor.patch, such as x.x.x."
+            exit 1
+          fi
+          printf 'version=%s\ntag=v%s\n' "${version}" "${version}" >> "$GITHUB_OUTPUT"
+          echo "Stable version: ${version}"
+
+      - name: Export release metadata
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo "app_name=${{ steps.names.outputs.app_name }}"
+            echo "app_display_name=${{ steps.names.outputs.app_display_name }}"
+            echo "version=${{ steps.ver.outputs.version }}"
+            echo "tag=${{ steps.ver.outputs.tag }}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Release Metadata"
+            echo ""
+            echo "- App: `${{ steps.names.outputs.app_display_name }}`"
+            echo "- Channel: `stable`"
+            echo "- Version: `${{ steps.ver.outputs.version }}`"
+            echo "- Tag: `${{ steps.ver.outputs.tag }}`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Read changelog
+        id: notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          changelog_file=".github/CHANGELOG.md"
+          if [ ! -f "${changelog_file}" ]; then
+            echo "::error::Missing changelog file: ${changelog_file}"
+            exit 1
+          fi
+
+          cp "${changelog_file}" release_notes.md
+          echo "========== Release Notes =========="
+          cat release_notes.md
+
+          release_notes="$(base64 -w 0 release_notes.md)"
+          echo "release_notes=${release_notes}" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build / ${{ matrix.label }}
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows x64
+            runner: windows-2025-vs2026
+            platform: win-x64
+            rust_target: x86_64-pc-windows-msvc
+            os_family: windows
+          - label: Windows arm64
+            runner: windows-11-vs2026-arm
+            platform: win-arm64
+            rust_target: aarch64-pc-windows-msvc
+            os_family: windows
+          - label: Linux x64
+            runner: ubuntu-22.04
+            platform: linux-x64
+            rust_target: x86_64-unknown-linux-gnu
+            os_family: linux
+          - label: Linux arm64
+            runner: ubuntu-22.04-arm
+            platform: linux-arm64
+            rust_target: aarch64-unknown-linux-gnu
+            os_family: linux
+          - label: macOS arm64
+            runner: macos-26
+            platform: macos-arm64
+            rust_target: aarch64-apple-darwin
+            os_family: macos
+          - label: macOS x64
+            runner: macos-26-intel
+            platform: macos-x64
+            rust_target: x86_64-apple-darwin
+            os_family: macos
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-${{ matrix.platform }}-
+            nuget-${{ runner.os }}-
+
+      - name: Cache Cargo packages
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-release-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-release-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-
+            cargo-release-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install Linux packaging dependencies
+        if: matrix.os_family == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            desktop-file-utils \
+            libfontconfig1 \
+            libice6 \
+            libsm6 \
+            libx11-6 \
+            rpm \
+            unzip \
+            zip \
+            zstd
+
+          case "${{ matrix.platform }}" in
+            linux-x64) appimage_arch="x86_64" ;;
+            linux-arm64) appimage_arch="aarch64" ;;
+            *) echo "Unsupported AppImage architecture: ${{ matrix.platform }}" >&2; exit 1 ;;
+          esac
+          mkdir -p "${HOME}/.local/bin"
+          curl -L -o "${HOME}/.local/bin/appimagetool" "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${appimage_arch}.AppImage"
+          chmod +x "${HOME}/.local/bin/appimagetool"
+          echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Windows packaging dependencies
+        if: matrix.os_family == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $installDir = Join-Path $env:RUNNER_TEMP "inno-setup-7"
+          $installer = Join-Path $env:RUNNER_TEMP "innosetup-7.exe"
+          Invoke-WebRequest `
+            -Uri "https://github.com/jrsoftware/issrc/releases/download/is-7_0_1/innosetup-7.0.1-beta-x64.exe" `
+            -OutFile $installer
+          Start-Process `
+            -FilePath $installer `
+            -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER", "/DIR=$installDir") `
+            -Wait `
+            -NoNewWindow
+
+          $iscc = Join-Path $installDir "ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            throw "Inno Setup 7 compiler ISCC.exe was not found"
+          }
+          $installDir >> $env:GITHUB_PATH
+          $compilerHelp = & $iscc /? 2>&1 | Out-String
+          $global:LASTEXITCODE = 0
+          Write-Host $compilerHelp
+          if ($compilerHelp -notmatch "Inno Setup 7") {
+            throw "Inno Setup compiler is not version 7"
+          }
+
+      - name: Build Windows release package
+        if: matrix.os_family == 'windows'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/prebuild.py --platform ${{ matrix.platform }}
+          python scripts/build.py --platform ${{ matrix.platform }} --version ${{ needs.prepare.outputs.version }} --pack all
+
+      - name: Build Linux release package
+        if: matrix.os_family == 'linux'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          python scripts/prebuild.py --platform ${{ matrix.platform }}
+          python scripts/build.py --platform ${{ matrix.platform }} --version ${{ needs.prepare.outputs.version }} --pack all
+
+      - name: Build macOS release package
+        if: matrix.os_family == 'macos'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          python scripts/prebuild.py --platform ${{ matrix.platform }}
+          python scripts/build.py --platform ${{ matrix.platform }} --version ${{ needs.prepare.outputs.version }} --pack installer
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: stelliberty-release-${{ matrix.platform }}
+          path: |
+            build/*.zip
+            build/packages/*
+          if-no-files-found: warn
+          retention-days: 90
+
+  release:
+    name: Publish to download repository
+    needs: [prepare, build]
+    runs-on: ubuntu-22.04
+    if: ${{ needs.build.result == 'success' }}
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Write release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          printf '%s' '${{ needs.prepare.outputs.release_notes }}' | base64 --decode > release_notes.md
+          cat release_notes.md
+
+      - name: Publish to stelliberty
+        uses: softprops/action-gh-release@v3
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
+          repository: Kindness-Kismet/stelliberty
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: ${{ needs.prepare.outputs.app_display_name }} ${{ needs.prepare.outputs.version }}
+          body_path: release_notes.md
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.exe
+            artifacts/**/*.deb
+            artifacts/**/*.rpm
+            artifacts/**/*.pkg.tar.zst
+            artifacts/**/*.AppImage
+            artifacts/**/*.dmg
+            artifacts/**/*.pkg
+          draft: false
+          prerelease: false
+          overwrite_files: true
+          make_latest: true

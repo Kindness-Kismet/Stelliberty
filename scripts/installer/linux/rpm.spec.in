@@ -1,0 +1,45 @@
+Name:           @APP_PACKAGE@
+Version:        @APP_VERSION@
+Release:        1%{?dist}
+Summary:        @APP_NAME@ network proxy client
+License:        Proprietary
+URL:            https://@APP_PACKAGE@.local
+BuildArch:      @RPM_ARCH@
+AutoReqProv:    no
+Requires:       fontconfig, libICE, libSM, libX11
+
+%description
+@APP_NAME@ provides desktop proxy management, subscriptions, rules,
+and service-mode core hosting.
+
+%prep
+
+%build
+
+%install
+mkdir -p %{buildroot}
+cp -a "@PACKAGE_ROOT@"/. %{buildroot}/
+
+%files
+/opt/@APP_PACKAGE@
+/usr/bin/@APP_PACKAGE@
+/usr/share/applications/@APP_PACKAGE@.desktop
+/usr/share/icons/hicolor/256x256/apps/@APP_PACKAGE@.png
+
+%post
+chmod 755 /opt/@APP_PACKAGE@/@APP_EXECUTABLE@ || true
+chmod 755 /opt/@APP_PACKAGE@/data/core/clash-mihomo-core || true
+chmod 755 /opt/@APP_PACKAGE@/data/service/update/@SERVICE_BINARY@ || true
+chmod -R a+rwX /opt/@APP_PACKAGE@/data || true
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications || true
+fi
+
+%preun
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database /usr/share/applications || true
+fi
+
+%changelog
+* Thu Jan 01 1970 @APP_NAME@ Team <support@@APP_PACKAGE@.local> - @APP_VERSION@-1
+- Package build

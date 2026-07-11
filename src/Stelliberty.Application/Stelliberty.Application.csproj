@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\Stelliberty.Domain\Stelliberty.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.8.0" />
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
+
+  <Target Name="GenerateAppMetadata" BeforeTargets="BeforeCompile">
+    <PropertyGroup>
+      <_AppMetadataFile>$(IntermediateOutputPath)Generated\AppMetadata.g.cs</_AppMetadataFile>
+    </PropertyGroup>
+    <ItemGroup>
+      <_AppMetaLine Include="// &lt;auto-generated /&gt;" />
+      <_AppMetaLine Include="namespace Stelliberty.Application.Platform%3B" />
+      <_AppMetaLine Include="public static class AppMetadata" />
+      <_AppMetaLine Include="{" />
+      <_AppMetaLine Include="    public const string Name = &quot;$(AppName)&quot;%3B" />
+      <_AppMetaLine Include="    public const string DisplayName = &quot;$(AppDisplayName)&quot;%3B" />
+      <_AppMetaLine Include="    public const string Version = &quot;$(AppVersion)&quot;%3B" />
+      <_AppMetaLine Include="    public const string PipePrefix = &quot;$(AppPipePrefix)&quot;%3B" />
+      <_AppMetaLine Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(_AppMetadataFile)" Lines="@(_AppMetaLine)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <Compile Include="$(_AppMetadataFile)" />
+      <FileWrites Include="$(_AppMetadataFile)" />
+    </ItemGroup>
+  </Target>
+</Project>

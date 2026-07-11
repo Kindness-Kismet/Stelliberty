@@ -1,0 +1,1271 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:domain="using:Stelliberty.Domain.Subscriptions"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.SubscriptionView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel"
+             controls:InputDefocusBehavior.IsEnabled="True"
+             x:Name="SubscriptionsRoot"
+             Background="Transparent">
+  <UserControl.Resources>
+    <DataTemplate x:Key="ProviderItemTemplate" x:DataType="vm:SubscriptionProviderItemViewModel">
+      <Border Classes="surface-panel list" Margin="0,0,0,8">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+          <Border Classes="surface-card-badge" Tag="{Binding VehicleBadgeTag}">
+            <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="{Binding VehicleIconType}" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock AutomationProperties.AutomationId="{Binding NameAutomationId}"
+                         Classes="settings-row-title"
+                         Text="{Binding Name}"
+                         TextTrimming="CharacterEllipsis"
+                         VerticalAlignment="Center" />
+              <Border Classes="list-pill" Tag="{Binding VehiclePillTag}" VerticalAlignment="Center">
+                <TextBlock Text="{Binding VehicleType}" />
+              </Border>
+            </StackPanel>
+            <TextBlock Classes="settings-row-subtitle" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" />
+            <TextBlock Classes="settings-row-subtitle" Text="{Binding StatText}" />
+          </StackPanel>
+          <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="{Binding UploadAutomationId}"
+                    Click="OnProviderUploadClicked"
+                    CommandParameter="{Binding Name}"
+                    IsEnabled="{Binding CanUpload}"
+                    Content="{loc:Loc Common.Upload}" />
+            <Button Classes="dialog-secondary"
+                    AutomationProperties.AutomationId="{Binding SyncAutomationId}"
+                    IsVisible="{Binding CanSync}"
+                    IsEnabled="{Binding !IsSyncing}"
+                    Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).Provider.SyncProviderCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                    CommandParameter="{Binding Name}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <TextBlock Text="{loc:Loc Subscriptions.Provider.Sync}" VerticalAlignment="Center" />
+                <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding IsSyncing}" Kind="LoadingFill" />
+              </StackPanel>
+            </Button>
+          </StackPanel>
+        </Grid>
+      </Border>
+    </DataTemplate>
+  </UserControl.Resources>
+  <Grid x:Name="SubscriptionPageRoot"
+        RowDefinitions="Auto,*" RowSpacing="16"
+        DataContext="{Binding SubscriptionPage}"
+        x:DataType="vm:SubscriptionPageViewModel">
+
+      <Border Classes="surface-header"
+            Margin="8,0,25,0"
+            AutomationProperties.AutomationId="Subscriptions.Toolbar">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+        <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Classes="signal-dot" />
+            <TextBlock Classes="list-eyebrow" Text="{loc:Loc Subscriptions.Header.Eyebrow}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <TextBlock Classes="list-count" Text="{Binding TotalSubscriptionCount}" />
+            <TextBlock Classes="list-count-unit" Text="{loc:Loc Subscriptions.Count.Unit}" />
+            <TextBlock Classes="list-count-unit"
+                       Text="{Binding CurrentSubscriptionName}"
+                       Foreground="{DynamicResource AppTextTertiaryBrush}"
+                       Margin="8,0,0,4"
+                       TextTrimming="CharacterEllipsis"
+                       MaxWidth="320" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalAlignment="Center">
+          <Button Classes="soft-action primary"
+                  AutomationProperties.AutomationId="Subscriptions.AddButton"
+                  Command="{Binding AddDialog.ShowCommand}"
+                  ToolTip.Tip="{loc:Loc Subscriptions.Action.Add}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="14" Height="14" Kind="AddLine" />
+              <TextBlock Text="{loc:Loc Subscriptions.Action.Add}" />
+            </StackPanel>
+          </Button>
+          <Button Classes="soft-action"
+                  AutomationProperties.AutomationId="Subscriptions.UpdateAllButton"
+                  IsEnabled="{Binding CanUpdateAllSubscriptions}"
+                  Command="{Binding UpdateAllSubscriptionsCommand}"
+                  ToolTip.Tip="{loc:Loc Subscriptions.Action.UpdateAll}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Grid Width="14" Height="14">
+                <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                  Width="14"
+                                                  Height="14"
+                                                  IsVisible="{Binding IsUpdateAllIconVisible}"
+                                                  Kind="Refresh1Fill" />
+                <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding IsBatchUpdatingSubscriptions}" Kind="LoadingFill" />
+              </Grid>
+              <TextBlock Text="{loc:Loc Subscriptions.Action.UpdateAll}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Border Classes="list-empty"
+              AutomationProperties.AutomationId="Subscriptions.EmptyText"
+              IsVisible="{Binding IsEmptyTextVisible}">
+        <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Panel HorizontalAlignment="Center">
+            <Border Classes="list-empty-halo" />
+            <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="ServerLine" />
+          </Panel>
+          <StackPanel Spacing="7">
+            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-hint" Text="{loc:Loc Subscriptions.Empty.Hint}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <ScrollViewer AutomationProperties.AutomationId="Subscriptions.ListScroll"
+                    IsVisible="{Binding IsListVisible}"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="SubscriptionList"
+                      AutomationProperties.AutomationId="Subscriptions.List"
+                      Margin="8,0,25,15"
+                      ItemsSource="{Binding Subscriptions}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <controls:EvenWrapPanel MinItemWidth="400" ItemHeight="115" ColumnSpacing="12" RowSpacing="12" EdgePadding="0" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SubscriptionItemViewModel">
+              <Border Classes="surface-card subscription"
+                      Classes.selected="{Binding IsCurrent}"
+                      Classes.pressed="{Binding #SubscriptionCardHit.IsPressed}">
+                <Grid>
+                  <Button x:Name="SubscriptionCardHit"
+                          Classes="card-hit-area"
+                          AutomationProperties.AutomationId="{Binding RowAutomationId}"
+                          IsHitTestVisible="{Binding !IsCurrent}"
+                          Command="{Binding #SubscriptionPageRoot.((vm:SubscriptionPageViewModel)DataContext).SelectSubscriptionCommand}"
+                          CommandParameter="{Binding Id}" />
+
+                  <Grid Margin="14" RowDefinitions="Auto,Auto" RowSpacing="12" IsHitTestVisible="False">
+                    <Grid ColumnDefinitions="Auto,*,58" ColumnSpacing="12">
+                      <Border Classes="surface-card-badge"
+                              Tag="{Binding IconTag}">
+                        <iconPacks:PackIconMingCuteIcons Width="18" Height="18"
+                                                         AutomationProperties.AutomationId="{Binding IconAutomationId}"
+                                                         Kind="{Binding IconType}" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock AutomationProperties.AutomationId="{Binding NameAutomationId}"
+                                   Text="{Binding Name}"
+                                   Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                   FontWeight="Bold"
+                                   FontSize="15"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <Border Classes="list-pill" Tag="{Binding TypePillTag}">
+                            <TextBlock Text="{Binding TypeText}" />
+                          </Border>
+                          <Border Classes="list-pill" Tag="{Binding SourceFormatPillTag}">
+                            <TextBlock Text="{Binding SourceFormatText}" />
+                          </Border>
+                          <Border Classes="list-pill"
+                                  Tag="neutral"
+                                  IsVisible="{Binding IsAutoUpdatePillVisible}">
+                            <TextBlock Text="{Binding AutoUpdateText}" />
+                          </Border>
+                        </StackPanel>
+                      </StackPanel>
+                    </Grid>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="10">
+                      <Border Classes="list-info-strip"
+                              Grid.ColumnSpan="{Binding LastUpdatedInfoColumnSpan}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                          <iconPacks:PackIconMingCuteIcons Width="13" Height="13"
+                                                           Kind="TimeLine"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          <TextBlock Grid.Column="1"
+                                     Text="{Binding LastUpdatedText}"
+                                     VerticalAlignment="Center"
+                                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                     FontSize="12.5"
+                                     FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                      </Border>
+                      <Border Grid.Column="1"
+                              Classes="list-info-strip"
+                              IsVisible="{Binding IsExpireInfoVisible}">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                          <iconPacks:PackIconMingCuteIcons Width="13" Height="13"
+                                                           Kind="CalendarLine"
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          <TextBlock Grid.Column="1"
+                                     Text="{Binding ExpireText}"
+                                     VerticalAlignment="Center"
+                                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                     FontSize="12.5"
+                                     FontWeight="SemiBold"
+                                     TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                      </Border>
+                    </Grid>
+
+                  </Grid>
+
+                  <StackPanel Spacing="6"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Top"
+                              Margin="0,14,14,0">
+                    <StackPanel Orientation="Horizontal"
+                                Spacing="4"
+                                HorizontalAlignment="Right">
+                      <Button Classes="toolbar-icon card-toolbar-icon"
+                              AutomationProperties.AutomationId="{Binding UpdateAutomationId}"
+                              IsVisible="{Binding IsUpdateVisible}"
+                              IsEnabled="{Binding IsUpdateButtonEnabled}"
+                              Command="{Binding #SubscriptionPageRoot.((vm:SubscriptionPageViewModel)DataContext).UpdateSubscriptionCommand}"
+                              CommandParameter="{Binding Id}">
+                        <Grid Width="14" Height="14">
+                          <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                            Width="12"
+                                                            Height="12"
+                                                            HorizontalAlignment="Center"
+                                                            VerticalAlignment="Center"
+                                                            IsVisible="{Binding IsUpdateIconVisible}"
+                                                            Kind="Refresh1Fill" />
+                          <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding IsUpdating}" Kind="LoadingFill" />
+                        </Grid>
+                      </Button>
+                      <controls:CardMenuButton Classes="toolbar-icon card-toolbar-icon"
+                                               AutomationProperties.AutomationId="{Binding MenuAutomationId}"
+                                               ItemsSource="{Binding MenuOptions}"
+                                               ItemCommand="{Binding #SubscriptionPageRoot.((vm:SubscriptionPageViewModel)DataContext).RowMenuActionCommand}"
+                                               MoreItemText="{loc:Loc Common.More}">
+                        <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                          Width="12"
+                                                          Height="12"
+                                                          Kind="DownLine"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          RenderTransform="translateY(1.5px)" />
+                      </controls:CardMenuButton>
+                    </StackPanel>
+                    <TextBlock Text="{Binding TrafficText}"
+                               IsVisible="{Binding HasTrafficInfo}"
+                               HorizontalAlignment="Right"
+                               Foreground="{DynamicResource AppTextSecondaryBrush}"
+                               FontSize="11.5"
+                               FontWeight="SemiBold" />
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <controls:OverlayDialogHost AutomationProperties.AutomationId="Subscriptions.DialogOverlay"
+                                  IsOpen="{Binding IsDialogOverlayVisible}">
+        <controls:OverlayDialogHost.DialogContent>
+          <Grid>
+            <controls:DialogPanel PanelWidth="520"
+                                  ContentPadding="0,0,2,0"
+                                  AutomationProperties.AutomationId="Subscriptions.AddDialog"
+                                  IsOpen="{Binding AddDialog.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.Add.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.Dialog.CloseButton"
+                            IsEnabled="{Binding !AddDialog.IsSubmitting}"
+                            Command="{Binding AddDialog.CancelCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+
+                  <ScrollViewer Grid.Row="1"
+                                VerticalScrollBarVisibility="Auto"
+                                AutomationProperties.AutomationId="Subscriptions.Dialog.FormScroll"
+                                IsEnabled="{Binding !AddDialog.IsSubmitting}">
+                    <StackPanel Spacing="16" Margin="24,0,22,0">
+                      <Border Classes="dialog-section">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Folder2Line"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.Dialog.ImportMode}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Import.RemoteButton"
+                                          Command="{Binding AddDialog.SelectRemoteImportCommand}"
+                                          IsChecked="{Binding AddDialog.IsRemoteImportSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Subscriptions.Import.Remote}" />
+                                <TextBlock Classes="rc-subtitle" Text="{loc:Loc Subscriptions.Import.Remote.Description}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Import.LocalButton"
+                                          Command="{Binding AddDialog.SelectLocalImportCommand}"
+                                          IsChecked="{Binding AddDialog.IsLocalImportSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Subscriptions.Import.Local}" />
+                                <TextBlock Classes="rc-subtitle" Text="{loc:Loc Subscriptions.Import.Local.Description}" />
+                              </StackPanel>
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Name}" />
+                        <TextBox Classes="dialog-input"
+                                 AutomationProperties.AutomationId="Subscriptions.Dialog.NameBox"
+                                 PlaceholderText="{loc:Loc Subscriptions.Placeholder.Name}"
+                                 Text="{Binding AddDialog.Name, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="TagLine"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6"
+                                  IsVisible="{Binding AddDialog.IsRemoteFieldsVisible}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Url}" />
+                        <Grid>
+                          <TextBox Classes="dialog-input"
+                                   AutomationProperties.AutomationId="Subscriptions.Dialog.UrlBox"
+                                   PlaceholderText="{loc:Loc Subscriptions.Placeholder.Url}"
+                                   GotFocus="OnSubscriptionUrlBoxGotFocus"
+                                   TextChanged="OnSubscriptionUrlBoxTextChanged"
+                                   Padding="12,8,48,8"
+                                   Text="{Binding AddDialog.Url, Mode=TwoWay}">
+                            <TextBox.InnerLeftContent>
+                              <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="LinkLine"
+                                                               Margin="12,0,0,0"
+                                                               Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                            </TextBox.InnerLeftContent>
+                          </TextBox>
+                          <Button Classes="input-inline-icon"
+                                  AutomationProperties.AutomationId="Subscriptions.Dialog.UrlPasteButton"
+                                  IsVisible="{Binding AddDialog.IsUrlPasteButtonVisible}"
+                                  IsEnabled="{Binding AddDialog.CanPasteUrlFromClipboard}"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Center"
+                                  Click="OnPasteSubscriptionUrlClicked"
+                                  Margin="0,0,6,0">
+                            <iconPacks:PackIconMingCuteIcons Width="15"
+                                                             Height="15"
+                                                             Classes="url-paste-icon"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                          </Button>
+                        </Grid>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6"
+                                  IsVisible="{Binding AddDialog.IsLocalFieldsVisible}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.LocalPath}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBox Classes="dialog-input"
+                                   AutomationProperties.AutomationId="Subscriptions.Dialog.LocalFilePathBox"
+                                   Focusable="False"
+                                   IsHitTestVisible="False"
+                                   IsReadOnly="True"
+                                   PlaceholderText="{loc:Loc Subscriptions.Placeholder.LocalPath}"
+                                   Text="{Binding AddDialog.LocalFilePath, Mode=TwoWay}">
+                            <TextBox.InnerLeftContent>
+                              <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="FileLine"
+                                                               Margin="12,0,0,0"
+                                                               Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                            </TextBox.InnerLeftContent>
+                          </TextBox>
+                          <Button Grid.Column="1"
+                                  x:Name="ChooseLocalFileButton"
+                                  Classes="dialog-secondary"
+                                  AutomationProperties.AutomationId="Subscriptions.Dialog.ChooseLocalFileButton"
+                                  Content="{loc:Loc Common.ChooseFile}" />
+                        </Grid>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6"
+                                  IsVisible="{Binding AddDialog.IsRemoteFieldsVisible}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.UserAgent}" />
+                        <TextBox Classes="dialog-input"
+                                 x:Name="AddUserAgentBox"
+                                 AutomationProperties.AutomationId="Subscriptions.Dialog.UserAgentBox"
+                                 GotFocus="OnUserAgentBoxGotFocus"
+                                 LostFocus="OnUserAgentBoxLostFocus"
+                                 Text="{Binding AddDialog.UserAgentText, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ComputerLine"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6"
+                                  IsVisible="{Binding AddDialog.IsRemoteFieldsVisible}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AgeSecretKey}" />
+                        <TextBox Classes="dialog-input"
+                                 AutomationProperties.AutomationId="Subscriptions.Dialog.AgeSecretKeyBox"
+                                 PasswordChar="•"
+                                 PlaceholderText="{loc:Loc Subscriptions.Placeholder.AgeSecretKey}"
+                                 Text="{Binding AddDialog.AgeSecretKey, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ShieldFill"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoDelay}" />
+                        <TextBox Classes="dialog-input"
+                                 x:Name="AddAutoTestDelayIntervalBox"
+                                 AutomationProperties.AutomationId="Subscriptions.Dialog.AutoTestDelayIntervalBox"
+                                 GotFocus="OnAutoTestDelayIntervalBoxGotFocus"
+                                 LostFocus="OnAutoTestDelayIntervalBoxLostFocus"
+                                 PlaceholderText="0"
+                                 Text="{Binding AddDialog.AutoTestDelayIntervalMinutesText, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="StopwatchLine"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                        <TextBlock Classes="dialog-error"
+                                   IsVisible="{Binding AddDialog.IsAutoTestDelayIntervalErrorVisible}"
+                                   Text="{Binding AddDialog.AutoTestDelayIntervalMinutesError}" />
+                      </StackPanel>
+
+                      <Border Classes="dialog-section"
+                              IsVisible="{Binding AddDialog.IsRemoteOptionsVisible}">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Refresh1Line"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.AutoUpdate.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <StackPanel Spacing="6">
+                              <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
+                              <TextBox Classes="dialog-input"
+                                       IsEnabled="{Binding AddDialog.IsAutoUpdateIntervalEnabled}"
+                                       AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateIntervalBox"
+                                       PlaceholderText="{loc:Loc Subscriptions.Placeholder.Interval}"
+                                       Text="{Binding AddDialog.AutoUpdateIntervalMinutesText, Mode=TwoWay}">
+                                <TextBox.InnerLeftContent>
+                                  <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="StopwatchLine"
+                                                                   Margin="12,0,0,0"
+                                                                   Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                                </TextBox.InnerLeftContent>
+                              </TextBox>
+                              <TextBlock Classes="dialog-error"
+                                         IsVisible="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
+                                         Text="{Binding AddDialog.AutoUpdateIntervalMinutesError}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="6">
+                              <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateMode}" />
+                              <ComboBox Classes="dialog-input"
+                                        HorizontalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateModeBox"
+                                        ItemsSource="{Binding AddDialog.AutoUpdateModeOptions}"
+                                        SelectedItem="{Binding AddDialog.SelectedAutoUpdateModeOption, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                  <DataTemplate x:DataType="vm:ISelectionOption">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                  </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                              </ComboBox>
+                            </StackPanel>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+
+                      <Border Classes="dialog-section"
+                              IsVisible="{Binding AddDialog.IsRemoteOptionsVisible}">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="EarthLine"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Common.ProxyMode.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.DirectButton"
+                                          Command="{Binding AddDialog.SelectDirectProxyModeCommand}"
+                                          IsChecked="{Binding AddDialog.IsDirectProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Direct.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.SystemButton"
+                                          Command="{Binding AddDialog.SelectSystemProxyModeCommand}"
+                                          IsChecked="{Binding AddDialog.IsSystemProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.System.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="2"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.CoreButton"
+                                          Command="{Binding AddDialog.SelectCoreProxyModeCommand}"
+                                          IsChecked="{Binding AddDialog.IsCoreProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Core.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </ScrollViewer>
+
+                  <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Subscriptions.Dialog.CancelButton"
+                            Command="{Binding AddDialog.CancelCommand}"
+                            IsEnabled="{Binding !AddDialog.IsSubmitting}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Subscriptions.Dialog.ConfirmButton"
+                            Command="{Binding AddDialog.ConfirmCommand}"
+                            IsEnabled="{Binding AddDialog.CanSubmit}">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{loc:Loc Common.Add}" VerticalAlignment="Center" />
+                        <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding AddDialog.IsSubmitting}" Kind="LoadingFill" />
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="520"
+                                  ContentPadding="0,0,2,0"
+                                  AutomationProperties.AutomationId="Subscriptions.EditDialog"
+                                  IsOpen="{Binding EditDialog.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.Edit.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.EditDialog.CloseButton"
+                            Command="{Binding EditDialog.CancelCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+
+                  <ScrollViewer Grid.Row="1"
+                                VerticalScrollBarVisibility="Auto"
+                                AutomationProperties.AutomationId="Subscriptions.EditDialog.FormScroll">
+                    <StackPanel Spacing="16" Margin="24,0,22,0">
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Name}" />
+                        <TextBox Classes="dialog-input"
+                                 AutomationProperties.AutomationId="Subscriptions.EditDialog.NameBox"
+                                 PlaceholderText="{loc:Loc Subscriptions.Placeholder.EditName}"
+                                 Text="{Binding EditDialog.Name, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="TagLine"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
+                        <TextBlock Classes="dialog-label" Text="{Binding EditDialog.SourceLabel}" />
+                        <Grid>
+                          <TextBox Classes="dialog-input"
+                                   AutomationProperties.AutomationId="Subscriptions.EditDialog.UrlBox"
+                                   PlaceholderText="{Binding EditDialog.SourcePlaceholder}"
+                                   GotFocus="OnEditSubscriptionUrlBoxGotFocus"
+                                   TextChanged="OnEditSubscriptionUrlBoxTextChanged"
+                                   Padding="12,8,48,8"
+                                   Text="{Binding EditDialog.Url, Mode=TwoWay}">
+                            <TextBox.InnerLeftContent>
+                              <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="LinkLine"
+                                                               Margin="12,0,0,0"
+                                                               Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                            </TextBox.InnerLeftContent>
+                          </TextBox>
+                          <Button Classes="input-inline-icon"
+                                  AutomationProperties.AutomationId="Subscriptions.EditDialog.UrlPasteButton"
+                                  IsVisible="{Binding EditDialog.IsUrlPasteButtonVisible}"
+                                  IsEnabled="{Binding EditDialog.CanPasteUrlFromClipboard}"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Center"
+                                  Click="OnPasteEditSubscriptionUrlClicked"
+                                  Margin="0,0,6,0">
+                            <iconPacks:PackIconMingCuteIcons Width="15"
+                                                             Height="15"
+                                                             Classes="url-paste-icon"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                          </Button>
+                        </Grid>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.UserAgent}" />
+                        <TextBox Classes="dialog-input"
+                                 x:Name="EditUserAgentBox"
+                                 AutomationProperties.AutomationId="Subscriptions.EditDialog.UserAgentBox"
+                                 GotFocus="OnUserAgentBoxGotFocus"
+                                 LostFocus="OnUserAgentBoxLostFocus"
+                                 Text="{Binding EditDialog.UserAgentText, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ComputerLine"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AgeSecretKey}" />
+                        <TextBox Classes="dialog-input"
+                                 AutomationProperties.AutomationId="Subscriptions.EditDialog.AgeSecretKeyBox"
+                                 PasswordChar="•"
+                                 PlaceholderText="{loc:Loc Subscriptions.Placeholder.AgeSecretKey}"
+                                 Text="{Binding EditDialog.AgeSecretKey, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ShieldFill"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoDelay}" />
+                        <TextBox Classes="dialog-input"
+                                 x:Name="EditAutoTestDelayIntervalBox"
+                                 AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoTestDelayIntervalBox"
+                                 GotFocus="OnAutoTestDelayIntervalBoxGotFocus"
+                                 LostFocus="OnAutoTestDelayIntervalBoxLostFocus"
+                                 PlaceholderText="0"
+                                 Text="{Binding EditDialog.AutoTestDelayIntervalMinutesText, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="StopwatchLine"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                        <TextBlock Classes="dialog-error"
+                                   IsVisible="{Binding EditDialog.IsAutoTestDelayIntervalErrorVisible}"
+                                   Text="{Binding EditDialog.AutoTestDelayIntervalMinutesError}" />
+                      </StackPanel>
+
+                      <Border Classes="dialog-section"
+                              IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Refresh1Line"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.AutoUpdate.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <StackPanel Spacing="6">
+                              <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
+                              <TextBox Classes="dialog-input"
+                                       IsEnabled="{Binding EditDialog.IsAutoUpdateIntervalEnabled}"
+                                       AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoUpdateIntervalBox"
+                                       PlaceholderText="{loc:Loc Subscriptions.Placeholder.Interval}"
+                                       Text="{Binding EditDialog.AutoUpdateIntervalMinutesText, Mode=TwoWay}">
+                                <TextBox.InnerLeftContent>
+                                  <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="StopwatchLine"
+                                                                   Margin="12,0,0,0"
+                                                                   Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                                </TextBox.InnerLeftContent>
+                              </TextBox>
+                              <TextBlock Classes="dialog-error"
+                                         IsVisible="{Binding EditDialog.IsAutoUpdateIntervalErrorVisible}"
+                                         Text="{Binding EditDialog.AutoUpdateIntervalMinutesError}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Spacing="6">
+                              <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateMode}" />
+                              <ComboBox Classes="dialog-input"
+                                        HorizontalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoUpdateModeBox"
+                                        ItemsSource="{Binding EditDialog.AutoUpdateModeOptions}"
+                                        SelectedItem="{Binding EditDialog.SelectedAutoUpdateModeOption, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                  <DataTemplate x:DataType="vm:ISelectionOption">
+                                    <TextBlock Text="{Binding DisplayName}" />
+                                  </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                              </ComboBox>
+                            </StackPanel>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+
+                      <Border Classes="dialog-section"
+                              IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="EarthLine"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Common.ProxyMode.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.EditDialog.Proxy.DirectButton"
+                                          Command="{Binding EditDialog.SelectDirectProxyModeCommand}"
+                                          IsChecked="{Binding EditDialog.IsDirectProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Direct.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.EditDialog.Proxy.SystemButton"
+                                          Command="{Binding EditDialog.SelectSystemProxyModeCommand}"
+                                          IsChecked="{Binding EditDialog.IsSystemProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.System.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="2"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Subscriptions.EditDialog.Proxy.CoreButton"
+                                          Command="{Binding EditDialog.SelectCoreProxyModeCommand}"
+                                          IsChecked="{Binding EditDialog.IsCoreProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Core.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </ScrollViewer>
+
+                  <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Subscriptions.EditDialog.CancelButton"
+                            Command="{Binding EditDialog.CancelCommand}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Subscriptions.EditDialog.SaveButton"
+                            Command="{Binding EditDialog.ConfirmCommand}"
+                            IsEnabled="{Binding EditDialog.CanSubmit}"
+                            Content="{loc:Loc Common.Save}" />
+                  </StackPanel>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="420"
+                                  AutomationProperties.AutomationId="Subscriptions.DeleteDialog"
+                                  IsOpen="{Binding IsDeleteDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <StackPanel Spacing="14">
+                  <TextBlock Classes="dialog-title"
+                             Text="{loc:Loc Subscriptions.Dialog.Delete.Title}" />
+                  <TextBlock Classes="dialog-subtitle"
+                             Text="{loc:Loc Subscriptions.Dialog.Delete.Description}"
+                             TextWrapping="Wrap" />
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,4,0,0">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Subscriptions.DeleteDialog.CancelButton"
+                            Command="{Binding CancelDeleteDialogCommand}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Subscriptions.DeleteDialog.ConfirmButton"
+                            Command="{Binding ConfirmDeleteCommand}"
+                            Content="{loc:Loc Common.ConfirmDelete}" />
+                  </StackPanel>
+                </StackPanel>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="520"
+                                  ContentPadding="0,0,2,0"
+                                  AutomationProperties.AutomationId="Subscriptions.OverrideSelectorDialog"
+                                  IsOpen="{Binding OverrideSelector.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.Overrides.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.OverrideSelector.CloseButton"
+                            Command="{Binding OverrideSelector.CancelCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+                  <ScrollViewer Grid.Row="1"
+                                AutomationProperties.AutomationId="Subscriptions.OverrideSelector.ScrollViewer"
+                                VerticalScrollBarVisibility="Auto">
+                    <ItemsControl x:Name="OverrideSelectorList"
+                                  Margin="24,0,22,0"
+                                  AutomationProperties.AutomationId="Subscriptions.OverrideSelector.List"
+                                  ItemsSource="{Binding OverrideSelector.AvailableOverrides}">
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SubscriptionOverrideOptionViewModel">
+                          <Border Classes="surface-panel list" Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                              <Border Classes="surface-card-badge">
+                                <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="{Binding IconType}" />
+                              </Border>
+                              <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                <TextBlock Classes="settings-row-title" Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Classes="settings-row-subtitle" Text="{Binding FormatText}" />
+                              </StackPanel>
+                              <ToggleSwitch Grid.Column="2"
+                                            AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                            IsChecked="{Binding IsSelected}"
+                                            VerticalAlignment="Center"
+                                            Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).OverrideSelector.ToggleSelectionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding Id}" />
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </ScrollViewer>
+                  <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Subscriptions.OverrideSelector.CancelButton"
+                            Command="{Binding OverrideSelector.CancelCommand}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Subscriptions.OverrideSelector.SaveButton"
+                            Command="{Binding OverrideSelector.SaveCommand}"
+                            Content="{loc:Loc Dialog.Confirm}" />
+                  </StackPanel>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="560"
+                                  ContentPadding="0"
+                                  AutomationProperties.AutomationId="Subscriptions.FileEditorDialog"
+                                  IsOpen="{Binding FileEditor.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
+                  <StackPanel Grid.Row="0" Spacing="12" Margin="24,24,24,0">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.EditFile.Title}" VerticalAlignment="Center" />
+                      <Button Grid.Column="1"
+                              Classes="dialog-close"
+                              AutomationProperties.AutomationId="Subscriptions.FileEditor.CloseButton"
+                              Command="{Binding FileEditor.CancelCommand}">
+                        <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                      </Button>
+                    </Grid>
+                    <controls:CodeEditor AutomationProperties.AutomationId="Subscriptions.FileEditor.ContentBox"
+                                         Text="{Binding FileEditor.Content, Mode=TwoWay}"
+                                         SyntaxLanguage="yaml"
+                                         Height="420" />
+                  </StackPanel>
+                  <Grid Grid.Row="1" Margin="24,0,24,24" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Button Grid.Column="1"
+                            Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Subscriptions.FileEditor.CancelButton"
+                            Command="{Binding FileEditor.CancelCommand}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Grid.Column="2"
+                            Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Subscriptions.FileEditor.SaveButton"
+                            Command="{Binding FileEditor.ConfirmCommand}"
+                            Content="{loc:Loc Common.Save}" />
+                  </Grid>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="600"
+                                  AutomationProperties.AutomationId="Subscriptions.ChainProxyDialog"
+                                  IsOpen="{Binding ChainProxy.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
+                  <StackPanel Grid.Row="0" Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.ChainProxy.Title}" VerticalAlignment="Center" />
+                      <Button Grid.Column="1"
+                              Classes="dialog-close"
+                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.CloseButton"
+                              Command="{Binding ChainProxy.CancelCommand}">
+                        <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                      </Button>
+                    </Grid>
+                    <TextBlock Classes="dialog-subtitle"
+                               AutomationProperties.AutomationId="Subscriptions.ChainProxy.TitleText"
+                               Text="{Binding ChainProxy.DialogTitle}" />
+                  </StackPanel>
+
+                  <Panel Grid.Row="1">
+                    <StackPanel MinHeight="160" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12"
+                                IsVisible="{Binding ChainProxy.IsLoading}">
+                      <ProgressBar IsIndeterminate="True" Width="160" />
+                      <TextBlock Classes="dialog-subtitle" HorizontalAlignment="Center" Text="{loc:Loc Subscriptions.ChainProxy.Loading}" />
+                    </StackPanel>
+
+                    <StackPanel MinHeight="160" VerticalAlignment="Center" Spacing="8"
+                                IsVisible="{Binding ChainProxy.IsErrorVisible}">
+                      <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                 AutomationProperties.AutomationId="Subscriptions.ChainProxy.ErrorText"
+                                 Text="{Binding ChainProxy.ErrorMessage}" />
+                    </StackPanel>
+
+                    <ScrollViewer AutomationProperties.AutomationId="Subscriptions.ChainProxy.ListScroll"
+                                  MaxHeight="420"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="0,0,2,0"
+                                  IsVisible="{Binding ChainProxy.IsListVisible}">
+                      <StackPanel Spacing="12">
+                        <StackPanel Spacing="8" IsVisible="{Binding ChainProxy.HasBuiltins}">
+                          <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.ChainProxy.Builtin}" />
+                          <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.BuiltinList"
+                                        ItemsSource="{Binding ChainProxy.BuiltinItems}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:SubscriptionChainProxyBuiltinItemViewModel">
+                                <Border Classes="surface-panel list" Margin="0,0,0,8">
+                                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <StackPanel Spacing="3">
+                                      <TextBlock Classes="settings-row-title" Text="{Binding Name}" />
+                                      <TextBlock Classes="settings-row-subtitle" Text="{Binding StatusText}" />
+                                    </StackPanel>
+                                    <ToggleButton Grid.Column="1"
+                                                  Classes="segmented"
+                                                  AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                                  Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.ToggleBuiltinCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                  CommandParameter="{Binding Name}"
+                                                  IsChecked="{Binding !IsEnabled}"
+                                                  Content="{loc:Loc Common.Disable}" />
+                                  </Grid>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Spacing="8" IsVisible="{Binding ChainProxy.HasCustoms}">
+                          <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.ChainProxy.Custom}" />
+                          <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.CustomList"
+                                        ItemsSource="{Binding ChainProxy.CustomItems}">
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:SubscriptionChainProxyCustomItemViewModel">
+                                <Border Classes="surface-panel list" Margin="0,0,0,8">
+                                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                    <StackPanel Spacing="3">
+                                      <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
+                                      <TextBlock Classes="settings-row-subtitle" Text="{Binding PathText}" TextWrapping="Wrap" />
+                                      <TextBlock Classes="dialog-error" FontSize="11" TextWrapping="Wrap"
+                                                 IsVisible="{Binding HasMissingNodes}"
+                                                 Text="{Binding MissingText}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="dialog-secondary" MinWidth="0" Padding="14,0"
+                                            AutomationProperties.AutomationId="{Binding EditAutomationId}"
+                                            Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.EditCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding Id}"
+                                            Content="{loc:Loc Common.Edit}" />
+                                    <Button Grid.Column="2" Classes="dialog-secondary" MinWidth="0" Padding="14,0"
+                                            AutomationProperties.AutomationId="{Binding DeleteAutomationId}"
+                                            Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.RemoveCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                            CommandParameter="{Binding Id}"
+                                            Content="{loc:Loc Common.Delete}" />
+                                  </Grid>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+
+                        <TextBlock Classes="dialog-subtitle"
+                                   IsVisible="{Binding ChainProxy.IsEmptyVisible}"
+                                   Text="{loc:Loc Subscriptions.ChainProxy.Empty}" />
+
+                        <Button Classes="dialog-secondary" HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="Subscriptions.ChainProxy.AddCustomButton"
+                                IsEnabled="{Binding ChainProxy.CanAddDraft}"
+                                Command="{Binding ChainProxy.StartAddDraftCommand}"
+                                Content="{loc:Loc Subscriptions.ChainProxy.AddCustom}" />
+                      </StackPanel>
+                    </ScrollViewer>
+
+                    <ScrollViewer AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftScroll"
+                                  MaxHeight="420"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="0,0,2,0"
+                                  IsVisible="{Binding ChainProxy.IsDraftVisible}">
+                      <StackPanel Spacing="14">
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
+                          <TextBox Classes="dialog-input"
+                                   AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameBox"
+                                   PlaceholderText="{loc:Loc Subscriptions.ChainProxy.Placeholder.Name}"
+                                   Text="{Binding ChainProxy.DraftName, Mode=TwoWay}" />
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.SelectedPath}" />
+                          <TextBlock Classes="dialog-subtitle"
+                                     IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
+                                     Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
+                          <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
+                                        ItemsSource="{Binding ChainProxy.Slots}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
+                                <Border Classes="chain-slot" Margin="0,0,8,8"
+                                        AutomationProperties.AutomationId="{Binding AutomationId}">
+                                  <StackPanel Spacing="3">
+                                    <TextBlock Classes="settings-row-subtitle" Text="{Binding PositionLabel}" />
+                                    <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
+                                  </StackPanel>
+                                </Border>
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.Candidates}" />
+                          <TextBlock Classes="dialog-subtitle"
+                                     IsVisible="{Binding !ChainProxy.HasCandidates}"
+                                     Text="{loc:Loc Subscriptions.ChainProxy.NoCandidates}" />
+                          <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.CandidateList"
+                                        ItemsSource="{Binding ChainProxy.Candidates}">
+                            <ItemsControl.ItemsPanel>
+                              <ItemsPanelTemplate>
+                                <WrapPanel />
+                              </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                              <DataTemplate x:DataType="vm:SubscriptionChainProxyCandidateViewModel">
+                                <ToggleButton Classes="chain-chip" Margin="0,0,8,8"
+                                              AutomationProperties.AutomationId="{Binding AutomationId}"
+                                              IsChecked="{Binding IsSelected, Mode=OneWay}"
+                                              Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.SelectCandidateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                              CommandParameter="{Binding Name}"
+                                              Content="{Binding Name}" />
+                              </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                          </ItemsControl>
+                        </StackPanel>
+
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftErrorText"
+                                   IsVisible="{Binding ChainProxy.IsDraftErrorVisible}"
+                                   Text="{Binding ChainProxy.DraftError}" />
+                      </StackPanel>
+                    </ScrollViewer>
+                  </Panel>
+
+                  <Panel Grid.Row="2">
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                                IsVisible="{Binding ChainProxy.IsListVisible}">
+                      <Button Classes="dialog-secondary"
+                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.CancelButton"
+                              Command="{Binding ChainProxy.CancelCommand}"
+                              Content="{loc:Loc Dialog.Cancel}" />
+                      <Button Classes="dialog-primary"
+                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.SaveButton"
+                              Command="{Binding ChainProxy.SaveCommand}"
+                              Content="{loc:Loc Common.Save}" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
+                                IsVisible="{Binding ChainProxy.IsDraftVisible}">
+                      <Button Classes="dialog-secondary"
+                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftBackButton"
+                              Command="{Binding ChainProxy.CancelDraftCommand}"
+                              Content="{loc:Loc Subscriptions.ChainProxy.Back}" />
+                      <Button Classes="dialog-primary"
+                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftSaveButton"
+                              Command="{Binding ChainProxy.SaveDraftCommand}"
+                              Content="{loc:Loc Subscriptions.ChainProxy.SaveChain}" />
+                    </StackPanel>
+                  </Panel>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="560"
+                                  AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog"
+                                  IsOpen="{Binding RuntimeConfigDialog.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <StackPanel Spacing="12">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.RuntimeConfig.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.HeaderCloseButton"
+                            Command="{Binding RuntimeConfigDialog.CloseCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+                  <TextBlock Classes="dialog-subtitle"
+                             AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.TitleText"
+                             Text="{Binding RuntimeConfigDialog.Title}" />
+                  <controls:CodeEditor AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.ContentBox"
+                                       Text="{Binding RuntimeConfigDialog.Content}"
+                                       SyntaxLanguage="yaml"
+                                       IsReadOnly="True"
+                                       Height="420" />
+                  <Button Classes="dialog-primary"
+                          HorizontalAlignment="Right"
+                          AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.CloseButton"
+                          Command="{Binding RuntimeConfigDialog.CloseCommand}"
+                          Content="{loc:Loc Common.Close}" />
+                </StackPanel>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="560"
+                                  ContentPadding="0,0,2,0"
+                                  AutomationProperties.AutomationId="Subscriptions.ProviderSelectorDialog"
+                                  IsOpen="{Binding Provider.IsProviderSelectorDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="16">
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.Provider.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.ProviderSelector.HeaderCloseButton"
+                            Command="{Binding Provider.CloseProviderSelectorCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+                  <TextBox Grid.Row="1"
+                           Classes="dialog-input"
+                           Margin="24,0,24,0"
+                           AutomationProperties.AutomationId="Subscriptions.ProviderSelector.SearchBox"
+                           PlaceholderText="{loc:Loc Subscriptions.Provider.Search.Placeholder}"
+                           Text="{Binding Provider.ProviderSearchKeyword, Mode=TwoWay}"
+                           IsEnabled="{Binding Provider.IsDialogInteractionEnabled}" />
+                  <ScrollViewer Grid.Row="2"
+                                AutomationProperties.AutomationId="Subscriptions.ProviderSelector.ScrollViewer"
+                                VerticalScrollBarVisibility="Auto"
+                                IsEnabled="{Binding Provider.IsDialogInteractionEnabled}">
+                    <StackPanel Spacing="4" Margin="24,0,22,0">
+                      <TextBlock Classes="settings-row-title"
+                                 IsVisible="{Binding Provider.HasProxyProviders}"
+                                 Margin="0,2,0,6"
+                                 Text="{loc:Loc Subscriptions.Provider.ProxyGroupTitle}" />
+                      <ItemsControl AutomationProperties.AutomationId="Subscriptions.ProviderSelector.ProxyList"
+                                    IsVisible="{Binding Provider.HasProxyProviders}"
+                                    ItemsSource="{Binding Provider.FilteredProxyProviders}"
+                                    ItemTemplate="{StaticResource ProviderItemTemplate}" />
+                      <TextBlock Classes="settings-row-title"
+                                 IsVisible="{Binding Provider.HasRuleProviders}"
+                                 Margin="0,8,0,6"
+                                 Text="{loc:Loc Subscriptions.Provider.RuleGroupTitle}" />
+                      <ItemsControl AutomationProperties.AutomationId="Subscriptions.ProviderSelector.RuleList"
+                                    IsVisible="{Binding Provider.HasRuleProviders}"
+                                    ItemsSource="{Binding Provider.FilteredRuleProviders}"
+                                    ItemTemplate="{StaticResource ProviderItemTemplate}" />
+                    </StackPanel>
+                  </ScrollViewer>
+                  <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Subscriptions.ProviderSelector.CloseButton"
+                            Command="{Binding Provider.CloseProviderSelectorCommand}"
+                            Content="{loc:Loc Common.Close}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Subscriptions.ProviderSelector.SyncAllButton"
+                            Command="{Binding Provider.SyncAllProvidersCommand}"
+                            IsEnabled="{Binding Provider.CanSyncAll}">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{loc:Loc Subscriptions.Provider.SyncAll}" VerticalAlignment="Center" />
+                        <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding Provider.IsSyncingAll}" Kind="LoadingFill" />
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="420"
+                                  AutomationProperties.AutomationId="Subscriptions.QrCodeDialog"
+                                  IsOpen="{Binding IsQrCodeDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <StackPanel Spacing="14">
+                  <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.QrCode.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.QrCodeDialog.HeaderCloseButton"
+                            Command="{Binding CloseQrCodeDialogCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+                  <Border Width="180"
+                          Height="180"
+                          HorizontalAlignment="Center"
+                          Background="White"
+                          BorderBrush="{DynamicResource AppBorderBrush}"
+                          BorderThickness="1"
+                          CornerRadius="12"
+                          Padding="10"
+                          AutomationProperties.AutomationId="Subscriptions.QrCodeDialog.PreviewBox">
+                    <controls:QrCodeMatrixView AutomationProperties.AutomationId="Subscriptions.QrCodeDialog.Matrix"
+                                               Matrix="{Binding QrCodeMatrix}" />
+                  </Border>
+                  <TextBlock Classes="dialog-subtitle"
+                             AutomationProperties.AutomationId="Subscriptions.QrCodeDialog.ContentText"
+                             Text="{Binding QrCodeContent}"
+                             TextWrapping="Wrap" />
+                  <StackPanel Orientation="Horizontal"
+                              Spacing="8"
+                              HorizontalAlignment="Right">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Subscriptions.QrCodeDialog.CopyButton"
+                            Command="{Binding CopyLinkCommand}"
+                            CommandParameter="{Binding QrCodeSubscriptionId}">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <iconPacks:PackIconMingCuteIcons Classes="icon" Width="14" Height="14" Kind="Copy2Line" />
+                        <TextBlock Text="{loc:Loc Common.Copy}" />
+                      </StackPanel>
+                    </Button>
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Subscriptions.QrCodeDialog.CloseButton"
+                            Command="{Binding CloseQrCodeDialogCommand}"
+                            Content="{loc:Loc Common.Close}" />
+                  </StackPanel>
+                </StackPanel>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+          </Grid>
+        </controls:OverlayDialogHost.DialogContent>
+      </controls:OverlayDialogHost>
+    </Grid>
+  </Grid>
+</UserControl>

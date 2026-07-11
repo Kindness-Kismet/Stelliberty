@@ -1,0 +1,374 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+        x:CompileBindings="True">
+  <!-- 跨页复用的原子基元: 图标/文本/按钮/标签/加载指示, 不含页面专属外观 -->
+
+  <!-- 图标: 依赖父按钮前景, 不可独立设色 -->
+  <Style Selector="iconPacks|PackIconMingCuteIcons.icon">
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+  </Style>
+  <Style Selector="Path.icon">
+    <Setter Property="Stretch" Value="Uniform" />
+    <Setter Property="Fill" Value="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+  </Style>
+
+  <Style Selector="TextBlock.card-title">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.field-label">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.metric-label">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+  </Style>
+
+  <Style Selector="Button.toolbar-icon">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="MinWidth" Value="34" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="17" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="ToolbarIconRoot"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ContentPresenter HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.toolbar-icon:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button.toolbar-icon.sort-active">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.toolbar-icon.card-toolbar-icon">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinWidth" Value="26" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="CornerRadius" Value="13" />
+  </Style>
+  <Style Selector="controls|CardMenuButton.toolbar-icon">
+    <Setter Property="Width" Value="34" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="MinWidth" Value="34" />
+    <Setter Property="MinHeight" Value="34" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="17" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="ToolbarIconRoot"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}">
+          <ContentPresenter HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding Content}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="controls|CardMenuButton.toolbar-icon:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="controls|CardMenuButton.toolbar-icon.card-toolbar-icon">
+    <Setter Property="Width" Value="26" />
+    <Setter Property="Height" Value="26" />
+    <Setter Property="MinWidth" Value="26" />
+    <Setter Property="MinHeight" Value="26" />
+    <Setter Property="CornerRadius" Value="13" />
+  </Style>
+
+  <Style Selector="Button.soft-action">
+    <Setter Property="Background" Value="{DynamicResource AppOverlaySubtleBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button.soft-action:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+  <Style Selector="Button.soft-action.primary">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.soft-action.primary:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+    <Setter Property="Opacity" Value="0.88" />
+  </Style>
+  <Style Selector="Button.soft-action.primary:pressed">
+    <Setter Property="Opacity" Value="0.76" />
+  </Style>
+  <Style Selector="Button.soft-action:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+  </Style>
+  <Style Selector="Button.soft-action:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+  </Style>
+  <Style Selector="Button.soft-action.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.soft-action.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.soft-action iconPacks|PackIconMingCuteIcons.button-spinner">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button.soft-action.primary iconPacks|PackIconMingCuteIcons.button-spinner">
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+  </Style>
+
+  <!-- 卡片透明点击命中层 -->
+  <Style Selector="Button.card-hit-area">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Focusable" Value="False" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}" />
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="Button.card-hit-area:pointerover">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.card-hit-area:pressed">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+
+  <!-- danger 类由 CardMenuButton 代码动态添加, 勿删 -->
+  <Style Selector="Button.danger">
+    <Setter Property="Background" Value="{DynamicResource AppDangerBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource AppOnDangerBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="20,14" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.danger:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppDangerHoverBrush}" />
+  </Style>
+
+  <Style Selector="Border.signal-dot">
+    <Setter Property="Width" Value="8" />
+    <Setter Property="Height" Value="8" />
+    <Setter Property="CornerRadius" Value="4" />
+    <Setter Property="Background" Value="{DynamicResource AppSuccessBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.signal-dot[Tag=warning]">
+    <Setter Property="Background" Value="{DynamicResource AppWarningBrush}" />
+  </Style>
+  <Style Selector="Border.signal-dot[Tag=danger]">
+    <Setter Property="Background" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+
+  <!-- 列表标签胶囊: Tag 驱动配色 -->
+  <Style Selector="Border.list-pill">
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="Padding" Value="6,1" />
+    <Setter Property="Background" Value="{DynamicResource AppAccentSubtleBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBorderBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=neutral]">
+    <Setter Property="Background" Value="{DynamicResource AppNeutralPillBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppNeutralPillBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=neutral] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppNeutralPillTextBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=debug], Border.list-pill[Tag=log-level-debug]">
+    <Setter Property="Background" Value="{DynamicResource TagDebugBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagDebugBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=info], Border.list-pill[Tag=log-level-info]">
+    <Setter Property="Background" Value="{DynamicResource TagInfoBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagInfoBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=success]">
+    <Setter Property="Background" Value="{DynamicResource TagSuccessBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagSuccessBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=warning], Border.list-pill[Tag=log-level-warning]">
+    <Setter Property="Background" Value="{DynamicResource TagWarningBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagWarningBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=danger], Border.list-pill[Tag=log-level-error]">
+    <Setter Property="Background" Value="{DynamicResource TagDangerBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagDangerBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill > TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=debug] > TextBlock, Border.list-pill[Tag=log-level-debug] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TagDebugForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=info] > TextBlock, Border.list-pill[Tag=log-level-info] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TagInfoForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=success] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=warning] > TextBlock, Border.list-pill[Tag=log-level-warning] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppWarningBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=danger] > TextBlock, Border.list-pill[Tag=log-level-error] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=log-level-silent]">
+    <Setter Property="Background" Value="{DynamicResource AppSubtleFillBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=log-level-silent] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=domain]">
+    <Setter Property="Background" Value="{DynamicResource TagDomainBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagDomainBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=domain] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TagDomainForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=ip]">
+    <Setter Property="Background" Value="{DynamicResource TagIpBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagIpBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=ip] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TagIpForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=ruleset]">
+    <Setter Property="Background" Value="{DynamicResource TagRulesetBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagRulesetBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=ruleset] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TagRulesetForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=other]">
+    <Setter Property="Background" Value="{DynamicResource AppSubtleFillBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=other] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=tcp]">
+    <Setter Property="Background" Value="{DynamicResource TagTcpBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagTcpBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=tcp] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TagTcpForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=udp]">
+    <Setter Property="Background" Value="{DynamicResource TagUdpBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagUdpBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=udp] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TagUdpForegroundBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=remote]">
+    <Setter Property="Background" Value="{DynamicResource TagSuccessBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource TagSuccessBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=remote] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=local]">
+    <Setter Property="Background" Value="{DynamicResource AppSubtleFillBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-pill[Tag=local] > TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+  </Style>
+
+  <Style Selector="Border.list-color-bar">
+    <Setter Property="Width" Value="4" />
+    <Setter Property="CornerRadius" Value="2,0,0,2" />
+    <Setter Property="VerticalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+    <Setter Property="Background" Value="{DynamicResource AppBorderBrush}" />
+  </Style>
+  <Style Selector="Border.list-color-bar[Tag=debug], Border.list-color-bar[Tag=log-level-debug]">
+    <Setter Property="Background" Value="{DynamicResource TagDebugBarBrush}" />
+  </Style>
+  <Style Selector="Border.list-color-bar[Tag=info], Border.list-color-bar[Tag=log-level-info]">
+    <Setter Property="Background" Value="{DynamicResource TagInfoBarBrush}" />
+  </Style>
+  <Style Selector="Border.list-color-bar[Tag=warning], Border.list-color-bar[Tag=log-level-warning]">
+    <Setter Property="Background" Value="{DynamicResource AppWarningBrush}" />
+  </Style>
+  <Style Selector="Border.list-color-bar[Tag=error], Border.list-color-bar[Tag=log-level-error]">
+    <Setter Property="Background" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+
+  <!-- 按钮加载指示器: 特定上下文覆盖前景 -->
+  <Style Selector="iconPacks|PackIconMingCuteIcons.button-spinner">
+    <Setter Property="Width" Value="14" />
+    <Setter Property="Height" Value="14" />
+    <Setter Property="Foreground" Value="{DynamicResource AppSpinnerForegroundBrush}" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Style.Animations>
+      <Animation Duration="0:0:0.8" IterationCount="Infinite" Easing="LinearEasing">
+        <KeyFrame Cue="0%">
+          <Setter Property="RotateTransform.Angle" Value="0" />
+        </KeyFrame>
+        <KeyFrame Cue="100%">
+          <Setter Property="RotateTransform.Angle" Value="360" />
+        </KeyFrame>
+      </Animation>
+    </Style.Animations>
+  </Style>
+  <Style Selector="Button.dialog-secondary iconPacks|PackIconMingCuteIcons.button-spinner">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.toolbar-icon iconPacks|PackIconMingCuteIcons.button-spinner">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+  </Style>
+  <Style Selector="Button.toolbar-icon:pointerover iconPacks|PackIconMingCuteIcons.button-spinner">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+</Styles>

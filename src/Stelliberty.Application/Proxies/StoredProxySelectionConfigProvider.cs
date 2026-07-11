@@ -1,0 +1,233 @@
+using Stelliberty.Application.Subscriptions;
+using Stelliberty.Domain.Proxies;
+
+namespace Stelliberty.Application.Proxies;
+
+public sealed class StoredProxySelectionConfigProvider(
+    IProxyConfigProvider inner,
+    IProxySelectionStore selectionStore,
+    ISubscriptionSelectionStore subscriptionSelectionStore,
+    ProxySelectionSyncState? syncState = null,
+    bool importCoreSelections = false,
+    bool pruneInvalidSelections = true) : IProxyConfigProvider
+{
+    public async Task<ProxyConfig> LoadAsync(CancellationToken cancellationToken = default)
+    {
+        var config = await inner.LoadAsync(cancellationToken);
+        var subscriptionId = subscriptionSelectionStore.GetCurrentSubscriptionId();
+        if (string.IsNullOrWhiteSpace(subscriptionId))
+        {
+            return ApplyStoredSelections(config, new Dictionary<string, string>(StringComparer.Ordinal));
+        }
+
+        var selections = new Dictionary<string, string>(
+            selectionStore.GetSelections(subscriptionId),
+            StringComparer.Ordinal);
+        if (pruneInvalidSelections && config.Groups.Count > 0)
+        {
+            RemoveInvalidStoredSelections(config, selections, subscriptionId);
+        }
+
+        if (importCoreSelections && syncState?.CanImportCoreSelections == true)
+        {
+            ImportCoreSelections(config, selections, subscriptionId);
+        }
+
+        return ApplyStoredSelections(config, selections);
+    }
+
+    public ProxyConfig ApplyStoredSelections(ProxyConfig config)
+    {
+        var subscriptionId = subscriptionSelectionStore.GetCurrentSubscriptionId();
+        if (string.IsNullOrWhiteSpace(subscriptionId))
+        {
+            return config;
+        }
+
+        return ApplyStoredSelections(
+            config,
+            selectionStore.GetSelections(subscriptionId));
+    }
+
+    public void PruneInvalidStoredSelections(ProxyConfig config)
+    {
+        var subscriptionId = subscriptionSelectionStore.GetCurrentSubscriptionId();
+        if (string.IsNullOrWhiteSpace(subscriptionId) || config.Groups.Count == 0)
+        {
+            return;
+        }
+
+        var selections = new Dictionary<string, string>(
+            selectionStore.GetSelections(subscriptionId),
+            StringComparer.Ordinal);
+        RemoveInvalidStoredSelections(config, selections, subscriptionId);
+    }
+
+    private void RemoveInvalidStoredSelections(
+        ProxyConfig config,
+        Dictionary<string, string> selections,
+        string subscriptionId)
+    {
+        var entryNames = BuildEntryNames(config);
+        var groupsByName = config.Groups.ToDictionary(group => group.Name, StringComparer.Ordinal);
+        foreach (var (groupName, proxyName) in selections.ToList())
+        {
+            if (!groupsByName.TryGetValue(groupName, out var group)
+                || !group.IsManualSelectable
+                || ValidSelectionOrNull(group, proxyName, entryNames) is null)
+            {
+                selections.Remove(groupName);
+                selectionStore.RemoveSelection(subscriptionId, groupName);
+            }
+        }
+    }
+
+    private static ProxyConfig ApplyStoredSelections(
+        ProxyConfig config,
+        IReadOnlyDictionary<string, string> selections)
+    {
+        var entryNames = BuildEntryNames(config);
+        var groups = config.Groups
+            .Select(group => ApplyGroupSelection(group, selections, entryNames))
+            .ToList();
+
+        return config with { Groups = groups };
+    }
+
+    private void ImportCoreSelections(
+        ProxyConfig config,
+        Dictionary<string, string> selections,
+        string subscriptionId)
+    {
+        var entryNames = BuildEntryNames(config);
+        foreach (var group in config.Groups)
+        {
+            if (!group.IsManualSelectable)
+            {
+                continue;
+            }
+
+            if (group.UsesFixedSelection)
+            {
+                ImportFixedSelection(group, selections, subscriptionId, entryNames);
+                continue;
+            }
+
+            var coreSelection = ValidSelectionOrNull(group, group.Now, entryNames);
+            if (coreSelection is null)
+            {
+                continue;
+            }
+
+            var expectedSelection = ResolveSelection(group, selections, entryNames);
+            if (string.Equals(coreSelection, expectedSelection, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            selections[group.Name] = coreSelection;
+            selectionStore.SetSelection(subscriptionId, group.Name, coreSelection);
+        }
+    }
+
+    private void ImportFixedSelection(
+        ProxyGroup group,
+        Dictionary<string, string> selections,
+        string subscriptionId,
+        ISet<string> entryNames)
+    {
+        var fixedSelection = ValidSelectionOrNull(group, group.Fixed, entryNames);
+        if (fixedSelection is null)
+        {
+            if (selections.Remove(group.Name))
+            {
+                selectionStore.RemoveSelection(subscriptionId, group.Name);
+            }
+
+            return;
+        }
+
+        if (selections.TryGetValue(group.Name, out var stored)
+            && string.Equals(stored, fixedSelection, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        selections[group.Name] = fixedSelection;
+        selectionStore.SetSelection(subscriptionId, group.Name, fixedSelection);
+    }
+
+    private static ProxyGroup ApplyGroupSelection(
+        ProxyGroup group,
+        IReadOnlyDictionary<string, string> selections,
+        ISet<string> entryNames)
+    {
+        if (!group.IsManualSelectable)
+        {
+            return group;
+        }
+
+        if (group.UsesFixedSelection)
+        {
+            var fixedSelection = ResolveStoredSelection(group, selections, entryNames)
+                ?? ValidSelectionOrNull(group, group.Fixed, entryNames);
+            return group with { Fixed = fixedSelection };
+        }
+
+        var proxyName = ResolveSelection(group, selections, entryNames);
+        return string.IsNullOrWhiteSpace(proxyName) ? group with { Now = null } : group with { Now = proxyName };
+    }
+
+    private static string? ResolveStoredSelection(
+        ProxyGroup group,
+        IReadOnlyDictionary<string, string> selections,
+        ISet<string> entryNames)
+    {
+        return selections.TryGetValue(group.Name, out var proxyName)
+            ? ValidSelectionOrNull(group, proxyName, entryNames)
+            : null;
+    }
+
+    private static string? ResolveSelection(
+        ProxyGroup group,
+        IReadOnlyDictionary<string, string> selections,
+        ISet<string> entryNames)
+    {
+        var storedSelection = ResolveStoredSelection(group, selections, entryNames);
+        if (storedSelection is not null)
+        {
+            return storedSelection;
+        }
+
+        if (!group.IsManualSelectable)
+        {
+            return null;
+        }
+
+        var defaultProxyName = group.All.FirstOrDefault(entryNames.Contains);
+        return string.IsNullOrWhiteSpace(defaultProxyName) ? null : defaultProxyName;
+    }
+
+    private static string? ValidSelectionOrNull(
+        ProxyGroup group,
+        string? proxyName,
+        ISet<string> entryNames)
+    {
+        return !string.IsNullOrWhiteSpace(proxyName)
+            && group.All.Contains(proxyName, StringComparer.Ordinal)
+            && entryNames.Contains(proxyName)
+            ? proxyName
+            : null;
+    }
+
+    private static HashSet<string> BuildEntryNames(ProxyConfig config)
+    {
+        var names = new HashSet<string>(config.Nodes.Keys, StringComparer.Ordinal);
+        foreach (var group in config.Groups)
+        {
+            names.Add(group.Name);
+        }
+
+        return names;
+    }
+}

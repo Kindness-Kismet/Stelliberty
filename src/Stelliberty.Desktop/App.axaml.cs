@@ -1,0 +1,664 @@
+using System.Diagnostics;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
+using Stelliberty.Application.Diagnostics;
+using Stelliberty.Application.Localization;
+using Stelliberty.Application.Overrides;
+using Stelliberty.Domain.Overrides;
+using Stelliberty.Application.Platform;
+using Stelliberty.Application.Proxies;
+using Stelliberty.Domain.Proxies;
+using Stelliberty.Application.Rules;
+using Stelliberty.Domain.Rules;
+using Stelliberty.Application.Runtime;
+using Stelliberty.Application.Settings;
+using Stelliberty.Application.Updates;
+using Stelliberty.Desktop.Services;
+using Stelliberty.Infrastructure.Core;
+using Stelliberty.Infrastructure.DataManagement;
+using Stelliberty.Infrastructure.Diagnostics;
+using Stelliberty.Infrastructure.Localization;
+using Stelliberty.Infrastructure.Overrides;
+using Stelliberty.Infrastructure.Platform;
+using Stelliberty.Infrastructure.Proxies;
+using Stelliberty.Infrastructure.Rules;
+using Stelliberty.Infrastructure.Runtime;
+using Stelliberty.Infrastructure.Settings;
+using Stelliberty.Infrastructure.Subscriptions;
+using Stelliberty.Infrastructure.Updates;
+using Stelliberty.Application.Subscriptions;
+using Stelliberty.Domain.Subscriptions;
+using Stelliberty.Desktop.Controls;
+using Stelliberty.Desktop.Debug;
+using Stelliberty.Desktop.Localization;
+using Stelliberty.Native;
+using Stelliberty.Native.Hub;
+using Stelliberty.Presentation.ViewModels;
+
+namespace Stelliberty.Desktop;
+
+public sealed partial class App : Avalonia.Application
+{
+    private const string SilentStartArgument = "--silent-start";
+    private readonly DesktopTrayService _trayService = new();
+    private SessionEndCleanupService? _sessionEndCleanup;
+    private DispatcherTimer? _appUpdateAutoCheckTimer;
+    private DispatcherTimer? _subscriptionAutoDelayTimer;
+    private DispatcherTimer? _subscriptionAutoUpdateTimer;
+    private DispatcherTimer? _homeRuntimeTimer;
+    private DispatcherTimer? _webDavBackupTimer;
+    private bool _isServiceModeCoreHostActive;
+    private static readonly TimeSpan InitialServiceModeTunWaitTimeout = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan InitialServiceModeStatusPollInterval = TimeSpan.FromMilliseconds(250);
+
+    public override void Initialize()
+    {
+        AppLogger.Debug("Loading Avalonia XAML");
+        AvaloniaXamlLoader.Load(this);
+    }
+
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            AppLogger.Info("Creating main window");
+            var platformDirectories = new DesktopPlatformDirectories();
+            // 代理组图标磁盘缓存，进程重启后免重下。
+            RemoteImageCache.Configure(Path.Combine(platformDirectories.AppDataDirectory, "icon-cache"));
+            var settingsStore = new JsonAppSettingsStore(platformDirectories);
+            var settings = settingsStore.Load();
+            var updateChecker = new GitHubAppUpdateChecker(() => settingsStore.Load().AppUpdateChannel);
+            var systemProxyPlatform = CurrentSystemProxyPlatform();
+            IUwpLoopbackService uwpLoopbackService = OperatingSystem.IsWindows()
+                ? new WindowsUwpLoopbackService()
+                : new UnsupportedUwpLoopbackService();
+            var systemProxyHostDetector = new NetworkInterfaceSystemProxyHostDetector();
+            ISystemProxyService systemProxyService = CreateSystemProxyService(
+                systemProxyPlatform,
+                platformDirectories.AppDataDirectory);
+            IServiceModeManager serviceModeManager = new DesktopServiceModeManager();
+            var coreProcessCleaner = new CoreProcessCleaner();
+            var networkConnectionProbe = new SystemNetworkConnectionProbe();
+            var processPrivilegeProbe = new SystemProcessPrivilegeProbe();
+            IAppBehaviorService appBehaviorService = CreateAppBehaviorService();
+            var initialLanguage = AppLanguageParser.Parse(settings.Language);
+            var localization = new JsonLocalizationService(initialLanguage);
+            LocalizationManager.Initialize(localization);
+            var subscriptionStore = new FileSubscriptionStore(platformDirectories.AppDataDirectory);
+            var subscriptionSelectionStore = new FileSubscriptionSelectionStore(platformDirectories.AppDataDirectory);
+            var proxySelectionStore = new FileProxySelectionStore(platformDirectories.AppDataDirectory);
+            var overrideStore = new FileOverrideStore(platformDirectories.AppDataDirectory);
+#if DEBUG
+            IRemoteOverrideDownloader remoteOverrideDownloader = new RemoteOverrideDownloader();
+#else
+            IRemoteOverrideDownloader remoteOverrideDownloader = new HttpRemoteOverrideDownloader();
+#endif
+            var overrideImporter = new OverrideImporter(overrideStore, remoteOverrideDownloader);
+            var overrideUpdater = new OverrideUpdater(overrideStore, remoteOverrideDownloader);
+            var overrideDeleter = new OverrideDeleter(overrideStore, subscriptionStore);
+            var overrideSelectionUpdater = new SubscriptionOverrideSelectionUpdater(subscriptionStore, overrideStore);
+            var localSubscriptionImporter = new LocalSubscriptionFileImporter(
+                new LocalSubscriptionImporter(subscriptionStore),
+                new FileLocalSubscriptionFileReader());
+#if DEBUG
+            IRemoteSubscriptionDownloader remoteSubscriptionDownloader = new RemoteSubscriptionDownloader(() => (settings.ProxyHost, settings.MixedPort));
+#else
+            IRemoteSubscriptionDownloader remoteSubscriptionDownloader = new HttpRemoteSubscriptionDownloader(() => (settings.ProxyHost, settings.MixedPort));
+#endif
+            var subscriptionContentDecryptor = new HubSubscriptionContentDecryptor();
+            var remoteSubscriptionImporter = new RemoteSubscriptionImporter(
+                subscriptionStore,
+                remoteSubscriptionDownloader,
+                contentDecryptor: subscriptionContentDecryptor);
+            var subscriptionUpdater = new SubscriptionUpdater(
+                subscriptionStore,
+                remoteSubscriptionDownloader,
+                contentDecryptor: subscriptionContentDecryptor);
+            var runtimeStore = new FileRuntimeConfigStore(platformDirectories.RuntimeDirectory);
+            var selectedSubscriptionRuntimeGenerator = new SelectedSubscriptionRuntimeGenerator(
+                subscriptionStore,
+                subscriptionSelectionStore,
+                new RuntimeConfigGenerator(new HubOverrideEngine()),
+                overrideStore,
+                runtimeStore);
+            var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore);
+            // Provider 同步和状态读取始终走核心管道，保持 Debug 和 Release 路径一致。
+            var coreProviderClient = new PipeCoreProviderClient(HubStartupCoordinator.MihomoPipe);
+            var providerCatalogLoader = new SelectedSubscriptionProviderCatalogLoader(
+                subscriptionStore,
+                subscriptionSelectionStore,
+                new SubscriptionProviderParser(),
+                coreProviderClient,
+                coreProviderClient);
+            ISubscriptionProviderUploader subscriptionProviderUploader = new FileSubscriptionProviderUploader(platformDirectories.AppDataDirectory);
+            ISubscriptionFileOpener subscriptionFileOpener = new DesktopSubscriptionFileOpener(subscriptionStore.GetContentPath);
+            IOverrideFileOpener overrideFileOpener = new DesktopOverrideFileOpener(overrideStore.GetContentPath);
+            var clipboardWriter = new DesktopClipboardWriter(desktop);
+            var chainProxyContextLoader = new SubscriptionChainProxyContextLoader(subscriptionStore, new HubOverrideEngine(), overrideStore);
+            var subscriptionPage = new SubscriptionPageViewModel(
+                localSubscriptionImporter,
+                remoteSubscriptionImporter,
+                subscriptionUpdater,
+                subscriptionStore,
+                overrideStore,
+                overrideSelectionUpdater,
+                clipboardWriter,
+                subscriptionFileOpener,
+                subscriptionProviderUploader,
+                providerCatalogLoader,
+                subscriptionDeleter,
+                subscriptionSelectionStore,
+                runtimeStore,
+                localization,
+                chainProxyContextLoader.Load);
+            var overridePage = new OverridePageViewModel(
+                overrideStore,
+                overrideImporter,
+                overrideUpdater,
+                overrideDeleter,
+                new FileLocalOverrideFileReader(),
+                overrideFileOpener,
+                localization);
+#if DEBUG
+            var pipeProxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.MihomoPipe);
+            IProxyCoreClient proxyCoreClient = new ProxyCoreClient(pipeProxyCoreClient);
+            IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
+                HubStartupCoordinator.MihomoPipe,
+                () => settings.DelayTestUrl,
+                5000);
+#else
+
+            IProxyCoreClient proxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.MihomoPipe);
+            IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
+                HubStartupCoordinator.MihomoPipe,
+                () => settings.DelayTestUrl,
+                5000);
+#endif
+
+            var initialServiceModeStatus = GetInitialServiceModeStatus(serviceModeManager, settings.IsTunEnabled);
+            var coreManager = CreateCoreManager(initialServiceModeStatus, serviceModeManager);
+            var coreUpdater = new MihomoCoreUpdater(DesktopApplicationLayout.CoreBinaryPath, coreManager);
+            var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
+            var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
+            var proxyConfigParser = new ProxyConfigParser();
+            var proxyConfigLoader = new ProxyConfigLoader(
+                proxyConfigSource,
+                proxyConfigParser,
+                () => true);
+            var proxySelectionSyncState = new ProxySelectionSyncState();
+            var mihomoApiProxyConfigProvider = new MihomoApiProxyConfigProvider(
+                proxyCoreClient,
+                new FileRuntimeProxyGroupIconProvider(proxyConfigSource, proxyConfigParser));
+            var primaryProxyConfigProvider = new StoredProxySelectionConfigProvider(
+                mihomoApiProxyConfigProvider,
+                proxySelectionStore,
+                subscriptionSelectionStore,
+                proxySelectionSyncState,
+                importCoreSelections: true,
+                pruneInvalidSelections: false);
+            var fallbackProxyConfigProvider = new StoredProxySelectionConfigProvider(
+                new FileRuntimeProxyConfigProvider(proxyConfigLoader),
+                proxySelectionStore,
+                subscriptionSelectionStore,
+                pruneInvalidSelections: false);
+            var proxySelectionRestorer = new ProxySelectionRestorer(
+                proxyCoreClient,
+                mihomoApiProxyConfigProvider,
+                primaryProxyConfigProvider,
+                proxySelectionSyncState);
+            var proxyPageLayout = Enum.TryParse<ProxyPageLayout>(settings.ProxyPageLayout, ignoreCase: true, out var parsedProxyLayout)
+                ? parsedProxyLayout
+                : ProxyPageLayout.Horizontal;
+            var proxyPage = new ProxyPageViewModel(
+                proxyConfigLoader,
+                new ProxyDelayService(proxyDelayTester),
+                proxyCoreClient,
+                primaryProxyConfigProvider,
+                fallbackProxyConfigProvider,
+                localization,
+                new ProxySelectionService(proxyCoreClient, proxySelectionStore, subscriptionSelectionStore),
+                initialLayout: proxyPageLayout,
+                persistLayout: layout =>
+                {
+                    // 复用共享设置实例，避免后续完整保存丢失这个偏好。
+                    settings.ProxyPageLayout = layout.ToString();
+                    settingsStore.Save(settings);
+                });
+            var rulePage = new RulePageViewModel(new RuleListLoader(
+                new FileRuntimeRuleConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore),
+                new RuleParser(),
+                () => true),
+                localization);
+            var coreLogPage = new CoreLogPageViewModel(localization: localization);
+            var dataBackupService = new FileDataBackupService(platformDirectories.AppDataDirectory);
+            var webDavBackupStore = new WebDavBackupStore();
+            var webDavDataBackupService = new WebDavDataBackupService(dataBackupService, webDavBackupStore);
+            var viewModel = new MainWindowViewModel(
+                settingsStore,
+                localization,
+                proxyPage,
+                connectionPage,
+                coreLogPage,
+                subscriptionPage,
+                overridePage,
+                rulePage,
+                dataManagementService: dataBackupService,
+                webDavDataBackupService: webDavDataBackupService,
+                updateChecker: updateChecker,
+                uwpLoopbackService: uwpLoopbackService,
+                systemProxyHostDetector: systemProxyHostDetector,
+                systemProxyService: systemProxyService,
+                serviceModeManager: serviceModeManager,
+                isServiceModeCoreHostActive: () => _isServiceModeCoreHostActive,
+                systemProxyRequestFactory: () => SystemProxyApplicationRequest.Build(settingsStore.Load(), systemProxyPlatform),
+                appBehaviorService: appBehaviorService,
+                runtimeFallbackGenerator: new SelectedRuntimeFallbackGenerator(
+                    subscriptionStore,
+                    overrideSelectionUpdater,
+                    selectedSubscriptionRuntimeGenerator),
+                runtimeStore: runtimeStore,
+                coreManager: coreManager,
+                initialSettings: settings,
+                windowEffectCapability: new WindowEffectCapability(),
+                networkConnectionProbe: networkConnectionProbe,
+                homeProxyClient: proxyCoreClient,
+                coreUpdater: coreUpdater,
+                processPrivilegeProbe: processPrivilegeProbe,
+                initialServiceModeStatus: initialServiceModeStatus,
+                systemPlatform: systemProxyPlatform,
+                clipboardWriter: clipboardWriter,
+                appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
+                appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
+            var autoUpdateScheduler = new AppUpdateAutoCheckScheduler(updateChecker, settingsStore.Load, settingsStore.Save, () => DateTimeOffset.Now);
+            var autoUpdateRunner = new AppUpdateAutoCheckRunner(autoUpdateScheduler, viewModel.Update.ApplyAutoCheckResult);
+            var subscriptionAutoUpdate = new SubscriptionAutoUpdateCoordinator(
+                new SubscriptionAutoUpdateRunner(subscriptionStore, new SubscriptionAutoUpdatePlanner(), subscriptionUpdater),
+                subscriptionPage,
+                () => DateTimeOffset.Now);
+            _ = RunAppUpdateCheckAsync(() => autoUpdateRunner.RunStartupCheckAsync());
+            StartAppUpdateAutoCheckTimer(autoUpdateRunner);
+            StartSubscriptionAutoDelayTimer(viewModel);
+            StartHomeRuntimeTimer(viewModel);
+            StartWebDavBackupTimer(viewModel);
+            var mainWindow = new MainWindow(settingsStore, settings)
+            {
+                DataContext = viewModel
+            };
+
+            var shouldStartHidden = ShouldStartHidden(desktop, settings);
+            if (shouldStartHidden)
+            {
+                // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
+                desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                mainWindow.PrepareForSilentStart();
+                AppLogger.Info("Silent start enabled; main window stays hidden");
+            }
+            else
+            {
+                desktop.MainWindow = mainWindow;
+            }
+
+            desktop.ShutdownRequested += (_, _) =>
+            {
+                StopBackgroundServices();
+                viewModel.HomePage.DisableSystemProxyOnShutdown();
+                _trayService.Dispose();
+                _sessionEndCleanup?.Dispose();
+                _sessionEndCleanup = null;
+                viewModel.Dispose();
+                DisposeOwnedServices(coreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
+                HubBootstrap.Shutdown();
+            };
+            // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。
+            _sessionEndCleanup = new SessionEndCleanupService(viewModel.HomePage.DisableSystemProxyOnShutdown);
+            _sessionEndCleanup.Start();
+            _trayService.Attach(desktop, mainWindow, viewModel, localization);
+#if DEBUG
+            DebugCommands.Start(mainWindow);
+#endif
+            // 首屏出现后再启动重活，保持窗口启动响应。
+            Dispatcher.UIThread.Post(
+                () =>
+                {
+                    _ = InitializeSubscriptionServicesAsync(subscriptionPage, subscriptionAutoUpdate);
+                    _ = overridePage.InitializeAsync();
+                    _ = StartCoreServicesAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner, coreManager, viewModel, proxyPage, rulePage, proxySelectionRestorer);
+                },
+                DispatcherPriority.Background);
+        }
+
+        base.OnFrameworkInitializationCompleted();
+    }
+
+    private static bool ShouldStartHidden(IClassicDesktopStyleApplicationLifetime desktop, AppSettings settings)
+    {
+        return settings.IsSilentStartEnabled || HasSilentStartArgument(desktop.Args);
+    }
+
+    private static bool HasSilentStartArgument(string[]? args)
+    {
+        return args?.Any(arg => string.Equals(arg, SilentStartArgument, StringComparison.OrdinalIgnoreCase)) == true;
+    }
+
+    private void StopBackgroundServices()
+    {
+        StopTimer(ref _appUpdateAutoCheckTimer);
+        StopTimer(ref _subscriptionAutoDelayTimer);
+        StopTimer(ref _subscriptionAutoUpdateTimer);
+        StopTimer(ref _homeRuntimeTimer);
+        StopTimer(ref _webDavBackupTimer);
+    }
+
+    private static void StopTimer(ref DispatcherTimer? timer)
+    {
+        if (timer is null)
+        {
+            return;
+        }
+
+        timer.Stop();
+        timer = null;
+    }
+
+    private static void DisposeOwnedServices(params object?[] services)
+    {
+        foreach (var service in services)
+        {
+            if (service is not IDisposable disposable)
+            {
+                continue;
+            }
+
+            try
+            {
+                disposable.Dispose();
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Warning($"Service dispose failed: {exception.Message}");
+            }
+        }
+    }
+
+    private async Task StartCoreServicesAsync(
+        ServiceModeStatus initialServiceModeStatus,
+        IServiceModeManager serviceModeManager,
+        CoreProcessCleaner coreProcessCleaner,
+        ICoreManager coreManager,
+        MainWindowViewModel viewModel,
+        ProxyPageViewModel proxyPage,
+        RulePageViewModel rulePage,
+        ProxySelectionRestorer proxySelectionRestorer)
+    {
+        try
+        {
+            var bootstrap = await StartCoreHostAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner);
+            if (bootstrap.Ok)
+            {
+                if (coreManager is IpcCoreManager ipcCoreManager)
+                {
+                    // 仅在普通模式启动创建管道后连接。
+                    await ipcCoreManager.ConnectAsync(CancellationToken.None);
+                }
+                else if (coreManager is ServiceModeCoreManager serviceModeCoreManager)
+                {
+                    await serviceModeCoreManager.EnsureReadyAsync(CancellationToken.None);
+                }
+            }
+            else
+            {
+                AppLogger.Warning($"Core host startup failed: {bootstrap.Message}");
+                viewModel.ShowErrorToast(LocalizationManager.Translate("Common.Error.CoreStartupFailed"));
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Core manager startup failed: {exception.Message}");
+            viewModel.ShowErrorToast(LocalizationManager.Translate("Common.Error.CoreStartupFailed"));
+        }
+
+        try
+        {
+            await proxySelectionRestorer.RestoreCurrentSubscriptionAsync();
+            await proxyPage.RefreshProxiesAsync();
+            if (viewModel.SubscriptionPage.CurrentSubscriptionId is { } subscriptionId)
+            {
+                proxyPage.BindLoadedConfigToSubscription(subscriptionId);
+            }
+            rulePage.RefreshRulesCommand.Execute(null);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Startup refresh for runtime lists failed: {exception.Message}");
+        }
+    }
+
+    private async Task<BootstrapResult> StartCoreHostAsync(
+        ServiceModeStatus initialServiceModeStatus,
+        IServiceModeManager serviceModeManager,
+        CoreProcessCleaner coreProcessCleaner)
+    {
+        if (initialServiceModeStatus.IsRunning)
+        {
+            var serviceCleanup = coreProcessCleaner.CleanupForServiceMode(initialServiceModeStatus);
+            if (!serviceCleanup.IsSuccess)
+            {
+                AppLogger.Warning(serviceCleanup.Message);
+                return BootstrapResult.Failure(serviceCleanup.Message);
+            }
+
+            var result = await serviceModeManager.StartCoreHostAsync(
+                HubStartupCoordinator.CreateServiceModeCoreHostRequest(),
+                CancellationToken.None);
+            if (result.IsSuccess)
+            {
+                _isServiceModeCoreHostActive = true;
+                AppLogger.Info("Service-mode core started");
+                return BootstrapResult.Success(result.Message);
+            }
+
+            _isServiceModeCoreHostActive = false;
+            AppLogger.Warning($"Service-mode core startup failed; core is unavailable: {result.Message}");
+            return BootstrapResult.Failure(result.Message);
+        }
+
+        _isServiceModeCoreHostActive = false;
+        var cleanup = coreProcessCleaner.CleanupForNormalMode(initialServiceModeStatus);
+        if (!cleanup.IsSuccess)
+        {
+            AppLogger.Warning(cleanup.Message);
+            return BootstrapResult.Failure(cleanup.Message);
+        }
+
+        return await HubStartupCoordinator.EnsureStartedAsync();
+    }
+
+    private static ServiceModeStatus GetInitialServiceModeStatus(IServiceModeManager serviceModeManager, bool waitForTunService)
+    {
+        var status = ProbeServiceModeStatus(serviceModeManager);
+        if (!waitForTunService || status.IsRunning || !status.IsInstalled)
+        {
+            return status;
+        }
+
+        // TUN 启动依赖服务核心；登录瞬间服务可能仍在 SCM 启动路径上。
+        var stopwatch = Stopwatch.StartNew();
+        while (stopwatch.Elapsed < InitialServiceModeTunWaitTimeout)
+        {
+            Thread.Sleep(InitialServiceModeStatusPollInterval);
+            status = ProbeServiceModeStatus(serviceModeManager);
+            if (status.IsRunning || !status.IsInstalled)
+            {
+                return status;
+            }
+        }
+
+        return status;
+    }
+
+    private static ServiceModeStatus ProbeServiceModeStatus(IServiceModeManager serviceModeManager)
+    {
+        try
+        {
+            return serviceModeManager.GetStatusAsync(CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Service-mode status probe failed: {exception.Message}");
+            return ServiceModeStatus.Unavailable(exception.Message);
+        }
+    }
+
+    private ICoreManager CreateCoreManager(ServiceModeStatus initialServiceModeStatus, IServiceModeManager serviceModeManager)
+    {
+        if (initialServiceModeStatus.IsRunning)
+        {
+            return new ServiceModeCoreManager(
+                serviceModeManager,
+                HubStartupCoordinator.MihomoPipe,
+                HubStartupCoordinator.WriteServiceModeActiveConfig,
+                isActive => _isServiceModeCoreHostActive = isActive);
+        }
+
+        return new IpcCoreManager(HubStartupCoordinator.PipeName);
+    }
+
+    private void StartAppUpdateAutoCheckTimer(AppUpdateAutoCheckRunner runner)
+    {
+        _appUpdateAutoCheckTimer = new DispatcherTimer
+        {
+            // 每 30 分钟检查更新，避免频繁访问发布 API。
+            Interval = TimeSpan.FromMinutes(30)
+        };
+        _appUpdateAutoCheckTimer.Tick += async (_, _) => await RunAppUpdateCheckAsync(() => runner.RunDueCheckAsync());
+        _appUpdateAutoCheckTimer.Start();
+        AppLogger.Info("Scheduled app update checks started");
+    }
+
+    private static async Task RunAppUpdateCheckAsync(Func<Task<AppUpdateAutoCheckResult>> check)
+    {
+        try
+        {
+            await check();
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"App update scheduler failed: {exception.Message}");
+        }
+    }
+
+    private void StartSubscriptionAutoDelayTimer(MainWindowViewModel viewModel)
+    {
+        _subscriptionAutoDelayTimer = new DispatcherTimer
+        {
+            // 自动延迟测试按到期时间检查，不强制固定频率探测。
+            Interval = TimeSpan.FromMinutes(1)
+        };
+        _subscriptionAutoDelayTimer.Tick += async (_, _) => await viewModel.SubscriptionAutoDelay.RunDueAsync();
+        _subscriptionAutoDelayTimer.Start();
+        AppLogger.Info("Subscription auto-delay scheduler started");
+    }
+
+    private async Task InitializeSubscriptionServicesAsync(
+        SubscriptionPageViewModel subscriptionPage,
+        SubscriptionAutoUpdateCoordinator autoUpdate)
+    {
+        await subscriptionPage.InitializeAsync();
+        await autoUpdate.RunStartupAsync();
+        StartSubscriptionAutoUpdateTimer(autoUpdate);
+    }
+
+    private void StartSubscriptionAutoUpdateTimer(SubscriptionAutoUpdateCoordinator autoUpdate)
+    {
+        _subscriptionAutoUpdateTimer = new DispatcherTimer
+        {
+            // 最小更新间隔为分钟，按一分钟粒度检查到期订阅。
+            Interval = TimeSpan.FromMinutes(1)
+        };
+        _subscriptionAutoUpdateTimer.Tick += async (_, _) => await autoUpdate.RunDueAsync();
+        _subscriptionAutoUpdateTimer.Start();
+        AppLogger.Info("Subscription auto-update scheduler started");
+    }
+
+    private void StartHomeRuntimeTimer(MainWindowViewModel viewModel)
+    {
+        _homeRuntimeTimer = new DispatcherTimer
+        {
+            // 主页运行状态每秒刷新；后台页面跳过实时轮询。
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _homeRuntimeTimer.Tick += (_, _) => viewModel.OnHomeRuntimeTick();
+        _homeRuntimeTimer.Start();
+        AppLogger.Info("Home runtime refresh started");
+    }
+
+    private void StartWebDavBackupTimer(MainWindowViewModel viewModel)
+    {
+        _webDavBackupTimer = new DispatcherTimer
+        {
+            // 定时备份按到期时间检查，避免频繁访问 WebDAV 服务。
+            Interval = TimeSpan.FromMinutes(10)
+        };
+        _webDavBackupTimer.Tick += async (_, _) => await viewModel.DataManagement.CreateScheduledWebDavBackupAsync();
+        _webDavBackupTimer.Start();
+        _ = viewModel.DataManagement.CreateScheduledWebDavBackupAsync();
+        AppLogger.Info("WebDAV backup scheduler started");
+    }
+
+    private static SystemProxyPlatform CurrentSystemProxyPlatform()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return SystemProxyPlatform.Windows;
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return SystemProxyPlatform.Linux;
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return SystemProxyPlatform.MacOS;
+        }
+
+        return SystemProxyPlatform.Other;
+    }
+
+    private static ISystemProxyService CreateSystemProxyService(SystemProxyPlatform platform, string appDataDirectory)
+    {
+        return platform switch
+        {
+            SystemProxyPlatform.Windows => new WindowsSystemProxyService(appDataDirectory),
+            SystemProxyPlatform.MacOS => new MacOSSystemProxyService(appDataDirectory),
+            SystemProxyPlatform.Linux => new LinuxSystemProxyService(appDataDirectory),
+            SystemProxyPlatform.Other => new UnsupportedSystemProxyService(),
+            _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown system proxy platform")
+        };
+    }
+
+    private static IAppBehaviorService CreateAppBehaviorService()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return new WindowsAppBehaviorService();
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return new LinuxAppBehaviorService();
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return new MacOSAppBehaviorService();
+        }
+
+        return new UnsupportedAppBehaviorService();
+    }
+}

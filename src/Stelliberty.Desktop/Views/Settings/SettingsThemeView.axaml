@@ -1,0 +1,86 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:conv="clr-namespace:Stelliberty.Desktop.Converters"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsThemeView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+  <UserControl.Resources>
+    <conv:HexToBrushConverter x:Key="HexToBrush" />
+  </UserControl.Resources>
+
+<!-- 主题外观 -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsThemeVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding Settings.GroupAppearanceText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title"
+                     VerticalAlignment="Center"
+                     Text="{Binding Theme.FieldLabelText}" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.ThemeComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding Theme.Options}"
+                    SelectedItem="{Binding Theme.SelectedOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+          <TextBlock Grid.Column="0" Classes="settings-row-title"
+                     VerticalAlignment="Center"
+                     Text="{Binding Theme.AccentColorSectionTitle}" />
+          <Button Grid.Column="1" Classes="accent-swatch"
+                  AutomationProperties.AutomationId="Settings.EditCustomAccentButton"
+                  IsVisible="{Binding Theme.IsCustomAccentMode}"
+                  Command="{Binding Theme.EditCustomAccentColorCommand}"
+                  Background="{Binding Theme.CustomAccentColor, Converter={StaticResource HexToBrush}}" />
+          <ComboBox Grid.Column="2"
+                    AutomationProperties.AutomationId="Settings.AccentModeComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding Theme.AccentModeOptions}"
+                    SelectedItem="{Binding Theme.SelectedAccentModeOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider"
+              IsVisible="{Binding Theme.IsWindowEffectSupported}" />
+      <Border Classes="settings-inline-row"
+              IsVisible="{Binding Theme.IsWindowEffectSupported}">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title"
+                     VerticalAlignment="Center"
+                     Text="{Binding Theme.WindowEffectSectionTitle}" />
+          <ComboBox Grid.Column="1"
+                    AutomationProperties.AutomationId="Settings.WindowEffectComboBox"
+                    MinWidth="160"
+                    ItemsSource="{Binding Theme.WindowEffectOptions}"
+                    SelectedItem="{Binding Theme.SelectedWindowEffectOption, Mode=TwoWay}">
+            <ComboBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ISelectionOption">
+                <TextBlock Text="{Binding DisplayName}" />
+              </DataTemplate>
+            </ComboBox.ItemTemplate>
+          </ComboBox>
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+</StackPanel>
+</UserControl>

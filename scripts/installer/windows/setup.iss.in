@@ -1,0 +1,366 @@
+; Inno Setup template rendered by scripts/build.py.
+
+#define MyAppName "@APP_NAME@"
+#define MyAppVersion "@APP_VERSION@"
+#define MyAppPublisher "@APP_PUBLISHER@"
+#define MyAppExeName "@APP_EXE_NAME@"
+#define MyAppPackageName "@APP_PACKAGE_NAME@"
+#define MyAppMutex "@APP_MUTEX@"
+#define MyServiceName "@SERVICE_NAME@"
+#define MyServiceBinary "@SERVICE_BINARY@"
+#define MyCoreExeName "clash-mihomo-core.exe"
+
+[Setup]
+AppId={{@APP_ID@}}
+AppName={#MyAppName}
+AppVersion={#MyAppVersion}
+AppPublisher={#MyAppPublisher}
+AppCopyright=Copyright (C) 2026 {#MyAppPublisher}
+DefaultDirName={localappdata}\Programs\{#MyAppName}
+DefaultGroupName={#MyAppName}
+AllowNoIcons=yes
+DisableProgramGroupPage=yes
+OutputDir=@OUTPUT_DIR@
+OutputBaseFilename=@OUTPUT_BASE_FILENAME@
+Compression=lzma2/max
+SolidCompression=yes
+WizardStyle=modern
+@ARCH_MODE@
+PrivilegesRequired=admin
+UsedUserAreasWarning=no
+UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayName={#MyAppName}
+UninstallFilesDir={app}\uninstall
+DisableWelcomePage=no
+DisableDirPage=no
+DisableReadyPage=no
+CloseApplications=yes
+; 核心无窗口，先由 [Code] 按安装路径停止。
+CloseApplicationsFilter=*.dll
+RestartApplications=no
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "zhHans"; MessagesFile: "@LANGUAGE_DIR@\ChineseSimplified.isl"
+Name: "zhHant"; MessagesFile: "@LANGUAGE_DIR@\ChineseTraditional.isl"
+
+[CustomMessages]
+english.ResetDirHint=Reset to the default install folder
+zhHans.ResetDirHint=重置为默认安装位置
+zhHant.ResetDirHint=重設為預設安裝位置
+
+english.RestrictedPathHeader=This location cannot be used for installation:
+zhHans.RestrictedPathHeader=此位置不能用于安装：
+zhHant.RestrictedPathHeader=此位置不能用於安裝：
+
+english.RestrictedPathAllowed=On the system drive, installation is only allowed under:
+zhHans.RestrictedPathAllowed=在系统盘上，只允许安装到：
+zhHant.RestrictedPathAllowed=在系統磁碟上，只允許安裝到：
+
+english.RestrictedPathOtherDrives=Other drives are not restricted.
+zhHans.RestrictedPathOtherDrives=其他磁盘不受限制。
+zhHant.RestrictedPathOtherDrives=其他磁碟不受限制。
+
+english.UninstallAppRunning={#MyAppName} is running. Close the app before continuing with the uninstall.
+zhHans.UninstallAppRunning={#MyAppName} 正在运行。请先关闭应用，再继续卸载。
+zhHant.UninstallAppRunning={#MyAppName} 正在執行。請先關閉應用程式，再繼續解除安裝。
+
+english.UninstallQuestion=Uninstall {#MyAppName}?
+zhHans.UninstallQuestion=卸载 {#MyAppName}？
+zhHant.UninstallQuestion=解除安裝 {#MyAppName}？
+
+english.UninstallRemoveAll=Choose Yes to remove the app and user data.
+zhHans.UninstallRemoveAll=选择“是”将删除应用和用户数据。
+zhHant.UninstallRemoveAll=選擇「是」將移除應用程式和使用者資料。
+
+english.UninstallKeepData=Choose No to remove only the app and keep user data.
+zhHans.UninstallKeepData=选择“否”将只删除应用并保留用户数据。
+zhHant.UninstallKeepData=選擇「否」將只移除應用程式並保留使用者資料。
+
+english.UninstallCancel=Choose Cancel to stop the uninstall.
+zhHans.UninstallCancel=选择“取消”将停止卸载。
+zhHant.UninstallCancel=選擇「取消」將停止解除安裝。
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+
+[Files]
+Source: "@SOURCE_DIR@\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+
+[Run]
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+var
+  ResetDirButton: TButton;
+  CleanUserData: Boolean;
+  HadService: Boolean;
+  WasServiceRunning: Boolean;
+
+function GetSystemDrive(): String;
+var
+  WinDir: String;
+begin
+  WinDir := ExpandConstant('{sys}');
+  Result := Copy(WinDir, 1, 2);
+end;
+
+function IsSystemDrivePath(Path: String): Boolean;
+var
+  SystemDrive: String;
+  PathDrive: String;
+begin
+  SystemDrive := Uppercase(GetSystemDrive());
+  PathDrive := Uppercase(Copy(Path, 1, 2));
+  Result := (PathDrive = SystemDrive);
+end;
+
+function IsRestrictedPath(Path: String): Boolean;
+var
+  UpperPath: String;
+  LocalAppData: String;
+  AllowedPath: String;
+begin
+  Result := False;
+  UpperPath := Uppercase(Path);
+
+  if not IsSystemDrivePath(Path) then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  if (Length(UpperPath) = 3) and (UpperPath[2] = ':') and (UpperPath[3] = '\') then
+  begin
+    Result := True;
+    Exit;
+  end;
+
+  LocalAppData := Uppercase(ExpandConstant('{localappdata}'));
+  AllowedPath := LocalAppData + '\PROGRAMS';
+  if Pos(AllowedPath, UpperPath) = 1 then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  Result := True;
+end;
+
+procedure ResetDirButtonClick(Sender: TObject);
+begin
+  WizardForm.DirEdit.Text := ExpandConstant('{localappdata}\Programs\{#MyAppName}');
+end;
+
+procedure InitializeWizard();
+begin
+  ResetDirButton := TButton.Create(WizardForm);
+  ResetDirButton.Parent := WizardForm.DirBrowseButton.Parent;
+  ResetDirButton.Left := WizardForm.DirBrowseButton.Left - ScaleX(28);
+  ResetDirButton.Top := WizardForm.DirBrowseButton.Top;
+  ResetDirButton.Width := ScaleX(23);
+  ResetDirButton.Height := WizardForm.DirBrowseButton.Height;
+  ResetDirButton.Caption := '↻';
+  ResetDirButton.OnClick := @ResetDirButtonClick;
+  ResetDirButton.Hint := CustomMessage('ResetDirHint');
+  ResetDirButton.ShowHint := True;
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  DirPath: String;
+begin
+  Result := True;
+  if CurPageID = wpSelectDir then
+  begin
+    DirPath := WizardDirValue;
+    if IsRestrictedPath(DirPath) then
+    begin
+      MsgBox(CustomMessage('RestrictedPathHeader') + #13#10 #13#10 +
+             DirPath + #13#10 #13#10 +
+             CustomMessage('RestrictedPathAllowed') + #13#10 +
+             ExpandConstant('{localappdata}') + '\Programs' #13#10 #13#10 +
+             CustomMessage('RestrictedPathOtherDrives'), mbError, MB_OK);
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+
+function RunHidden(FileName: String; Params: String): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := Exec(FileName, Params, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+end;
+
+function ServiceExists(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if Exec('sc.exe', 'query {#MyServiceName}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Result := (ResultCode = 0);
+end;
+
+function ServiceRunning(): Boolean;
+var
+  ResultCode: Integer;
+begin
+  Result := False;
+  if Exec('cmd.exe', '/c sc query {#MyServiceName} | findstr /i "RUNNING"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Result := (ResultCode = 0);
+end;
+
+procedure StopServiceIfNeeded();
+begin
+  if ServiceRunning() then
+  begin
+    RunHidden('sc.exe', 'stop {#MyServiceName}');
+    Sleep(1500);
+  end;
+end;
+
+procedure StopCoreProcessIfNeeded();
+var
+  ProcessPath: String;
+  ScriptPath: String;
+  Script: String;
+begin
+  ProcessPath := ExpandConstant('{app}\data\core\{#MyCoreExeName}');
+  ScriptPath := ExpandConstant('{tmp}\stop-stelliberty-core.ps1');
+  Script :=
+    '$processPath = "' + ProcessPath + '"' + #13#10 +
+    'Get-CimInstance Win32_Process -Filter "Name = ''{#MyCoreExeName}''" |' + #13#10 +
+    '  Where-Object { $_.ExecutablePath -eq $processPath } |' + #13#10 +
+    '  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }';
+  SaveStringToFile(ScriptPath, Script, False);
+  RunHidden(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + '"');
+end;
+
+procedure StopAppProcessIfNeeded();
+var
+  ProcessPath: String;
+  ScriptPath: String;
+  Script: String;
+begin
+  ProcessPath := ExpandConstant('{app}\{#MyAppExeName}');
+  ScriptPath := ExpandConstant('{tmp}\stop-stelliberty-app.ps1');
+  Script :=
+    '$processPath = "' + ProcessPath + '"' + #13#10 +
+    'Get-CimInstance Win32_Process -Filter "Name = ''{#MyAppExeName}''" |' + #13#10 +
+    '  Where-Object { $_.ExecutablePath -eq $processPath } |' + #13#10 +
+    '  ForEach-Object { Stop-Process -Id $_.ProcessId -Force }';
+  SaveStringToFile(ScriptPath, Script, False);
+  RunHidden(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + '"');
+end;
+
+procedure RemoveScheduledTask();
+var
+  ResultCode: Integer;
+begin
+  if Exec(ExpandConstant('{sys}\schtasks.exe'), '/query /tn "{#MyAppName}"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    if ResultCode = 0 then
+      Exec(ExpandConstant('{sys}\schtasks.exe'), '/delete /tn "{#MyAppName}" /f', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  end;
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  HadService := ServiceExists();
+  WasServiceRunning := ServiceRunning();
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ServiceExe: String;
+begin
+  if CurStep = ssInstall then
+  begin
+    if HadService then
+      StopServiceIfNeeded();
+    StopAppProcessIfNeeded();
+    StopCoreProcessIfNeeded();
+  end
+  else if CurStep = ssPostInstall then
+  begin
+    ServiceExe := ExpandConstant('{app}\data\service\update\{#MyServiceBinary}');
+    if HadService and FileExists(ServiceExe) then
+    begin
+      RunHidden(ServiceExe, 'install');
+      if not WasServiceRunning then
+        RunHidden('sc.exe', 'stop {#MyServiceName}');
+    end;
+  end;
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  ButtonResult: Integer;
+begin
+  Result := True;
+  CleanUserData := False;
+
+  if CheckForMutexes('{#MyAppMutex}') then
+  begin
+    MsgBox(CustomMessage('UninstallAppRunning'), mbError, MB_OK);
+    Result := False;
+    Exit;
+  end;
+
+  ButtonResult := MsgBox(
+    CustomMessage('UninstallQuestion') + #13#10 #13#10 +
+    CustomMessage('UninstallRemoveAll') + #13#10 +
+    CustomMessage('UninstallKeepData') + #13#10 +
+    CustomMessage('UninstallCancel'),
+    mbConfirmation,
+    MB_YESNOCANCEL or MB_DEFBUTTON2);
+
+  if ButtonResult = IDCANCEL then
+  begin
+    Result := False;
+    Exit;
+  end;
+
+  CleanUserData := (ButtonResult = IDYES);
+
+  if ServiceExists() then
+  begin
+    StopServiceIfNeeded();
+    RunHidden('sc.exe', 'delete {#MyServiceName}');
+    Sleep(1000);
+  end;
+
+  RemoveScheduledTask();
+end;
+
+procedure RemoveUserData();
+var
+  DataPath: String;
+begin
+  DataPath := ExpandConstant('{app}\data');
+  if DirExists(DataPath) then
+    DelTree(DataPath, True, True, True);
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  AppDir: String;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if CleanUserData then
+      RemoveUserData();
+
+    AppDir := ExpandConstant('{app}');
+    RemoveDir(AppDir);
+  end;
+end;

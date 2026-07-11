@@ -1,0 +1,1127 @@
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
+using Stelliberty.Application.Diagnostics;
+using Stelliberty.Application.Localization;
+using Stelliberty.Application.Platform;
+using Stelliberty.Application.Proxies;
+using Stelliberty.Domain.Proxies;
+using Stelliberty.Application.Runtime;
+using Stelliberty.Presentation.Commands;
+using Stelliberty.Presentation.Formatting;
+
+using CoreOutboundMode = Stelliberty.Domain.Proxies.OutboundMode;
+
+namespace Stelliberty.Presentation.ViewModels;
+
+public sealed class HomePageViewModel : ViewModelBase, IDisposable
+{
+    private readonly ILocalizationService? _localization;
+    private readonly SystemProxyPlatform _systemPlatform;
+    private readonly IClipboardWriter? _clipboardWriter;
+    private readonly ISystemProxyService? _systemProxyService;
+    private readonly IServiceModeManager? _serviceModeManager;
+    private readonly Func<bool> _isServiceModeCoreHostActive;
+    private readonly Func<SystemProxyApplicationRequest>? _systemProxyRequestFactory;
+    private readonly Action<bool>? _tunStateChanged;
+
+    private readonly Func<Task>? _coreRestart;
+    private readonly ICoreUpdater? _coreUpdater;
+    private readonly INetworkConnectionProbe? _networkProbe;
+
+    private readonly ProcessRunMode _runMode;
+    private readonly IProxyCoreClient? _proxyClient;
+    private readonly Func<string>? _proxyEndpointProvider;
+    private readonly Action<string>? _coreVersionChanged;
+    private readonly Func<DateTimeOffset> _now;
+
+    private readonly SynchronizationContext? _uiContext;
+    private readonly SemaphoreSlim _systemProxyApplyLock = new(1, 1);
+    private bool _isSystemProxyEnabled;
+
+    private bool _hasEnabledSystemProxy;
+    private int _systemProxyApplyVersion;
+    private bool _isTunEnabled;
+    private int _tunApplyVersion;
+
+    private bool _isTakeoverTunTab;
+    private bool _isCoreRunning;
+    private HomeOutboundMode _outboundMode = HomeOutboundMode.Rule;
+    private DateTimeOffset? _coreRunningSince;
+    private TimeSpan _uptime = TimeSpan.Zero;
+    private string? _memoryValueText;
+    private readonly string _platformValueText;
+    private string? _coreVersionValueText;
+    private bool _shouldRefreshCoreVersion = true;
+    private string? _proxyAddressValueText;
+    private long _uploadSpeed;
+    private long _downloadSpeed;
+    private long _uploadTotal;
+    private long _downloadTotal;
+    private int _activeConnectionCount;
+
+    private double _speedAxisMax;
+
+    private const int SpeedHistoryCapacity = 60;
+    private readonly Queue<double> _uploadSpeedHistory = new();
+    private readonly Queue<double> _downloadSpeedHistory = new();
+
+    private readonly TrafficRateTracker _trafficTracker = new();
+    private bool _isCoreRestarting;
+    private bool _isCoreUpdating;
+    private bool _isServiceModeBusy;
+    private bool _isRefreshingServiceMode;
+    private bool _isDisposed;
+    private ServiceModeStatus _serviceModeStatus = ServiceModeStatus.Unavailable(string.Empty);
+    private DateTimeOffset? _lastServiceModeProbe;
+    private NetworkConnectionType _networkType = NetworkConnectionType.Disconnected;
+    private string _networkName = string.Empty;
+    private CancellationTokenSource? _refreshCancellation;
+
+    public HomePageViewModel(
+        ISystemProxyService? systemProxyService = null,
+        IServiceModeManager? serviceModeManager = null,
+        Func<bool>? isServiceModeCoreHostActive = null,
+        Func<SystemProxyApplicationRequest>? systemProxyRequestFactory = null,
+        Action<bool>? tunStateChanged = null,
+        INetworkConnectionProbe? networkProbe = null,
+        IProxyCoreClient? proxyClient = null,
+        Func<string>? proxyEndpointProvider = null,
+        string? cachedCoreVersion = null,
+        Action<string>? coreVersionChanged = null,
+        Func<DateTimeOffset>? now = null,
+        Func<Task>? coreRestart = null,
+        ICoreUpdater? coreUpdater = null,
+        IProcessPrivilegeProbe? privilegeProbe = null,
+        ServiceModeStatus? initialServiceModeStatus = null,
+        ILocalizationService? localization = null,
+        SystemProxyPlatform systemPlatform = SystemProxyPlatform.Other,
+        IClipboardWriter? clipboardWriter = null)
+    {
+        _localization = localization;
+        _systemPlatform = systemPlatform;
+        _clipboardWriter = clipboardWriter;
+        _systemProxyService = systemProxyService;
+        _serviceModeManager = serviceModeManager;
+        _isServiceModeCoreHostActive = isServiceModeCoreHostActive ?? (() => serviceModeManager is not null);
+        _systemProxyRequestFactory = systemProxyRequestFactory;
+        _tunStateChanged = tunStateChanged;
+        _coreRestart = coreRestart;
+        _coreUpdater = coreUpdater;
+        _networkProbe = networkProbe;
+        _runMode = privilegeProbe?.Detect() ?? ProcessRunMode.Normal;
+        _serviceModeStatus = initialServiceModeStatus ?? _serviceModeStatus;
+        _proxyClient = proxyClient;
+        _proxyEndpointProvider = proxyEndpointProvider;
+        _coreVersionValueText = string.IsNullOrWhiteSpace(cachedCoreVersion) ? null : cachedCoreVersion;
+        _coreVersionChanged = coreVersionChanged;
+        _now = now ?? (() => DateTimeOffset.Now);
+        _uiContext = SynchronizationContext.Current;
+        _refreshCancellation = new CancellationTokenSource();
+        _platformValueText = $"{PlatformName()} {RuntimeInformation.OSArchitecture}";
+        _proxyAddressValueText = proxyEndpointProvider?.Invoke();
+        if (_localization is not null)
+        {
+            _localization.LanguageChanged += OnLanguageChanged;
+        }
+        ToggleSystemProxyCommand = new RelayCommand(ToggleSystemProxy);
+        SetRuleOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Rule));
+        SetGlobalOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Global));
+        SetDirectOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Direct));
+        SelectTakeoverProxyTabCommand = new RelayCommand(() => SetTakeoverTab(false));
+        SelectTakeoverTunTabCommand = new RelayCommand(() => SetTakeoverTab(true));
+        ResetTrafficCommand = new RelayCommand(ResetTraffic);
+        RefreshCoreCommand = new RelayCommand(() => _ = UpdateCoreAsync());
+        RestartCoreCommand = new RelayCommand(() => _ = RestartCoreAsync());
+        ToggleServiceModeCommand = new RelayCommand(() => _ = ToggleServiceModeAsync());
+
+        SeedZeroHistory();
+        RefreshServiceMode(force: true);
+    }
+
+    public event EventHandler<(string Message, ToastType Type)>? ToastRequested;
+
+    public bool IsSystemProxyEnabled
+    {
+        get => _isSystemProxyEnabled;
+        set
+        {
+            if (_isSystemProxyEnabled == value)
+            {
+                return;
+            }
+
+            SetSystemProxy(value);
+        }
+    }
+
+    public void ApplyTunState(bool isEnabled)
+    {
+        if (_isTunEnabled == isEnabled)
+        {
+            return;
+        }
+
+        Interlocked.Increment(ref _tunApplyVersion);
+        _isTunEnabled = isEnabled;
+        RaiseHomeStateChanged();
+    }
+
+    public void ApplyOutboundMode(CoreOutboundMode mode)
+    {
+        if (_outboundMode == FromCoreMode(mode))
+        {
+            return;
+        }
+
+        _outboundMode = FromCoreMode(mode);
+        RaiseHomeStateChanged();
+    }
+
+    public void ApplyCoreRunning(bool isRunning)
+    {
+        var now = _now();
+        if (isRunning && _coreRunningSince is null)
+        {
+            _coreRunningSince = now;
+        }
+
+        if (isRunning && _coreRunningSince is { } since)
+        {
+            _uptime = now >= since ? now - since : TimeSpan.Zero;
+        }
+        else if (!isRunning)
+        {
+            // 核心停止只重置运行统计；系统代理有独立生命周期。
+            _coreRunningSince = null;
+            _uptime = TimeSpan.Zero;
+
+            _trafficTracker.Reset();
+            _uploadSpeed = 0;
+            _downloadSpeed = 0;
+            _uploadTotal = 0;
+            _downloadTotal = 0;
+            _memoryValueText = null;
+            _activeConnectionCount = 0;
+            _speedAxisMax = 0;
+            SeedZeroHistory();
+        }
+
+        _isCoreRunning = isRunning;
+        RaiseHomeStateChanged();
+    }
+
+    public bool IsTunEnabled
+    {
+        get => _isTunEnabled;
+        set
+        {
+            if (_isTunEnabled == value)
+            {
+                return;
+            }
+
+            // 没有权限或核心不稳定时，开关会回弹。
+            if ((value && !CanToggleTun) || !IsCoreInteractive)
+            {
+                OnPropertyChanged(nameof(IsTunEnabled));
+                return;
+            }
+
+            SetTun(value);
+        }
+    }
+
+    public bool CanToggleTun => _runMode is ProcessRunMode.Administrator or ProcessRunMode.Service
+        || (_serviceModeStatus.IsRunning && _isServiceModeCoreHostActive());
+
+    public string CoreHostMode => _isServiceModeCoreHostActive() ? "service" : "process";
+
+    public string PrivilegeModeText => _serviceModeStatus.IsRunning
+        ? Localize("Home.RunMode.Service")
+        : _runMode switch
+        {
+            ProcessRunMode.Administrator => Localize("Home.RunMode.Administrator"),
+            ProcessRunMode.Service => Localize("Home.RunMode.Service"),
+            _ => Localize("Home.RunMode.Normal")
+        };
+
+    public ServiceModeState ServiceModeState => _serviceModeStatus.State;
+
+    public string ServiceModeMessage => _serviceModeStatus.Message;
+
+    public string ServiceModeButtonText => _serviceModeStatus.NeedsRepair
+        ? Localize("Home.ServiceMode.Repair")
+        : _serviceModeStatus.IsInstalled
+            ? Localize("Home.ServiceMode.Uninstall")
+            : Localize("Home.ServiceMode.Install");
+
+    public bool CanToggleServiceMode => !_isServiceModeBusy && _serviceModeManager is not null && _serviceModeStatus.IsSupported;
+
+    public bool IsTakeoverProxyTabSelected => !_isTakeoverTunTab;
+
+    public bool IsTakeoverTunTabSelected => _isTakeoverTunTab;
+
+    public bool IsCoreRunning => _isCoreRunning;
+
+    public string CoreStatusValueText => Localize(_isCoreRestarting
+        ? "Home.CoreStatus.Restarting"
+        : _isCoreRunning
+            ? "Home.CoreStatus.Running"
+            : "Home.CoreStatus.Stopped");
+
+    public string CoreSignalTag => _isCoreRunning ? string.Empty : "danger";
+
+    public bool IsNetworkConnected => _networkType != NetworkConnectionType.Disconnected;
+
+    public bool IsWifiConnection => _networkType == NetworkConnectionType.Wifi;
+
+    public bool IsWiredConnection => _networkType is NetworkConnectionType.Wired or NetworkConnectionType.Other;
+
+    public string NetworkSignalTag => IsNetworkConnected ? string.Empty : "danger";
+
+    public string NetworkTypeText => _networkType switch
+    {
+        NetworkConnectionType.Wifi => "Wi-Fi",
+        NetworkConnectionType.Wired => Localize("Home.Network.Wired"),
+        NetworkConnectionType.Other => Localize("Home.Network.Other"),
+        _ => Localize("Home.Network.Disconnected")
+    };
+
+    public string NetworkNameValueText => IsNetworkConnected
+        ? (string.IsNullOrWhiteSpace(_networkName) ? Localize("Home.Network.Unknown") : _networkName)
+        : Localize("Home.Network.Disconnected");
+
+    public HomeOutboundMode OutboundMode => _outboundMode;
+
+    public CoreOutboundMode CoreOutboundMode => ToCoreMode(_outboundMode);
+
+    public bool IsRuleOutboundSelected => _outboundMode == HomeOutboundMode.Rule;
+
+    public bool IsGlobalOutboundSelected => _outboundMode == HomeOutboundMode.Global;
+
+    public bool IsDirectOutboundSelected => _outboundMode == HomeOutboundMode.Direct;
+
+    public string OutboundModeDescriptionText => _outboundMode switch
+    {
+        HomeOutboundMode.Global => Localize("Home.Outbound.Description.Global"),
+        HomeOutboundMode.Direct => Localize("Home.Outbound.Description.Direct"),
+        _ => Localize("Home.Outbound.Description.Rule")
+    };
+
+    public string UptimeValueText => _isCoreRunning && _coreRunningSince is not null
+        ? FormatUptime(_uptime < TimeSpan.Zero ? TimeSpan.Zero : _uptime)
+        : "—";
+
+    public string MemoryValueText => _memoryValueText ?? Localize("Home.Value.Unavailable");
+
+    public string PlatformValueText => _platformValueText;
+
+    public string CoreVersionValueText => _coreVersionValueText ?? Localize("Home.Value.Unavailable");
+
+    public string ProxyAddressValueText => _proxyAddressValueText ?? Localize("Home.Value.Unavailable");
+
+    public string UploadSpeedValueText => $"{ByteSize.Format(_uploadSpeed)}/s";
+
+    public string DownloadSpeedValueText => $"{ByteSize.Format(_downloadSpeed)}/s";
+
+    public string UploadTotalValueText => ByteSize.Format(_uploadTotal);
+
+    public string DownloadTotalValueText => ByteSize.Format(_downloadTotal);
+
+    public string ActiveConnectionsValueText => _activeConnectionCount.ToString();
+
+    public double SpeedAxisMax => _speedAxisMax;
+
+    public IReadOnlyList<double> UploadSamples { get; private set; } = Array.Empty<double>();
+
+    public IReadOnlyList<double> DownloadSamples { get; private set; } = Array.Empty<double>();
+
+    public bool IsCoreRestarting => _isCoreRestarting;
+
+    public bool IsCoreUpdating => _isCoreUpdating;
+
+    public bool IsServiceModeBusy => _isServiceModeBusy;
+
+    public bool CanRestartCore => _isCoreRunning && !_isCoreRestarting && !_isCoreUpdating;
+
+    public bool CanUpdateCore => !_isCoreUpdating && !_isCoreRestarting;
+
+    // 核心仅在运行且未重启/更新时可用。
+    public bool IsCoreInteractive => _isCoreRunning && !_isCoreRestarting && !_isCoreUpdating;
+
+    // 系统代理写入平台网络设置，不依赖核心状态。
+    public bool IsSystemProxyToggleEnabled => true;
+
+    // TUN 只能在有权限且核心稳定时切换。
+    public bool IsTunToggleEnabled => CanToggleTun && IsCoreInteractive;
+
+    public ICommand ToggleSystemProxyCommand { get; }
+
+    public ICommand SetRuleOutboundCommand { get; }
+
+    public ICommand SetGlobalOutboundCommand { get; }
+
+    public ICommand SetDirectOutboundCommand { get; }
+
+    public ICommand SelectTakeoverProxyTabCommand { get; }
+
+    public ICommand SelectTakeoverTunTabCommand { get; }
+
+    public ICommand ResetTrafficCommand { get; }
+
+    public ICommand RefreshCoreCommand { get; }
+
+    public ICommand RestartCoreCommand { get; }
+
+    public ICommand ToggleServiceModeCommand { get; }
+
+    public void ApplyNetworkConnection(NetworkConnectionInfo info)
+    {
+        _networkType = info.Type;
+        _networkName = info.Name;
+        RaiseHomeStateChanged();
+    }
+
+    public void RefreshNetworkConnection()
+    {
+        if (_networkProbe is null || _refreshCancellation is null)
+        {
+            return;
+        }
+
+        // 探测在后台运行，并把结果发回 UI 线程。
+        var cancellationToken = _refreshCancellation.Token;
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+                var info = _networkProbe.Detect();
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    Post(() => ApplyNetworkConnection(info));
+                }
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Warning($"Network connection probe failed: {exception.Message}");
+            }
+        }, cancellationToken);
+    }
+
+    public void RefreshRuntime()
+    {
+        if (_proxyClient is null || _refreshCancellation is null)
+        {
+            return;
+        }
+
+        var cancellationToken = _refreshCancellation.Token;
+        var snapshotLoader = new CoreRuntimeSnapshotLoader(_proxyClient);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var snapshot = await snapshotLoader.LoadAsync(includeVersion: _shouldRefreshCoreVersion, cancellationToken);
+                if (snapshot is not null && !cancellationToken.IsCancellationRequested)
+                {
+                    Post(() => ApplyRuntime(snapshot.Stats, snapshot.Mode, snapshot.Version, snapshot.ConnectionCount));
+                }
+            }
+            catch (Exception exception)
+            {
+                // 单次刷新失败不能覆盖当前运行状态。
+                AppLogger.Warning($"Runtime refresh failed: {exception.Message}");
+            }
+        }, cancellationToken);
+    }
+
+    public void RefreshServiceMode(bool force = false)
+    {
+        if (_serviceModeManager is null || _refreshCancellation is null || _isRefreshingServiceMode)
+        {
+            return;
+        }
+
+        var now = _now();
+        if (!force && _lastServiceModeProbe is { } last && now - last < TimeSpan.FromSeconds(10))
+        {
+            return;
+        }
+
+        _lastServiceModeProbe = now;
+        _isRefreshingServiceMode = true;
+        var cancellationToken = _refreshCancellation.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await RefreshServiceModeAsync(cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Warning($"Service mode refresh failed: {exception.Message}");
+                if (!cancellationToken.IsCancellationRequested)
+                {
+                    Post(() => ApplyServiceModeStatus(ServiceModeStatus.Unavailable(string.Empty)));
+                }
+            }
+            finally
+            {
+                _isRefreshingServiceMode = false;
+            }
+        }, cancellationToken);
+    }
+
+    public async Task<ServiceModeStatus> RefreshServiceModeAsync(CancellationToken cancellationToken = default)
+    {
+        if (_serviceModeManager is null)
+        {
+            return ServiceModeStatus.Unavailable(string.Empty);
+        }
+
+        var status = await _serviceModeManager.GetStatusAsync(cancellationToken);
+        if (status.IsRunning && _isServiceModeCoreHostActive())
+        {
+            await _serviceModeManager.SendHeartbeatAsync(cancellationToken);
+        }
+
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            await ApplyServiceModeStatusAsync(status);
+        }
+        return status;
+    }
+
+    private void ApplyRuntime(CoreRuntimeStats? stats, CoreOutboundMode? mode, string? version, int? connectionCount)
+    {
+        if (stats is not null)
+        {
+            var sample = _trafficTracker.Update(stats.UploadTotal, stats.DownloadTotal, _now());
+            _uploadSpeed = stats.HasTrafficRate ? stats.UploadSpeed : sample.UploadSpeed;
+            _downloadSpeed = stats.HasTrafficRate ? stats.DownloadSpeed : sample.DownloadSpeed;
+            _uploadTotal = sample.UploadTotal;
+            _downloadTotal = sample.DownloadTotal;
+            _memoryValueText = ByteSize.Format(stats.Memory);
+            PushSpeedSample(_uploadSpeedHistory, _uploadSpeed);
+            PushSpeedSample(_downloadSpeedHistory, _downloadSpeed);
+            UploadSamples = _uploadSpeedHistory.ToArray();
+            DownloadSamples = _downloadSpeedHistory.ToArray();
+            _speedAxisMax = ComputeAxisMax(_uploadSpeedHistory, _downloadSpeedHistory);
+        }
+
+        if (mode is { } coreMode)
+        {
+            _outboundMode = FromCoreMode(coreMode);
+        }
+
+        if (!string.IsNullOrWhiteSpace(version))
+        {
+            _shouldRefreshCoreVersion = false;
+            if (!string.Equals(_coreVersionValueText, version, StringComparison.Ordinal))
+            {
+                _coreVersionValueText = version;
+                _coreVersionChanged?.Invoke(version);
+            }
+        }
+
+        if (connectionCount is { } count)
+        {
+            _activeConnectionCount = count;
+        }
+
+        _proxyAddressValueText = _proxyEndpointProvider?.Invoke() ?? _proxyAddressValueText;
+        _uptime = _isCoreRunning && _coreRunningSince is { } since ? _now() - since : TimeSpan.Zero;
+        RaiseHomeStateChanged();
+    }
+
+    private void ToggleSystemProxy()
+    {
+        SetSystemProxy(!_isSystemProxyEnabled);
+    }
+
+    private void SetTun(bool shouldEnable)
+    {
+        var version = Interlocked.Increment(ref _tunApplyVersion);
+        _isTunEnabled = shouldEnable;
+        RaiseHomeStateChanged();
+        _ = ApplyTunAsync(shouldEnable, version);
+    }
+
+    private async Task ApplyTunAsync(bool shouldEnable, int version)
+    {
+        try
+        {
+            await Task.Yield();
+            if (_isDisposed || version != Volatile.Read(ref _tunApplyVersion))
+            {
+                return;
+            }
+
+            _tunStateChanged?.Invoke(shouldEnable);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"TUN apply failed: {exception.Message}");
+            if (!_isDisposed)
+            {
+                Post(() => ApplyTunFailure(shouldEnable, version));
+            }
+        }
+    }
+
+    private void ApplyTunFailure(bool attemptedState, int version)
+    {
+        if (_isDisposed || version != Volatile.Read(ref _tunApplyVersion))
+        {
+            return;
+        }
+
+        _isTunEnabled = !attemptedState;
+        RaiseHomeStateChanged();
+        RaiseToast(Localize("Home.Toast.TunApplyFailed"), ToastType.Error);
+    }
+
+    public void ReapplySystemProxySettings()
+    {
+        if (!_isSystemProxyEnabled)
+        {
+            return;
+        }
+
+        SetSystemProxy(true);
+    }
+
+    private void SetSystemProxy(bool shouldEnable)
+    {
+        var version = Interlocked.Increment(ref _systemProxyApplyVersion);
+        _isSystemProxyEnabled = shouldEnable;
+        if (shouldEnable)
+        {
+            _hasEnabledSystemProxy = true;
+        }
+        RaiseHomeStateChanged();
+        _ = Task.Run(() => ApplySystemProxyAsync(shouldEnable, version));
+    }
+
+    public void DisableSystemProxyOnShutdown()
+    {
+        // 只关闭本实例的系统代理，保留外部代理状态。
+        Interlocked.Increment(ref _systemProxyApplyVersion);
+        _systemProxyApplyLock.Wait();
+        try
+        {
+            if (!_hasEnabledSystemProxy)
+            {
+                return;
+            }
+            ApplySystemProxyCore(shouldEnable: false);
+            _hasEnabledSystemProxy = false;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"System proxy shutdown cleanup failed: {exception.Message}");
+        }
+        finally
+        {
+            _systemProxyApplyLock.Release();
+        }
+    }
+
+    private async Task ApplySystemProxyAsync(bool shouldEnable, int version)
+    {
+        try
+        {
+            SystemProxyOperationResult? result;
+            await _systemProxyApplyLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                if (_isDisposed || version != Volatile.Read(ref _systemProxyApplyVersion))
+                {
+                    return;
+                }
+
+                result = ApplySystemProxyCore(shouldEnable);
+            }
+            finally
+            {
+                _systemProxyApplyLock.Release();
+            }
+
+            if (result is null || result.IsSuccess)
+            {
+                if (!_isDisposed && version == Volatile.Read(ref _systemProxyApplyVersion))
+                {
+                    _hasEnabledSystemProxy = shouldEnable;
+                }
+                return;
+            }
+
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            AppLogger.Warning($"System proxy apply returned failure: {result.Message}");
+            Post(() => ApplySystemProxyFailure(shouldEnable, version));
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"System proxy apply failed: {exception.Message}");
+            if (!_isDisposed)
+            {
+                Post(() => ApplySystemProxyFailure(shouldEnable, version));
+            }
+        }
+    }
+
+    private SystemProxyOperationResult? ApplySystemProxyCore(bool shouldEnable)
+    {
+        return shouldEnable
+            ? _systemProxyRequestFactory is null ? null : _systemProxyService?.Enable(_systemProxyRequestFactory.Invoke())
+            : _systemProxyService?.Disable();
+    }
+
+    private void ApplySystemProxyFailure(bool attemptedState, int version)
+    {
+        if (_isDisposed || version != Volatile.Read(ref _systemProxyApplyVersion))
+        {
+            return;
+        }
+
+        _isSystemProxyEnabled = !attemptedState;
+        _hasEnabledSystemProxy = !attemptedState;
+        RaiseHomeStateChanged();
+
+        RaiseToast(Localize("Home.Toast.SystemProxyFailed"), ToastType.Error);
+    }
+
+    private async Task RestartCoreAsync()
+    {
+        if (_isCoreRestarting || _coreRestart is null)
+        {
+            return;
+        }
+
+        _isCoreRestarting = true;
+        RaiseHomeStateChanged();
+        try
+        {
+            await _coreRestart();
+            ReapplySystemProxySettings();
+            InvalidateCoreVersion();
+            RaiseToast(Localize("Home.Toast.CoreRestarted"), ToastType.Success);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "Core restart failed");
+            RaiseToast(Localize("Home.Toast.CoreRestartFailed"), ToastType.Error);
+        }
+        finally
+        {
+            _isCoreRestarting = false;
+            Post(RaiseHomeStateChanged);
+        }
+    }
+
+    private async Task UpdateCoreAsync()
+    {
+        if (_isCoreUpdating || _coreUpdater is null)
+        {
+            return;
+        }
+
+        _isCoreUpdating = true;
+        RaiseHomeStateChanged();
+        RaiseToast(Localize("Home.Toast.CoreUpdateChecking"), ToastType.Info);
+        try
+        {
+            var result = await _coreUpdater.UpdateAsync(_refreshCancellation?.Token ?? CancellationToken.None);
+            switch (result.Status)
+            {
+                case CoreUpdateStatus.Updated:
+                    InvalidateCoreVersion();
+                    RaiseToast(string.Format(Localize("Home.Toast.CoreUpdated"), result.Version ?? string.Empty), ToastType.Success);
+                    break;
+                case CoreUpdateStatus.UpToDate:
+                    RaiseToast(Localize("Home.Toast.CoreUpToDate"), ToastType.Success);
+                    break;
+                default:
+                    AppLogger.Warning($"Core update returned failure: {result.Message}");
+                    RaiseToast(Localize("Home.Toast.CoreUpdateFailed"), ToastType.Error);
+                    break;
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "Core update failed");
+            RaiseToast(Localize("Home.Toast.CoreUpdateFailed"), ToastType.Error);
+        }
+        finally
+        {
+            _isCoreUpdating = false;
+            Post(RaiseHomeStateChanged);
+        }
+    }
+
+    private async Task ToggleServiceModeAsync()
+    {
+        await ExecuteServiceModeOperationAsync(!_serviceModeStatus.IsInstalled && !_serviceModeStatus.NeedsRepair);
+    }
+
+    public Task<ServiceModeOperationResult> InstallOrUpdateServiceModeAsync(CancellationToken cancellationToken = default)
+    {
+        return ExecuteServiceModeOperationAsync(installOrUpdate: true, cancellationToken);
+    }
+
+    public Task<ServiceModeOperationResult> UninstallServiceModeAsync(CancellationToken cancellationToken = default)
+    {
+        return ExecuteServiceModeOperationAsync(installOrUpdate: false, cancellationToken);
+    }
+
+    private async Task<ServiceModeOperationResult> ExecuteServiceModeOperationAsync(bool installOrUpdate, CancellationToken cancellationToken = default)
+    {
+        if (_isServiceModeBusy || _serviceModeManager is null)
+        {
+            return ServiceModeOperationResult.Failed("Service mode is not available yet.");
+        }
+
+        _isServiceModeBusy = true;
+        RaiseHomeStateChanged();
+        var token = cancellationToken.CanBeCanceled ? cancellationToken : _refreshCancellation?.Token ?? CancellationToken.None;
+        ServiceModeOperationResult result;
+        try
+        {
+            result = installOrUpdate
+                ? await _serviceModeManager.InstallOrUpdateAsync(token)
+                : await _serviceModeManager.UninstallAsync(token);
+
+            if (result.IsSuccess || result.IsCanceled)
+            {
+                var toastType = result.IsSuccess ? ToastType.Success : ToastType.Info;
+                RaiseToast(result.Message, toastType);
+            }
+            else
+            {
+                AppLogger.Warning($"Service mode operation returned failure: {result.Message}");
+                RaiseToast(Localize("Home.Toast.ServiceModeFailed"), ToastType.Error);
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "Service mode operation failed");
+            result = ServiceModeOperationResult.Failed(exception.Message);
+            RaiseToast(Localize("Home.Toast.ServiceModeFailed"), ToastType.Error);
+        }
+        finally
+        {
+            _isServiceModeBusy = false;
+            _lastServiceModeProbe = null;
+            try
+            {
+                await RefreshServiceModeAsync(token);
+            }
+            catch
+            {
+                if (!token.IsCancellationRequested)
+                {
+                    await ApplyServiceModeStatusAsync(ServiceModeStatus.Unavailable(string.Empty));
+                }
+            }
+
+            Post(RaiseHomeStateChanged);
+        }
+
+        return result;
+    }
+
+    private void ApplyServiceModeStatus(ServiceModeStatus status)
+    {
+        _serviceModeStatus = status;
+        RaiseHomeStateChanged();
+    }
+
+    private Task ApplyServiceModeStatusAsync(ServiceModeStatus status)
+    {
+        if (_uiContext is null || SynchronizationContext.Current == _uiContext)
+        {
+            ApplyServiceModeStatus(status);
+            return Task.CompletedTask;
+        }
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _uiContext.Post(_ =>
+        {
+            try
+            {
+                ApplyServiceModeStatus(status);
+                completion.SetResult();
+            }
+            catch (Exception exception)
+            {
+                completion.SetException(exception);
+            }
+        }, null);
+        return completion.Task;
+    }
+
+    private void InvalidateCoreVersion()
+    {
+        _shouldRefreshCoreVersion = true;
+    }
+
+    private void RaiseToast(string message, ToastType type)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        ToastRequested?.Invoke(this, (message, type));
+    }
+
+    private async Task SetOutboundModeAsync(HomeOutboundMode mode)
+    {
+        if (_outboundMode == mode)
+        {
+            return;
+        }
+
+        // 重启或更新期间运行时 API 不可用，所以拒绝乐观切换。
+        if (!IsCoreInteractive)
+        {
+            return;
+        }
+
+        var previous = _outboundMode;
+        _outboundMode = mode;
+        RaiseHomeStateChanged();
+
+        // 先更新 UI，再写入核心；MainWindow 统一持久化模式变化。
+        if (_proxyClient is null)
+        {
+            return;
+        }
+
+        var applied = await _proxyClient.SetOutboundModeAsync(ToCoreMode(mode));
+        if (!applied)
+        {
+            _outboundMode = previous;
+            Post(RaiseHomeStateChanged);
+        }
+    }
+
+    private void SetTakeoverTab(bool tun)
+    {
+        if (_isTakeoverTunTab == tun)
+        {
+            return;
+        }
+
+        _isTakeoverTunTab = tun;
+        OnPropertyChanged(nameof(IsTakeoverProxyTabSelected));
+        OnPropertyChanged(nameof(IsTakeoverTunTabSelected));
+    }
+
+    private void ResetTraffic()
+    {
+
+        // 总流量不能重置，所以用基线重置本地显示。
+        _trafficTracker.ResetBaseline();
+        _uploadSpeed = 0;
+        _downloadSpeed = 0;
+        _uploadTotal = 0;
+        _downloadTotal = 0;
+        _speedAxisMax = 0;
+        // 重置回到首次进入时使用的零基线。
+        SeedZeroHistory();
+        RaiseHomeStateChanged();
+    }
+
+    private void Post(Action action)
+    {
+        if (_uiContext is not null)
+        {
+            _uiContext.Post(_ => action(), null);
+        }
+        else
+        {
+            action();
+        }
+    }
+
+    private static CoreOutboundMode ToCoreMode(HomeOutboundMode mode) => mode switch
+    {
+        HomeOutboundMode.Global => CoreOutboundMode.Global,
+        HomeOutboundMode.Direct => CoreOutboundMode.Direct,
+        _ => CoreOutboundMode.Rule
+    };
+
+    private static HomeOutboundMode FromCoreMode(CoreOutboundMode mode) => mode switch
+    {
+        CoreOutboundMode.Global => HomeOutboundMode.Global,
+        CoreOutboundMode.Direct => HomeOutboundMode.Direct,
+        _ => HomeOutboundMode.Rule
+    };
+
+    // 生成并复制 shell 代理导出；核心或地址无效时静默忽略。
+    public void CopyTerminalProxyCommand(TerminalShell shell)
+    {
+        if (!IsCoreRunning)
+        {
+            return;
+        }
+
+        var address = _proxyAddressValueText;
+        if (string.IsNullOrWhiteSpace(address))
+        {
+            return;
+        }
+
+        var url = address.Contains("://", StringComparison.Ordinal) ? address : $"http://{address}";
+        var command = shell switch
+        {
+            TerminalShell.PowerShell => $"$env:http_proxy=\"{url}\"; $env:https_proxy=\"{url}\"",
+            TerminalShell.Cmd => $"set http_proxy={url} && set https_proxy={url}",
+            TerminalShell.Bash => $"export http_proxy={url} && export https_proxy={url}",
+            _ => null,
+        };
+        if (command is null)
+        {
+            return;
+        }
+
+        _clipboardWriter?.WriteText(command);
+    }
+
+    // 宿主注入平台信息；本层只映射显示文本。
+    private string PlatformName() => _systemPlatform switch
+    {
+        SystemProxyPlatform.Windows => "Windows",
+        SystemProxyPlatform.Linux => "Linux",
+        SystemProxyPlatform.MacOS => "macOS",
+        _ => Localize("Home.Platform.Unknown")
+    };
+
+    private static string FormatUptime(TimeSpan span)
+    {
+        return span.TotalDays >= 1
+            ? $"{(int)span.TotalDays}d {span.Hours:00}:{span.Minutes:00}:{span.Seconds:00}"
+            : $"{span.Hours:00}:{span.Minutes:00}:{span.Seconds:00}";
+    }
+
+    private void RaiseHomeStateChanged()
+    {
+        OnPropertyChanged(nameof(IsSystemProxyEnabled));
+        OnPropertyChanged(nameof(IsTunEnabled));
+        OnPropertyChanged(nameof(PrivilegeModeText));
+        OnPropertyChanged(nameof(ServiceModeState));
+        OnPropertyChanged(nameof(ServiceModeMessage));
+        OnPropertyChanged(nameof(ServiceModeButtonText));
+        OnPropertyChanged(nameof(CanToggleServiceMode));
+        OnPropertyChanged(nameof(IsCoreRunning));
+        OnPropertyChanged(nameof(CoreStatusValueText));
+        OnPropertyChanged(nameof(OutboundMode));
+        OnPropertyChanged(nameof(IsRuleOutboundSelected));
+        OnPropertyChanged(nameof(IsGlobalOutboundSelected));
+        OnPropertyChanged(nameof(IsDirectOutboundSelected));
+        OnPropertyChanged(nameof(OutboundModeDescriptionText));
+        OnPropertyChanged(nameof(UptimeValueText));
+        OnPropertyChanged(nameof(MemoryValueText));
+        OnPropertyChanged(nameof(PlatformValueText));
+        OnPropertyChanged(nameof(CoreVersionValueText));
+        OnPropertyChanged(nameof(ProxyAddressValueText));
+        OnPropertyChanged(nameof(UploadSpeedValueText));
+        OnPropertyChanged(nameof(DownloadSpeedValueText));
+        OnPropertyChanged(nameof(UploadTotalValueText));
+        OnPropertyChanged(nameof(DownloadTotalValueText));
+        OnPropertyChanged(nameof(ActiveConnectionsValueText));
+        OnPropertyChanged(nameof(UploadSamples));
+        OnPropertyChanged(nameof(DownloadSamples));
+        OnPropertyChanged(nameof(SpeedAxisMax));
+        OnPropertyChanged(nameof(IsCoreRestarting));
+        OnPropertyChanged(nameof(CanRestartCore));
+        OnPropertyChanged(nameof(IsCoreUpdating));
+        OnPropertyChanged(nameof(IsServiceModeBusy));
+        OnPropertyChanged(nameof(CanUpdateCore));
+        OnPropertyChanged(nameof(IsCoreInteractive));
+        OnPropertyChanged(nameof(IsSystemProxyToggleEnabled));
+        OnPropertyChanged(nameof(IsTunToggleEnabled));
+        OnPropertyChanged(nameof(CoreSignalTag));
+        OnPropertyChanged(nameof(IsNetworkConnected));
+        OnPropertyChanged(nameof(IsWifiConnection));
+        OnPropertyChanged(nameof(IsWiredConnection));
+        OnPropertyChanged(nameof(NetworkSignalTag));
+        OnPropertyChanged(nameof(NetworkTypeText));
+        OnPropertyChanged(nameof(NetworkNameValueText));
+    }
+
+    private void OnLanguageChanged(object? sender, EventArgs args)
+    {
+        RaiseHomeStateChanged();
+    }
+
+    private string Localize(string key) => _localization?.GetString(key) ?? key;
+
+    private static void PushSpeedSample(Queue<double> history, long speed)
+    {
+        history.Enqueue(speed);
+
+        if (history.Count > SpeedHistoryCapacity)
+        {
+            history.Dequeue();
+        }
+    }
+
+    private void SeedZeroHistory()
+    {
+        _uploadSpeedHistory.Clear();
+        _downloadSpeedHistory.Clear();
+        for (var i = 0; i < SpeedHistoryCapacity; i++)
+        {
+            _uploadSpeedHistory.Enqueue(0);
+            _downloadSpeedHistory.Enqueue(0);
+        }
+
+        UploadSamples = _uploadSpeedHistory.ToArray();
+        DownloadSamples = _downloadSpeedHistory.ToArray();
+    }
+
+    private static double ComputeAxisMax(Queue<double> upload, Queue<double> download)
+    {
+        var max = 0d;
+        foreach (var value in upload)
+        {
+            if (value > max) max = value;
+        }
+        foreach (var value in download)
+        {
+            if (value > max) max = value;
+        }
+        return max;
+    }
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        if (_localization is not null)
+        {
+            _localization.LanguageChanged -= OnLanguageChanged;
+        }
+
+        var cancellation = _refreshCancellation;
+        _refreshCancellation = null;
+        cancellation?.Cancel();
+        cancellation?.Dispose();
+    }
+}

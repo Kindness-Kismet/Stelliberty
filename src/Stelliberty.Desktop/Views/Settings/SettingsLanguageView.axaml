@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsLanguageView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+<!-- 语言 -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsLanguageVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding Settings.GroupRegionText}" />
+  <Border Classes="surface-group">
+    <Border Classes="settings-inline-row">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Classes="settings-row-title"
+                   VerticalAlignment="Center"
+                   Text="{Binding Language.FieldLabelText}" />
+        <ComboBox Grid.Column="1"
+                  AutomationProperties.AutomationId="Settings.LanguageComboBox"
+                  MinWidth="160"
+                  ItemsSource="{Binding Language.Options}"
+                  SelectedItem="{Binding Language.SelectedOption, Mode=TwoWay}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="vm:ISelectionOption">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </Grid>
+    </Border>
+  </Border>
+</StackPanel>
+</UserControl>

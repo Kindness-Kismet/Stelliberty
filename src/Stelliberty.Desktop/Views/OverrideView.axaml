@@ -1,0 +1,595 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.OverrideView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel"
+             controls:InputDefocusBehavior.IsEnabled="True"
+             x:Name="OverridesRoot"
+             Background="Transparent">
+  <Grid x:Name="OverridePageRoot"
+        RowDefinitions="Auto,*" RowSpacing="16"
+        DataContext="{Binding OverridePage}"
+        x:DataType="vm:OverridePageViewModel">
+      <Border Classes="surface-header"
+            Margin="8,0,25,0"
+            AutomationProperties.AutomationId="Overrides.Toolbar">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+        <StackPanel Grid.Column="0" Spacing="3" VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Border Classes="signal-dot" />
+            <TextBlock Classes="list-eyebrow" Text="{loc:Loc Overrides.Header.Eyebrow}" />
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="7">
+            <TextBlock Classes="list-count" Text="{Binding Overrides.Count}" />
+            <TextBlock Classes="list-count-unit" Text="{loc:Loc Overrides.Count.Unit}" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    VerticalAlignment="Center">
+          <Button Classes="soft-action primary"
+                  AutomationProperties.AutomationId="Overrides.AddButton"
+                  Command="{Binding AddDialog.ShowCommand}"
+                  ToolTip.Tip="{loc:Loc Overrides.Action.Add}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="14" Height="14" Kind="AddLine" />
+              <TextBlock Text="{loc:Loc Overrides.Action.Add}" />
+            </StackPanel>
+          </Button>
+          <Button Classes="soft-action"
+                  AutomationProperties.AutomationId="Overrides.UpdateAllButton"
+                  IsEnabled="{Binding CanUpdateAllOverrides}"
+                  Command="{Binding UpdateAllOverridesCommand}"
+                  ToolTip.Tip="{loc:Loc Overrides.Action.UpdateAll}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Grid Width="14" Height="14">
+                <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                  Width="14"
+                                                  Height="14"
+                                                  IsVisible="{Binding IsUpdateAllIconVisible}"
+                                                  Kind="Refresh1Fill" />
+                <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding IsBatchUpdatingOverrides}" Kind="LoadingFill" />
+              </Grid>
+              <TextBlock Text="{loc:Loc Overrides.Action.UpdateAll}" />
+            </StackPanel>
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Border Classes="list-empty"
+              AutomationProperties.AutomationId="Overrides.EmptyText"
+              IsVisible="{Binding IsEmptyTextVisible}">
+        <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Panel HorizontalAlignment="Center">
+            <Border Classes="list-empty-halo" />
+            <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="EditLine" />
+          </Panel>
+          <StackPanel Spacing="7">
+            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-hint" Text="{loc:Loc Overrides.Empty.Hint}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <ScrollViewer AutomationProperties.AutomationId="Overrides.ListScroll"
+                    IsVisible="{Binding IsListVisible}"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="OverrideList"
+                      AutomationProperties.AutomationId="Overrides.List"
+                      Margin="8,0,25,15"
+                      ItemsSource="{Binding Overrides}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <controls:EvenWrapPanel MinItemWidth="360" ItemHeight="115" ColumnSpacing="12" RowSpacing="12" EdgePadding="0" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:OverrideItemViewModel">
+              <Border Classes="surface-card override"
+                      AutomationProperties.AutomationId="{Binding RowAutomationId}">
+                <Grid>
+                  <Grid Margin="14" RowDefinitions="Auto,Auto" RowSpacing="11">
+                    <Grid ColumnDefinitions="Auto,*,58" ColumnSpacing="12">
+                      <Border Classes="surface-card-badge" Tag="{Binding SourcePillTag}">
+                        <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="CodeLine" />
+                      </Border>
+                      <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Name}"
+                                   Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                   FontWeight="Bold"
+                                   FontSize="15"
+                                   TextTrimming="CharacterEllipsis" />
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                          <Border Classes="list-pill" Tag="{Binding SourcePillTag}">
+                            <TextBlock Text="{Binding SourceText}" />
+                          </Border>
+                          <Border Classes="list-pill" Tag="neutral">
+                            <TextBlock Text="{Binding FormatText}" />
+                          </Border>
+                        </StackPanel>
+                      </StackPanel>
+                    </Grid>
+
+                    <Border Grid.Row="1" Classes="list-info-strip">
+                      <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <iconPacks:PackIconMingCuteIcons Width="13" Height="13"
+                                                         Kind="TimeLine"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding LastUpdatedText}"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                   FontSize="12.5"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                      </Grid>
+                    </Border>
+                  </Grid>
+
+                  <StackPanel Orientation="Horizontal"
+                              Spacing="4"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Top"
+                              Margin="0,14,14,0">
+                    <Button Classes="toolbar-icon card-toolbar-icon"
+                            AutomationProperties.AutomationId="{Binding UpdateAutomationId}"
+                            IsVisible="{Binding IsUpdateVisible}"
+                            IsEnabled="{Binding IsUpdateButtonEnabled}"
+                            Command="{Binding #OverridePageRoot.((vm:OverridePageViewModel)DataContext).UpdateOverrideCommand}"
+                            CommandParameter="{Binding Id}">
+                      <Grid Width="14" Height="14">
+                        <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                          Width="12"
+                                                          Height="12"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          IsVisible="{Binding IsUpdateIconVisible}"
+                                                          Kind="Refresh1Fill" />
+                        <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding IsUpdating}" Kind="LoadingFill" />
+                      </Grid>
+                    </Button>
+                    <controls:CardMenuButton Classes="toolbar-icon card-toolbar-icon"
+                                             AutomationProperties.AutomationId="{Binding MenuAutomationId}"
+                                             ItemsSource="{Binding MenuOptions}"
+                                             ItemCommand="{Binding #OverridePageRoot.((vm:OverridePageViewModel)DataContext).RowMenuActionCommand}"
+                                             MoreItemText="{loc:Loc Common.More}">
+                      <iconPacks:PackIconMingCuteIcons Classes="icon"
+                                                        Width="12"
+                                                        Height="12"
+                                                        Kind="DownLine"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        RenderTransform="translateY(1.5px)" />
+                    </controls:CardMenuButton>
+                  </StackPanel>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <controls:OverlayDialogHost AutomationProperties.AutomationId="Overrides.DialogOverlay"
+                                  IsOpen="{Binding IsDialogOverlayVisible}">
+        <controls:OverlayDialogHost.DialogContent>
+          <Grid>
+            <controls:DialogPanel PanelWidth="520"
+                                  ContentPadding="0,0,2,0"
+                                  AutomationProperties.AutomationId="Overrides.AddDialog"
+                                  IsOpen="{Binding AddDialog.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Overrides.Dialog.Add.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Overrides.Dialog.CloseButton"
+                            IsEnabled="{Binding !AddDialog.IsSubmitting}"
+                            Command="{Binding AddDialog.CancelCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+
+                  <ScrollViewer Grid.Row="1"
+                                AutomationProperties.AutomationId="Overrides.Dialog.FormScroll"
+                                VerticalScrollBarVisibility="Auto"
+                                IsEnabled="{Binding !AddDialog.IsSubmitting}">
+                    <StackPanel Spacing="16" Margin="24,0,22,0">
+                      <Border Classes="dialog-section">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Folder2Line"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Overrides.Dialog.AddMethod}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.Method.RemoteButton"
+                                          Command="{Binding AddDialog.SelectRemoteMethodCommand}"
+                                          IsChecked="{Binding AddDialog.IsRemoteMethodSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Method.Remote}" />
+                                <TextBlock Classes="rc-subtitle" Text="{loc:Loc Overrides.Method.Remote.Description}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.Method.BlankButton"
+                                          Command="{Binding AddDialog.SelectBlankMethodCommand}"
+                                          IsChecked="{Binding AddDialog.IsBlankMethodSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Method.Blank}" />
+                                <TextBlock Classes="rc-subtitle" Text="{loc:Loc Overrides.Method.Blank.Description}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="2"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.Method.LocalButton"
+                                          Command="{Binding AddDialog.SelectLocalMethodCommand}"
+                                          IsChecked="{Binding AddDialog.IsLocalMethodSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Method.Local}" />
+                                <TextBlock Classes="rc-subtitle" Text="{loc:Loc Overrides.Method.Local.Description}" />
+                              </StackPanel>
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.Name}" />
+                        <TextBox Classes="dialog-input"
+                                 AutomationProperties.AutomationId="Overrides.Dialog.NameBox"
+                                 PlaceholderText="{loc:Loc Overrides.Placeholder.Name}"
+                                 Text="{Binding AddDialog.Name, Mode=TwoWay}">
+                          <TextBox.InnerLeftContent>
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="TagLine"
+                                                             Margin="12,0,0,0"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </TextBox.InnerLeftContent>
+                        </TextBox>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6"
+                                  IsVisible="{Binding AddDialog.IsRemoteAddressFieldVisible}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.Url}" />
+                        <Grid>
+                          <TextBox Classes="dialog-input"
+                                   AutomationProperties.AutomationId="Overrides.Dialog.PathBox"
+                                   PlaceholderText="{loc:Loc Overrides.Placeholder.Url}"
+                                   GotFocus="OnOverrideUrlBoxGotFocus"
+                                   TextChanged="OnOverrideUrlBoxTextChanged"
+                                   Padding="12,8,48,8"
+                                   Text="{Binding AddDialog.SourceLocation, Mode=TwoWay}">
+                            <TextBox.InnerLeftContent>
+                              <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="LinkLine"
+                                                               Margin="12,0,0,0"
+                                                               Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                            </TextBox.InnerLeftContent>
+                          </TextBox>
+                          <Button Classes="input-inline-icon"
+                                  AutomationProperties.AutomationId="Overrides.Dialog.UrlPasteButton"
+                                  IsVisible="{Binding AddDialog.IsUrlPasteButtonVisible}"
+                                  IsEnabled="{Binding AddDialog.CanPasteUrlFromClipboard}"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Center"
+                                  Click="OnPasteOverrideUrlClicked"
+                                  Margin="0,0,6,0">
+                            <iconPacks:PackIconMingCuteIcons Width="15"
+                                                             Height="15"
+                                                             Classes="url-paste-icon"
+                                                             Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                          </Button>
+                        </Grid>
+                      </StackPanel>
+
+                      <StackPanel Spacing="6"
+                                  IsVisible="{Binding AddDialog.IsLocalFileFieldVisible}">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.LocalPath}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                          <TextBox Classes="dialog-input"
+                                   AutomationProperties.AutomationId="Overrides.Dialog.LocalPathBox"
+                                   Focusable="False"
+                                   IsHitTestVisible="False"
+                                   IsReadOnly="True"
+                                   PlaceholderText="{loc:Loc Overrides.Placeholder.LocalPath}"
+                                   Text="{Binding AddDialog.SourceLocation, Mode=TwoWay}">
+                            <TextBox.InnerLeftContent>
+                              <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="FileLine"
+                                                               Margin="12,0,0,0"
+                                                               Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                            </TextBox.InnerLeftContent>
+                          </TextBox>
+                          <Button Grid.Column="1"
+                                  Classes="dialog-secondary"
+                                  AutomationProperties.AutomationId="Overrides.Dialog.ChooseLocalFileButton"
+                                  Click="OnChooseLocalFileClicked"
+                                  Content="{loc:Loc Common.ChooseFile}" />
+                        </Grid>
+                      </StackPanel>
+
+                      <Border Classes="dialog-section">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="CodeLine"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Overrides.Format.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.FormatYamlButton"
+                                          Command="{Binding AddDialog.SelectYamlFormatCommand}"
+                                          IsChecked="{Binding AddDialog.IsYamlFormatSelected}">
+                              <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Format.Yaml}" />
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.FormatJavaScriptButton"
+                                          Command="{Binding AddDialog.SelectJavaScriptFormatCommand}"
+                                          IsChecked="{Binding AddDialog.IsJavaScriptFormatSelected}">
+                              <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Format.JavaScript}" />
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+
+                      <Border Classes="dialog-section"
+                              IsVisible="{Binding AddDialog.IsProxyModeVisible}">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="EarthLine"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Common.ProxyMode.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.Proxy.DirectButton"
+                                          Command="{Binding AddDialog.SelectDirectProxyModeCommand}"
+                                          IsChecked="{Binding AddDialog.IsDirectProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Direct.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.Proxy.SystemButton"
+                                          Command="{Binding AddDialog.SelectSystemProxyModeCommand}"
+                                          IsChecked="{Binding AddDialog.IsSystemProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.System.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="2"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.Dialog.Proxy.CoreButton"
+                                          Command="{Binding AddDialog.SelectCoreProxyModeCommand}"
+                                          IsChecked="{Binding AddDialog.IsCoreProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Core.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </ScrollViewer>
+
+                  <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Overrides.Dialog.CancelButton"
+                            Command="{Binding AddDialog.CancelCommand}"
+                            IsEnabled="{Binding !AddDialog.IsSubmitting}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Overrides.Dialog.ConfirmButton"
+                            Command="{Binding AddDialog.ConfirmCommand}"
+                            IsEnabled="{Binding AddDialog.CanSubmit}">
+                      <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{loc:Loc Common.Add}" VerticalAlignment="Center" />
+                        <iconPacks:PackIconMingCuteIcons Classes="button-spinner" IsVisible="{Binding AddDialog.IsSubmitting}" Kind="LoadingFill" />
+                      </StackPanel>
+                    </Button>
+                  </StackPanel>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="520"
+                                  ContentPadding="0,0,2,0"
+                                  AutomationProperties.AutomationId="Overrides.EditDialog"
+                                  IsOpen="{Binding EditDialog.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="16">
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Overrides.Dialog.Edit.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Overrides.EditDialog.CloseButton"
+                            Command="{Binding EditDialog.CancelCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
+
+                  <ScrollViewer Grid.Row="1"
+                                AutomationProperties.AutomationId="Overrides.EditDialog.FormScroll"
+                                VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="16" Margin="24,0,22,0">
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.Name}" />
+                        <TextBox Classes="dialog-input"
+                                 AutomationProperties.AutomationId="Overrides.EditDialog.NameBox"
+                                 PlaceholderText="{loc:Loc Overrides.Placeholder.EditName}"
+                                 Text="{Binding EditDialog.Name, Mode=TwoWay}" />
+                      </StackPanel>
+
+                      <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteOverride}">
+                        <TextBlock Classes="dialog-label" Text="{Binding EditDialog.SourceLabel}" />
+                        <TextBox Classes="dialog-input"
+                                 AutomationProperties.AutomationId="Overrides.EditDialog.PathBox"
+                                 PlaceholderText="{Binding EditDialog.SourcePlaceholder}"
+                                 Text="{Binding EditDialog.SourceLocation, Mode=TwoWay}" />
+                      </StackPanel>
+
+                      <Border Classes="dialog-section"
+                              IsVisible="{Binding EditDialog.IsForRemoteOverride}">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="CodeLine"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Overrides.Format.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.EditDialog.FormatYamlButton"
+                                          Command="{Binding EditDialog.SelectYamlFormatCommand}"
+                                          IsChecked="{Binding EditDialog.IsYamlFormatSelected}">
+                              <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Format.Yaml}" />
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.EditDialog.FormatJavaScriptButton"
+                                          Command="{Binding EditDialog.SelectJavaScriptFormatCommand}"
+                                          IsChecked="{Binding EditDialog.IsJavaScriptFormatSelected}">
+                              <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Format.JavaScript}" />
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+
+                      <Border Classes="dialog-section"
+                              IsVisible="{Binding EditDialog.IsForRemoteOverride}">
+                        <StackPanel Spacing="11">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="EarthLine"
+                                                             Foreground="{DynamicResource AppAccentBrush}"
+                                                             VerticalAlignment="Center" />
+                            <TextBlock Classes="dialog-section-title" Text="{loc:Loc Common.ProxyMode.Title}" />
+                          </StackPanel>
+                          <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <ToggleButton Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.EditDialog.Proxy.DirectButton"
+                                          Command="{Binding EditDialog.SelectDirectProxyModeCommand}"
+                                          IsChecked="{Binding EditDialog.IsDirectProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Direct.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="1"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.EditDialog.Proxy.SystemButton"
+                                          Command="{Binding EditDialog.SelectSystemProxyModeCommand}"
+                                          IsChecked="{Binding EditDialog.IsSystemProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.System.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                            <ToggleButton Grid.Column="2"
+                                          Classes="radio-card"
+                                          AutomationProperties.AutomationId="Overrides.EditDialog.Proxy.CoreButton"
+                                          Command="{Binding EditDialog.SelectCoreProxyModeCommand}"
+                                          IsChecked="{Binding EditDialog.IsCoreProxyModeSelected}">
+                              <StackPanel Spacing="2">
+                                <TextBlock Classes="rc-title" Text="{loc:Loc Common.Proxy.Core.Title}" />
+                              </StackPanel>
+                            </ToggleButton>
+                          </Grid>
+                        </StackPanel>
+                      </Border>
+                    </StackPanel>
+                  </ScrollViewer>
+
+                  <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Overrides.EditDialog.CancelButton"
+                            Command="{Binding EditDialog.CancelCommand}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Overrides.EditDialog.SaveButton"
+                            Command="{Binding EditDialog.ConfirmCommand}"
+                            IsEnabled="{Binding EditDialog.CanSubmit}"
+                            Content="{loc:Loc Common.Save}" />
+                  </StackPanel>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="560"
+                                  ContentPadding="0"
+                                  AutomationProperties.AutomationId="Overrides.FileEditorDialog"
+                                  IsOpen="{Binding FileEditor.IsDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
+                  <StackPanel Grid.Row="0" Spacing="12" Margin="24,24,24,0">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                      <TextBlock Classes="dialog-title" Text="{loc:Loc Overrides.Dialog.EditFile.Title}" VerticalAlignment="Center" />
+                      <Button Grid.Column="1"
+                              Classes="dialog-close"
+                              AutomationProperties.AutomationId="Overrides.FileEditor.CloseButton"
+                              Command="{Binding FileEditor.CancelCommand}">
+                        <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                      </Button>
+                    </Grid>
+                    <controls:CodeEditor AutomationProperties.AutomationId="Overrides.FileEditor.ContentBox"
+                                         Text="{Binding FileEditor.Content, Mode=TwoWay}"
+                                         SyntaxLanguage="{Binding FileEditor.SyntaxLanguage}"
+                                         Height="420" />
+                  </StackPanel>
+                  <Grid Grid.Row="1" Margin="24,0,24,24" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Button Grid.Column="1"
+                            Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Overrides.FileEditor.CancelButton"
+                            Command="{Binding FileEditor.CancelCommand}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Grid.Column="2"
+                            Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Overrides.FileEditor.SaveButton"
+                            Command="{Binding FileEditor.ConfirmCommand}"
+                            Content="{loc:Loc Common.Save}" />
+                  </Grid>
+                </Grid>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+
+            <controls:DialogPanel PanelWidth="420"
+                                  AutomationProperties.AutomationId="Overrides.DeleteDialog"
+                                  IsOpen="{Binding IsDeleteDialogVisible}">
+              <controls:DialogPanel.DialogContent>
+                <StackPanel Spacing="14">
+                  <TextBlock Classes="dialog-title"
+                             Text="{loc:Loc Overrides.Dialog.Delete.Title}" />
+                  <TextBlock Classes="dialog-subtitle"
+                             Text="{loc:Loc Overrides.Dialog.Delete.Description}"
+                             TextWrapping="Wrap" />
+                  <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="0,4,0,0">
+                    <Button Classes="dialog-secondary"
+                            AutomationProperties.AutomationId="Overrides.DeleteDialog.CancelButton"
+                            Command="{Binding CancelDeleteDialogCommand}"
+                            Content="{loc:Loc Dialog.Cancel}" />
+                    <Button Classes="dialog-primary"
+                            AutomationProperties.AutomationId="Overrides.DeleteDialog.ConfirmButton"
+                            Command="{Binding ConfirmDeleteCommand}"
+                            Content="{loc:Loc Common.ConfirmDelete}" />
+                  </StackPanel>
+                </StackPanel>
+              </controls:DialogPanel.DialogContent>
+            </controls:DialogPanel>
+          </Grid>
+        </controls:OverlayDialogHost.DialogContent>
+      </controls:OverlayDialogHost>
+    </Grid>
+  </Grid>
+</UserControl>

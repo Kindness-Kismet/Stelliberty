@@ -1,0 +1,11 @@
+Package: @APP_PACKAGE@
+Version: @APP_VERSION@
+Section: net
+Priority: optional
+Architecture: @DEB_ARCH@
+Maintainer: @APP_NAME@ Team <support@@APP_PACKAGE@.local>
+Installed-Size: @INSTALLED_SIZE@
+Depends: libc6, libfontconfig1, libice6, libsm6, libx11-6
+Description: @APP_NAME@ network proxy client
+ @APP_NAME@ provides desktop proxy management, subscriptions, rules,
+ and service-mode core hosting.

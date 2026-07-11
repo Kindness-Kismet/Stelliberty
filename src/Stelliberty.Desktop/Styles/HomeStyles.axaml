@@ -1,0 +1,162 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+        x:CompileBindings="True">
+  <!-- 首页专属: 分段切换、指标卡、图标底衬 -->
+
+  <Style Selector="Border.segment-track">
+    <Setter Property="Background" Value="{DynamicResource AppOverlaySubtleBrush}" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="4" />
+  </Style>
+  <Style Selector="Button.segment">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="9" />
+    <Setter Property="Padding" Value="0,11" />
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
+    <Setter Property="FontSize" Value="14" />
+  </Style>
+  <Style Selector="Button.segment /template/ ContentPresenter">
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="Button.segment:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+  </Style>
+  <Style Selector="Button.segment:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+  </Style>
+  <Style Selector="Button.segment:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="Button.segment.selected">
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="Button.segment.selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.segment.selected:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.segment.selected:pressed /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="Button.segment.selected:pointerover">
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+  </Style>
+
+  <Style Selector="TextBlock.home-metric-value">
+    <Setter Property="FontSize" Value="15" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+
+  <Style Selector="Border.metric-cell">
+    <Setter Property="Background" Value="{DynamicResource AppOverlaySubtleBrush}" />
+    <Setter Property="CornerRadius" Value="12" />
+    <Setter Property="Padding" Value="12,10" />
+  </Style>
+
+  <Style Selector="TextBlock.home-subscription-name">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+  </Style>
+  <Style Selector="TextBlock.home-subscription-name.large">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="Bold" />
+  </Style>
+  <Style Selector="TextBlock.subscription-stat-value">
+    <Setter Property="FontSize" Value="21" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+  </Style>
+  <Style Selector="TextBlock.subscription-stat-value.compact">
+    <Setter Property="FontSize" Value="16" />
+  </Style>
+  <Style Selector="StackPanel.subscription-traffic">
+    <Setter Property="Spacing" Value="5" />
+  </Style>
+  <Style Selector="Grid.subscription-time-row iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Width" Value="13" />
+    <Setter Property="Height" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Grid.subscription-time-row TextBlock">
+    <Setter Property="FontSize" Value="12" />
+  </Style>
+  <!-- 首页图标卡片 -->
+  <Style Selector="Border.surface-tile">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="16" />
+    <Setter Property="Padding" Value="16" />
+    <Setter Property="BoxShadow" Value="{DynamicResource AppSurfaceRaisedShadow}" />
+  </Style>
+
+  <!-- 首页圆形图标底衬 -->
+  <Style Selector="Border.tile-icon">
+    <Setter Property="Width" Value="38" />
+    <Setter Property="Height" Value="38" />
+    <Setter Property="CornerRadius" Value="999" />
+    <Setter Property="Background" Value="{DynamicResource AppAccentTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.tile-icon.sm">
+    <Setter Property="Width" Value="30" />
+    <Setter Property="Height" Value="30" />
+  </Style>
+  <Style Selector="Border.tile-icon.success">
+    <Setter Property="Background" Value="{DynamicResource AppSuccessTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.success iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.violet">
+    <Setter Property="Background" Value="{DynamicResource AppVioletTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.violet iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppVioletBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.cyan">
+    <Setter Property="Background" Value="{DynamicResource AppCyanTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.cyan iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppCyanBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.warning">
+    <Setter Property="Background" Value="{DynamicResource AppWarningTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.warning iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppWarningBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.danger">
+    <Setter Property="Background" Value="{DynamicResource AppDangerTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.danger iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.download">
+    <Setter Property="Background" Value="{DynamicResource AppDownloadTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.download iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppDownloadBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.memory">
+    <Setter Property="Background" Value="{DynamicResource AppMemoryTintBrush}" />
+  </Style>
+  <Style Selector="Border.tile-icon.memory iconPacks|PackIconMingCuteIcons">
+    <Setter Property="Foreground" Value="{DynamicResource AppMemoryBrush}" />
+  </Style>
+</Styles>

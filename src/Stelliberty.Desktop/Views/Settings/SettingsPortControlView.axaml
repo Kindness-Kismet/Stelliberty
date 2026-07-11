@@ -1,0 +1,76 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsPortControlView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+<!-- 端口控制 -->
+<StackPanel Spacing="10" IsVisible="{Binding Settings.IsPortControlVisible}">
+  <TextBlock Classes="surface-group-title" Text="{Binding CoreConfig.PortProxySectionText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,180">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PortMixedText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.MixedPortBox"
+                   Text="{Binding CoreConfig.MixedPortText, Mode=TwoWay, Delay=500}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,180">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PortSocksText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.SocksPortBox"
+                   Text="{Binding CoreConfig.SocksPortText, Mode=TwoWay, Delay=500}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,180">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PortHttpText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.HttpPortBox"
+                   Text="{Binding CoreConfig.HttpPortText, Mode=TwoWay, Delay=500}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{Binding CoreConfig.PortControllerSectionText}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PortControllerEnabledText}" />
+          <ToggleSwitch Grid.Column="1"
+                        AutomationProperties.AutomationId="Settings.ExternalControllerToggle"
+                        IsChecked="{Binding CoreConfig.IsExternalControllerEnabled, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,220">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PortControllerAddressText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.ExternalControllerAddressBox"
+                   Text="{Binding CoreConfig.ExternalControllerAddress, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,220">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding CoreConfig.PortControllerSecretText}" />
+          <TextBox Grid.Column="1" Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.ExternalControllerSecretBox"
+                   Text="{Binding CoreConfig.ExternalControllerSecret, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+    </StackPanel>
+  </Border>
+</StackPanel>
+</UserControl>

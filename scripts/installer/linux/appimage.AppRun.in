@@ -1,0 +1,20 @@
+#!/bin/sh
+set -eu
+
+HERE="$(dirname "$(readlink -f "$0")")"
+DATA_HOME="${XDG_DATA_HOME:-${HOME:-/tmp}/.local/share}"
+TARGET="$DATA_HOME/@APP_PACKAGE@/appimage/@APP_VERSION@"
+MARKER="$TARGET/.appimage-source"
+
+if [ ! -x "$TARGET/@APP_EXECUTABLE@" ] || [ "$(cat "$MARKER" 2>/dev/null || true)" != "$HERE" ]; then
+    rm -rf "$TARGET"
+    mkdir -p "$TARGET"
+    cp -a "$HERE/usr/lib/@APP_PACKAGE@/." "$TARGET/"
+    chmod 755 "$TARGET/@APP_EXECUTABLE@" 2>/dev/null || true
+    chmod 755 "$TARGET/data/core/clash-mihomo-core" 2>/dev/null || true
+    chmod 755 "$TARGET/data/service/update/@SERVICE_BINARY@" 2>/dev/null || true
+    chmod -R u+rwX "$TARGET/data" 2>/dev/null || true
+    printf '%s\n' "$HERE" > "$MARKER"
+fi
+
+exec "$TARGET/@APP_EXECUTABLE@" "$@"

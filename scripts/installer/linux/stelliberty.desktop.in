@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=@APP_NAME@
+Comment=Network Proxy Client
+Exec=@APP_EXEC@
+Icon=@APP_PACKAGE@
+Terminal=false
+Categories=Network;Utility;
+StartupNotify=true

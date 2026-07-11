@@ -1,0 +1,3 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Domain 除 BCL 外保持零依赖；共享属性来自 Directory.Build.props。 -->
+</Project>

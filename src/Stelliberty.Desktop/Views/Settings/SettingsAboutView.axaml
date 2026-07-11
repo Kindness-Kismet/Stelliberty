@@ -1,0 +1,150 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.Settings.SettingsAboutView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel">
+<!-- 关于 -->
+<StackPanel Spacing="14" IsVisible="{Binding Settings.IsAboutVisible}">
+  <Border CornerRadius="20"
+          BorderThickness="1"
+          BorderBrush="{DynamicResource AppBorderBrush}"
+          BoxShadow="{DynamicResource AppSurfaceRaisedShadow}"
+          AutomationProperties.AutomationId="Settings.About.VersionCard">
+    <Border CornerRadius="19" ClipToBounds="True">
+      <Panel>
+        <Border IsHitTestVisible="False" Opacity="0.45">
+          <Border.Background>
+            <LinearGradientBrush StartPoint="0%,0%" EndPoint="100%,100%">
+              <GradientStop Color="#8B5CF6" Offset="0" />
+              <GradientStop Color="#3B82F6" Offset="0.32" />
+              <GradientStop Color="#06B6D4" Offset="0.55" />
+              <GradientStop Color="#EC4899" Offset="0.8" />
+              <GradientStop Color="#F59E0B" Offset="1" />
+            </LinearGradientBrush>
+          </Border.Background>
+        </Border>
+        <Border Background="{DynamicResource AppCardBrush}" />
+
+        <Grid Margin="24,22" ColumnDefinitions="*,Auto" ColumnSpacing="18">
+          <StackPanel Grid.Column="0" Spacing="6" VerticalAlignment="Center">
+            <TextBlock Text="{Binding Title}" FontSize="22" FontWeight="Bold"
+                       Foreground="{DynamicResource AppTextPrimaryBrush}" />
+            <TextBlock Text="{loc:Loc Settings.About.Description}"
+                       FontSize="12.5" Foreground="{DynamicResource AppTextTertiaryBrush}" TextWrapping="Wrap" />
+          </StackPanel>
+          <Border Grid.Column="1" VerticalAlignment="Center"
+                  CornerRadius="13" Padding="15,9"
+                  Background="{DynamicResource AppAccentSubtleBrush}"
+                  BorderBrush="{DynamicResource AppAccentBorderBrush}" BorderThickness="1">
+            <StackPanel Spacing="3" HorizontalAlignment="Center">
+              <TextBlock Text="{loc:Loc Settings.About.VersionLabel}"
+                         FontSize="10.5" Foreground="{DynamicResource AppTextTertiaryBrush}" HorizontalAlignment="Center" />
+              <TextBlock AutomationProperties.AutomationId="Settings.About.VersionText"
+                         Text="{Binding Settings.AppVersionText}"
+                         FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource AppAccentBrush}"
+                         HorizontalAlignment="Center" />
+            </StackPanel>
+          </Border>
+        </Grid>
+      </Panel>
+    </Border>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{loc:Loc Settings.About.ManageTitle}" />
+  <Border Classes="surface-group">
+    <StackPanel>
+      <Button Classes="settings-row first"
+              AutomationProperties.AutomationId="Settings.About.UpdateEntry"
+              Command="{Binding Settings.ShowUpdateCommand}">
+        <Grid ColumnDefinitions="48,*,Auto">
+          <Border Grid.Column="0" Classes="settings-icon-badge">
+            <iconPacks:PackIconMingCuteIcons Classes="settings-entry-icon"
+                                              Kind="Refresh1Line" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center" Margin="14,0,0,0">
+            <TextBlock Classes="settings-row-title" Text="{Binding Settings.UpdateEntryTitle}" />
+            <TextBlock Classes="settings-row-subtitle" Text="{Binding Settings.UpdateEntryDescription}" />
+          </StackPanel>
+          <iconPacks:PackIconMingCuteIcons Grid.Column="2"
+                                            Classes="settings-chevron"
+                                            Kind="RightSmallLine" />
+        </Grid>
+      </Button>
+      <Border Classes="settings-row-divider" />
+      <Button Classes="settings-row last"
+              AutomationProperties.AutomationId="Settings.About.AppLogEntry"
+              Command="{Binding Settings.ShowAppLogCommand}">
+        <Grid ColumnDefinitions="48,*,Auto">
+          <Border Grid.Column="0" Classes="settings-icon-badge">
+            <iconPacks:PackIconMingCuteIcons Classes="settings-entry-icon"
+                                              Kind="FileLine" />
+          </Border>
+          <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center" Margin="14,0,0,0">
+            <TextBlock Classes="settings-row-title" Text="{Binding Settings.AppLogEntryTitle}" />
+            <TextBlock Classes="settings-row-subtitle" Text="{Binding Settings.AppLogEntryDescription}" />
+          </StackPanel>
+          <iconPacks:PackIconMingCuteIcons Grid.Column="2"
+                                            Classes="settings-chevron"
+                                            Kind="RightSmallLine" />
+        </Grid>
+      </Button>
+    </StackPanel>
+  </Border>
+
+  <TextBlock Classes="surface-group-title" Text="{loc:Loc Settings.About.QuickLinksTitle}" />
+  <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+    <Button Grid.Column="0"
+            Classes="about-link"
+            AutomationProperties.AutomationId="Settings.About.GitHubLink"
+            Tag="https://github.com/Kindness-Kismet/stelliberty"
+            Click="OnOpenExternalLinkClicked">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+        <Border Classes="about-link-icon-badge">
+          <iconPacks:PackIconMingCuteIcons Classes="about-link-icon" Kind="CodeLine" />
+        </Border>
+        <StackPanel Grid.Column="1" Classes="about-link-content">
+          <TextBlock Classes="about-link-title" Text="{loc:Loc Settings.About.Link.GitHub}" />
+          <TextBlock Classes="about-link-subtitle" Text="{loc:Loc Settings.About.Link.GitHub.Description}" />
+        </StackPanel>
+        <iconPacks:PackIconMingCuteIcons Grid.Column="2" Classes="about-link-arrow" Kind="RightSmallLine" />
+      </Grid>
+    </Button>
+    <Button Grid.Column="1"
+            Classes="about-link"
+            AutomationProperties.AutomationId="Settings.About.IssuesLink"
+            Tag="https://github.com/Kindness-Kismet/stelliberty/issues"
+            Click="OnOpenExternalLinkClicked">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+        <Border Classes="about-link-icon-badge">
+          <iconPacks:PackIconMingCuteIcons Classes="about-link-icon" Kind="FileLine" />
+        </Border>
+        <StackPanel Grid.Column="1" Classes="about-link-content">
+          <TextBlock Classes="about-link-title" Text="{loc:Loc Settings.About.Link.Issues}" />
+          <TextBlock Classes="about-link-subtitle" Text="{loc:Loc Settings.About.Link.Issues.Description}" />
+        </StackPanel>
+        <iconPacks:PackIconMingCuteIcons Grid.Column="2" Classes="about-link-arrow" Kind="RightSmallLine" />
+      </Grid>
+    </Button>
+    <Button Grid.Column="2"
+            Classes="about-link"
+            AutomationProperties.AutomationId="Settings.About.TelegramLink"
+            Tag="https://t.me/MaterialDesign3"
+            Click="OnOpenExternalLinkClicked">
+      <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+        <Border Classes="about-link-icon-badge">
+          <iconPacks:PackIconMingCuteIcons Classes="about-link-icon" Kind="TelegramFill" />
+        </Border>
+        <StackPanel Grid.Column="1" Classes="about-link-content">
+          <TextBlock Classes="about-link-title" Text="{loc:Loc Settings.About.Link.Telegram}" />
+          <TextBlock Classes="about-link-subtitle" Text="{loc:Loc Settings.About.Link.Telegram.Description}" />
+        </StackPanel>
+        <iconPacks:PackIconMingCuteIcons Grid.Column="2" Classes="about-link-arrow" Kind="RightSmallLine" />
+      </Grid>
+    </Button>
+  </Grid>
+</StackPanel>
+</UserControl>

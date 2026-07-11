@@ -1,0 +1,49 @@
+name: Parallel Trigger
+
+on:
+  push:
+    paths: &verification-paths
+      - 'src/**'
+      - 'native/**'
+      - 'tests/**'
+      - 'scripts/**'
+      - 'Directory.Build.props'
+      - 'Stelliberty.slnx'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'global.json'
+      - '**/*.csproj'
+  pull_request:
+    paths: *verification-paths
+  workflow_dispatch:
+
+concurrency:
+  group: verification-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  code-quality:
+    name: Trigger code quality
+    uses: ./.github/workflows/code-quality.yml
+    secrets: inherit
+
+  stability-verification:
+    name: Trigger test verification
+    uses: ./.github/workflows/stability-verification.yml
+    secrets: inherit
+
+  beta-build:
+    name: Trigger beta build
+    needs: [code-quality, stability-verification]
+    if: >-
+      ${{
+        needs.code-quality.result == 'success' &&
+        needs.stability-verification.result == 'success' &&
+        github.ref == 'refs/heads/beta' &&
+        (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+      }}
+    uses: ./.github/workflows/build-beta.yml
+    secrets: inherit

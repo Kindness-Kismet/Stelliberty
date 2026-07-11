@@ -1,0 +1,82 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls">
+  <Styles.Resources>
+    <Thickness x:Key="ComboBoxPopupBorderPadding">0</Thickness>
+    <Thickness x:Key="ComboBoxPopupBorderMargin">12</Thickness>
+    <CornerRadius x:Key="ComboBoxPopupBoxCornerRadius">10</CornerRadius>
+    <BoxShadows x:Key="ComboBoxPopupBoxShadow">0 4 12 -2 #26000000</BoxShadows>
+  </Styles.Resources>
+
+  <!-- Popup 留在主 OverlayLayer，阴影由 PopupBorder 绘制。 -->
+  <Style Selector="ComboBox /template/ Popup#PART_Popup">
+    <Setter Property="ShouldUseOverlayLayer" Value="True" />
+    <Setter Property="Topmost" Value="False" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <!-- 拦截 BringIntoView，避免 ScrollViewer 表单打开时跳动。 -->
+    <Setter Property="controls:ComboBoxScrollLock.IsEnabled" Value="True" />
+    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="12,6" />
+    <Setter Property="MinHeight" Value="32" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="ItemsPanel">
+      <ItemsPanelTemplate>
+        <StackPanel Margin="4" Spacing="4" />
+      </ItemsPanelTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ComboBox:pointerover">
+    <Setter Property="Background" Value="{DynamicResource AppInputHoverBrush}" />
+  </Style>
+  <Style Selector="ComboBox:focus">
+    <Setter Property="Background" Value="{DynamicResource AppInputHoverBrush}" />
+  </Style>
+
+  <Style Selector="ComboBox /template/ ContentControl">
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ComboBox /template/ ContentPresenter">
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="ComboBoxItem">
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="Padding" Value="12,8" />
+    <Setter Property="Margin" Value="0" />
+    <Setter Property="CornerRadius" Value="6" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="FontSize" Value="13" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border x:Name="ItemRoot"
+                Background="{TemplateBinding Background}"
+                CornerRadius="{TemplateBinding CornerRadius}"
+                Padding="{TemplateBinding Padding}">
+          <ContentPresenter VerticalAlignment="Center"
+                            Foreground="{TemplateBinding Foreground}"
+                            FontWeight="{TemplateBinding FontWeight}"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}" />
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ComboBoxItem:pointerover /template/ Border#ItemRoot">
+    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+  </Style>
+  <Style Selector="ComboBoxItem:selected /template/ Border#ItemRoot">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="ComboBoxItem:selected">
+    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+</Styles>

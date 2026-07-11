@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             x:Class="Stelliberty.Desktop.Controls.DialogPanel"
+             x:CompileBindings="True"
+             Width="{Binding PanelWidth, RelativeSource={RelativeSource Self}}">
+
+  <Border Background="{DynamicResource AppDialogSurfaceBrush}"
+          BorderBrush="{DynamicResource AppBorderBrush}"
+          BorderThickness="1"
+          CornerRadius="15"
+          Padding="{Binding ContentPadding, RelativeSource={RelativeSource AncestorType=controls:DialogPanel}}"
+          BoxShadow="{DynamicResource AppDialogShadow}">
+    <ContentControl Content="{Binding DialogContent, RelativeSource={RelativeSource AncestorType=controls:DialogPanel}}" />
+  </Border>
+</UserControl>

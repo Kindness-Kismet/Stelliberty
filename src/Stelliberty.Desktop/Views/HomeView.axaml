@@ -1,0 +1,367 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             x:Class="Stelliberty.Desktop.Views.HomeView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel"
+             Background="Transparent">
+
+  <ScrollViewer x:Name="HomePageRoot"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto"
+                AutomationProperties.AutomationId="Home.ScrollViewer">
+    <StackPanel DataContext="{Binding HomePage}" Margin="8,2,25,16" Spacing="14"
+                x:DataType="vm:HomePageViewModel">
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+
+        <!-- 第一行左列：当前订阅 -->
+        <Border Classes="surface-tile" Grid.Column="0" MinHeight="200"
+                DataContext="{Binding #HomePageRoot.((vm:MainWindowViewModel)DataContext).SubscriptionPage}"
+                x:DataType="vm:SubscriptionPageViewModel">
+          <Grid RowDefinitions="Auto,*">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+              <Border Classes="tile-icon sm cyan" VerticalAlignment="Center">
+                <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ServerLine" />
+              </Border>
+              <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{loc:Loc Home.Subscription.Title}" Classes="card-title" />
+              <Button Grid.Column="2" Classes="soft-action" Padding="12,6"
+                      AutomationProperties.AutomationId="Home.SubscriptionCardButton"
+                      Command="{Binding #HomePageRoot.((vm:MainWindowViewModel)DataContext).ShowSubscriptionsCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <iconPacks:PackIconMingCuteIcons Classes="icon" Width="12" Height="12" Kind="ServerLine" />
+                  <TextBlock Text="{loc:Loc Home.Subscription.Button}" FontSize="13" />
+                </StackPanel>
+              </Button>
+            </Grid>
+
+            <StackPanel Grid.Row="1" Margin="0,14,0,0" Spacing="10" IsVisible="{Binding HomeCardHasContent}">
+              <TextBlock Text="{Binding HomeCardNameText}" Classes="home-subscription-name large"
+                         AutomationProperties.AutomationId="Home.SubscriptionNameText" />
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <Border Classes="list-pill" Tag="{Binding HomeCardTypeTag}">
+                  <TextBlock Text="{Binding HomeCardTypeText}" />
+                </Border>
+                <Border Classes="list-pill" Tag="{Binding HomeCardSourceFormatTag}">
+                  <TextBlock Text="{Binding HomeCardSourceFormatText}" />
+                </Border>
+              </StackPanel>
+              <Grid Classes="subscription-stat-band" ColumnDefinitions="*,*,*">
+                <StackPanel>
+                  <TextBlock Classes="field-label" Text="{loc:Loc Home.Subscription.Field.Groups}" />
+                  <TextBlock Classes="subscription-stat-value" Text="{Binding HomeCardGroupCountText}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                  <TextBlock Classes="field-label" Text="{loc:Loc Home.Subscription.Field.Nodes}" />
+                  <TextBlock Classes="subscription-stat-value" Text="{Binding HomeCardNodeCountText}" />
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Classes="field-label" Text="{loc:Loc Home.Subscription.Field.AvgDelay}" />
+                  <TextBlock Classes="subscription-stat-value" Text="{Binding HomeCardAverageDelayText}" />
+                </StackPanel>
+              </Grid>
+              <StackPanel Classes="subscription-traffic" IsVisible="{Binding HomeCardHasTrafficInfo}">
+                <Grid ColumnDefinitions="*,Auto">
+                  <TextBlock Classes="field-label" Text="{loc:Loc Home.Subscription.Field.Traffic}" />
+                  <TextBlock Grid.Column="1" Text="{Binding HomeCardTrafficText}" />
+                </Grid>
+                <ProgressBar Maximum="1" Height="6" Value="{Binding HomeCardTrafficRatio}" />
+              </StackPanel>
+              <Grid Classes="subscription-time-row" ColumnDefinitions="*,*">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <iconPacks:PackIconMingCuteIcons Kind="TimeLine" />
+                  <TextBlock Text="{Binding HomeCardUpdatedText}" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6"
+                            HorizontalAlignment="Right" IsVisible="{Binding HomeCardIsRemote}">
+                  <iconPacks:PackIconMingCuteIcons Kind="CalendarLine" />
+                  <TextBlock Text="{Binding HomeCardExpireText}" />
+                </StackPanel>
+              </Grid>
+            </StackPanel>
+          </Grid>
+        </Border>
+
+        <!-- 第一行右列：运行状态 -->
+        <Border Classes="surface-tile" Grid.Column="1" MinHeight="200">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,*">
+              <Border Classes="tile-icon sm success" VerticalAlignment="Center">
+                <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="ComputerLine" />
+              </Border>
+              <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{loc:Loc Home.RuntimeStatus.Title}" Classes="card-title" />
+            </Grid>
+
+            <Grid Grid.Row="1" Margin="0,16,0,0" VerticalAlignment="Top"
+                  ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="14" RowSpacing="13">
+              <StackPanel Grid.Row="0" Grid.Column="0" Spacing="3">
+                <TextBlock Classes="field-label" Text="{loc:Loc Home.Field.CoreStatus}" />
+                <StackPanel Orientation="Horizontal" Spacing="7">
+                  <Border Classes="signal-dot" Tag="{Binding CoreSignalTag}" VerticalAlignment="Center" />
+                  <TextBlock Classes="home-metric-value" AutomationProperties.AutomationId="Home.CoreStatusText" Text="{Binding CoreStatusValueText}" />
+                </StackPanel>
+              </StackPanel>
+              <StackPanel Grid.Row="0" Grid.Column="1" Spacing="3">
+                <TextBlock Classes="field-label" Text="{loc:Loc Home.Field.RunMode}" />
+                <TextBlock Classes="home-metric-value" AutomationProperties.AutomationId="Home.PrivilegeModeText" Text="{Binding PrivilegeModeText}" />
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="0" Spacing="3">
+                <TextBlock Classes="field-label" Text="{loc:Loc Home.Field.ProxyAddress}" />
+                <TextBlock Classes="home-metric-value" AutomationProperties.AutomationId="Home.ProxyAddressText" Text="{Binding ProxyAddressValueText}" />
+              </StackPanel>
+              <StackPanel Grid.Row="1" Grid.Column="1" Spacing="3">
+                <TextBlock Classes="field-label" Text="{loc:Loc Home.Field.Platform}" />
+                <TextBlock Classes="home-metric-value" AutomationProperties.AutomationId="Home.PlatformText" Text="{Binding PlatformValueText}" />
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="0" Spacing="3">
+                <TextBlock Classes="field-label" Text="{loc:Loc Home.Field.CoreVersion}" />
+                <TextBlock Classes="home-metric-value" AutomationProperties.AutomationId="Home.CoreVersionText" Text="{Binding CoreVersionValueText}" />
+              </StackPanel>
+              <StackPanel Grid.Row="2" Grid.Column="1" Spacing="3">
+                <TextBlock Classes="field-label" Text="{loc:Loc Home.Field.Uptime}" />
+                <TextBlock Classes="home-metric-value" AutomationProperties.AutomationId="Home.UptimeText" Text="{Binding UptimeValueText}" />
+              </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="2" Margin="0,14,0,0" ColumnDefinitions="*,*" ColumnSpacing="10">
+              <Button Grid.Column="0" Classes="soft-action" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                      AutomationProperties.AutomationId="Home.CoreRefreshButton"
+                      IsEnabled="{Binding CanUpdateCore}" Command="{Binding RefreshCoreCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <iconPacks:PackIconMingCuteIcons Classes="icon" Width="13" Height="13" Kind="DownloadLine" />
+                  <TextBlock Text="{loc:Loc Home.Core.Update}" FontSize="13" />
+                </StackPanel>
+              </Button>
+              <Button Grid.Column="1" Classes="soft-action" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" Padding="0,8"
+                      AutomationProperties.AutomationId="Home.CoreRestartButton"
+                      IsEnabled="{Binding CanRestartCore}" Command="{Binding RestartCoreCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                  <iconPacks:PackIconMingCuteIcons Classes="icon" Width="13" Height="13" Kind="Refresh1Line" />
+                  <TextBlock Text="{loc:Loc Home.Core.Restart}" FontSize="13" />
+                </StackPanel>
+              </Button>
+            </Grid>
+          </Grid>
+        </Border>
+      </Grid>
+
+      <Grid ColumnDefinitions="*,*" ColumnSpacing="14">
+
+        <!-- 第二行左列：出站模式 -->
+        <Border Classes="surface-tile" Grid.Column="0" MinHeight="172">
+          <Grid RowDefinitions="Auto,Auto,*">
+            <Grid Grid.Row="0" ColumnDefinitions="Auto,*">
+              <Border Classes="tile-icon sm" VerticalAlignment="Center">
+                <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="Tree3Line" />
+              </Border>
+              <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{loc:Loc Home.Outbound.Title}" Classes="card-title" />
+            </Grid>
+            <Border Grid.Row="1" Margin="0,14,0,0" Classes="segment-track">
+              <Grid ColumnDefinitions="*,*,*">
+                <Button Grid.Column="0" Classes="segment" Classes.selected="{Binding IsRuleOutboundSelected}"
+                        AutomationProperties.AutomationId="Home.Outbound.RuleButton"
+                        IsEnabled="{Binding IsCoreInteractive}"
+                        Command="{Binding SetRuleOutboundCommand}" Content="{loc:Loc Home.Outbound.Rule}" />
+                <Button Grid.Column="1" Classes="segment" Classes.selected="{Binding IsGlobalOutboundSelected}"
+                        AutomationProperties.AutomationId="Home.Outbound.GlobalButton"
+                        IsEnabled="{Binding IsCoreInteractive}"
+                        Command="{Binding SetGlobalOutboundCommand}" Content="{loc:Loc Home.Outbound.Global}" />
+                <Button Grid.Column="2" Classes="segment" Classes.selected="{Binding IsDirectOutboundSelected}"
+                        AutomationProperties.AutomationId="Home.Outbound.DirectButton"
+                        IsEnabled="{Binding IsCoreInteractive}"
+                        Command="{Binding SetDirectOutboundCommand}" Content="{loc:Loc Home.Outbound.Direct}" />
+              </Grid>
+            </Border>
+
+            <TextBlock Grid.Row="2" HorizontalAlignment="Center" VerticalAlignment="Center" TextAlignment="Center"
+                       Text="{Binding OutboundModeDescriptionText}"
+                       AutomationProperties.AutomationId="Home.Outbound.DescriptionText"
+                       TextWrapping="Wrap" FontSize="14" LineHeight="22"
+                       Foreground="{DynamicResource AppTextSecondaryBrush}" />
+          </Grid>
+        </Border>
+
+        <!-- 第二行右列：接管设置 -->
+        <Border Classes="surface-tile" Grid.Column="1" MinHeight="172">
+          <StackPanel Spacing="14">
+            <Grid ColumnDefinitions="Auto,*">
+              <Border Classes="tile-icon sm violet" VerticalAlignment="Center">
+                <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="RouteLine" />
+              </Border>
+              <TextBlock Grid.Column="1" Margin="10,0,0,0" Text="{loc:Loc Home.Takeover.Title}" Classes="card-title" />
+            </Grid>
+            <Border Classes="segment-track">
+              <Grid ColumnDefinitions="*,*">
+                <Button Grid.Column="0" Classes="segment" Classes.selected="{Binding IsTakeoverProxyTabSelected}"
+                        AutomationProperties.AutomationId="Home.Takeover.SystemProxyTab"
+                        Command="{Binding SelectTakeoverProxyTabCommand}" Content="{loc:Loc Home.SystemProxy.Title}" />
+                <Button Grid.Column="1" Classes="segment" Classes.selected="{Binding IsTakeoverTunTabSelected}"
+                        AutomationProperties.AutomationId="Home.Takeover.TunTab"
+                        Command="{Binding SelectTakeoverTunTabCommand}" Content="{loc:Loc Home.VirtualNic.Title}" />
+              </Grid>
+            </Border>
+
+            <Grid MinHeight="50">
+              <!-- 接管行：去掉圆形底，仅保留放大图标 -->
+              <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding IsTakeoverProxyTabSelected}">
+                <iconPacks:PackIconMingCuteIcons Width="22" Height="22" Kind="ShieldFill"
+                                                   Foreground="{DynamicResource AppAccentBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                  <TextBlock Text="{loc:Loc Home.SystemProxy.Title}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimaryBrush}" />
+                </StackPanel>
+                <ToggleSwitch Grid.Column="2" VerticalAlignment="Center"
+                              AutomationProperties.AutomationId="Home.SystemProxyToggle"
+                              IsEnabled="{Binding IsSystemProxyToggleEnabled}"
+                              IsChecked="{Binding IsSystemProxyEnabled, Mode=TwoWay}"
+                              OnContent="" OffContent="" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*,Auto,Auto" IsVisible="{Binding IsTakeoverTunTabSelected}">
+                <iconPacks:PackIconMingCuteIcons Width="22" Height="22" Kind="RouterModemFill"
+                                                   Foreground="{DynamicResource AppVioletBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                  <TextBlock Text="{loc:Loc Home.VirtualNic.Title}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource AppTextPrimaryBrush}" />
+                </StackPanel>
+                <Button Grid.Column="2" Classes="soft-action" Padding="12,7" Margin="10,0,0,0" VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="Home.ServiceModeButton"
+                        IsEnabled="{Binding CanToggleServiceMode}"
+                        Command="{Binding ToggleServiceModeCommand}" Content="{Binding ServiceModeButtonText}" />
+                <ToggleSwitch Grid.Column="3" Margin="10,0,0,0" VerticalAlignment="Center"
+                              AutomationProperties.AutomationId="Home.VirtualNicToggle"
+                              IsEnabled="{Binding IsTunToggleEnabled}"
+                              IsChecked="{Binding IsTunEnabled, Mode=TwoWay}" OnContent="" OffContent="" />
+              </Grid>
+            </Grid>
+          </StackPanel>
+        </Border>
+      </Grid>
+
+      <!-- 第三行跨两列：流量统计 -->
+      <Border Classes="surface-tile">
+        <StackPanel Spacing="14">
+          <Grid ColumnDefinitions="Auto,*,Auto">
+            <Border Classes="tile-icon sm warning" VerticalAlignment="Center">
+              <iconPacks:PackIconMingCuteIcons Width="15" Height="15" Kind="PerformanceLine" />
+            </Border>
+            <StackPanel Grid.Column="1" Margin="10,0,0,0" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+              <TextBlock Text="{loc:Loc Home.NetworkSpeed.Title}" Classes="card-title" VerticalAlignment="Center" />
+              <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <Ellipse Width="8" Height="8" Fill="{DynamicResource HomeUploadSeriesBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc Home.NetworkSpeed.Upload}" FontSize="12" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                <Ellipse Width="8" Height="8" Fill="{DynamicResource HomeDownloadSeriesBrush}" VerticalAlignment="Center" />
+                <TextBlock Text="{loc:Loc Home.NetworkSpeed.Download}" FontSize="12" Foreground="{DynamicResource AppTextSecondaryBrush}" VerticalAlignment="Center" />
+              </StackPanel>
+            </StackPanel>
+            <Button Grid.Column="2" Classes="soft-action" Padding="12,6"
+                    AutomationProperties.AutomationId="Home.NetworkResetButton"
+                    Command="{Binding ResetTrafficCommand}">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <iconPacks:PackIconMingCuteIcons Classes="icon" Width="12" Height="12" Kind="Refresh1Line" />
+                <TextBlock Text="{loc:Loc Home.NetworkSpeed.Reset}" FontSize="13" />
+              </StackPanel>
+            </Button>
+          </Grid>
+
+          <Grid MinHeight="148" ColumnDefinitions="*,*" ColumnSpacing="20">
+            <Grid Grid.Column="0">
+              <Grid RowDefinitions="*,*,*,*">
+                <Border Grid.Row="0" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+                <Border Grid.Row="1" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+                <Border Grid.Row="2" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+                <Border Grid.Row="3" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+              </Grid>
+              <controls:Sparkline ShowEndPoint="True" StrokeThickness="2.2"
+                                  Stroke="{DynamicResource HomeUploadSeriesBrush}"
+                                  Fill="{DynamicResource HomeUploadSeriesFillBrush}"
+                                  Values="{Binding UploadSamples}">
+              </controls:Sparkline>
+            </Grid>
+
+            <Grid Grid.Column="1">
+              <Grid RowDefinitions="*,*,*,*">
+                <Border Grid.Row="0" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+                <Border Grid.Row="1" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+                <Border Grid.Row="2" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+                <Border Grid.Row="3" BorderBrush="{DynamicResource AppBorderBrush}" BorderThickness="0,0,0,1" Opacity="0.5" />
+              </Grid>
+              <controls:Sparkline ShowEndPoint="True" StrokeThickness="2.2"
+                                  Stroke="{DynamicResource HomeDownloadSeriesBrush}"
+                                  Fill="{DynamicResource HomeDownloadSeriesFillBrush}"
+                                  Values="{Binding DownloadSamples}">
+              </controls:Sparkline>
+            </Grid>
+          </Grid>
+
+          <!-- 指标格：去掉圆形底，图标放大并直接上色 -->
+          <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="10" RowSpacing="10">
+            <Border Grid.Row="0" Grid.Column="0" Classes="metric-cell">
+              <Grid ColumnDefinitions="Auto,*">
+                <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="ArrowsUpLine"
+                                                   Foreground="{DynamicResource AppCyanBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding UploadSpeedValueText}" AutomationProperties.AutomationId="Home.UploadSpeedText" Classes="home-metric-value" />
+                  <TextBlock Text="{loc:Loc Home.NetworkSpeed.UploadRate}" FontSize="11.5" Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Grid.Row="0" Grid.Column="1" Classes="metric-cell">
+              <Grid ColumnDefinitions="Auto,*">
+                <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="ArrowsDownLine"
+                                                   Foreground="{DynamicResource AppDownloadBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding DownloadSpeedValueText}" AutomationProperties.AutomationId="Home.DownloadSpeedText" Classes="home-metric-value" />
+                  <TextBlock Text="{loc:Loc Home.NetworkSpeed.DownloadRate}" FontSize="11.5" Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Grid.Row="0" Grid.Column="2" Classes="metric-cell">
+              <Grid ColumnDefinitions="Auto,*">
+                <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="LinkLine"
+                                                   Foreground="{DynamicResource AppVioletBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding ActiveConnectionsValueText}" AutomationProperties.AutomationId="Home.ActiveConnectionsText" Classes="home-metric-value" />
+                  <TextBlock Text="{loc:Loc Home.NetworkSpeed.ActiveConnections}" FontSize="11.5" Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Grid.Row="1" Grid.Column="0" Classes="metric-cell">
+              <Grid ColumnDefinitions="Auto,*">
+                <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="ArrowUpLine"
+                                                   Foreground="{DynamicResource AppSuccessBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding UploadTotalValueText}" AutomationProperties.AutomationId="Home.UploadTotalText" Classes="home-metric-value" />
+                  <TextBlock Text="{loc:Loc Home.NetworkSpeed.UploadTotal}" FontSize="11.5" Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Grid.Row="1" Grid.Column="1" Classes="metric-cell">
+              <Grid ColumnDefinitions="Auto,*">
+                <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="ArrowDownLine"
+                                                   Foreground="{DynamicResource AppWarningBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding DownloadTotalValueText}" AutomationProperties.AutomationId="Home.DownloadTotalText" Classes="home-metric-value" />
+                  <TextBlock Text="{loc:Loc Home.NetworkSpeed.DownloadTotal}" FontSize="11.5" Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+            <Border Grid.Row="1" Grid.Column="2" Classes="metric-cell">
+              <Grid ColumnDefinitions="Auto,*">
+                <iconPacks:PackIconMingCuteIcons Width="18" Height="18" Kind="ChipLine"
+                                                   Foreground="{DynamicResource AppMemoryBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center" Spacing="1">
+                  <TextBlock Text="{Binding MemoryValueText}" AutomationProperties.AutomationId="Home.MemoryText" Classes="home-metric-value" />
+                  <TextBlock Text="{loc:Loc Home.NetworkSpeed.Memory}" FontSize="11.5" Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                </StackPanel>
+              </Grid>
+            </Border>
+          </Grid>
+        </StackPanel>
+      </Border>
+
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

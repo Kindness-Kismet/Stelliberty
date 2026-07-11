@@ -1,0 +1,191 @@
+use std::path::PathBuf;
+use std::sync::mpsc::RecvTimeoutError;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use anyhow::anyhow;
+use interoptopus::ffi;
+use once_cell::sync::OnceCell;
+use tokio::runtime::Builder;
+use tokio::sync::{broadcast, mpsc};
+
+use crate::infra::core_runtime::CoreRuntime;
+use crate::infra::{
+    ipc::{IpcServer, MethodHandler},
+    paths::HubPaths,
+    runtime,
+};
+
+struct HubInstance {
+    shutdown_tx: Mutex<Option<mpsc::Sender<()>>>,
+    core: Arc<CoreRuntime>,
+}
+
+static INSTANCE: OnceCell<HubInstance> = OnceCell::new();
+
+enum CoreTask {
+    Start,
+    Stop,
+}
+
+fn init_tracing() {
+    if std::env::var_os("RUST_LOG").is_none() {
+        return;
+    }
+
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .try_init();
+}
+
+fn run_core_task(core: Arc<CoreRuntime>, task: CoreTask, timeout: Duration) -> anyhow::Result<()> {
+    let handle = runtime::handle().ok_or_else(|| anyhow!("tokio runtime is not installed"))?;
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    handle.spawn(async move {
+        let result = match task {
+            CoreTask::Start => core.start_core().await,
+            CoreTask::Stop => core.stop_core().await,
+        };
+        let _ = done_tx.send(result);
+    });
+
+    match done_rx.recv_timeout(timeout) {
+        Ok(result) => result,
+        Err(RecvTimeoutError::Timeout) => Err(anyhow!("core task timed out")),
+        Err(RecvTimeoutError::Disconnected) => Err(anyhow!("core task was interrupted")),
+    }
+}
+
+#[ffi]
+#[repr(C)]
+pub struct BootstrapResult {
+    pub ok: bool,
+    pub message: ffi::String,
+}
+
+impl BootstrapResult {
+    fn ok() -> Self {
+        Self {
+            ok: true,
+            message: ffi::String::from_string("ok".into()),
+        }
+    }
+
+    fn err(msg: impl Into<String>) -> Self {
+        Self {
+            ok: false,
+            message: ffi::String::from_string(msg.into()),
+        }
+    }
+}
+
+fn run_bootstrap(
+    pipe_name: String,
+    mihomo_path: PathBuf,
+    data_core_dir: PathBuf,
+    user_data_dir: PathBuf,
+    mihomo_pipe: String,
+    bootstrap_yaml: String,
+) -> anyhow::Result<HubInstance> {
+    init_tracing();
+    let rt = Builder::new_multi_thread().enable_all().build()?;
+    let _ = runtime::install(rt);
+    let handle =
+        runtime::handle().ok_or_else(|| anyhow::anyhow!("tokio runtime is not installed"))?;
+
+    let paths = HubPaths::new(user_data_dir, mihomo_path, data_core_dir);
+    paths.ensure_dirs()?;
+
+    handle.block_on(async {
+        let (events_tx, _) = broadcast::channel(128);
+        let core = Arc::new(CoreRuntime::new(
+            paths,
+            mihomo_pipe,
+            bootstrap_yaml,
+            events_tx.clone(),
+        )?);
+        let core_for_instance = core.clone();
+        let handler: Arc<dyn MethodHandler> = core.clone();
+        let (server, _events, shutdown_tx) = IpcServer::with_events(handler, events_tx);
+        // IPC 先接收请求，FFI 再同步返回首次核心启动结果。
+        let server_clone = server.clone();
+        let pipe_clone = pipe_name.clone();
+        tokio::spawn(async move {
+            if let Err(e) = server_clone.serve(&pipe_clone).await {
+                tracing::error!("ipc server exited: {e}");
+            }
+        });
+        if let Err(e) = core.start_initial().await {
+            let _ = shutdown_tx.try_send(());
+            return Err(e);
+        }
+        Ok::<HubInstance, anyhow::Error>(HubInstance {
+            shutdown_tx: Mutex::new(Some(shutdown_tx)),
+            core: core_for_instance,
+        })
+    })
+}
+
+#[ffi]
+pub fn hub_bootstrap(
+    pipe_name: ffi::String,
+    mihomo_path: ffi::String,
+    data_core_dir: ffi::String,
+    user_data_dir: ffi::String,
+    mihomo_pipe: ffi::String,
+    bootstrap_yaml: ffi::String,
+) -> BootstrapResult {
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if let Some(inst) = INSTANCE.get() {
+            // 首次 bootstrap 固定路径，后续调用只恢复核心运行。
+            return match run_core_task(inst.core.clone(), CoreTask::Start, Duration::from_secs(10))
+            {
+                Ok(()) => BootstrapResult::ok(),
+                Err(e) => BootstrapResult::err(format!("Core startup failed: {e:#}")),
+            };
+        }
+        let pipe = pipe_name.as_str().to_owned();
+        let mihomo = PathBuf::from(mihomo_path.as_str());
+        let data_core = PathBuf::from(data_core_dir.as_str());
+        let user_data = PathBuf::from(user_data_dir.as_str());
+        let mihomo_pipe_str = mihomo_pipe.as_str().to_owned();
+        let boot = bootstrap_yaml.as_str().to_owned();
+        match run_bootstrap(pipe, mihomo, data_core, user_data, mihomo_pipe_str, boot) {
+            Ok(inst) => {
+                let _ = INSTANCE.set(inst);
+                BootstrapResult::ok()
+            }
+            Err(e) => BootstrapResult::err(format!("bootstrap failed: {e:#}")),
+        }
+    }));
+    match result {
+        Ok(br) => br,
+        Err(p) => BootstrapResult::err(format!("bootstrap panic：{p:?}")),
+    }
+}
+
+pub fn hub_stop_core() {
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if let Some(inst) = INSTANCE.get()
+            && let Err(e) = run_core_task(inst.core.clone(), CoreTask::Stop, Duration::from_secs(7))
+        {
+            tracing::warn!("Failed to stop core: {e:#}");
+        }
+    }));
+}
+
+#[ffi]
+pub fn hub_shutdown() {
+    // 先停核心再停 IPC，避免特权子进程滞留。
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if let Some(inst) = INSTANCE.get() {
+            hub_stop_core();
+
+            if let Ok(mut guard) = inst.shutdown_tx.lock()
+                && let Some(tx) = guard.take()
+            {
+                let _ = tx.try_send(());
+            }
+        }
+    }));
+}

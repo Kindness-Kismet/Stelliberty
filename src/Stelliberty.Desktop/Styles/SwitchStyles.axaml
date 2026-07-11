@@ -1,0 +1,86 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Style Selector="ToggleSwitch">
+    <Setter Property="OnContent" Value="{x:Null}" />
+    <Setter Property="OffContent" Value="{x:Null}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinWidth" Value="52" />
+    <Setter Property="MinHeight" Value="32" />
+
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Width="52" Height="32" Background="Transparent">
+          <Border x:Name="SwitchTrack"
+                  Width="52" Height="32"
+                  CornerRadius="16"
+                  BorderThickness="2"
+                  Background="{DynamicResource AppInputBrush}"
+                  BorderBrush="{DynamicResource AppBorderBrush}" />
+          <Panel x:Name="PART_MovingKnobs" Width="0" Height="0" />
+
+          <Border x:Name="SwitchThumb"
+                  Width="24" Height="24"
+                  CornerRadius="12"
+                  Margin="4,0,0,0"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Center"
+                  Background="{DynamicResource AppTextSecondaryBrush}">
+            <Path x:Name="SwitchCheck"
+                  Stretch="None"
+                  Data="M4 8 L7 11 L13 4"
+                  Stroke="{DynamicResource AppAccentBrush}"
+                  StrokeThickness="2"
+                  StrokeJoin="Round"
+                  StrokeLineCap="Round"
+                  HorizontalAlignment="Center"
+                  VerticalAlignment="Center"
+                  RenderTransform="translateX(-1.5px)"
+                  Opacity="0" />
+          </Border>
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleSwitch /template/ Border#SwitchTrack">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.2" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleSwitch /template/ Border#SwitchThumb">
+    <Setter Property="Transitions">
+      <Transitions>
+        <ThicknessTransition Property="Margin" Duration="0:0:0.2" Easing="CubicEaseInOut" />
+        <BrushTransition Property="Background" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleSwitch /template/ Path#SwitchCheck">
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.18" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleSwitch:checked /template/ Border#SwitchTrack">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="ToggleSwitch:checked /template/ Border#SwitchThumb">
+    <Setter Property="Background" Value="{DynamicResource AppSwitchThumbOnBrush}" />
+    <Setter Property="Margin" Value="24,0,0,0" />
+  </Style>
+  <Style Selector="ToggleSwitch:checked /template/ Path#SwitchCheck">
+    <Setter Property="Opacity" Value="1" />
+  </Style>
+  <Style Selector="ToggleSwitch:pointerover:unchecked /template/ Border#SwitchTrack">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppTextSecondaryBrush}" />
+  </Style>
+  <Style Selector="ToggleSwitch:disabled">
+    <Setter Property="Opacity" Value="0.4" />
+  </Style>
+</Styles>

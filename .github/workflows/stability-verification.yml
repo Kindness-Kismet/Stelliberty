@@ -1,0 +1,166 @@
+name: Test Verification
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+  PYTHONUTF8: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  tests:
+    name: Pre-build Tests + Post-build Simulation Tests / ${{ matrix.label }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: Windows x64
+            runner: windows-2025-vs2026
+            platform: win-x64
+            rust_target: x86_64-pc-windows-msvc
+            os_family: windows
+          - label: Linux x64
+            runner: ubuntu-22.04
+            platform: linux-x64
+            rust_target: x86_64-unknown-linux-gnu
+            os_family: linux
+          - label: macOS arm64
+            runner: macos-26
+            platform: macos-arm64
+            rust_target: aarch64-apple-darwin
+            os_family: macos
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-test-verification-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-test-verification-${{ runner.os }}-${{ matrix.platform }}-
+            nuget-${{ runner.os }}-
+
+      - name: Cache Cargo packages
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-verification-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-test-verification-${{ runner.os }}-${{ runner.arch }}-${{ matrix.platform }}-
+            cargo-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Download Windows assets
+        if: matrix.os_family == 'windows'
+        shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/prebuild.py --dev --platform ${{ matrix.platform }}
+
+      - name: Download Unix assets
+        if: matrix.os_family != 'windows'
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python scripts/prebuild.py --dev --platform ${{ matrix.platform }}
+
+      - name: Run Windows pre-build tests
+        if: matrix.os_family == 'windows'
+        shell: pwsh
+        run: python scripts/test.py --all
+
+      - name: Run Unix pre-build tests
+        if: matrix.os_family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/test.py --all
+
+      - name: Install Linux runtime dependencies
+        if: matrix.os_family == 'linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            dbus-x11 \
+            libfontconfig1 \
+            libice6 \
+            libsm6 \
+            libx11-6 \
+            libxkbcommon0 \
+            xvfb
+
+      - name: Build Windows Dev app
+        if: matrix.os_family == 'windows'
+        shell: pwsh
+        run: python scripts/build.py --dev --platform ${{ matrix.platform }}
+
+      - name: Build Unix Dev app
+        if: matrix.os_family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/build.py --dev --platform ${{ matrix.platform }}
+
+      - name: Resolve app entry point
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_name="$(sed -n 's:.*<AppName>\(.*\)</AppName>.*:\1:p' Directory.Build.props)"
+          version="$(sed -n 's:.*<AppVersion>\(.*\)</AppVersion>.*:\1:p' Directory.Build.props)"
+          test -n "${app_name}"
+          test -n "${version}"
+          output="${GITHUB_WORKSPACE}/build/${app_name}-v${version}-${{ matrix.platform }}-dev"
+          executable="${output}/${app_name}"
+          if [ "${{ matrix.os_family }}" = "windows" ]; then
+            executable="${executable}.exe"
+          fi
+          printf 'APP_EXEC=%s\nAPP_OUTPUT=%s\n' "${executable}" "${output}" >> "$GITHUB_ENV"
+
+      - name: Run Windows post-build simulation tests
+        if: matrix.os_family == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:STELLIBERTY_DEBUG_SERVICE_CI = "1"
+          python .github/scripts/simulation_tests.py --os-family windows --app-exec "$env:APP_EXEC" --app-output "$env:APP_OUTPUT"
+
+      - name: Run Unix post-build simulation tests
+        if: matrix.os_family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          STELLIBERTY_DEBUG_SERVICE_CI=1 python .github/scripts/simulation_tests.py --os-family ${{ matrix.os_family }} --app-exec "$APP_EXEC" --app-output "$APP_OUTPUT"

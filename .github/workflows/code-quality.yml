@@ -1,0 +1,84 @@
+name: Code Quality
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+  PYTHONUTF8: "1"
+  PYTHONDONTWRITEBYTECODE: "1"
+  RUST_BACKTRACE: "1"
+
+jobs:
+  quality:
+    name: Formatting and static checks
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Check GitHub Actions syntax
+        uses: rhysd/actionlint@v1.7.12
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 11.0.x
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.nuget/packages
+          key: nuget-quality-${{ runner.os }}-${{ hashFiles('Directory.Build.props', '**/*.csproj') }}
+          restore-keys: |
+            nuget-quality-${{ runner.os }}-
+            nuget-${{ runner.os }}-
+
+      - name: Cache Cargo packages
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-quality-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-quality-${{ runner.os }}-${{ runner.arch }}-
+            cargo-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Check Python syntax
+        shell: bash
+        run: python -m compileall -q scripts
+
+      - name: Restore .NET projects
+        shell: bash
+        run: dotnet restore Stelliberty.slnx
+
+      - name: Check .NET formatting
+        shell: bash
+        run: dotnet format Stelliberty.slnx --verify-no-changes
+
+      - name: Check Rust formatting
+        shell: bash
+        run: cargo fmt --all --check
+
+      - name: Run Rust clippy
+        shell: bash
+        run: cargo clippy --all-targets -- -D warnings

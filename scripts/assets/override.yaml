@@ -1,0 +1,6 @@
+
+log-level: info
+allow-lan: true
+rules+:
+  - "DOMAIN-SUFFIX,example.com,DIRECT"
+  - "MATCH,DIRECT"

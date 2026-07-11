@@ -1,0 +1,49 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>$(AppName)</AssemblyName>
+    <Version>$(AppVersion)</Version>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <HotAvaloniaAutoEnable>false</HotAvaloniaAutoEnable>
+    <ApplicationIcon>Assets\win\app_icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.0.5" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.0.5" />
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="12.0.5" PrivateAssets="All" Publish="True" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.5" />
+    <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <PackageReference Include="AvaloniaUI.DiagnosticsSupport" Version="2.2.3" />
+    <PackageReference Include="HotAvalonia" Version="3.1.3" PrivateAssets="All" Publish="True" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="IconPacks.Avalonia.MingCuteIcons" Version="2.0.0-stelliberty.1" />
+    <PackageReference Include="Semi.Avalonia" Version="12.0.3" />
+    <PackageReference Include="Semi.Avalonia.AvaloniaEdit" Version="12.0.0" />
+    <PackageReference Include="Semi.Avalonia.DataGrid" Version="12.0.0" />
+    <PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stelliberty.Infrastructure\Stelliberty.Infrastructure.csproj" />
+    <ProjectReference Include="..\Stelliberty.Native\Stelliberty.Native.csproj" />
+    <ProjectReference Include="..\Stelliberty.Presentation\Stelliberty.Presentation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\fonts\**" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
+    <AvaloniaResource Include="Assets\win\**" />
+  </ItemGroup>
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('linux'))">
+    <AvaloniaResource Include="Assets\linux\**" />
+  </ItemGroup>
+  <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('osx'))">
+    <AvaloniaResource Include="Assets\macos\**" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,39 @@
+[package]
+name = "stelliberty_service"
+version = "1.0.0"
+edition = "2024"
+publish = false
+
+[[bin]]
+name = "stelliberty_service"
+path = "src/main.rs"
+
+[lib]
+name = "stelliberty_service"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "^1.0.102"
+serde = { version = "^1.0.228", features = ["derive"] }
+serde_json = "^1.0.145"
+time = { version = "^0.3", features = ["formatting", "local-offset"] }
+tokio = { version = "^1.48", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "signal", "sync", "process"] }
+
+[target.'cfg(windows)'.dependencies]
+windows-service = "^0.8"
+windows = { version = "^0.62.2", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_Storage_FileSystem",
+    "Win32_System_JobObjects",
+    "Win32_System_Pipes",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(not(windows))'.dependencies]
+libc = "^0.2"
+
+[lints]
+workspace = true

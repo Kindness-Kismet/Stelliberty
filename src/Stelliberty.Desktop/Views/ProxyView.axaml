@@ -1,0 +1,362 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
+             xmlns:loc="using:Stelliberty.Desktop.Localization"
+             xmlns:vm="using:Stelliberty.Presentation.ViewModels"
+             xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+             x:Class="Stelliberty.Desktop.Views.ProxyView"
+             x:CompileBindings="True"
+             x:DataType="vm:MainWindowViewModel"
+             controls:InputDefocusBehavior.IsEnabled="True"
+             Background="Transparent">
+  <Grid x:Name="ProxyPageRoot"
+        RowDefinitions="Auto,*" RowSpacing="16"
+        DataContext="{Binding ProxyPage}"
+        x:DataType="vm:ProxyPageViewModel">
+
+      <Border Classes="surface-header"
+            Margin="8,0,25,0"
+            IsVisible="{Binding HasGroups}"
+            AutomationProperties.AutomationId="Proxy.Toolbar">
+      <StackPanel Spacing="13">
+
+        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding !IsVerticalLayout}">
+          <ScrollViewer x:Name="GroupTabsScroll"
+                        AutomationProperties.AutomationId="Proxy.GroupBarScroll"
+                        HorizontalScrollBarVisibility="Hidden"
+                        VerticalScrollBarVisibility="Disabled">
+            <Grid>
+              <ItemsControl AutomationProperties.AutomationId="Proxy.GroupBar"
+                            ItemsSource="{Binding VisibleGroupRows}">
+                <ItemsControl.ItemsPanel>
+                  <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" Spacing="26" />
+                  </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:ProxyGroupButtonViewModel">
+                    <Button Classes="proxy-group-tab"
+                            Classes.selected="{Binding IsSelected}"
+                            Content="{Binding Name}"
+                            AutomationProperties.AutomationId="{Binding AutomationId}"
+                            Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).SelectGroupCommand}"
+                            CommandParameter="{Binding Name}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+            </Grid>
+          </ScrollViewer>
+
+          <StackPanel Grid.Column="1"
+                      Orientation="Horizontal" Spacing="2"
+                      VerticalAlignment="Center" Margin="10,0,0,0">
+            <Button Classes="toolbar-icon"
+                    AutomationProperties.AutomationId="Proxy.GroupScrollLeftButton"
+                    Click="OnGroupScrollLeft"
+                    ToolTip.Tip="{loc:Loc Proxy.Tooltip.GroupScrollLeft}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="16" Height="16" Kind="LeftSmallLine" />
+            </Button>
+            <Button Classes="toolbar-icon"
+                    AutomationProperties.AutomationId="Proxy.GroupScrollRightButton"
+                    Click="OnGroupScrollRight"
+                    ToolTip.Tip="{loc:Loc Proxy.Tooltip.GroupScrollRight}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="16" Height="16" Kind="RightSmallLine" />
+            </Button>
+          </StackPanel>
+        </Grid>
+
+        <Border Height="1" Background="{DynamicResource AppBorderBrush}"
+                IsVisible="{Binding !IsVerticalLayout}" />
+
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+          <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <Button Classes="toolbar-icon"
+                    AutomationProperties.AutomationId="Proxy.TestGroupDelaysButton"
+                    Command="{Binding TestCurrentGroupDelaysCommand}"
+                    IsEnabled="{Binding !IsDelayTesting}"
+                    ToolTip.Tip="{loc:Loc Proxy.Tooltip.TestCurrentGroup}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="ChartBarFill" />
+            </Button>
+            <Button Classes="toolbar-icon"
+                    IsVisible="{Binding !IsVerticalLayout}"
+                    AutomationProperties.AutomationId="Proxy.LocateButton"
+                    Command="{Binding LocateSelectedNodeCommand}"
+                    ToolTip.Tip="{loc:Loc Proxy.Tooltip.LocateCurrent}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="AimingFill" />
+            </Button>
+            <Button Classes="toolbar-icon"
+                    IsVisible="{Binding !IsVerticalLayout}"
+                    AutomationProperties.AutomationId="Proxy.ScrollTopButton"
+                    Command="{Binding ScrollToTopCommand}"
+                    ToolTip.Tip="{loc:Loc Proxy.Tooltip.ScrollTop}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="ArrowUpLine" />
+            </Button>
+            <Button Classes="toolbar-icon"
+                    Classes.sort-active="{Binding IsSortActive}"
+                    AutomationProperties.AutomationId="Proxy.SortModeButton"
+                    Command="{Binding CycleSortModeCommand}"
+                    ToolTip.Tip="{Binding SortModeTooltip}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="{Binding SortModeIcon}" />
+            </Button>
+            <Border Width="1" Height="15" Margin="4,0"
+                    Background="{DynamicResource AppBorderBrush}"
+                    VerticalAlignment="Center" />
+            <Button Classes="toolbar-icon"
+                    AutomationProperties.AutomationId="Proxy.ToggleLayoutButton"
+                    Command="{Binding ToggleLayoutCommand}"
+                    ToolTip.Tip="{Binding LayoutToggleTooltip}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="{Binding LayoutToggleIcon}" />
+            </Button>
+          </StackPanel>
+
+          <TextBox Grid.Column="2"
+                   Classes="list-search"
+                   AutomationProperties.AutomationId="Proxy.SearchBox"
+                   PlaceholderText="{loc:Loc Proxy.Search.Placeholder}"
+                   Text="{Binding SearchKeyword, Mode=TwoWay}"
+                   MinWidth="240" MaxWidth="320">
+            <TextBox.InnerLeftContent>
+              <Border Padding="10,0,4,0">
+                <iconPacks:PackIconMingCuteIcons Width="14" Height="14"
+                                                   Kind="SearchLine"
+                                                   Foreground="{DynamicResource AppTextSecondaryBrush}" />
+              </Border>
+            </TextBox.InnerLeftContent>
+          </TextBox>
+        </Grid>
+      </StackPanel>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Border Classes="list-empty"
+              IsVisible="{Binding IsEmptyVisible}">
+        <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
+          <Panel HorizontalAlignment="Center">
+            <Border Classes="list-empty-halo" />
+            <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="{Binding EmptyIconType}" />
+          </Panel>
+          <StackPanel Spacing="7">
+            <TextBlock Classes="list-empty-text"
+                       AutomationProperties.AutomationId="Proxy.EmptyText"
+                       Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-hint"
+                       IsVisible="{Binding EmptySubtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                       Text="{Binding EmptySubtitle}" />
+            <TextBlock Classes="list-empty-hint"
+                       IsVisible="{Binding EmptySubtitle, Converter={x:Static StringConverters.IsNullOrEmpty}}"
+                       Text="{loc:Loc Proxy.Empty.Hint}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
+      <ScrollViewer x:Name="NodeListScroll"
+                    AutomationProperties.AutomationId="Proxy.NodeListScroll"
+                    IsVisible="{Binding IsHorizontalContentVisible}"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl x:Name="NodeList"
+                      AutomationProperties.AutomationId="Proxy.NodeList"
+                      Margin="8,0,25,15"
+                      ItemsSource="{Binding VisibleNodeRows}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <controls:VirtualizingWrapPanel MinItemWidth="200" ItemHeight="76"
+                                              ColumnSpacing="8" RowSpacing="8" EdgePadding="0" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ProxyNodeRowViewModel">
+              <Border Classes="surface-card node"
+                      Classes.selected="{Binding IsSelected}"
+                      Tag="{Binding Name}">
+                <Grid>
+                  <Button Classes="card-hit-area"
+                          Cursor="Arrow"
+                          AutomationProperties.AutomationId="{Binding RowAutomationId}"
+                          Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).SelectNodeCommand}"
+                          CommandParameter="{Binding Name}"
+                          IsEnabled="{Binding IsClickable}">
+                    <ToolTip.Tip>
+                      <TextBlock Classes="proxy-node-tooltip" Text="{Binding Name}" />
+                    </ToolTip.Tip>
+                  </Button>
+                  <Grid Margin="13,10" RowDefinitions="*,Auto" IsHitTestVisible="False">
+                    <TextBlock Text="{Binding Name}"
+                               Foreground="{DynamicResource AppTextPrimaryBrush}"
+                               FontWeight="SemiBold"
+                               FontSize="14"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <Border Grid.Row="1"
+                            Classes="list-pill"
+                            Tag="neutral"
+                            HorizontalAlignment="Left"
+                            Margin="0,5,64,0">
+                      <TextBlock Text="{Binding Type}" TextTrimming="CharacterEllipsis" />
+                    </Border>
+                  </Grid>
+                  <Button Classes="delay-test-button"
+                          AutomationProperties.AutomationId="{Binding DelayAutomationId}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Bottom"
+                          Margin="0,0,11,9"
+                          Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).TestNodeDelayCommand}"
+                          CommandParameter="{Binding Name}">
+                    <Panel Height="18">
+                      <TextBlock Classes="delay-badge"
+                                 Tag="{Binding DelayLevel}"
+                                 IsVisible="{Binding !IsDelayTesting}"
+                                 Text="{Binding DelayText}"
+                                 VerticalAlignment="Center" />
+                      <iconPacks:PackIconMingCuteIcons Classes="delay-spinner"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        IsVisible="{Binding IsDelayTesting}"
+                                                        Kind="LoadingFill" />
+                    </Panel>
+                  </Button>
+                </Grid>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+
+      <ScrollViewer x:Name="GroupCardScroll"
+                    AutomationProperties.AutomationId="Proxy.GroupCardScroll"
+                    IsVisible="{Binding IsVerticalContentVisible}"
+                    HorizontalScrollBarVisibility="Disabled"
+                    VerticalScrollBarVisibility="Auto">
+        <ItemsControl AutomationProperties.AutomationId="Proxy.GroupCardList"
+                      Margin="8,0,25,15"
+                      ItemsSource="{Binding VisibleGroupCards}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Spacing="10" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:ProxyGroupCardViewModel">
+              <Border Classes="surface-card group"
+                      Classes.vertical="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).IsVerticalLayout}"
+                      Classes.expanded="{Binding IsExpanded}">
+                <StackPanel>
+                  <Panel>
+                    <Button Classes="card-hit-area"
+                            AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                            Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).ToggleGroupExpandCommand}"
+                            CommandParameter="{Binding Name}" />
+                    <Grid Margin="16,13" ColumnDefinitions="*,Auto" IsHitTestVisible="False">
+                      <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                        <Panel Width="40" Height="40" VerticalAlignment="Center"
+                              IsVisible="{Binding HasIcon}">
+                          <Border CornerRadius="3">
+                            <controls:RemoteImage SourceUrl="{Binding IconUrl}"
+                                                  Width="40" Height="40"
+                                                  Stretch="Uniform" />
+                          </Border>
+                        </Panel>
+                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Name}"
+                                     FontWeight="SemiBold" FontSize="15"
+                                     Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                     TextTrimming="CharacterEllipsis" />
+                          <StackPanel Orientation="Horizontal" Spacing="6">
+                            <iconPacks:PackIconMingCuteIcons Width="13" Height="13"
+                                                             Kind="CheckCircleLine"
+                                                             VerticalAlignment="Center"
+                                                             Foreground="{DynamicResource AppAccentBrush}" />
+                            <TextBlock Text="{Binding SelectionDisplay}"
+                                       FontSize="12.5"
+                                       Foreground="{DynamicResource AppAccentBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding NodeCountText}"
+                                       FontSize="12.5"
+                                       Foreground="{DynamicResource AppTextTertiaryBrush}"
+                                       VerticalAlignment="Center" />
+                          </StackPanel>
+                        </StackPanel>
+                      </StackPanel>
+                      <iconPacks:PackIconMingCuteIcons Grid.Column="1"
+                                                       Classes="group-expand-chevron"
+                                                       Width="18" Height="18"
+                                                       Kind="RightSmallLine"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                    </Grid>
+                  </Panel>
+                  <Border IsVisible="{Binding IsExpanded}" Padding="16,2,16,14">
+                    <ItemsControl ItemsSource="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).VisibleNodeRows}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <controls:UniformWrapPanel MinItemWidth="200" ItemHeight="76" ColumnSpacing="8" RowSpacing="8" />
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:ProxyNodeRowViewModel">
+                          <Border Classes="surface-card node"
+                                  Classes.selected="{Binding IsSelected}"
+                                  Tag="{Binding Name}">
+                            <Grid>
+                              <Button Classes="card-hit-area"
+                                      Cursor="Arrow"
+                                      AutomationProperties.AutomationId="{Binding RowAutomationId}"
+                                      Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).SelectNodeCommand}"
+                                      CommandParameter="{Binding Name}"
+                                      IsEnabled="{Binding IsClickable}">
+                                <ToolTip.Tip>
+                                  <TextBlock Classes="proxy-node-tooltip" Text="{Binding Name}" />
+                                </ToolTip.Tip>
+                              </Button>
+                              <Grid Margin="13,10" RowDefinitions="*,Auto" IsHitTestVisible="False">
+                                <TextBlock Text="{Binding Name}"
+                                           Foreground="{DynamicResource AppTextPrimaryBrush}"
+                                           FontWeight="SemiBold"
+                                           FontSize="14"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                                <Border Grid.Row="1"
+                                        Classes="list-pill"
+                                        Tag="neutral"
+                                        HorizontalAlignment="Left"
+                                        Margin="0,5,64,0">
+                                  <TextBlock Text="{Binding Type}" TextTrimming="CharacterEllipsis" />
+                                </Border>
+                              </Grid>
+                              <Button Classes="delay-test-button"
+                                      AutomationProperties.AutomationId="{Binding DelayAutomationId}"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Bottom"
+                                      Margin="0,0,11,9"
+                                      Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).TestNodeDelayCommand}"
+                                      CommandParameter="{Binding Name}">
+                                <Panel Height="18">
+                                  <TextBlock Classes="delay-badge"
+                                             Tag="{Binding DelayLevel}"
+                                             IsVisible="{Binding !IsDelayTesting}"
+                                             Text="{Binding DelayText}"
+                                             VerticalAlignment="Center" />
+                                  <iconPacks:PackIconMingCuteIcons Classes="delay-spinner"
+                                                                    HorizontalAlignment="Center"
+                                                                    VerticalAlignment="Center"
+                                                                    IsVisible="{Binding IsDelayTesting}"
+                                                                    Kind="LoadingFill" />
+                                </Panel>
+                              </Button>
+                            </Grid>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Border>
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Grid>
+  </Grid>
+</UserControl>

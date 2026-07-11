@@ -1,0 +1,626 @@
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Globalization;
+using System.Runtime.Versioning;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Microsoft.Win32;
+using Stelliberty.Application.Diagnostics;
+using Stelliberty.Application.Platform;
+
+namespace Stelliberty.Desktop.Services;
+
+internal sealed class DesktopServiceModeManager : IServiceModeManager
+{
+    // 管理超时覆盖提权和服务操作；Rust IPC 超时只约束一次本地调用。
+    private static readonly TimeSpan StatusTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ManageTimeout = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan StatusSettleTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan StatusPollInterval = TimeSpan.FromMilliseconds(250);
+    private const string PrivilegeCanceledMessage = "Administrator approval was canceled; no changes were made.";
+
+    public async Task<ServiceModeStatus> GetStatusAsync(CancellationToken cancellationToken = default)
+    {
+        var repairStatus = DetectServiceRepairStatus();
+        if (repairStatus is not null)
+        {
+            return repairStatus;
+        }
+
+        var installedBinaryPath = InstalledServiceBinaryPath();
+        if (installedBinaryPath is null)
+        {
+            return new ServiceModeStatus(ServiceModeState.NotInstalled, "Service is not installed.");
+        }
+
+        var result = await RunServiceCommandAsync(
+            "status",
+            false,
+            StatusTimeout,
+            cancellationToken,
+            binaryPath: installedBinaryPath).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            return ServiceModeStatus.Unavailable(result.Message);
+        }
+
+        var message = result.Message.Trim();
+        if (message.StartsWith("running", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = ParseRunningStatus(message);
+            if (parts.ServiceName is not null
+                && !string.Equals(parts.ServiceName, AppRuntimeNames.ServiceName, StringComparison.Ordinal))
+            {
+                return ServiceModeStatus.Unavailable($"Service name does not match: {parts.ServiceName}");
+            }
+
+            return new ServiceModeStatus(
+                ServiceModeState.Running,
+                "Service is running.",
+                parts.Uptime,
+                parts.LastHeartbeatAge,
+                parts.CoreState,
+                parts.CorePid,
+                parts.CoreLastError);
+        }
+
+        if (message.StartsWith("stopped", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ServiceModeStatus(ServiceModeState.Stopped, "Service is installed but not running.");
+        }
+
+        if (message.StartsWith("not-installed", StringComparison.OrdinalIgnoreCase))
+        {
+            return new ServiceModeStatus(ServiceModeState.NotInstalled, "Service is not installed.");
+        }
+
+        return ServiceModeStatus.Unavailable(result.Message);
+    }
+
+    public async Task<ServiceModeOperationResult> InstallOrUpdateAsync(CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(DesktopApplicationLayout.ServiceCommandBinaryPath))
+        {
+            return ServiceModeOperationResult.Failed("Service executable is missing. Run prebuild or rebuild the app first.");
+        }
+
+        var status = await GetStatusAsync(cancellationToken).ConfigureAwait(false);
+        if (status.State == ServiceModeState.Unknown)
+        {
+            return ServiceModeOperationResult.Failed($"Could not confirm service-mode status; update was canceled: {status.Message}");
+        }
+
+        if (status.NeedsRepair)
+        {
+            return ServiceModeOperationResult.Failed("Service mode needs repair before it can be installed or updated.");
+        }
+
+        if (status.IsRunning)
+        {
+            var stopResult = await RunServiceCommandAsync("stop", true, ManageTimeout, cancellationToken).ConfigureAwait(false);
+            if (!stopResult.IsSuccess)
+            {
+                return stopResult;
+            }
+        }
+
+        var copyResult = CopyServiceUpdateToInstalled();
+        if (!copyResult.IsSuccess)
+        {
+            return copyResult;
+        }
+
+        var result = await RunServiceCommandAsync(
+            "install",
+            true,
+            ManageTimeout,
+            cancellationToken,
+            binaryPath: DesktopApplicationLayout.ServiceInstalledBinaryPath).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var installedStatus = await GetStatusAsync(cancellationToken).ConfigureAwait(false);
+        return installedStatus.IsHealthy
+            ? ServiceModeOperationResult.Success("Service mode is installed and running. Restart the app to switch to service mode.", requiresRestart: true)
+            : ServiceModeOperationResult.Failed($"Service was installed but did not respond: {installedStatus.Message}");
+    }
+
+    public async Task<ServiceModeOperationResult> UninstallAsync(CancellationToken cancellationToken = default)
+    {
+        var commandBinaryPath = File.Exists(DesktopApplicationLayout.ServiceInstalledBinaryPath)
+            ? DesktopApplicationLayout.ServiceInstalledBinaryPath
+            : File.Exists(DesktopApplicationLayout.ServiceCommandBinaryPath)
+                ? DesktopApplicationLayout.ServiceCommandBinaryPath
+                : null;
+        if (commandBinaryPath is null)
+        {
+            var repairStatus = DetectServiceRepairStatus();
+            if (repairStatus?.State is ServiceModeState.NeedsRepair or ServiceModeState.Unknown)
+            {
+                return ServiceModeOperationResult.Failed("Service executable is missing; repair cannot continue.");
+            }
+
+            return ServiceModeOperationResult.Success("Service mode is not installed.");
+        }
+
+        var result = await RunServiceCommandAsync(
+            "uninstall",
+            true,
+            ManageTimeout,
+            cancellationToken,
+            binaryPath: commandBinaryPath).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            return result;
+        }
+
+        var status = await WaitForStatusAsync(
+            state => state.State == ServiceModeState.NotInstalled,
+            StatusSettleTimeout,
+            cancellationToken).ConfigureAwait(false);
+        return status.State == ServiceModeState.NotInstalled
+            ? ServiceModeOperationResult.Success("Service mode is uninstalled. Restart the app to switch to normal mode.", requiresRestart: true)
+            : ServiceModeOperationResult.Failed($"Service was uninstalled but is still visible: {status.Message}");
+    }
+
+    public Task<ServiceModeOperationResult> StartCoreHostAsync(ServiceModeCoreHostRequest request, CancellationToken cancellationToken = default)
+    {
+        var payload = JsonSerializer.Serialize(
+            new StartCoreCommand(
+                new StartCorePayload(
+                    request.MihomoPath,
+                    request.ConfigPath,
+                    request.DataCoreDir)));
+        return RunServiceCommandAsync("start-core", false, ManageTimeout, cancellationToken, payload);
+    }
+
+    public Task<ServiceModeOperationResult> StopCoreHostAsync(CancellationToken cancellationToken = default)
+    {
+        return RunServiceCommandAsync("stop-core", false, ManageTimeout, cancellationToken);
+    }
+
+    public Task<ServiceModeOperationResult> RestartCoreHostAsync(CancellationToken cancellationToken = default)
+    {
+        return RunServiceCommandAsync("restart-core", false, ManageTimeout, cancellationToken);
+    }
+
+    public Task<ServiceModeOperationResult> SendHeartbeatAsync(CancellationToken cancellationToken = default)
+    {
+        return RunServiceCommandAsync("heartbeat", false, StatusTimeout, cancellationToken);
+    }
+
+    private static async Task<ServiceModeOperationResult> RunServiceCommandAsync(
+        string command,
+        bool elevated,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        string? standardInput = null,
+        string? binaryPath = null)
+    {
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(timeout);
+            var selectedBinaryPath = binaryPath ?? InstalledServiceBinaryPath();
+            if (selectedBinaryPath is null)
+            {
+                return ServiceModeOperationResult.Failed("Service executable is missing. Run prebuild or rebuild the app first.");
+            }
+
+            using var process = StartProcess(command, elevated, selectedBinaryPath);
+            if (process is null)
+            {
+                return ServiceModeOperationResult.Failed("Service command failed to start.");
+            }
+
+            if (standardInput is not null && process.StartInfo.RedirectStandardInput)
+            {
+                await process.StandardInput.WriteAsync(standardInput.AsMemory(), cts.Token).ConfigureAwait(false);
+                await process.StandardInput.DisposeAsync().ConfigureAwait(false);
+            }
+
+            var outputTask = process.StartInfo.RedirectStandardOutput
+                ? process.StandardOutput.ReadToEndAsync(cts.Token)
+                : Task.FromResult(string.Empty);
+            var errorTask = process.StartInfo.RedirectStandardError
+                ? process.StandardError.ReadToEndAsync(cts.Token)
+                : Task.FromResult(string.Empty);
+
+            await process.WaitForExitAsync(cts.Token).ConfigureAwait(false);
+            var output = await outputTask.ConfigureAwait(false);
+            var error = await errorTask.ConfigureAwait(false);
+
+            if (process.ExitCode == 0)
+            {
+                return ServiceModeOperationResult.Success(string.IsNullOrWhiteSpace(output) ? "Service command completed." : output.Trim());
+            }
+
+            if (IsPrivilegeCanceled(process.ExitCode, output, error))
+            {
+                return ServiceModeOperationResult.Canceled(PrivilegeCanceledMessage);
+            }
+
+            return ServiceModeOperationResult.Failed(string.IsNullOrWhiteSpace(error) ? $"Service command failed with exit code {process.ExitCode}." : error.Trim());
+        }
+        catch (Win32Exception exception) when (OperatingSystem.IsWindows() && exception.NativeErrorCode == 1223)
+        {
+            return ServiceModeOperationResult.Canceled(PrivilegeCanceledMessage);
+        }
+        catch (OperationCanceledException)
+        {
+            return ServiceModeOperationResult.Failed("Service command timed out.");
+        }
+        catch (Exception exception)
+        {
+            const string failure = "Service command failed";
+            AppLogger.Error(exception, failure);
+            return ServiceModeOperationResult.Failed($"{failure}: {exception.Message}");
+        }
+    }
+
+    private static ServiceModeOperationResult CopyServiceUpdateToInstalled()
+    {
+        try
+        {
+            Directory.CreateDirectory(DesktopApplicationLayout.ServiceDirectory);
+            File.Copy(
+                DesktopApplicationLayout.ServiceCommandBinaryPath,
+                DesktopApplicationLayout.ServiceInstalledBinaryPath,
+                overwrite: true);
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(
+                    DesktopApplicationLayout.ServiceInstalledBinaryPath,
+                    UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                    UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                    UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+            }
+
+            return ServiceModeOperationResult.Success("Service executable was updated.");
+        }
+        catch (Exception exception)
+        {
+            const string failure = "Service executable update failed";
+            AppLogger.Error(exception, failure);
+            return ServiceModeOperationResult.Failed($"{failure}: {exception.Message}");
+        }
+    }
+
+    private static string? InstalledServiceBinaryPath()
+    {
+        return File.Exists(DesktopApplicationLayout.ServiceInstalledBinaryPath)
+            ? DesktopApplicationLayout.ServiceInstalledBinaryPath
+            : null;
+    }
+
+    private static ServiceModeStatus? DetectServiceRepairStatus()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        RegistryKey? key;
+        try
+        {
+            key = Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Services\{AppRuntimeNames.ServiceName}");
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Service config probe failed: {exception.Message}");
+            return ServiceModeStatus.Unavailable($"Service configuration is unreadable: {exception.Message}");
+        }
+
+        using (key)
+        {
+            if (key is null)
+            {
+                return null;
+            }
+
+            if (key.GetValue("ImagePath") is not string imagePath || string.IsNullOrWhiteSpace(imagePath))
+            {
+                return new ServiceModeStatus(ServiceModeState.NeedsRepair, "Service mode is installed but needs repair.");
+            }
+
+            string configuredPath;
+            try
+            {
+                configuredPath = NormalizeServiceExecutablePath(imagePath);
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Warning($"Service image path is invalid: {exception.Message}");
+                return new ServiceModeStatus(ServiceModeState.NeedsRepair, "Service mode is installed but needs repair.");
+            }
+
+            var expectedPath = Path.GetFullPath(DesktopApplicationLayout.ServiceInstalledBinaryPath);
+            if (!File.Exists(DesktopApplicationLayout.ServiceInstalledBinaryPath))
+            {
+                return new ServiceModeStatus(ServiceModeState.NeedsRepair, "Service mode is installed but needs repair.");
+            }
+
+            return SameServicePath(configuredPath, expectedPath)
+                ? null
+                : new ServiceModeStatus(ServiceModeState.NeedsRepair, "Service mode is installed for another location and needs repair.");
+        }
+    }
+
+    private static string NormalizeServiceExecutablePath(string value)
+    {
+        var expanded = Environment.ExpandEnvironmentVariables(value).Trim();
+        var executablePath = ExtractServiceExecutablePath(expanded);
+        return Path.GetFullPath(executablePath);
+    }
+
+    private static string ExtractServiceExecutablePath(string value)
+    {
+        if (value.StartsWith('"'))
+        {
+            var endQuote = value.IndexOf('"', 1);
+            return endQuote > 1 ? value[1..endQuote] : value.Trim('"');
+        }
+
+        var exeIndex = value.IndexOf(".exe", StringComparison.OrdinalIgnoreCase);
+        return exeIndex >= 0 ? value[..(exeIndex + ".exe".Length)] : value;
+    }
+
+    private static bool SameServicePath(string left, string right)
+    {
+        return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<ServiceModeStatus> WaitForStatusAsync(
+        Func<ServiceModeStatus, bool> predicate,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        ServiceModeStatus status;
+        do
+        {
+            status = await GetStatusAsync(cancellationToken).ConfigureAwait(false);
+            if (predicate(status))
+            {
+                return status;
+            }
+
+            await Task.Delay(StatusPollInterval, cancellationToken).ConfigureAwait(false);
+        }
+        while (stopwatch.Elapsed < timeout);
+
+        return status;
+    }
+
+    private static Process? StartProcess(string command, bool elevated, string binaryPath)
+    {
+#if DEBUG
+        if (elevated && IsCiServiceCommandEnabled())
+        {
+            return OperatingSystem.IsWindows()
+                ? StartDirectServiceCommand(command, binaryPath)
+                : StartSudoServiceCommand(command, binaryPath);
+        }
+#endif
+
+        if (!elevated)
+        {
+            return StartDirectServiceCommand(command, binaryPath);
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            return StartWindowsElevated(command, binaryPath);
+        }
+
+        if (OperatingSystem.IsMacOS())
+        {
+            return StartMacOSElevated(command, binaryPath);
+        }
+
+        return StartUnixElevated(command, binaryPath);
+    }
+
+    private static Process? StartDirectServiceCommand(string command, string binaryPath)
+    {
+        var info = new ProcessStartInfo(binaryPath)
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            RedirectStandardInput = command == "start-core",
+            CreateNoWindow = true,
+        };
+        info.ArgumentList.Add(command);
+        return Process.Start(info);
+    }
+
+#if DEBUG
+    private static bool IsCiServiceCommandEnabled()
+    {
+        return string.Equals(
+            Environment.GetEnvironmentVariable("STELLIBERTY_DEBUG_SERVICE_CI"),
+            "1",
+            StringComparison.Ordinal);
+    }
+
+    private static Process? StartSudoServiceCommand(string command, string binaryPath)
+    {
+        var info = new ProcessStartInfo("sudo")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        info.ArgumentList.Add("-n");
+        info.ArgumentList.Add(binaryPath);
+        info.ArgumentList.Add(command);
+        return Process.Start(info);
+    }
+#endif
+
+    private static (string? ServiceName, TimeSpan? Uptime, TimeSpan? LastHeartbeatAge, string? CoreState, int? CorePid, string? CoreLastError) ParseRunningStatus(string message)
+    {
+        string? serviceName = null;
+        TimeSpan? uptime = null;
+        TimeSpan? lastHeartbeatAge = null;
+        string? coreState = null;
+        int? corePid = null;
+        string? coreLastError = null;
+        var errorIndex = message.IndexOf(" error=", StringComparison.OrdinalIgnoreCase);
+        if (errorIndex >= 0)
+        {
+            coreLastError = message[(errorIndex + " error=".Length)..];
+            message = message[..errorIndex];
+        }
+
+        foreach (var part in message.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (part.StartsWith("service=", StringComparison.OrdinalIgnoreCase))
+            {
+                serviceName = part["service=".Length..];
+                continue;
+            }
+
+            if (part.StartsWith("uptime=", StringComparison.OrdinalIgnoreCase))
+            {
+                uptime = ParseSeconds(part["uptime=".Length..]);
+                continue;
+            }
+
+            if (part.StartsWith("heartbeat=", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = part["heartbeat=".Length..];
+                lastHeartbeatAge = value.Equals("none", StringComparison.OrdinalIgnoreCase)
+                    ? null
+                    : ParseSeconds(value);
+                continue;
+            }
+
+            if (part.StartsWith("core=", StringComparison.OrdinalIgnoreCase))
+            {
+                coreState = part["core=".Length..];
+                continue;
+            }
+
+            if (part.StartsWith("pid=", StringComparison.OrdinalIgnoreCase))
+            {
+                var value = part["pid=".Length..];
+                corePid = int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var pid) && pid > 0 ? pid : null;
+                continue;
+            }
+
+        }
+
+        return (serviceName, uptime, lastHeartbeatAge, coreState, corePid, coreLastError);
+    }
+
+    private static TimeSpan? ParseSeconds(string value)
+    {
+        if (!value.EndsWith('s'))
+        {
+            return null;
+        }
+
+        var secondsText = value[..^1];
+        if (!long.TryParse(secondsText, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds) || seconds < 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            return TimeSpan.FromSeconds(seconds);
+        }
+        catch (OverflowException)
+        {
+            return null;
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static Process? StartWindowsElevated(string command, string binaryPath)
+    {
+        return Process.Start(new ProcessStartInfo(binaryPath)
+        {
+            UseShellExecute = true,
+            Verb = "runas",
+            Arguments = command,
+        });
+    }
+
+    [SupportedOSPlatform("macos")]
+    private static Process? StartMacOSElevated(string command, string binaryPath)
+    {
+        var script = $"do shell script {QuoteAppleScript(ShellQuote(binaryPath) + " " + ShellQuote(command))} with administrator privileges";
+        var info = new ProcessStartInfo("osascript")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        info.ArgumentList.Add("-e");
+        info.ArgumentList.Add(script);
+        return Process.Start(info);
+    }
+
+    private static Process? StartUnixElevated(string command, string binaryPath)
+    {
+        var info = new ProcessStartInfo("pkexec")
+        {
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true,
+        };
+        info.ArgumentList.Add(binaryPath);
+        info.ArgumentList.Add(command);
+        return Process.Start(info);
+    }
+
+    private static string ShellQuote(string value)
+    {
+        return "'" + value.Replace("'", "'\"'\"'", StringComparison.Ordinal) + "'";
+    }
+
+    private static bool IsPrivilegeCanceled(int exitCode, string output, string error)
+    {
+        var text = output + "\n" + error;
+        if (OperatingSystem.IsMacOS())
+        {
+            return text.Contains("User canceled", StringComparison.OrdinalIgnoreCase)
+                || text.Contains("-128", StringComparison.Ordinal);
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return exitCode == 126
+                && (text.Contains("cancel", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("dismiss", StringComparison.OrdinalIgnoreCase)
+                    || text.Contains("not authorized", StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false;
+    }
+
+    private static string QuoteAppleScript(string value)
+    {
+        return "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+    }
+
+    private sealed record StartCoreCommand(
+        [property: JsonPropertyName("data")] StartCorePayload Data)
+    {
+        [JsonPropertyName("type")]
+        public string Type => "StartCore";
+    }
+
+    private sealed record StartCorePayload(
+        [property: JsonPropertyName("mihomo_path")] string MihomoPath,
+        [property: JsonPropertyName("config_path")] string ConfigPath,
+        [property: JsonPropertyName("data_core_dir")] string DataCoreDir);
+}
