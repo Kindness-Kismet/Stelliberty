@@ -119,7 +119,10 @@ jobs:
           {
             echo "## Changes"
             echo
-            git log --reverse --format='- %s `%h`' "${previous_tag}..${GITHUB_SHA}"
+            while IFS=$'\t' read -r commit short subject; do
+              printf -- '- %s [`%s`](%s/%s/commit/%s)\n' \
+                "${subject}" "${short}" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${commit}"
+            done < <(git log --reverse --format='%H%x09%h%x09%s' "${previous_tag}..${GITHUB_SHA}")
           } > release_notes.md
 
           echo "========== Release Notes =========="
