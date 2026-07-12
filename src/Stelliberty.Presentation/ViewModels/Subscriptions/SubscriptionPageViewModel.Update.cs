@@ -160,6 +160,7 @@ public sealed partial class SubscriptionPageViewModel
                 var result = await _subscriptionUpdater.UpdateAsync(subscription.Id, cancellationToken);
                 await minDisplayTask;
                 ApplySubscriptionUpdateResult(result);
+                ShowSubscriptionUpdateToast(result.UpdatedSubscriptionIds.Contains(subscription.Id));
             }
             catch (Exception exception)
             {
@@ -167,6 +168,7 @@ public sealed partial class SubscriptionPageViewModel
                 await minDisplayTask;
                 _updateState.CompleteItemUpdate(subscription.Id);
                 RaiseSubscriptionStateChanged();
+                ShowSubscriptionUpdateToast(false);
             }
             return;
         }
@@ -174,6 +176,7 @@ public sealed partial class SubscriptionPageViewModel
         await minDisplayTask;
         _updateState.CompleteItemUpdate(subscription.Id, isUpdated: true);
         RaiseSubscriptionStateChanged();
+        ShowSubscriptionUpdateToast(true);
     }
 
     public async Task UpdateAllSubscriptionsAsync(CancellationToken cancellationToken = default)
@@ -196,6 +199,7 @@ public sealed partial class SubscriptionPageViewModel
                 var result = await _subscriptionUpdater.UpdateManyAsync(subscriptionIds, cancellationToken);
                 await minDisplayTask;
                 ApplySubscriptionUpdateResult(result);
+                ShowSubscriptionBatchUpdateToast(result.UpdatedSubscriptionIds.Count, result.SkippedSubscriptionIds.Count);
             }
             catch (Exception exception)
             {
@@ -203,6 +207,7 @@ public sealed partial class SubscriptionPageViewModel
                 await minDisplayTask;
                 _updateState.CompleteBatchUpdate();
                 RaiseSubscriptionStateChanged();
+                ShowSubscriptionBatchUpdateToast(0, subscriptionIds.Count);
             }
             return;
         }
@@ -210,6 +215,22 @@ public sealed partial class SubscriptionPageViewModel
         await minDisplayTask;
         _updateState.CompleteBatchUpdate();
         RaiseSubscriptionStateChanged();
+        ShowSubscriptionBatchUpdateToast(subscriptionIds.Count, 0);
+    }
+
+    private void ShowSubscriptionUpdateToast(bool isSuccessful)
+    {
+        ShowToast(
+            Localize(isSuccessful ? "Subscriptions.Toast.UpdateSucceeded" : "Subscriptions.Toast.UpdateFailed"),
+            isSuccessful ? ToastType.Success : ToastType.Error);
+    }
+
+    private void ShowSubscriptionBatchUpdateToast(int succeededCount, int failedCount)
+    {
+        var type = failedCount == 0
+            ? ToastType.Success
+            : succeededCount == 0 ? ToastType.Error : ToastType.Warning;
+        ShowToast(string.Format(Localize("Subscriptions.Toast.UpdateAllCompleted"), succeededCount, failedCount), type);
     }
 
     public void ApplySubscriptionUpdateResult(SubscriptionUpdateResult result)

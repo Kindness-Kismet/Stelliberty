@@ -392,6 +392,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
                 await minDisplayTask;
                 ApplyOverrideUpdateResult(result);
                 LoadOverrides(_overrideStore?.LoadOverrides() ?? []);
+                ShowOverrideUpdateToast(result.UpdatedOverrideIds.Contains(item.Id));
             }
             catch (Exception exception)
             {
@@ -399,6 +400,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
                 await minDisplayTask;
                 _updateState.CompleteItemUpdate(item.Id);
                 RaiseOverrideStateChanged();
+                ShowOverrideUpdateToast(false);
             }
             return;
         }
@@ -406,6 +408,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         await minDisplayTask;
         _updateState.CompleteItemUpdate(item.Id, isUpdated: true);
         RaiseOverrideStateChanged();
+        ShowOverrideUpdateToast(true);
     }
 
     public async Task UpdateAllOverridesAsync(CancellationToken cancellationToken = default)
@@ -428,6 +431,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
                 await minDisplayTask;
                 ApplyOverrideUpdateResult(result);
                 LoadOverrides(_overrideStore?.LoadOverrides() ?? []);
+                ShowOverrideBatchUpdateToast(result.UpdatedOverrideIds.Count, result.SkippedOverrideIds.Count);
             }
             catch (Exception exception)
             {
@@ -435,6 +439,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
                 await minDisplayTask;
                 _updateState.CompleteBatchUpdate();
                 RaiseOverrideStateChanged();
+                ShowOverrideBatchUpdateToast(0, overrideIds.Count);
             }
             return;
         }
@@ -442,6 +447,22 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         await minDisplayTask;
         _updateState.CompleteBatchUpdate();
         RaiseOverrideStateChanged();
+        ShowOverrideBatchUpdateToast(overrideIds.Count, 0);
+    }
+
+    private void ShowOverrideUpdateToast(bool isSuccessful)
+    {
+        ShowToast(
+            Localize(isSuccessful ? "Overrides.Toast.UpdateSucceeded" : "Overrides.Toast.UpdateFailed"),
+            isSuccessful ? ToastType.Success : ToastType.Error);
+    }
+
+    private void ShowOverrideBatchUpdateToast(int succeededCount, int failedCount)
+    {
+        var type = failedCount == 0
+            ? ToastType.Success
+            : succeededCount == 0 ? ToastType.Error : ToastType.Warning;
+        ShowToast(string.Format(Localize("Overrides.Toast.UpdateAllCompleted"), succeededCount, failedCount), type);
     }
 
     private void RunRowMenuAction(OverrideRowMenuSelection selection)
