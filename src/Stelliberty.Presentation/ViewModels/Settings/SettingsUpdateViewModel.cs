@@ -91,6 +91,7 @@ public sealed class SettingsUpdateViewModel : ViewModelBase, IDisposable
     public IReadOnlyList<SelectionOption<string>> ChannelOptions =>
     [
         new("stable", _localization.GetString("Settings.Update.Channel.Stable")),
+        new("beta", _localization.GetString("Settings.Update.Channel.Beta")),
     ];
 
     public SelectionOption<string> SelectedChannelOption

@@ -52,7 +52,8 @@ public sealed class JsonAppSettingsStore : IAppSettingsStore
         settings.WindowEffect ??= defaults.WindowEffect;
         settings.AppUpdateCheckInterval ??= defaults.AppUpdateCheckInterval;
         settings.AppUpdateChannel ??= defaults.AppUpdateChannel;
-        if (!string.Equals(settings.AppUpdateChannel, "stable", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(settings.AppUpdateChannel, "stable", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(settings.AppUpdateChannel, "beta", StringComparison.OrdinalIgnoreCase))
         {
             settings.AppUpdateChannel = defaults.AppUpdateChannel;
         }

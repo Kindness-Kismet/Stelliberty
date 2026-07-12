@@ -114,6 +114,7 @@ internal static partial class DebugCommands
         return string.Join(";", [
             $"autoCheck={Bool(update.IsAutoCheckEnabled)}",
             $"interval={update.SelectedCheckIntervalOption.Value}",
+            $"channel={update.SelectedChannelOption.Value}",
             $"lastOperation={update.LastOperation}",
             $"lastCheck={update.LastCheckText}",
             $"latest={update.LatestVersionText}",
@@ -335,6 +336,13 @@ internal static partial class DebugCommands
         {
             var value = spec["set_interval ".Length..].Trim();
             update.SelectedCheckIntervalOption = update.CheckIntervalOptions.First(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase));
+            return UpdateSettingsState(viewModel);
+        }
+
+        if (spec.StartsWith("set_channel ", StringComparison.OrdinalIgnoreCase))
+        {
+            var value = spec["set_channel ".Length..].Trim();
+            update.SelectedChannelOption = update.ChannelOptions.First(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase));
             return UpdateSettingsState(viewModel);
         }
 
