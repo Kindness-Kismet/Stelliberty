@@ -1,0 +1,28 @@
+version: 2
+
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    target-branch: beta
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: America/New_York
+    groups:
+      nuget-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: cargo
+    directory: /
+    target-branch: beta
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: America/New_York
+    groups:
+      cargo-dependencies:
+        patterns:
+          - "*"

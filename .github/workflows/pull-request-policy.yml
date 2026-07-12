@@ -1,0 +1,37 @@
+name: Pull Request Policy
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-target:
+    name: Validate pull request target
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Enforce branch policy
+        shell: bash
+        env:
+          ACTOR: ${{ github.event.pull_request.user.login }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "${BASE_BRANCH}" = "beta" ]; then
+            echo 'Pull request targets beta.'
+            exit 0
+          fi
+          if [ "${BASE_BRANCH}" = "stable" ] \
+            && [ "${ACTOR}" = "Kindness-Kismet" ] \
+            && [ "${HEAD_BRANCH}" = "beta" ] \
+            && [ "${HEAD_REPOSITORY}" = "${REPOSITORY}" ]; then
+            echo 'Owner promotion from beta to stable.'
+            exit 0
+          fi
+          echo '::error::Pull requests must target beta. Only Kindness-Kismet may promote beta directly to stable.'
+          exit 1
