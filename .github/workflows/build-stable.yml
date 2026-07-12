@@ -28,8 +28,17 @@ env:
   RUST_BACKTRACE: "1"
 
 jobs:
+  validate-branch:
+    name: Validate stable branch
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require stable branch
+        shell: bash
+        run: test "${{ github.ref }}" = 'refs/heads/stable'
+
   detect-version-change:
     name: Detect version change
+    needs: validate-branch
     runs-on: ubuntu-22.04
     outputs:
       should_build: ${{ steps.detect.outputs.should_build }}

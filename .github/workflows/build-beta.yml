@@ -19,8 +19,17 @@ env:
   RUST_BACKTRACE: "1"
 
 jobs:
+  validate-branch:
+    name: Validate beta branch
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require beta branch
+        shell: bash
+        run: test "${{ github.ref }}" = 'refs/heads/beta'
+
   prepare:
     name: Prepare beta metadata
+    needs: validate-branch
     runs-on: ubuntu-22.04
     outputs:
       app_name: ${{ steps.meta.outputs.app_name }}

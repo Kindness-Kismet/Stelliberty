@@ -2,6 +2,8 @@ name: Parallel Trigger
 
 on:
   push:
+    branches:
+      - beta
     paths: &verification-paths
       - 'src/**'
       - 'native/**'
@@ -14,6 +16,8 @@ on:
       - 'global.json'
       - '**/*.csproj'
   pull_request:
+    branches:
+      - beta
     paths: *verification-paths
   workflow_dispatch:
 
@@ -25,13 +29,24 @@ permissions:
   contents: write
 
 jobs:
+  validate-branch:
+    name: Validate trigger branch
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Require beta branch
+        shell: bash
+        run: test "${{ github.ref }}" = 'refs/heads/beta'
+
   code-quality:
     name: Trigger code quality
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta'
     uses: ./.github/workflows/code-quality.yml
     secrets: inherit
 
   stability-verification:
     name: Trigger test verification
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta'
     uses: ./.github/workflows/stability-verification.yml
     secrets: inherit
 
