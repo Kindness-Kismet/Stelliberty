@@ -38,6 +38,34 @@ jobs:
         shell: bash
         run: test "${{ github.ref }}" = 'refs/heads/beta'
 
+  detect-beta-build-changes:
+    name: Detect beta build changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/beta'
+    runs-on: ubuntu-22.04
+    outputs:
+      should_build: ${{ steps.changes.outputs.should_build }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect C# and Rust source changes
+        id: changes
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if git diff --name-only "${BEFORE_SHA}" "${AFTER_SHA}" | grep -Eq '\.(cs|rs)$'; then
+            echo 'should_build=true' >> "$GITHUB_OUTPUT"
+            echo 'C# or Rust source changes require a beta build.'
+          else
+            echo 'should_build=false' >> "$GITHUB_OUTPUT"
+            echo 'No C# or Rust source changes; beta build is skipped.'
+          fi
+
   code-quality:
     name: Trigger code quality
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta'
@@ -52,13 +80,16 @@ jobs:
 
   beta-build:
     name: Trigger beta build
-    needs: [code-quality, stability-verification]
+    needs: [detect-beta-build-changes, code-quality, stability-verification]
     if: >-
       ${{
+        always() &&
+        needs.detect-beta-build-changes.result == 'success' &&
+        needs.detect-beta-build-changes.outputs.should_build == 'true' &&
         needs.code-quality.result == 'success' &&
         needs.stability-verification.result == 'success' &&
         github.ref == 'refs/heads/beta' &&
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        github.event_name == 'push'
       }}
     uses: ./.github/workflows/build-beta.yml
     secrets: inherit
