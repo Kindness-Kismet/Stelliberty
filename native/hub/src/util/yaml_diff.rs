@@ -26,10 +26,7 @@ fn get_path<'a>(value: &'a Yaml, segs: &[&str]) -> Option<&'a Yaml> {
         match cur {
             Yaml::Mapping(map) => {
                 let key = Yaml::String((*seg).to_string());
-                match map.get(&key) {
-                    Some(v) => cur = v,
-                    None => return None,
-                }
+                cur = map.get(&key)?;
             }
             _ => return None,
         }
