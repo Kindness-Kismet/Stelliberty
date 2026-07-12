@@ -6,6 +6,7 @@ public static class AppUpdateReleaseSelector
 {
     public static AppUpdateReleaseInfo? Select(IEnumerable<AppUpdateReleaseInfo> releases, string channel, string currentVersion)
     {
+        var includePreReleases = string.Equals(channel, "beta", StringComparison.OrdinalIgnoreCase);
         AppUpdateReleaseInfo? best = null;
         foreach (var release in releases)
         {
@@ -14,7 +15,7 @@ public static class AppUpdateReleaseSelector
                 continue;
             }
 
-            if (release.IsPreRelease || AppVersionComparer.IsPreRelease(release.Version))
+            if (!includePreReleases && (release.IsPreRelease || AppVersionComparer.IsPreRelease(release.Version)))
             {
                 continue;
             }

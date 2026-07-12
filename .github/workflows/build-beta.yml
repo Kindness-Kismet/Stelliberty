@@ -41,6 +41,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Read app metadata
         id: names
@@ -75,13 +77,15 @@ jobs:
           IFS=. read -r major minor patch <<< "${stable}"
           target="${major}.${minor}.$((patch + 1))"
           beta=0
+          previous_tag="v${stable}"
           while IFS= read -r tag; do
             if [[ "${tag}" =~ ^v?${target//./\.}-beta([0-9]+)$ ]] && [ "${BASH_REMATCH[1]}" -gt "${beta}" ]; then
               beta="${BASH_REMATCH[1]}"
+              previous_tag="${tag}"
             fi
           done <<< "${tags}"
           version="${target}-beta$((beta + 1))"
-          printf 'version=%s\ntag=v%s\n' "${version}" "${version}" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\ntag=v%s\nprevious_tag=%s\n' "${version}" "${version}" "${previous_tag}" >> "$GITHUB_OUTPUT"
           echo "Beta version: ${version}"
 
       - name: Export beta metadata
@@ -104,22 +108,22 @@ jobs:
             echo "- Tag: `${{ steps.ver.outputs.tag }}`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Read changelog
+      - name: Generate beta release notes
         id: notes
         shell: bash
         run: |
           set -euo pipefail
 
-          changelog_file=".github/CHANGELOG.md"
-          if [ -f "${changelog_file}" ]; then
-            cp "${changelog_file}" release_notes.md
-          else
-            cat > release_notes.md <<'EOF'
-          ## Beta build
-
-          Automated beta package from the `beta` branch.
-          EOF
-          fi
+          previous_tag="${{ steps.ver.outputs.previous_tag }}"
+          git fetch --force origin "refs/tags/${previous_tag}:refs/tags/${previous_tag}"
+          {
+            echo "## Changes"
+            echo
+            while IFS=$'\t' read -r commit short subject; do
+              printf -- '- %s [`%s`](%s/%s/commit/%s)\n' \
+                "${subject}" "${short}" "${GITHUB_SERVER_URL}" "${GITHUB_REPOSITORY}" "${commit}"
+            done < <(git log --reverse --format='%H%x09%h%x09%s' "${previous_tag}..${GITHUB_SHA}")
+          } > release_notes.md
 
           echo "========== Release Notes =========="
           cat release_notes.md
@@ -305,7 +309,6 @@ jobs:
             build/*.zip
             build/packages/*
           if-no-files-found: warn
-          retention-days: 90
 
   release:
     name: Publish beta to download repository
@@ -333,6 +336,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: Kindness-Kismet/stelliberty
           tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ needs.prepare.outputs.app_display_name }} ${{ needs.prepare.outputs.version }}
           body_path: release_notes.md
           files: |

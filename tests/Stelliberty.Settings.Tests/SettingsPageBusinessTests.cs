@@ -1288,21 +1288,27 @@ public sealed class SettingsPageBusinessTests
     }
 
 
-    [Fact(DisplayName = "Update channel setting only exposes the stable channel")]
-    public void UpdateChannelSettingOnlyExposesStableChannel()
+    [Fact(DisplayName = "Update channel setting persists stable and beta values")]
+    public void UpdateChannelSettingPersistsStableAndBetaValues()
     {
         var settings = new AppSettings();
         var store = new FakeSettingsStore(settings);
         var viewModel = new SettingsUpdateViewModel(settings, store, new FakeLocalizationService(), () => DateTimeOffset.UnixEpoch, null);
 
-        Assert.Single(viewModel.ChannelOptions);
-        Assert.Equal("stable", settings.AppUpdateChannel);
         Assert.Equal("stable", viewModel.SelectedChannelOption.Value);
-        Assert.Equal(0, store.SaveCount);
+
+        viewModel.SelectedChannelOption = viewModel.ChannelOptions.Single(option => option.Value == "beta");
+
+        Assert.Equal("beta", settings.AppUpdateChannel);
+        Assert.Equal(1, store.SaveCount);
+
+        viewModel.SelectedChannelOption = viewModel.ChannelOptions.Single(option => option.Value == "stable");
+        Assert.Equal("stable", settings.AppUpdateChannel);
+        Assert.Equal(2, store.SaveCount);
     }
 
-    [Fact(DisplayName = "App update release selector rejects all prerelease tags without network")]
-    public void AppUpdateReleaseSelectorRejectsAllPreReleaseTagsWithFakeReleases()
+    [Fact(DisplayName = "App update release selector separates stable and beta channels without network")]
+    public void AppUpdateReleaseSelectorSeparatesStableAndBetaChannelsWithFakeReleases()
     {
         var releases = new[]
         {
@@ -1323,16 +1329,15 @@ public sealed class SettingsPageBusinessTests
         Assert.NotNull(stableFrom200);
         Assert.Equal("v2.0.1", stableFrom200!.Version);
 
-        var legacyBetaChannel = AppUpdateReleaseSelector.Select(releases, "beta", "2.0.0");
-        Assert.NotNull(legacyBetaChannel);
-        Assert.Equal("v2.0.1", legacyBetaChannel!.Version);
+        var betaFrom200 = AppUpdateReleaseSelector.Select(releases, "beta", "2.0.0");
+        Assert.NotNull(betaFrom200);
+        Assert.Equal("v2.0.3-beta1", betaFrom200!.Version);
 
         var stableFrom201 = AppUpdateReleaseSelector.Select(releases, "stable", "2.0.1");
         Assert.Null(stableFrom201);
 
-        var preReleaseCurrent = AppUpdateReleaseSelector.Select(releases, "beta", "2.0.1-beta1");
-        Assert.NotNull(preReleaseCurrent);
-        Assert.Equal("v2.0.1", preReleaseCurrent!.Version);
+        var betaFromLatest = AppUpdateReleaseSelector.Select(releases, "beta", "2.0.3-beta1");
+        Assert.Null(betaFromLatest);
     }
 
     private sealed class FakeAppUpdateChecker(AppUpdateCheckResult result) : IAppUpdateChecker

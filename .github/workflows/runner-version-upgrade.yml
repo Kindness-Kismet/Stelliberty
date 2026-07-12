@@ -17,7 +17,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
-          ref: main
+          ref: beta
 
       - name: Update runner labels
         uses: actions/github-script@v8
@@ -58,7 +58,7 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          base: main
+          base: beta
           branch: automation/runner-version-upgrade
           delete-branch: true
           commit-message: Upgrade GitHub Actions runner versions

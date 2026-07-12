@@ -333,6 +333,8 @@ cargo fmt
 
 ### 必须项
 
+Pull Request 必须以 `beta` 为目标分支，禁止直接向 `stable` 发起；仅仓库所有者可以将本仓库的 `beta` 分支合并到 `stable`。
+
 | 检查项 | 说明 |
 |---|---|
 | 调试指令 | 新增或修改业务逻辑时，必须在 `src/Stelliberty.Desktop/Debug` 封装对应的调试指令 |

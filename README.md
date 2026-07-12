@@ -327,6 +327,8 @@ Before submitting a Pull Request, confirm the following:
 
 ### Requirements
 
+Pull Requests must target `beta`. Direct Pull Requests to `stable` are prohibited; only the repository owner may promote the repository's `beta` branch to `stable`.
+
 | Check | Description |
 |---|---|
 | Debug commands | New or modified business logic must be wrapped as debug commands under `src/Stelliberty.Desktop/Debug` |
