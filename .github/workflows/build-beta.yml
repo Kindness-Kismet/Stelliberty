@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   DOTNET_NOLOGO: "1"
@@ -321,7 +321,7 @@ jobs:
       - name: Publish to stelliberty
         uses: softprops/action-gh-release@v3
         with:
-          token: ${{ secrets.RELEASE_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           repository: Kindness-Kismet/stelliberty
           tag_name: ${{ needs.prepare.outputs.tag }}
           name: ${{ needs.prepare.outputs.app_display_name }} ${{ needs.prepare.outputs.version }}
