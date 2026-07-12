@@ -20,7 +20,7 @@ tracing = "^0.1.44"
 tracing-subscriber = { version = "^0.3.23", features = ["fmt", "env-filter"] }
 interprocess = { version = "^2.4.2", features = ["tokio"] }
 async-trait = "^0.1.89"
-tokio-tungstenite = "^0.28"
+tokio-tungstenite = "^0.30"
 futures-util = "^0.3"
 age = { version = "^0.11.3", features = ["armor"] }
 
