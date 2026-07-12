@@ -68,8 +68,8 @@ Stelliberty 是跨平台桌面代理客户端，覆盖 Windows、Linux 与 macOS
 | 平台 | 推荐 | 其他可选 |
 |---|---|---|
 | Windows · x64 / arm64 | `*-setup.exe`（安装版） | `*.zip`（便携版） |
-| Linux · x64 / arm64 | `*.AppImage` | `*.deb` · `*.rpm` · `*.pkg.tar.zst` |
-| macOS · arm64 | `*.dmg` | `*.pkg` |
+| Linux · x64 / arm64 | `*.AppImage` | `*.zip` · `*.deb` · `*.rpm` · `*.pkg.tar.zst` |
+| macOS · x64 / arm64 | `*.dmg` | `*.pkg` |
 
 ### 系统要求
 
@@ -77,7 +77,7 @@ Stelliberty 是跨平台桌面代理客户端，覆盖 Windows、Linux 与 macOS
 |---|---|
 | Windows | 10（1809+）或 11 · x64 / arm64 |
 | Linux | 基于 glibc 的桌面环境，包含 fontconfig + X11 |
-| macOS | 22+ · Apple Silicon |
+| macOS | 22+ · Intel / Apple Silicon |
 
 <br>
 

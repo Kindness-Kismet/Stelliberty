@@ -68,8 +68,8 @@ Grab the package for your platform from the **[Releases page](https://github.com
 | Platform | Recommended | Alternative |
 |---|---|---|
 | Windows · x64 / arm64 | `*-setup.exe` (installer) | `*.zip` (portable) |
-| Linux · x64 / arm64 | `*.AppImage` | `*.deb` · `*.rpm` · `*.pkg.tar.zst` |
-| macOS · arm64 | `*.dmg` | `*.pkg` |
+| Linux · x64 / arm64 | `*.AppImage` | `*.zip` · `*.deb` · `*.rpm` · `*.pkg.tar.zst` |
+| macOS · x64 / arm64 | `*.dmg` | `*.pkg` |
 
 ### System Requirements
 
@@ -77,7 +77,7 @@ Grab the package for your platform from the **[Releases page](https://github.com
 |---|---|
 | Windows | 10 (1809+) or 11 · x64 / arm64 |
 | Linux | glibc desktop with fontconfig + X11 |
-| macOS | 22+ · Apple Silicon |
+| macOS | 22+ · Intel / Apple Silicon |
 
 <br>
 
