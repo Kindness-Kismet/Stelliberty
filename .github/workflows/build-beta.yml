@@ -334,6 +334,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           repository: Kindness-Kismet/stelliberty
           tag_name: ${{ needs.prepare.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: ${{ needs.prepare.outputs.app_display_name }} ${{ needs.prepare.outputs.version }}
           body_path: release_notes.md
           files: |
