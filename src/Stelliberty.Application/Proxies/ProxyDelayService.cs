@@ -7,8 +7,9 @@ namespace Stelliberty.Application.Proxies;
 
 public sealed class ProxyDelayService(IProxyDelayTester tester)
 {
-    // 限制并发，避免 mihomo 延迟测试超出核心承载。
+    // 所有测速共享并发预算，避免单测与批测叠加超出核心承载。
     private const int DelayTestConcurrency = 15;
+    private readonly SemaphoreSlim _delayTestSemaphore = new(DelayTestConcurrency);
 
     public async Task<ProxyDelayResult> TestNodeAsync(ProxyConfig config, string proxyName, CancellationToken cancellationToken = default)
     {
@@ -18,7 +19,7 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         }
 
         var stopwatch = Stopwatch.StartNew();
-        var delay = await tester.TestDelayAsync(proxyName, cancellationToken);
+        var delay = await TestDelayAsync(proxyName, cancellationToken);
         if (delay >= 0)
         {
             AppLogger.Info($"Proxy delay test completed: proxy={proxyName} delay={delay}ms elapsed={stopwatch.Elapsed.TotalMilliseconds:0}ms");
@@ -36,31 +37,54 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
     }
 
     public Task<ProxyDelayResult> TestGroupAsync(ProxyConfig config, string groupName, CancellationToken cancellationToken = default)
-        => TestGroupAsync(config, groupName, null, cancellationToken);
+        => TestGroupAsync(config, groupName, [], null, cancellationToken);
 
-    public Task<ProxyDelayResult> TestGroupAsync(ProxyConfig config, string groupName, IProgress<ProxyDelayProgress>? progress, CancellationToken cancellationToken = default)
+    public Task<ProxyDelayResult> TestGroupAsync(
+        ProxyConfig config,
+        string groupName,
+        IProgress<ProxyDelayProgress>? progress,
+        CancellationToken cancellationToken = default)
+        => TestGroupAsync(config, groupName, [], progress, cancellationToken);
+
+    public Task<ProxyDelayResult> TestGroupAsync(
+        ProxyConfig config,
+        string groupName,
+        IReadOnlyCollection<string> excludedProxyNames,
+        IProgress<ProxyDelayProgress>? progress,
+        CancellationToken cancellationToken = default)
     {
         var group = config.Groups.FirstOrDefault(item => item.Name == groupName)
             ?? throw new InvalidOperationException($"Proxy group not found: {groupName}");
-        return TestNodesAsync(config, group.All, $"group={group.Name}", progress, cancellationToken);
+        return TestNodesAsync(config, group.All, excludedProxyNames, $"group={group.Name}", progress, cancellationToken);
     }
 
     public Task<ProxyDelayResult> TestAllAsync(ProxyConfig config, CancellationToken cancellationToken = default)
-        => TestAllAsync(config, null, cancellationToken);
+        => TestAllAsync(config, [], null, cancellationToken);
 
-    public Task<ProxyDelayResult> TestAllAsync(ProxyConfig config, IProgress<ProxyDelayProgress>? progress, CancellationToken cancellationToken = default)
+    public Task<ProxyDelayResult> TestAllAsync(
+        ProxyConfig config,
+        IProgress<ProxyDelayProgress>? progress,
+        CancellationToken cancellationToken = default)
+        => TestAllAsync(config, [], progress, cancellationToken);
+
+    public Task<ProxyDelayResult> TestAllAsync(
+        ProxyConfig config,
+        IReadOnlyCollection<string> excludedProxyNames,
+        IProgress<ProxyDelayProgress>? progress,
+        CancellationToken cancellationToken = default)
     {
         var proxyNames = config.Groups
             .SelectMany(group => group.All)
             .Distinct(StringComparer.Ordinal)
             .ToList();
-        return TestNodesAsync(config, proxyNames, "scope=all", progress, cancellationToken);
+        return TestNodesAsync(config, proxyNames, excludedProxyNames, "scope=all", progress, cancellationToken);
     }
 
     // 并发测试结束后再合并，避免工作任务修改快照。
     private async Task<ProxyDelayResult> TestNodesAsync(
         ProxyConfig config,
         IReadOnlyList<string> proxyNames,
+        IReadOnlyCollection<string> excludedProxyNames,
         string scope,
         IProgress<ProxyDelayProgress>? progress,
         CancellationToken cancellationToken)
@@ -68,6 +92,7 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         var stopwatch = Stopwatch.StartNew();
         var targets = new List<string>();
         var skipped = new List<string>();
+        var excluded = excludedProxyNames.ToHashSet(StringComparer.Ordinal);
         var seen = new HashSet<string>(StringComparer.Ordinal);
         foreach (var proxyName in proxyNames)
         {
@@ -76,7 +101,11 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
                 continue;
             }
 
-            if (ProxyConfigSelectionNormalizer.HasEntry(config, proxyName))
+            if (excluded.Contains(proxyName))
+            {
+                skipped.Add(proxyName);
+            }
+            else if (ProxyConfigSelectionNormalizer.HasEntry(config, proxyName))
             {
                 targets.Add(proxyName);
             }
@@ -87,20 +116,11 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         }
 
         var delays = new ConcurrentDictionary<string, int>(StringComparer.Ordinal);
-        using var semaphore = new SemaphoreSlim(DelayTestConcurrency);
         var tasks = targets.Select(async proxyName =>
         {
-            await semaphore.WaitAsync(cancellationToken);
-            try
-            {
-                var delay = await tester.TestDelayAsync(proxyName, cancellationToken);
-                delays[proxyName] = delay;
-                progress?.Report(new ProxyDelayProgress(proxyName, delay));
-            }
-            finally
-            {
-                semaphore.Release();
-            }
+            var delay = await TestDelayAsync(proxyName, cancellationToken);
+            delays[proxyName] = delay;
+            progress?.Report(new ProxyDelayProgress(proxyName, delay));
         });
         await Task.WhenAll(tasks);
         cancellationToken.ThrowIfCancellationRequested();
@@ -122,6 +142,19 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
 
         LogBatchResult(scope, targets.Count, tested.Count - failed.Count, failed.Count, skipped.Count, stopwatch.Elapsed);
         return new ProxyDelayResult(config.WithEntryDelays(testedDelays), tested, skipped, failed);
+    }
+
+    private async Task<int> TestDelayAsync(string proxyName, CancellationToken cancellationToken)
+    {
+        await _delayTestSemaphore.WaitAsync(cancellationToken);
+        try
+        {
+            return await tester.TestDelayAsync(proxyName, cancellationToken);
+        }
+        finally
+        {
+            _delayTestSemaphore.Release();
+        }
     }
 
     private static void LogBatchResult(string scope, int total, int succeeded, int failed, int skipped, TimeSpan elapsed)

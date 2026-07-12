@@ -410,6 +410,83 @@ public sealed class ProxyPageViewModelTests
         Assert.Equal(2, tester.CallCounts.Values.Sum());
     }
 
+    [Fact(DisplayName = "Batch delay skips a node with an active single delay test")]
+    public async Task BatchDelaySkipsNodeWithActiveSingleDelayTest()
+    {
+        var config = new ProxyConfig(
+            [new ProxyGroup("Select", ProxyGroupTypes.Select, "JP", ["JP", "KR", "US"])],
+            new Dictionary<string, ProxyNode>(StringComparer.Ordinal)
+            {
+                ["JP"] = new("JP", "ss"),
+                ["KR"] = new("KR", "vmess"),
+                ["US"] = new("US", "trojan")
+            },
+            OutboundMode.Rule);
+        var tester = new BlockingSingleProxyDelayTester("JP", "KR", 42, 99);
+        var page = new ProxyPageViewModel(delayService: new ProxyDelayService(tester));
+        page.LoadConfig(config);
+        page.SelectGroup("Select");
+
+        var singleTask = page.TestNodeDelayAsync("JP");
+        await tester.SingleStarted.Task.WaitAsync(AsyncTestTimeout);
+        Assert.True(page.IsDelayTesting);
+        Assert.False(page.IsBatchDelayTesting);
+
+        var batchTask = page.TestGroupDelaysAsync("Select");
+        await tester.BatchNodeTested.Task.WaitAsync(AsyncTestTimeout);
+
+        Assert.True(page.IsBatchDelayTesting);
+        Assert.Contains("JP", page.DelayTestingNodeNames);
+        Assert.DoesNotContain("JP", tester.BatchCalls);
+        Assert.Contains("KR", tester.BatchCalls);
+        Assert.Contains("US", tester.BatchCalls);
+        await tester.BatchNodeCompleted.Task.WaitAsync(AsyncTestTimeout);
+
+        tester.SingleRelease.TrySetResult();
+        await singleTask.WaitAsync(AsyncTestTimeout);
+        Assert.True(page.IsBatchDelayTesting);
+        Assert.True(page.IsDelayTesting);
+        Assert.DoesNotContain("JP", page.DelayTestingNodeNames);
+        Assert.Equal("42 ms", page.VisibleNodeRows.Single(row => row.Name == "JP").DelayText);
+        Assert.Equal("99 ms", page.VisibleNodeRows.Single(row => row.Name == "KR").DelayText);
+
+        page.SelectGroup("Select");
+        Assert.Equal("99 ms", page.VisibleNodeRows.Single(row => row.Name == "KR").DelayText);
+
+        tester.BatchRelease.TrySetResult();
+        await batchTask.WaitAsync(AsyncTestTimeout);
+        Assert.False(page.IsBatchDelayTesting);
+        Assert.False(page.IsDelayTesting);
+        Assert.Contains("JP", page.BatchDelayTestedNodeNames);
+        Assert.Equal("99 ms", page.VisibleNodeRows.Single(row => row.Name == "KR").DelayText);
+    }
+
+    [Fact(DisplayName = "Single delay does not duplicate a node already covered by a batch")]
+    public async Task SingleDelayDoesNotDuplicateNodeCoveredByBatch()
+    {
+        var tester = new BlockingBatchProxyDelayTester();
+        var page = new ProxyPageViewModel(delayService: new ProxyDelayService(tester));
+        page.LoadConfig(new ProxyConfig(
+            [new ProxyGroup("Select", ProxyGroupTypes.Select, "JP", ["JP"])],
+            new Dictionary<string, ProxyNode>(StringComparer.Ordinal)
+            {
+                ["JP"] = new("JP", "ss")
+            },
+            OutboundMode.Rule));
+
+        var batchTask = page.TestGroupDelaysAsync("Select");
+        await tester.Started.Task.WaitAsync(AsyncTestTimeout);
+
+        await page.TestNodeDelayAsync("JP");
+
+        Assert.Equal(1, tester.CallCount);
+        Assert.True(page.IsBatchDelayTesting);
+
+        tester.Release.TrySetResult();
+        await batchTask.WaitAsync(AsyncTestTimeout);
+        Assert.Equal("42 ms", page.VisibleNodeRows.Single().DelayText);
+    }
+
     [Fact(DisplayName = "External selection sync is skipped while delay testing")]
     public async Task ExternalSelectionSyncIsSkippedWhileDelayTesting()
     {
@@ -719,6 +796,65 @@ public sealed class ProxyPageViewModelTests
         {
             CallCounts[proxyName] = CallCounts.GetValueOrDefault(proxyName) + 1;
             return Task.FromResult(delays.TryGetValue(proxyName, out var delay) ? delay : -1);
+        }
+    }
+
+    private sealed class BlockingSingleProxyDelayTester(
+        string singleNodeName,
+        string completedBatchNodeName,
+        int singleDelay,
+        int batchDelay) : IProxyDelayTester
+    {
+        private int _singleStarted;
+
+        public TaskCompletionSource SingleStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource SingleRelease { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource BatchNodeTested { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource BatchNodeCompleted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource BatchRelease { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public List<string> BatchCalls { get; } = [];
+
+        public async Task<int> TestDelayAsync(string proxyName, CancellationToken cancellationToken = default)
+        {
+            if (proxyName == singleNodeName && Interlocked.Exchange(ref _singleStarted, 1) == 0)
+            {
+                SingleStarted.TrySetResult();
+                await SingleRelease.Task;
+                return singleDelay;
+            }
+
+            BatchCalls.Add(proxyName);
+            BatchNodeTested.TrySetResult();
+            if (proxyName == completedBatchNodeName)
+            {
+                BatchNodeCompleted.TrySetResult();
+                return batchDelay;
+            }
+
+            await BatchRelease.Task;
+            return batchDelay;
+        }
+    }
+
+    private sealed class BlockingBatchProxyDelayTester : IProxyDelayTester
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public int CallCount { get; private set; }
+
+        public async Task<int> TestDelayAsync(string proxyName, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            Started.TrySetResult();
+            await Release.Task;
+            return 42;
         }
     }
 
