@@ -126,7 +126,8 @@
 
   <Style Selector="TextBlock.proxy-node-tooltip">
     <Setter Property="MaxWidth" Value="520" />
-    <Setter Property="TextWrapping" Value="NoWrap" />
-    <Setter Property="TextTrimming" Value="None" />
+    <Setter Property="MaxLines" Value="3" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
 </Styles>
