@@ -309,7 +309,6 @@ jobs:
             build/*.zip
             build/packages/*
           if-no-files-found: warn
-          retention-days: 90
 
   release:
     name: Publish beta to download repository
