@@ -50,7 +50,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Detect C# and Rust source changes
+      - name: Detect product changes
         id: changes
         shell: bash
         env:
@@ -58,12 +58,24 @@ jobs:
           AFTER_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          if git diff --name-only "${BEFORE_SHA}" "${AFTER_SHA}" | grep -Eq '\.(cs|rs)$'; then
-            echo 'should_build=true' >> "$GITHUB_OUTPUT"
-            echo 'C# or Rust source changes require a beta build.'
+          base_tag="$(git tag --merged "${AFTER_SHA}" --list 'v[0-9]*' --sort=-version:refname | sed -n '1p')"
+          base_ref="${base_tag:-${BEFORE_SHA}}"
+          should_build=false
+
+          while IFS= read -r path; do
+            case "${path}" in
+              *.cs|*.rs|*.axaml|*.csproj|Directory.Build.props|Cargo.toml)
+                should_build=true
+                break
+                ;;
+            esac
+          done < <(git diff --name-only "${base_ref}" "${AFTER_SHA}")
+
+          echo "should_build=${should_build}" >> "$GITHUB_OUTPUT"
+          if [ "${should_build}" = true ]; then
+            echo "Product changes since ${base_ref} require a beta build."
           else
-            echo 'should_build=false' >> "$GITHUB_OUTPUT"
-            echo 'No C# or Rust source changes; beta build is skipped.'
+            echo "No product changes since ${base_ref}; beta build is skipped."
           fi
 
   code-quality:
