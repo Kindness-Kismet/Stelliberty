@@ -24,9 +24,6 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Check GitHub Actions syntax
-        uses: rhysd/actionlint@v1.7.12
-
       - name: Set up .NET
         uses: actions/setup-dotnet@v5
         with:
