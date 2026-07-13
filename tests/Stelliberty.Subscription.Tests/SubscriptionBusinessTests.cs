@@ -1090,11 +1090,12 @@ public sealed class SubscriptionBusinessTests
         store.SaveContent("sub-1", ProviderConfig("remote-a", "file-a"));
         store.SaveContent("sub-2", ProviderConfig("remote-b", "file-b"));
         var selectionStore = new FakeSubscriptionSelectionStore("sub-1");
+        var syncer = new FakeSubscriptionProviderSyncer();
         var loader = new SelectedSubscriptionProviderCatalogLoader(
             store,
             selectionStore,
             new SubscriptionProviderParser(),
-            new FakeSubscriptionProviderSyncer());
+            syncer);
         var uploader = new FakeSubscriptionProviderUploader();
         var selector = new SubscriptionProviderViewModel(loader, uploader);
 
@@ -1105,6 +1106,7 @@ public sealed class SubscriptionBusinessTests
 
         Assert.Equal(["remote-a"], selector.SyncedProviderNames);
         Assert.Equal(["file-a"], selector.UploadedProviderNames);
+        Assert.Equal(["remote-a", "file-a"], syncer.SyncRequests);
         Assert.True(selector.Providers.Single(item => item.Name == "remote-a").IsSynced);
         Assert.True(selector.Providers.Single(item => item.Name == "file-a").IsUploaded);
 
@@ -1232,6 +1234,76 @@ public sealed class SubscriptionBusinessTests
         Assert.Empty(selector.UploadedProviderNames);
         Assert.False(selector.Providers.Single().IsUploaded);
         Assert.False(selector.HasRefreshedProvidersAfterUpload);
+        Assert.Equal(ToastType.Error, toast?.Type);
+        Assert.Equal("Subscriptions.Toast.ProviderUploadFailed", toast?.Message);
+    }
+
+    [Fact(DisplayName = "Provider selector reloads runtime node count after file upload")]
+    public async Task ProviderSelectorReloadsRuntimeNodeCountAfterFileUpload()
+    {
+        var store = new FakeSubscriptionStore([Subscription("sub-1")]);
+        store.SaveContent(
+            "sub-1",
+            """
+            proxy-providers:
+              file:
+                type: file
+                path: ./file.yaml
+            """);
+        var stateReader = new SequenceSubscriptionProviderStateReader(
+        [
+            [new SubscriptionProviderRuntimeState("file", "proxy", 0, null)],
+            [new SubscriptionProviderRuntimeState("file", "proxy", 1, DateTimeOffset.UnixEpoch.AddDays(1))],
+        ]);
+        var loader = new SelectedSubscriptionProviderCatalogLoader(
+            store,
+            new FakeSubscriptionSelectionStore("sub-1"),
+            new SubscriptionProviderParser(),
+            stateReader: stateReader);
+        var selector = new SubscriptionProviderViewModel(loader, new FakeSubscriptionProviderUploader());
+
+        await selector.ShowAsync("sub-1");
+        Assert.Equal(0, Assert.Single(selector.Providers).Count);
+
+        await selector.UploadProviderAsync("file", "test-data/providers/file.yaml");
+
+        Assert.Equal(1, Assert.Single(selector.Providers).Count);
+        Assert.True(selector.HasRefreshedProvidersAfterUpload);
+        Assert.Equal(["file"], selector.UploadedProviderNames);
+    }
+
+    [Fact(DisplayName = "Provider selector keeps upload incomplete when core runtime refresh fails")]
+    public async Task ProviderSelectorKeepsUploadIncompleteWhenCoreRuntimeRefreshFails()
+    {
+        var store = new FakeSubscriptionStore([Subscription("sub-1")]);
+        store.SaveContent(
+            "sub-1",
+            """
+            proxy-providers:
+              file:
+                type: file
+                path: ./file.yaml
+            """);
+        var syncer = new FakeSubscriptionProviderSyncer { FailingProviderNames = ["file"] };
+        var loader = new SelectedSubscriptionProviderCatalogLoader(
+            store,
+            new FakeSubscriptionSelectionStore("sub-1"),
+            new SubscriptionProviderParser(),
+            syncer);
+        var selector = new SubscriptionProviderViewModel(loader, new FakeSubscriptionProviderUploader());
+        (string Message, ToastType Type)? toast = null;
+        SubscriptionProviderSyncCompletedEventArgs? synced = null;
+        selector.ToastRequested += (_, args) => toast = args;
+        selector.ProvidersSynced += (_, args) => synced = args;
+        await selector.ShowAsync("sub-1");
+
+        await selector.UploadProviderAsync("file", "test-data/providers/file.yaml");
+
+        Assert.Equal(["file"], syncer.SyncRequests);
+        Assert.Empty(selector.UploadedProviderNames);
+        Assert.False(Assert.Single(selector.Providers).IsUploaded);
+        Assert.False(selector.HasRefreshedProvidersAfterUpload);
+        Assert.Null(synced);
         Assert.Equal(ToastType.Error, toast?.Type);
         Assert.Equal("Subscriptions.Toast.ProviderUploadFailed", toast?.Message);
     }
@@ -1601,6 +1673,19 @@ public sealed class SubscriptionBusinessTests
             }
 
             return Task.FromResult(new RemoteSubscriptionDownloadResult(Content));
+        }
+    }
+
+    private sealed class SequenceSubscriptionProviderStateReader(
+        IReadOnlyList<IReadOnlyList<SubscriptionProviderRuntimeState>> states) : ISubscriptionProviderStateReader
+    {
+        private int _index;
+
+        public Task<IReadOnlyList<SubscriptionProviderRuntimeState>> ReadStatesAsync(CancellationToken cancellationToken = default)
+        {
+            var current = states[Math.Min(_index, states.Count - 1)];
+            _index++;
+            return Task.FromResult(current);
         }
     }
 

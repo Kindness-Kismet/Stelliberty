@@ -566,6 +566,17 @@ public sealed class SubscriptionProviderViewModel : ViewModelBase, IDisposable
                 return;
             }
 
+            if (_catalog is not null)
+            {
+                await _catalog.ReloadProviderAsync(provider.Name);
+            }
+
+            await RefreshSelectedProviderCatalogAsync();
+            if (session != _selectorSession)
+            {
+                return;
+            }
+
             MarkProviderUploaded(provider.Name);
             _hasRefreshedAfterUpload = true;
             RaiseProviderStateChanged();

@@ -19,7 +19,7 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         }
 
         var stopwatch = Stopwatch.StartNew();
-        var delay = await TestDelayAsync(proxyName, cancellationToken);
+        var delay = await TestDelayAsync(config, proxyName, cancellationToken);
         if (delay >= 0)
         {
             AppLogger.Info($"Proxy delay test completed: proxy={proxyName} delay={delay}ms elapsed={stopwatch.Elapsed.TotalMilliseconds:0}ms");
@@ -118,7 +118,7 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         var delays = new ConcurrentDictionary<string, int>(StringComparer.Ordinal);
         var tasks = targets.Select(async proxyName =>
         {
-            var delay = await TestDelayAsync(proxyName, cancellationToken);
+            var delay = await TestDelayAsync(config, proxyName, cancellationToken);
             delays[proxyName] = delay;
             progress?.Report(new ProxyDelayProgress(proxyName, delay));
         });
@@ -144,11 +144,18 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         return new ProxyDelayResult(config.WithEntryDelays(testedDelays), tested, skipped, failed);
     }
 
-    private async Task<int> TestDelayAsync(string proxyName, CancellationToken cancellationToken)
+    private async Task<int> TestDelayAsync(ProxyConfig config, string proxyName, CancellationToken cancellationToken)
     {
         await _delayTestSemaphore.WaitAsync(cancellationToken);
         try
         {
+            if (tester is IProviderProxyDelayTester providerTester
+                && config.Nodes.TryGetValue(proxyName, out var node)
+                && !string.IsNullOrWhiteSpace(node.ProviderName))
+            {
+                return await providerTester.TestProviderDelayAsync(node.ProviderName, proxyName, cancellationToken);
+            }
+
             return await tester.TestDelayAsync(proxyName, cancellationToken);
         }
         finally

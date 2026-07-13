@@ -9,4 +9,5 @@ public sealed record ProxyRuntimeEntry(
     string? Now,
     string? Fixed,
     IReadOnlyList<string> All,
-    bool IsHidden);
+    bool IsHidden,
+    string? ProviderName = null);

@@ -45,6 +45,17 @@ public sealed class SubscriptionProviderCatalog(
         return new SubscriptionProviderSyncResult([provider.Name], []);
     }
 
+    public async Task ReloadProviderAsync(string providerName, CancellationToken cancellationToken = default)
+    {
+        var provider = providers.FirstOrDefault(item => item.Name == providerName);
+        if (provider is null || syncer is null)
+        {
+            return;
+        }
+
+        await syncer.SyncAsync(provider, cancellationToken);
+    }
+
     public async Task<SubscriptionProviderSyncResult> SyncAllAsync(CancellationToken cancellationToken = default)
     {
         var synced = new List<string>();

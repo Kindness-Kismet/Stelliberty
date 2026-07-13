@@ -133,7 +133,7 @@ public sealed partial class App : Avalonia.Application
                 new SubscriptionProviderParser(),
                 coreProviderClient,
                 coreProviderClient);
-            ISubscriptionProviderUploader subscriptionProviderUploader = new FileSubscriptionProviderUploader(platformDirectories.AppDataDirectory);
+            ISubscriptionProviderUploader subscriptionProviderUploader = new FileSubscriptionProviderUploader(platformDirectories.CoreDirectory);
             ISubscriptionFileOpener subscriptionFileOpener = new DesktopSubscriptionFileOpener(subscriptionStore.GetContentPath);
             IOverrideFileOpener overrideFileOpener = new DesktopOverrideFileOpener(overrideStore.GetContentPath);
             var clipboardWriter = new DesktopClipboardWriter(desktop);
