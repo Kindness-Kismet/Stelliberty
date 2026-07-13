@@ -1,7 +1,9 @@
-- Beta releases can now be detected when the update channel is set to Beta.
-- Subscription and override updates now report individual results and batch success or failure counts.
+- Proxy Provider nodes remain visible, selectable, and available for delay testing with the latest mihomo core.
+- Individual and batch delay tests can run together without losing completed results.
+- Long proxy node tooltips now wrap within a limited height.
 
 ---
 
-- 更新通道设为测试版后，现在可以检测测试版发布。
-- 订阅和覆写更新现在会反馈单项结果，以及批量更新的成功和失败数量。
+- 使用最新版 mihomo 核心时，Proxy Provider 节点仍可正常显示、选择并进行延迟测试。
+- 单节点与批量延迟测试现在可以同时运行，已完成的结果不会丢失。
+- 较长的代理节点提示文字现在会在限定高度内换行显示。
