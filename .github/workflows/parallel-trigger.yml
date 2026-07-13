@@ -64,7 +64,7 @@ jobs:
 
           while IFS= read -r path; do
             case "${path}" in
-              *.cs|*.rs|*.axaml|*.csproj|Directory.Build.props|Cargo.toml)
+              *.cs|*.rs|*.axaml|Directory.Build.props)
                 should_build=true
                 break
                 ;;

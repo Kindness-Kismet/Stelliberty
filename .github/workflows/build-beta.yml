@@ -37,6 +37,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
       release_notes: ${{ steps.notes.outputs.release_notes }}
+      can_build: ${{ steps.base-tag.outputs.can_build }}
 
     steps:
       - name: Check out repository
@@ -112,8 +113,25 @@ jobs:
             printf -- '- Tag: `%s`\n' "${TAG}"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify beta base tag
+        id: base-tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          previous_tag="${{ steps.ver.outputs.previous_tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${previous_tag}" >/dev/null 2>&1; then
+            echo 'can_build=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo 'can_build=false' >> "$GITHUB_OUTPUT"
+          echo "::notice::Beta build skipped because base tag ${previous_tag} does not exist."
+          echo "Beta build skipped because base tag \`${previous_tag}\` does not exist." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Generate beta release notes
         id: notes
+        if: steps.base-tag.outputs.can_build == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -138,6 +156,7 @@ jobs:
   build:
     name: Build / ${{ matrix.label }}
     needs: prepare
+    if: needs.prepare.outputs.can_build == 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
 
@@ -317,8 +336,8 @@ jobs:
   release:
     name: Publish beta to download repository
     needs: [prepare, build]
+    if: ${{ needs.prepare.outputs.can_build == 'true' && needs.build.result == 'success' }}
     runs-on: ubuntu-22.04
-    if: ${{ needs.build.result == 'success' }}
 
     steps:
       - name: Download beta artifacts
