@@ -91,21 +91,25 @@ jobs:
       - name: Export beta metadata
         id: meta
         shell: bash
+        env:
+          APP_NAME: ${{ steps.names.outputs.app_name }}
+          APP_DISPLAY_NAME: ${{ steps.names.outputs.app_display_name }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
         run: |
           set -euo pipefail
           {
-            echo "app_name=${{ steps.names.outputs.app_name }}"
-            echo "app_display_name=${{ steps.names.outputs.app_display_name }}"
-            echo "version=${{ steps.ver.outputs.version }}"
-            echo "tag=${{ steps.ver.outputs.tag }}"
+            printf 'app_name=%s\n' "${APP_NAME}"
+            printf 'app_display_name=%s\n' "${APP_DISPLAY_NAME}"
+            printf 'version=%s\n' "${VERSION}"
+            printf 'tag=%s\n' "${TAG}"
           } >> "$GITHUB_OUTPUT"
           {
-            echo "### Release Metadata"
-            echo ""
-            echo "- App: `${{ steps.names.outputs.app_display_name }}`"
-            echo "- Channel: `beta`"
-            echo "- Version: `${{ steps.ver.outputs.version }}`"
-            echo "- Tag: `${{ steps.ver.outputs.tag }}`"
+            printf '### Release Metadata\n\n'
+            printf -- '- App: `%s`\n' "${APP_DISPLAY_NAME}"
+            printf -- '- Channel: `beta`\n'
+            printf -- '- Version: `%s`\n' "${VERSION}"
+            printf -- '- Tag: `%s`\n' "${TAG}"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Generate beta release notes
