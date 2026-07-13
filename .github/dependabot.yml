@@ -5,9 +5,8 @@ updates:
     directory: /
     target-branch: beta
     schedule:
-      interval: weekly
-      day: monday
-      time: "07:00"
+      interval: cron
+      cronjob: "0 7 * * 0,1,3,5"
       timezone: America/New_York
     groups:
       nuget-dependencies:
@@ -18,9 +17,8 @@ updates:
     directory: /
     target-branch: beta
     schedule:
-      interval: weekly
-      day: monday
-      time: "07:00"
+      interval: cron
+      cronjob: "0 7 * * 0,1,3,5"
       timezone: America/New_York
     groups:
       cargo-dependencies:

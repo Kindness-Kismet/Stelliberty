@@ -85,7 +85,7 @@ zhHant.UninstallCancel=選擇「取消」將停止解除安裝。
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "@SOURCE_DIR@\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@SOURCE_DIR@\*"; DestDir: "{app}"; Flags: replacesameversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
@@ -98,8 +98,6 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 var
   ResetDirButton: TButton;
   CleanUserData: Boolean;
-  HadService: Boolean;
-  WasServiceRunning: Boolean;
 
 function GetSystemDrive(): String;
 var
@@ -272,34 +270,13 @@ begin
   end;
 end;
 
-function InitializeSetup(): Boolean;
-begin
-  Result := True;
-  HadService := ServiceExists();
-  WasServiceRunning := ServiceRunning();
-end;
-
 procedure CurStepChanged(CurStep: TSetupStep);
-var
-  ServiceExe: String;
 begin
   if CurStep = ssInstall then
   begin
-    if HadService then
-      StopServiceIfNeeded();
     StopAppProcessIfNeeded();
     StopCoreProcessIfNeeded();
   end
-  else if CurStep = ssPostInstall then
-  begin
-    ServiceExe := ExpandConstant('{app}\data\service\update\{#MyServiceBinary}');
-    if HadService and FileExists(ServiceExe) then
-    begin
-      RunHidden(ServiceExe, 'install');
-      if not WasServiceRunning then
-        RunHidden('sc.exe', 'stop {#MyServiceName}');
-    end;
-  end;
 end;
 
 function InitializeUninstall(): Boolean;

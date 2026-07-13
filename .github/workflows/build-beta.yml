@@ -37,6 +37,7 @@ jobs:
       version: ${{ steps.meta.outputs.version }}
       tag: ${{ steps.meta.outputs.tag }}
       release_notes: ${{ steps.notes.outputs.release_notes }}
+      can_build: ${{ steps.base-tag.outputs.can_build }}
 
     steps:
       - name: Check out repository
@@ -91,25 +92,46 @@ jobs:
       - name: Export beta metadata
         id: meta
         shell: bash
+        env:
+          APP_NAME: ${{ steps.names.outputs.app_name }}
+          APP_DISPLAY_NAME: ${{ steps.names.outputs.app_display_name }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          TAG: ${{ steps.ver.outputs.tag }}
         run: |
           set -euo pipefail
           {
-            echo "app_name=${{ steps.names.outputs.app_name }}"
-            echo "app_display_name=${{ steps.names.outputs.app_display_name }}"
-            echo "version=${{ steps.ver.outputs.version }}"
-            echo "tag=${{ steps.ver.outputs.tag }}"
+            printf 'app_name=%s\n' "${APP_NAME}"
+            printf 'app_display_name=%s\n' "${APP_DISPLAY_NAME}"
+            printf 'version=%s\n' "${VERSION}"
+            printf 'tag=%s\n' "${TAG}"
           } >> "$GITHUB_OUTPUT"
           {
-            echo "### Release Metadata"
-            echo ""
-            echo "- App: `${{ steps.names.outputs.app_display_name }}`"
-            echo "- Channel: `beta`"
-            echo "- Version: `${{ steps.ver.outputs.version }}`"
-            echo "- Tag: `${{ steps.ver.outputs.tag }}`"
+            printf '### Release Metadata\n\n'
+            printf -- '- App: `%s`\n' "${APP_DISPLAY_NAME}"
+            printf -- '- Channel: `beta`\n'
+            printf -- '- Version: `%s`\n' "${VERSION}"
+            printf -- '- Tag: `%s`\n' "${TAG}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify beta base tag
+        id: base-tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          previous_tag="${{ steps.ver.outputs.previous_tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/${previous_tag}" >/dev/null 2>&1; then
+            echo 'can_build=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo 'can_build=false' >> "$GITHUB_OUTPUT"
+          echo "::notice::Beta build skipped because base tag ${previous_tag} does not exist."
+          echo "Beta build skipped because base tag \`${previous_tag}\` does not exist." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Generate beta release notes
         id: notes
+        if: steps.base-tag.outputs.can_build == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -134,6 +156,7 @@ jobs:
   build:
     name: Build / ${{ matrix.label }}
     needs: prepare
+    if: needs.prepare.outputs.can_build == 'true'
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
 
@@ -313,8 +336,8 @@ jobs:
   release:
     name: Publish beta to download repository
     needs: [prepare, build]
+    if: ${{ needs.prepare.outputs.can_build == 'true' && needs.build.result == 'success' }}
     runs-on: ubuntu-22.04
-    if: ${{ needs.build.result == 'success' }}
 
     steps:
       - name: Download beta artifacts

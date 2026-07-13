@@ -64,7 +64,7 @@ jobs:
 
           while IFS= read -r path; do
             case "${path}" in
-              *.cs|*.rs|*.axaml|*.csproj|Directory.Build.props|Cargo.toml)
+              *.cs|*.rs|*.axaml|Directory.Build.props)
                 should_build=true
                 break
                 ;;
@@ -105,3 +105,25 @@ jobs:
       }}
     uses: ./.github/workflows/build-beta.yml
     secrets: inherit
+
+  beta-build-not-required:
+    name: Beta build not required
+    needs: [detect-beta-build-changes, code-quality, stability-verification]
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'push' &&
+        github.ref == 'refs/heads/beta' &&
+        needs.detect-beta-build-changes.result == 'success' &&
+        needs.detect-beta-build-changes.outputs.should_build != 'true' &&
+        needs.code-quality.result == 'success' &&
+        needs.stability-verification.result == 'success'
+      }}
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Report intentional skip
+        shell: bash
+        run: |
+          echo '::notice::Verification passed; no product changes require a beta build.'
+          echo '### Beta Build' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Verification passed. The beta build was intentionally skipped because no product files changed.' >> "$GITHUB_STEP_SUMMARY"

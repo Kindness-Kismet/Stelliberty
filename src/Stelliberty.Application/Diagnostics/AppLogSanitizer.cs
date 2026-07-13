@@ -6,31 +6,34 @@ public static class AppLogSanitizer
 {
     private const string Mask = "<redacted>";
     private const int MaxMessageLength = 6000;
-    private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(100);
+    private static readonly TimeSpan RegexTimeout = TimeSpan.FromSeconds(1);
+    private const RegexOptions SafeRegexOptions = RegexOptions.IgnoreCase
+        | RegexOptions.CultureInvariant
+        | RegexOptions.NonBacktracking;
 
     private static readonly Regex HttpUrlRegex = new(
         @"\bhttps?://[^\s""'<>]+",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        SafeRegexOptions,
         RegexTimeout);
 
     private static readonly Regex ProxyUriRegex = new(
         @"\b(?:ss|ssr|vmess|vless|trojan|hysteria2|hy2|tuic|socks|socks5|snell)://[^\s""'<>]+",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        SafeRegexOptions,
         RegexTimeout);
 
     private static readonly Regex AuthorizationHeaderRegex = new(
         @"(?<prefix>\b(?:authorization|proxy-authorization)\s*[:=]\s*)(?<value>[^,;]+)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        SafeRegexOptions,
         RegexTimeout);
 
     private static readonly Regex BearerTokenRegex = new(
         @"(?<prefix>\b(?:bearer|basic)\s+)[A-Za-z0-9._~+/=-]+",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        SafeRegexOptions,
         RegexTimeout);
 
     private static readonly Regex SensitiveKeyValueRegex = new(
         @"(?<prefix>\b(?:access[-_]?token|refresh[-_]?token|id[-_]?token|token|secret|password|passwd|pwd|api[-_]?key|apikey|authorization|auth|user[-_]?agent|ua|url|source)\b\s*[:=]\s*)(?<quote>[""']?)(?<value>[^""'\s,;]+)(?<close>[""']?)",
-        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled,
+        SafeRegexOptions,
         RegexTimeout);
 
     public static string Sanitize(string? message)
@@ -40,20 +43,28 @@ public static class AppLogSanitizer
             return string.Empty;
         }
 
-        var sanitized = Flatten(message);
-        sanitized = SanitizePathPrefixes(sanitized);
-        sanitized = HttpUrlRegex.Replace(sanitized, match => SanitizeHttpUrl(match.Value));
-        sanitized = ProxyUriRegex.Replace(sanitized, match => SanitizeProxyUri(match.Value));
-        sanitized = AuthorizationHeaderRegex.Replace(sanitized, match => $"{match.Groups["prefix"].Value}{Mask}");
-        sanitized = BearerTokenRegex.Replace(sanitized, match => $"{match.Groups["prefix"].Value}{Mask}");
-        sanitized = SensitiveKeyValueRegex.Replace(sanitized, match =>
+        try
         {
-            var quote = match.Groups["quote"].Value;
-            return $"{match.Groups["prefix"].Value}{quote}{Mask}{quote}";
-        });
-        sanitized = CollapseAdjacentMasks(sanitized);
+            var sanitized = Flatten(message.Length <= MaxMessageLength ? message : message[..MaxMessageLength]);
+            sanitized = SanitizePathPrefixes(sanitized);
+            sanitized = HttpUrlRegex.Replace(sanitized, match => SanitizeHttpUrl(match.Value));
+            sanitized = ProxyUriRegex.Replace(sanitized, match => SanitizeProxyUri(match.Value));
+            sanitized = AuthorizationHeaderRegex.Replace(sanitized, match => $"{match.Groups["prefix"].Value}{Mask}");
+            sanitized = BearerTokenRegex.Replace(sanitized, match => $"{match.Groups["prefix"].Value}{Mask}");
+            sanitized = SensitiveKeyValueRegex.Replace(sanitized, match =>
+            {
+                var quote = match.Groups["quote"].Value;
+                return $"{match.Groups["prefix"].Value}{quote}{Mask}{quote}";
+            });
+            sanitized = CollapseAdjacentMasks(sanitized);
 
-        return sanitized.Length <= MaxMessageLength ? sanitized : sanitized[..MaxMessageLength] + "...";
+            return message.Length <= MaxMessageLength ? sanitized : sanitized + "...";
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // 脱敏失败时封闭返回，避免日志导致启动失败或泄漏原文。
+            return Mask;
+        }
     }
 
     private static string Flatten(string message)
