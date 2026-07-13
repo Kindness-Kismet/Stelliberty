@@ -74,7 +74,7 @@
             <Button Classes="toolbar-icon"
                     AutomationProperties.AutomationId="Proxy.TestGroupDelaysButton"
                     Command="{Binding TestCurrentGroupDelaysCommand}"
-                    IsEnabled="{Binding !IsDelayTesting}"
+                    IsEnabled="{Binding !IsBatchDelayTesting}"
                     ToolTip.Tip="{loc:Loc Proxy.Tooltip.TestCurrentGroup}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="ChartBarFill" />
             </Button>

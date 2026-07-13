@@ -4,7 +4,7 @@ using Stelliberty.Application.Proxies;
 
 namespace Stelliberty.Infrastructure.Proxies;
 
-public sealed class PipeCoreProxyDelayTester : IProxyDelayTester, IDisposable
+public sealed class PipeCoreProxyDelayTester : IProviderProxyDelayTester, IDisposable
 {
     private readonly HttpClient _client;
     private readonly Func<string> _testUrlFactory;
@@ -39,10 +39,25 @@ public sealed class PipeCoreProxyDelayTester : IProxyDelayTester, IDisposable
 
     public async Task<int> TestDelayAsync(string proxyName, CancellationToken cancellationToken = default)
     {
+        var path = $"proxies/{Uri.EscapeDataString(proxyName)}/delay";
+        return await SendDelayRequestAsync(path, cancellationToken);
+    }
+
+    public async Task<int> TestProviderDelayAsync(
+        string providerName,
+        string proxyName,
+        CancellationToken cancellationToken = default)
+    {
+        var path = $"providers/proxies/{Uri.EscapeDataString(providerName)}/{Uri.EscapeDataString(proxyName)}/healthcheck";
+        return await SendDelayRequestAsync(path, cancellationToken);
+    }
+
+    private async Task<int> SendDelayRequestAsync(string proxyPath, CancellationToken cancellationToken)
+    {
         try
         {
             var testUrl = _testUrlFactory();
-            var path = $"proxies/{Uri.EscapeDataString(proxyName)}/delay?timeout={_timeoutMilliseconds}&url={Uri.EscapeDataString(testUrl)}";
+            var path = $"{proxyPath}?timeout={_timeoutMilliseconds}&url={Uri.EscapeDataString(testUrl)}";
             using var response = await _client.GetAsync(path, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
@@ -53,7 +68,8 @@ public sealed class PipeCoreProxyDelayTester : IProxyDelayTester, IDisposable
             var payload = await JsonSerializer.DeserializeAsync<DelayPayload>(stream, cancellationToken: cancellationToken);
             return NormalizeDelay(payload?.Delay ?? -1);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or IOException
+            || exception is TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             return -1;
         }

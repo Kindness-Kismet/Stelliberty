@@ -5,4 +5,5 @@ public sealed record ProxyNode(
     string Type,
     int? Delay = null,
     string? Server = null,
-    int? Port = null);
+    int? Port = null,
+    string? ProviderName = null);

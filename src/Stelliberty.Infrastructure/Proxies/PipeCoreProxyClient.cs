@@ -141,27 +141,18 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
     {
         try
         {
-            using var response = await _client.GetAsync("proxies", cancellationToken);
-            response.EnsureSuccessStatusCode();
-            var json = await response.Content.ReadAsStringAsync(cancellationToken);
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("proxies", out var proxies) || proxies.ValueKind != JsonValueKind.Object)
-            {
-                return new ProxyRuntimeSnapshot([]);
-            }
-            var entries = new List<ProxyRuntimeEntry>();
-            foreach (var prop in proxies.EnumerateObject())
-            {
-                var node = prop.Value;
-                var type = node.TryGetProperty("type", out var t) ? t.GetString() ?? string.Empty : string.Empty;
-                var now = node.TryGetProperty("now", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : null;
-                var fixedSelection = node.TryGetProperty("fixed", out var f) && f.ValueKind == JsonValueKind.String ? f.GetString() : null;
-                var all = node.TryGetProperty("all", out var a) && a.ValueKind == JsonValueKind.Array
-                    ? a.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList()
-                    : new List<string>();
-                var hidden = node.TryGetProperty("hidden", out var h) && h.ValueKind == JsonValueKind.True;
-                entries.Add(new ProxyRuntimeEntry(prop.Name, type, now, fixedSelection, all, hidden));
-            }
+            using var proxiesResponse = await _client.GetAsync("proxies", cancellationToken);
+            proxiesResponse.EnsureSuccessStatusCode();
+            var proxiesJson = await proxiesResponse.Content.ReadAsStringAsync(cancellationToken);
+            using var proxiesDocument = JsonDocument.Parse(proxiesJson);
+            var entriesByName = ParseProxyEntries(proxiesDocument.RootElement);
+
+            using var providersResponse = await _client.GetAsync("providers/proxies", cancellationToken);
+            providersResponse.EnsureSuccessStatusCode();
+            var providersJson = await providersResponse.Content.ReadAsStringAsync(cancellationToken);
+            using var providersDocument = JsonDocument.Parse(providersJson);
+            MergeProviderEntries(entriesByName, providersDocument.RootElement);
+            var entries = entriesByName.Values.ToList();
 
             // /proxies 键顺序不是订阅顺序；GLOBAL.all 才是。
             var global = entries.FirstOrDefault(entry => string.Equals(entry.Name, "GLOBAL", StringComparison.Ordinal));
@@ -180,11 +171,76 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
 
             return new ProxyRuntimeSnapshot(entries);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or IOException
+            || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             AppLogger.Warning($"Core proxy list read failed: {ex.Message}");
             return new ProxyRuntimeSnapshot([]);
         }
+    }
+
+    private static Dictionary<string, ProxyRuntimeEntry> ParseProxyEntries(JsonElement root)
+    {
+        var entries = new Dictionary<string, ProxyRuntimeEntry>(StringComparer.Ordinal);
+        if (!root.TryGetProperty("proxies", out var proxies) || proxies.ValueKind != JsonValueKind.Object)
+        {
+            return entries;
+        }
+
+        foreach (var proxy in proxies.EnumerateObject())
+        {
+            entries[proxy.Name] = ParseProxyEntry(proxy.Name, proxy.Value);
+        }
+
+        return entries;
+    }
+
+    private static void MergeProviderEntries(
+        Dictionary<string, ProxyRuntimeEntry> entries,
+        JsonElement root)
+    {
+        if (!root.TryGetProperty("providers", out var providers) || providers.ValueKind != JsonValueKind.Object)
+        {
+            return;
+        }
+
+        foreach (var provider in providers.EnumerateObject())
+        {
+            if (!provider.Value.TryGetProperty("proxies", out var proxies) || proxies.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var proxy in proxies.EnumerateArray())
+            {
+                if (proxy.ValueKind != JsonValueKind.Object
+                    || !proxy.TryGetProperty("name", out var nameNode)
+                    || nameNode.ValueKind != JsonValueKind.String
+                    || string.IsNullOrEmpty(nameNode.GetString()))
+                {
+                    continue;
+                }
+
+                var name = nameNode.GetString()!;
+                entries.TryAdd(name, ParseProxyEntry(name, proxy, provider.Name));
+            }
+        }
+    }
+
+    private static ProxyRuntimeEntry ParseProxyEntry(string name, JsonElement node, string? providerName = null)
+    {
+        var type = node.TryGetProperty("type", out var typeNode) ? typeNode.GetString() ?? string.Empty : string.Empty;
+        var now = node.TryGetProperty("now", out var nowNode) && nowNode.ValueKind == JsonValueKind.String
+            ? nowNode.GetString()
+            : null;
+        var fixedSelection = node.TryGetProperty("fixed", out var fixedNode) && fixedNode.ValueKind == JsonValueKind.String
+            ? fixedNode.GetString()
+            : null;
+        var all = node.TryGetProperty("all", out var allNode) && allNode.ValueKind == JsonValueKind.Array
+            ? allNode.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToList()
+            : [];
+        var isHidden = node.TryGetProperty("hidden", out var hiddenNode) && hiddenNode.ValueKind == JsonValueKind.True;
+        return new ProxyRuntimeEntry(name, type, now, fixedSelection, all, isHidden, providerName);
     }
 
     public async Task<OutboundMode?> GetOutboundModeAsync(CancellationToken cancellationToken = default)

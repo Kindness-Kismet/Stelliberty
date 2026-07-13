@@ -27,7 +27,7 @@ public sealed class MihomoApiProxyConfigProvider(
         foreach (var entry in snapshot.Entries)
         {
             // 核心 history 跨订阅和进程复用，代理页只显示当前会话的延迟测试结果。
-            nodes[entry.Name] = new ProxyNode(entry.Name, entry.Type);
+            nodes[entry.Name] = new ProxyNode(entry.Name, entry.Type, ProviderName: entry.ProviderName);
 
             // mihomo 可能给分组返回未知类型；all[] 仍表示分组。
             if (GroupTypes.Contains(entry.Type) || entry.All.Count > 0)

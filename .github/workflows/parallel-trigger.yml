@@ -38,6 +38,46 @@ jobs:
         shell: bash
         run: test "${{ github.ref }}" = 'refs/heads/beta'
 
+  detect-beta-build-changes:
+    name: Detect beta build changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/beta'
+    runs-on: ubuntu-22.04
+    outputs:
+      should_build: ${{ steps.changes.outputs.should_build }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect product changes
+        id: changes
+        shell: bash
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          base_tag="$(git tag --merged "${AFTER_SHA}" --list 'v[0-9]*' --sort=-version:refname | sed -n '1p')"
+          base_ref="${base_tag:-${BEFORE_SHA}}"
+          should_build=false
+
+          while IFS= read -r path; do
+            case "${path}" in
+              *.cs|*.rs|*.axaml|*.csproj|Directory.Build.props|Cargo.toml)
+                should_build=true
+                break
+                ;;
+            esac
+          done < <(git diff --name-only "${base_ref}" "${AFTER_SHA}")
+
+          echo "should_build=${should_build}" >> "$GITHUB_OUTPUT"
+          if [ "${should_build}" = true ]; then
+            echo "Product changes since ${base_ref} require a beta build."
+          else
+            echo "No product changes since ${base_ref}; beta build is skipped."
+          fi
+
   code-quality:
     name: Trigger code quality
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta'
@@ -52,13 +92,16 @@ jobs:
 
   beta-build:
     name: Trigger beta build
-    needs: [code-quality, stability-verification]
+    needs: [detect-beta-build-changes, code-quality, stability-verification]
     if: >-
       ${{
+        always() &&
+        needs.detect-beta-build-changes.result == 'success' &&
+        needs.detect-beta-build-changes.outputs.should_build == 'true' &&
         needs.code-quality.result == 'success' &&
         needs.stability-verification.result == 'success' &&
         github.ref == 'refs/heads/beta' &&
-        (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+        github.event_name == 'push'
       }}
     uses: ./.github/workflows/build-beta.yml
     secrets: inherit

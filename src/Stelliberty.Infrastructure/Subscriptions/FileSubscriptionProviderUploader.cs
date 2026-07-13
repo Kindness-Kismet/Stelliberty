@@ -20,9 +20,12 @@ public sealed class FileSubscriptionProviderUploader(string providerRootDirector
 
         var targetPath = ResolveProviderPath(provider.Path);
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath) ?? providerRootDirectory);
-        await using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 81920, useAsync: true);
-        await using var target = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true);
-        await source.CopyToAsync(target, cancellationToken);
+        await using (var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 81920, useAsync: true))
+        await using (var target = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize: 81920, useAsync: true))
+        {
+            await source.CopyToAsync(target, cancellationToken);
+        }
+
         AppLogger.Info($"File Provider upload completed: {provider.Name}");
         return SubscriptionProviderUploadResult.Uploaded();
     }
