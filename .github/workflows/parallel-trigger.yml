@@ -18,6 +18,11 @@ on:
       - 'global.json'
       - '**/*.csproj'
   pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
     branches:
       - beta
     paths: *verification-paths
@@ -82,13 +87,21 @@ jobs:
 
   code-quality:
     name: Trigger code quality
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta'
+    if: >-
+      ${{
+        (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta') &&
+        (github.event.action != 'edited' || github.event.changes.base.ref.from != null)
+      }}
     uses: ./.github/workflows/code-quality.yml
     secrets: inherit
 
   stability-verification:
     name: Trigger test verification
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta'
+    if: >-
+      ${{
+        (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/beta') &&
+        (github.event.action != 'edited' || github.event.changes.base.ref.from != null)
+      }}
     uses: ./.github/workflows/stability-verification.yml
     secrets: inherit
 
