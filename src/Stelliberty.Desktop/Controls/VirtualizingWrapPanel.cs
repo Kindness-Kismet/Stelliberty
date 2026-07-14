@@ -140,14 +140,27 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
         var rowPitch = ItemHeight + RowSpacing;
         var edge = EdgePadding;
         var columnSpacing = ColumnSpacing;
+        var layoutScale = LayoutHelper.GetLayoutScale(this);
 
         foreach (var (index, container) in _realized)
         {
             var column = index % columns;
             var row = index / columns;
-            var x = edge + column * (itemWidth + columnSpacing);
-            var y = row * rowPitch;
-            container.Arrange(new Rect(x, y, itemWidth, ItemHeight));
+            var left = edge + column * (itemWidth + columnSpacing);
+            var right = edge + (column + 1) * itemWidth + column * columnSpacing;
+            var top = row * rowPitch;
+            var bottom = top + ItemHeight;
+
+            if (UseLayoutRounding)
+            {
+                left = LayoutHelper.RoundLayoutValue(left, layoutScale);
+                right = LayoutHelper.RoundLayoutValue(right, layoutScale);
+                top = LayoutHelper.RoundLayoutValue(top, layoutScale);
+                bottom = LayoutHelper.RoundLayoutValue(bottom, layoutScale);
+            }
+
+            // 虚拟化可能跳过前项，直接对齐每个单元格的物理像素边界。
+            container.Arrange(new Rect(new Point(left, top), new Point(right, bottom)));
         }
 
         return finalSize;

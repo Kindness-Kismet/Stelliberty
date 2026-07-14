@@ -101,14 +101,28 @@ public sealed class EvenWrapPanel : Panel
         var colSp = ColumnSpacing;
 
         var (cols, itemW) = ComputeLayout(finalSize.Width);
+        var x = edge;
+        var y = 0d;
+        var nextY = 0d;
 
         for (var i = 0; i < Children.Count; i++)
         {
             var col = i % cols;
             var row = i / cols;
-            var x = edge + col * (itemW + colSp);
-            var y = row * (itemH + rowGap);
-            Children[i].Arrange(new Rect(x, y, itemW, itemH));
+            var idealRight = edge + (col + 1) * itemW + col * colSp;
+            var idealBottom = (row + 1) * itemH + row * rowGap;
+
+            // 复用已取整边界，避免末列因独立取整越过面板边界。
+            Children[i].Arrange(new Rect(new Point(x, y), new Point(idealRight, idealBottom)));
+            x = Children[i].Bounds.Right + colSp;
+            nextY = Math.Max(nextY, Children[i].Bounds.Bottom);
+
+            if (col == cols - 1)
+            {
+                x = edge;
+                y = nextY + rowGap;
+                nextY = 0d;
+            }
         }
 
         return finalSize;
