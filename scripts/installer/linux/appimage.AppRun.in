@@ -7,7 +7,7 @@ TARGET="$DATA_HOME/@APP_PACKAGE@/appimage/@APP_VERSION@"
 MARKER="$TARGET/.appimage-source"
 APPIMAGE_PATH="${APPIMAGE:-$0}"
 APPIMAGE_DIR="$(dirname "$(readlink -f "$APPIMAGE_PATH")")"
-export STELLIBERTY_APP_DATA_DIR="$APPIMAGE_DIR/@APP_PACKAGE@.data"
+export PORTABLE_APP_DATA_DIR="$APPIMAGE_DIR/@APP_PACKAGE@.data"
 
 if [ ! -x "$TARGET/@APP_EXECUTABLE@" ] || [ "$(cat "$MARKER" 2>/dev/null || true)" != "$HERE" ]; then
     rm -rf "$TARGET"

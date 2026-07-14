@@ -13,5 +13,5 @@ public static class PathConventions
     public const string AppLogsSubdirectory = "applogs";
     public const string SettingsFileName = "settings.json";
     public const string RunningLogFileName = "running.logs";
-    public const string AppDataDirectoryEnvironmentVariable = "STELLIBERTY_APP_DATA_DIR";
+    public const string PortableDataDirectoryEnvironmentVariable = "PORTABLE_APP_DATA_DIR";
 }

@@ -14,7 +14,7 @@ internal static class DesktopApplicationLayout
         : OperatingSystem.IsLinux()
             ? PortableDataDirectoryResolver.ResolveLinux(
                 BaseDirectory,
-                Environment.GetEnvironmentVariable(PathConventions.AppDataDirectoryEnvironmentVariable))
+                Environment.GetEnvironmentVariable(PathConventions.PortableDataDirectoryEnvironmentVariable))
             : InstallDataDirectory;
 
     public static string DepsDirectory => Path.Combine(InstallDataDirectory, PathConventions.DepsSubdirectory);

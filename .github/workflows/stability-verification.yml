@@ -16,7 +16,7 @@ env:
 
 jobs:
   installation-persistence:
-    name: Installation Persistence / ${{ matrix.label }}
+    name: Installer Data Persistence / ${{ matrix.label }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 10
 
@@ -45,6 +45,8 @@ jobs:
         run: |
           set -euo pipefail
           python .github/scripts/installation_persistence_simulation.py --os-family ${{ matrix.os_family }}
+          echo "### Installer Data Persistence" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ matrix.label }} replacement simulation preserved portable data." >> "$GITHUB_STEP_SUMMARY"
 
   tests:
     name: Pre-build Tests + Post-build Simulation Tests / ${{ matrix.label }}

@@ -31,8 +31,8 @@ def verify_macos_layout_policy() -> None:
 def verify_linux_installer_policy() -> None:
     launcher = read_repository_file("scripts/installer/linux/launcher.in")
     appimage = read_repository_file("scripts/installer/linux/appimage.AppRun.in")
-    require_fragments(launcher, ["STELLIBERTY_APP_DATA_DIR", "/opt/@APP_PACKAGE@.data"])
-    require_fragments(appimage, ["STELLIBERTY_APP_DATA_DIR", "APPIMAGE_DIR", "@APP_PACKAGE@.data"])
+    require_fragments(launcher, ["PORTABLE_APP_DATA_DIR", "/opt/@APP_PACKAGE@.data"])
+    require_fragments(appimage, ["PORTABLE_APP_DATA_DIR", "APPIMAGE_DIR", "@APP_PACKAGE@.data"])
 
     for relative_path in [
         "scripts/installer/linux/postinst.in",
@@ -43,6 +43,7 @@ def verify_linux_installer_policy() -> None:
 
 
 def simulate_macos_replacement(root: Path) -> None:
+    print("Simulating macOS app bundle replacement")
     applications_directory = root / "Applications"
     app_directory = applications_directory / "Stelliberty.app"
     data_directory = applications_directory / "Stelliberty.data"
@@ -54,6 +55,7 @@ def simulate_macos_replacement(root: Path) -> None:
 
 
 def simulate_linux_package_replacement(root: Path) -> None:
+    print("Simulating Linux package replacement")
     install_directory = root / "opt" / "stelliberty"
     data_directory = root / "opt" / "stelliberty.data"
 
@@ -64,6 +66,7 @@ def simulate_linux_package_replacement(root: Path) -> None:
 
 
 def simulate_appimage_replacement(root: Path) -> None:
+    print("Simulating AppImage version replacement")
     extraction_root = root / "home" / "runner" / ".local" / "share" / "stelliberty" / "appimage"
     first_installation = extraction_root / "1"
     second_installation = extraction_root / "2"
