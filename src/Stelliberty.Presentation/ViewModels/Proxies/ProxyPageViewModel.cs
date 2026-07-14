@@ -45,6 +45,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private readonly Dictionary<string, ProxyNodeRowViewModel> _nodeRowsByName = new(StringComparer.Ordinal);
     private string? _lastSelectedNodeName;
     private string? _locatedNodeName;
+    private int _locateNodeRequestId;
     private ProxyChangeRequest? _lastChangeRequest;
     private CancellationTokenSource? _batchDelayTestCancellation;
     private CancellationTokenSource? _singleDelayTestCancellation;
@@ -211,6 +212,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public string? LocatedNodeName => _locatedNodeName;
 
+    public int LocateNodeRequestId => _locateNodeRequestId;
+
     public ProxyChangeRequest? LastChangeRequest => _lastChangeRequest;
 
     public bool ShouldCloseConnectionsAfterSelection => _shouldCloseConnectionsAfterSelection;
@@ -266,6 +269,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         _batchDelayTestedNodeNames.Clear();
         _lastSelectedNodeName = null;
         _locatedNodeName = null;
+        _locateNodeRequestId = 0;
         _hasScrolledToTop = false;
         _scrollToTopRequestId = 0;
         _lastChangeRequest = null;
@@ -691,7 +695,14 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public void LocateSelectedNode()
     {
-        _locatedNodeName = _selectedGroup?.DisplaySelectionName;
+        var nodeName = _selectedGroup?.DisplaySelectionName;
+        if (string.IsNullOrWhiteSpace(nodeName))
+        {
+            return;
+        }
+
+        _locatedNodeName = nodeName;
+        _locateNodeRequestId++;
         RaiseProxyStateChanged();
     }
 
@@ -787,6 +798,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(SearchKeyword));
         OnPropertyChanged(nameof(LastSelectedNodeName));
         OnPropertyChanged(nameof(LocatedNodeName));
+        OnPropertyChanged(nameof(LocateNodeRequestId));
         OnPropertyChanged(nameof(LastChangeRequest));
         OnPropertyChanged(nameof(ShouldCloseConnectionsAfterSelection));
         OnPropertyChanged(nameof(HasScrolledToTop));

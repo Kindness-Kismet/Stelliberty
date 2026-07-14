@@ -15,6 +15,7 @@ public sealed partial class ProxyView : UserControl
     // 单格滚轮约移动一个分组标签，触控板增量仍按比例生效。
     private const double GroupTabsWheelStep = 72;
     private ProxyPageViewModel? _attachedViewModel;
+    private int _handledLocateNodeRequestId;
     private int _handledScrollToTopRequestId;
     private double _savedNodeScrollOffset;
 
@@ -62,6 +63,7 @@ public sealed partial class ProxyView : UserControl
         DetachViewModel();
 
         _attachedViewModel = ProxyPageRoot.DataContext as ProxyPageViewModel;
+        _handledLocateNodeRequestId = _attachedViewModel?.LocateNodeRequestId ?? 0;
         _handledScrollToTopRequestId = 0;
         if (_attachedViewModel is not null)
         {
@@ -87,9 +89,14 @@ public sealed partial class ProxyView : UserControl
             return;
         }
 
-        if (args.PropertyName == nameof(ProxyPageViewModel.LocatedNodeName) && viewModel.LocatedNodeName is not null)
+        if (args.PropertyName == nameof(ProxyPageViewModel.LocateNodeRequestId)
+            && viewModel.LocateNodeRequestId != _handledLocateNodeRequestId)
         {
-            ScrollToNode(viewModel.LocatedNodeName);
+            _handledLocateNodeRequestId = viewModel.LocateNodeRequestId;
+            if (viewModel.LocatedNodeName is not null)
+            {
+                ScrollToNode(viewModel.LocatedNodeName);
+            }
         }
 
         if (args.PropertyName == nameof(ProxyPageViewModel.ScrollToTopRequestId)
