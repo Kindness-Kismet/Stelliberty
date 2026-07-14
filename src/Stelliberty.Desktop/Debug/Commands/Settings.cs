@@ -684,7 +684,7 @@ internal static partial class DebugCommands
             case "minimize-to-tray": behavior.IsMinimizeToTrayEnabled = ParseBool(normalizedValue); break;
             case "tray-double-click": behavior.IsTrayDoubleClickEnabled = ParseBool(normalizedValue); break;
             case "lazy-mode": behavior.IsLazyModeEnabled = ParseBool(normalizedValue); break;
-            case "auto-start": behavior.IsAutoStartEnabled = ParseBool(normalizedValue); break;
+            case "auto-start": behavior.SetAutoStartEnabled(ParseBool(normalizedValue)); break;
             default: throw new InvalidOperationException($"Unknown app behavior setting: {key}");
         }
     }

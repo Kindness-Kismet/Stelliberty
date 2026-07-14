@@ -165,6 +165,17 @@ jobs:
           fi
           printf 'APP_EXEC=%s\nAPP_OUTPUT=%s\n' "${executable}" "${output}" >> "$GITHUB_ENV"
 
+      - name: Simulate installer data persistence
+        if: matrix.os_family == 'linux' || matrix.os_family == 'macos'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/scripts/installation_persistence_simulation.py \
+            --os-family ${{ matrix.os_family }} \
+            --app-output "$APP_OUTPUT"
+          echo "### Installer Data Persistence" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ matrix.label }} replacement simulation preserved the built payload and portable data." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run Windows post-build simulation tests
         if: matrix.os_family == 'windows'
         shell: pwsh

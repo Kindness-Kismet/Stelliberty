@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Subscriptions;
 using Stelliberty.Domain.Subscriptions;
@@ -61,7 +62,7 @@ public sealed class FileSubscriptionStore(string rootDirectory) : ISubscriptionS
     public IReadOnlyList<Subscription> LoadSubscriptions()
     {
         var list = JsonFileRecovery.ReadOrRecover<StoredSubscriptionListFile>(_listPath) ?? new StoredSubscriptionListFile([]);
-        return list.Subscriptions.Select(subscription => subscription.ToSubscription()).ToList();
+        return (list.Subscriptions ?? []).Select(subscription => subscription.ToSubscription()).ToList();
     }
 
     public string ReadContent(string subscriptionId)
@@ -99,8 +100,10 @@ public sealed class FileSubscriptionStore(string rootDirectory) : ISubscriptionS
 
     private sealed record SubscriptionListFile(IReadOnlyList<Subscription> Subscriptions);
 
-    private sealed record StoredSubscriptionListFile(IReadOnlyList<StoredSubscription> Subscriptions);
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+    private sealed record StoredSubscriptionListFile(IReadOnlyList<StoredSubscription>? Subscriptions);
 
+    [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
     private sealed record StoredSubscription(
         string Id,
         string Name,

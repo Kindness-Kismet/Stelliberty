@@ -1,8 +1,10 @@
 using System.Runtime.CompilerServices;
+using System.Windows.Input;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Localization;
 using Stelliberty.Application.Platform;
 using Stelliberty.Application.Settings;
+using Stelliberty.Presentation.Commands;
 
 namespace Stelliberty.Presentation.ViewModels;
 
@@ -24,6 +26,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         _settingsStore = settingsStore;
         _localization = localization;
         _service = service;
+        ToggleAutoStartCommand = new RelayCommand(() => SetAutoStartEnabled(!IsAutoStartEnabled));
         _localization.LanguageChanged += OnLanguageChanged;
     }
 
@@ -90,16 +93,36 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         set => Apply(_settings.IsTrayDoubleClickEnabled, value, next => _settings.IsTrayDoubleClickEnabled = next);
     }
 
-    public bool IsAutoStartEnabled
+    public bool IsAutoStartEnabled => _settings.IsAutoStartEnabled;
+
+    public ICommand ToggleAutoStartCommand { get; }
+
+    public void SetAutoStartEnabled(bool isEnabled)
     {
-        get => _settings.IsAutoStartEnabled;
-        set => Apply(_settings.IsAutoStartEnabled, value, next => _settings.IsAutoStartEnabled = next);
+        if (_settings.IsAutoStartEnabled == isEnabled)
+        {
+            return;
+        }
+
+        try
+        {
+            _service?.Apply(BuildRequest(isEnabled));
+            _settings.IsAutoStartEnabled = isEnabled;
+            _settingsStore.Save(_settings);
+            StatusText = _localization.GetString("Settings.AppBehavior.Applied");
+        }
+        catch (Exception exception)
+        {
+            StatusText = exception.Message;
+            AppLogger.Warning($"App behavior apply failed: {exception.Message}");
+        }
+
+        OnPropertyChanged(nameof(IsAutoStartEnabled));
     }
 
     public void RefreshFromSettings()
     {
         OnPropertyChanged(string.Empty);
-        _service?.Apply(BuildRequest());
     }
 
     public void Dispose()
@@ -117,11 +140,6 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         assign(nextValue);
         try
         {
-            if (ShouldApplyPlatformBehavior(propertyName))
-            {
-                _service?.Apply(BuildRequest());
-            }
-
             _settingsStore.Save(_settings);
             StatusText = _localization.GetString("Settings.AppBehavior.Applied");
         }
@@ -135,17 +153,11 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(propertyName);
     }
 
-    private AppBehaviorApplicationRequest BuildRequest() => new(
+    private AppBehaviorApplicationRequest BuildRequest(bool isAutoStartEnabled) => new(
         _settings.IsSilentStartEnabled,
         _settings.IsMinimizeToTrayEnabled,
         _settings.IsLazyModeEnabled,
-        _settings.IsAutoStartEnabled);
-
-    private bool ShouldApplyPlatformBehavior(string? propertyName)
-    {
-        return propertyName == nameof(IsAutoStartEnabled)
-            || (propertyName == nameof(IsSilentStartEnabled) && _settings.IsAutoStartEnabled);
-    }
+        isAutoStartEnabled);
 
     private void OnLanguageChanged(object? sender, EventArgs e)
     {

@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -11,6 +12,8 @@ namespace Stelliberty.Desktop.Views;
 
 public sealed partial class ProxyView : UserControl
 {
+    // 单格滚轮约移动一个分组标签，触控板增量仍按比例生效。
+    private const double GroupTabsWheelStep = 72;
     private ProxyPageViewModel? _attachedViewModel;
     private int _handledScrollToTopRequestId;
     private double _savedNodeScrollOffset;
@@ -18,6 +21,11 @@ public sealed partial class ProxyView : UserControl
     public ProxyView()
     {
         InitializeComponent();
+        GroupTabsScroll.AddHandler(
+            InputElement.PointerWheelChangedEvent,
+            OnGroupTabsPointerWheelChanged,
+            RoutingStrategies.Tunnel,
+            handledEventsToo: true);
         ProxyPageRoot.DataContextChanged += OnDataContextChanged;
         AttachViewModel();
     }
@@ -135,5 +143,19 @@ public sealed partial class ProxyView : UserControl
         var step = GroupTabsScroll.Viewport.Width * 0.6;
         var maxX = Math.Max(0, GroupTabsScroll.Extent.Width - GroupTabsScroll.Viewport.Width);
         GroupTabsScroll.Offset = GroupTabsScroll.Offset.WithX(Math.Min(maxX, GroupTabsScroll.Offset.X + step));
+    }
+
+    private void OnGroupTabsPointerWheelChanged(object? sender, PointerWheelEventArgs args)
+    {
+        var delta = Math.Abs(args.Delta.X) > Math.Abs(args.Delta.Y) ? args.Delta.X : args.Delta.Y;
+        var maxX = Math.Max(0, GroupTabsScroll.Extent.Width - GroupTabsScroll.Viewport.Width);
+        var nextX = Math.Clamp(GroupTabsScroll.Offset.X - delta * GroupTabsWheelStep, 0, maxX);
+        if (Math.Abs(nextX - GroupTabsScroll.Offset.X) < 0.5)
+        {
+            return;
+        }
+
+        GroupTabsScroll.Offset = GroupTabsScroll.Offset.WithX(nextX);
+        args.Handled = true;
     }
 }

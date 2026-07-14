@@ -25,6 +25,11 @@
                         AutomationProperties.AutomationId="Proxy.GroupBarScroll"
                         HorizontalScrollBarVisibility="Hidden"
                         VerticalScrollBarVisibility="Disabled">
+            <ScrollViewer.Transitions>
+              <Transitions>
+                <VectorTransition Property="Offset" Duration="0:0:0.16" Easing="CubicEaseOut" />
+              </Transitions>
+            </ScrollViewer.Transitions>
             <Grid>
               <ItemsControl AutomationProperties.AutomationId="Proxy.GroupBar"
                             ItemsSource="{Binding VisibleGroupRows}">

@@ -156,6 +156,7 @@ internal static partial class DebugCommands
             $"batch={page.IsBatchDelayTesting.ToString().ToLowerInvariant()}",
             $"tested={string.Join(',', testedNodeNames)}",
             $"layout={page.LayoutMode.ToString().ToLowerInvariant()}",
+            $"sort={page.SortMode.ToString().ToLowerInvariant()}",
             $"expanded={page.ExpandedGroupName ?? string.Empty}"
         ]);
     }

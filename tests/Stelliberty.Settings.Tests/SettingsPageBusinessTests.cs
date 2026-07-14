@@ -56,7 +56,7 @@ public sealed class SettingsPageBusinessTests
         var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
 
         viewModel.IsLazyModeEnabled = true;
-        viewModel.IsAutoStartEnabled = true;
+        viewModel.SetAutoStartEnabled(true);
 
         Assert.Equal(2, store.SaveCount);
         Assert.Equal(1, service.ApplyCount);
@@ -73,13 +73,59 @@ public sealed class SettingsPageBusinessTests
         var service = new FakeAppBehaviorService { ShouldFail = true };
         var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
 
-        viewModel.IsAutoStartEnabled = true;
+        viewModel.SetAutoStartEnabled(true);
 
         Assert.False(settings.IsAutoStartEnabled);
         Assert.False(viewModel.IsAutoStartEnabled);
         Assert.Equal(0, store.SaveCount);
         Assert.Equal(1, service.ApplyCount);
         Assert.True(viewModel.IsStatusVisible);
+    }
+
+    [Fact(DisplayName = "App behavior keeps autostart enabled when disabling is denied")]
+    public void AppBehaviorKeepsAutoStartEnabledWhenDisablingIsDenied()
+    {
+        var settings = new AppSettings { IsAutoStartEnabled = true };
+        var store = new FakeSettingsStore(settings);
+        var service = new FakeAppBehaviorService { ShouldFail = true };
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+
+        viewModel.SetAutoStartEnabled(false);
+
+        Assert.True(settings.IsAutoStartEnabled);
+        Assert.True(viewModel.IsAutoStartEnabled);
+        Assert.Equal(0, store.SaveCount);
+        Assert.Equal(1, service.ApplyCount);
+    }
+
+    [Fact(DisplayName = "App behavior refresh does not recreate platform startup entry")]
+    public void AppBehaviorRefreshDoesNotRecreatePlatformStartupEntry()
+    {
+        var settings = new AppSettings { IsAutoStartEnabled = true };
+        var store = new FakeSettingsStore(settings);
+        var service = new FakeAppBehaviorService();
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+
+        viewModel.RefreshFromSettings();
+
+        Assert.Equal(0, service.ApplyCount);
+        Assert.Equal(0, store.SaveCount);
+        Assert.True(viewModel.IsAutoStartEnabled);
+    }
+
+    [Fact(DisplayName = "Changing silent start does not reconfigure platform startup")]
+    public void ChangingSilentStartDoesNotReconfigurePlatformStartup()
+    {
+        var settings = new AppSettings { IsAutoStartEnabled = true };
+        var store = new FakeSettingsStore(settings);
+        var service = new FakeAppBehaviorService();
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+
+        viewModel.IsSilentStartEnabled = true;
+
+        Assert.Equal(0, service.ApplyCount);
+        Assert.True(settings.IsSilentStartEnabled);
+        Assert.Equal(1, store.SaveCount);
     }
 
     [Fact(DisplayName = "Core config port changes request runtime refresh")]

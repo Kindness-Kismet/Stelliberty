@@ -9,6 +9,8 @@ on:
       - 'native/**'
       - 'tests/**'
       - 'scripts/**'
+      - '.github/scripts/**'
+      - '.github/workflows/stability-verification.yml'
       - 'Directory.Build.props'
       - 'Stelliberty.slnx'
       - 'Cargo.toml'

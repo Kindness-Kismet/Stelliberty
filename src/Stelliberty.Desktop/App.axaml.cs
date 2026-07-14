@@ -42,7 +42,6 @@ namespace Stelliberty.Desktop;
 
 public sealed partial class App : Avalonia.Application
 {
-    private const string SilentStartArgument = "--silent-start";
     private readonly DesktopTrayService _trayService = new();
     private SessionEndCleanupService? _sessionEndCleanup;
     private DispatcherTimer? _appUpdateAutoCheckTimer;
@@ -212,6 +211,9 @@ public sealed partial class App : Avalonia.Application
             var proxyPageLayout = Enum.TryParse<ProxyPageLayout>(settings.ProxyPageLayout, ignoreCase: true, out var parsedProxyLayout)
                 ? parsedProxyLayout
                 : ProxyPageLayout.Horizontal;
+            var proxyNodeSortMode = Enum.TryParse<ProxyNodeSortMode>(settings.ProxyNodeSortMode, ignoreCase: true, out var parsedProxyNodeSortMode)
+                ? parsedProxyNodeSortMode
+                : ProxyNodeSortMode.Default;
             var proxyPage = new ProxyPageViewModel(
                 proxyConfigLoader,
                 new ProxyDelayService(proxyDelayTester),
@@ -225,6 +227,12 @@ public sealed partial class App : Avalonia.Application
                 {
                     // 复用共享设置实例，避免后续完整保存丢失这个偏好。
                     settings.ProxyPageLayout = layout.ToString();
+                    settingsStore.Save(settings);
+                },
+                initialSortMode: proxyNodeSortMode,
+                persistSortMode: sortMode =>
+                {
+                    settings.ProxyNodeSortMode = sortMode.ToString();
                     settingsStore.Save(settings);
                 });
             var rulePage = new RulePageViewModel(new RuleListLoader(
@@ -288,7 +296,7 @@ public sealed partial class App : Avalonia.Application
                 DataContext = viewModel
             };
 
-            var shouldStartHidden = ShouldStartHidden(desktop, settings);
+            var shouldStartHidden = ShouldStartHidden(settings);
             if (shouldStartHidden)
             {
                 // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
@@ -333,14 +341,9 @@ public sealed partial class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static bool ShouldStartHidden(IClassicDesktopStyleApplicationLifetime desktop, AppSettings settings)
+    private static bool ShouldStartHidden(AppSettings settings)
     {
-        return settings.IsSilentStartEnabled || HasSilentStartArgument(desktop.Args);
-    }
-
-    private static bool HasSilentStartArgument(string[]? args)
-    {
-        return args?.Any(arg => string.Equals(arg, SilentStartArgument, StringComparison.OrdinalIgnoreCase)) == true;
+        return settings.IsSilentStartEnabled;
     }
 
     private void StopBackgroundServices()
