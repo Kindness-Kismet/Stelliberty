@@ -20,7 +20,7 @@ public static class AutoStartEntryBuilder
     public const string LinuxDesktopFileName = EntryName + ".desktop";
     public const string MacOSLaunchAgentFileName = LaunchAgentLabel + ".plist";
 
-    public static string WindowsScheduledTaskXml(string binaryPath, bool isSilentStartEnabled, string? userId = null)
+    public static string WindowsScheduledTaskXml(string binaryPath, string? userId = null)
     {
         var workingDirectory = Path.GetDirectoryName(binaryPath);
         var lines = new List<string>

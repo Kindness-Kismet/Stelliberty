@@ -15,11 +15,11 @@ public sealed class WindowsAppBehaviorService : IAppBehaviorService
 
     public void Apply(AppBehaviorApplicationRequest request)
     {
-        ApplyAutoStart(request.IsAutoStartEnabled, request.IsSilentStartEnabled);
+        ApplyAutoStart(request.IsAutoStartEnabled);
         AppLogger.Info($"Windows app behavior applied: autoStart={request.IsAutoStartEnabled}");
     }
 
-    private static void ApplyAutoStart(bool isEnabled, bool isSilentStartEnabled)
+    private static void ApplyAutoStart(bool isEnabled)
     {
         if (!isEnabled)
         {
@@ -38,13 +38,13 @@ public sealed class WindowsAppBehaviorService : IAppBehaviorService
             return;
         }
 
-        if (!RegisterScheduledTask(binaryPath, isSilentStartEnabled))
+        if (!RegisterScheduledTask(binaryPath))
         {
             throw new InvalidOperationException("Windows autostart scheduled task registration failed.");
         }
     }
 
-    private static bool RegisterScheduledTask(string binaryPath, bool isSilentStartEnabled)
+    private static bool RegisterScheduledTask(string binaryPath)
     {
         var xmlPath = Path.Combine(
             Path.GetTempPath(),
@@ -53,7 +53,7 @@ public sealed class WindowsAppBehaviorService : IAppBehaviorService
         {
             File.WriteAllText(
                 xmlPath,
-                AutoStartEntryBuilder.WindowsScheduledTaskXml(binaryPath, isSilentStartEnabled, CurrentUserSid()),
+                AutoStartEntryBuilder.WindowsScheduledTaskXml(binaryPath, CurrentUserSid()),
                 Encoding.Unicode);
             var result = RunSchtasks(
                 ["/create", "/tn", AutoStartEntryBuilder.WindowsTaskName, "/xml", xmlPath, "/f"],

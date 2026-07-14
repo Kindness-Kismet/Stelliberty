@@ -211,6 +211,9 @@ public sealed partial class App : Avalonia.Application
             var proxyPageLayout = Enum.TryParse<ProxyPageLayout>(settings.ProxyPageLayout, ignoreCase: true, out var parsedProxyLayout)
                 ? parsedProxyLayout
                 : ProxyPageLayout.Horizontal;
+            var proxyNodeSortMode = Enum.TryParse<ProxyNodeSortMode>(settings.ProxyNodeSortMode, ignoreCase: true, out var parsedProxyNodeSortMode)
+                ? parsedProxyNodeSortMode
+                : ProxyNodeSortMode.Default;
             var proxyPage = new ProxyPageViewModel(
                 proxyConfigLoader,
                 new ProxyDelayService(proxyDelayTester),
@@ -224,6 +227,12 @@ public sealed partial class App : Avalonia.Application
                 {
                     // 复用共享设置实例，避免后续完整保存丢失这个偏好。
                     settings.ProxyPageLayout = layout.ToString();
+                    settingsStore.Save(settings);
+                },
+                initialSortMode: proxyNodeSortMode,
+                persistSortMode: sortMode =>
+                {
+                    settings.ProxyNodeSortMode = sortMode.ToString();
                     settingsStore.Save(settings);
                 });
             var rulePage = new RulePageViewModel(new RuleListLoader(

@@ -633,6 +633,27 @@ public sealed class ProxyPageViewModelTests
         Assert.Equal(ProxyPageLayout.Horizontal, persisted);
     }
 
+    [Fact(DisplayName = "Sort mode persists across page recreation and config reload")]
+    public void SortModePersistsAcrossPageRecreationAndConfigReload()
+    {
+        var persisted = ProxyNodeSortMode.Default;
+        var page = new ProxyPageViewModel(persistSortMode: mode => persisted = mode);
+        page.LoadConfig(SampleConfig());
+
+        page.SetSortMode(ProxyNodeSortMode.Delay);
+        page.LoadConfig(SampleConfig());
+
+        Assert.Equal(ProxyNodeSortMode.Delay, page.SortMode);
+        Assert.Equal(["KR", "JP"], page.VisibleNodeRows.Select(row => row.Name));
+        Assert.Equal(ProxyNodeSortMode.Delay, persisted);
+
+        var recreated = new ProxyPageViewModel(initialSortMode: persisted);
+        recreated.LoadConfig(SampleConfig());
+
+        Assert.Equal(ProxyNodeSortMode.Delay, recreated.SortMode);
+        Assert.Equal(["KR", "JP"], recreated.VisibleNodeRows.Select(row => row.Name));
+    }
+
     [Fact(DisplayName = "Vertical group cards reflect visible groups collapsed by default")]
     public void VerticalGroupCardsReflectVisibleGroupsCollapsedByDefault()
     {

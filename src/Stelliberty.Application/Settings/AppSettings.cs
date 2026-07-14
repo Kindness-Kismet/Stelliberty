@@ -73,6 +73,8 @@ public sealed class AppSettings
 
     public string ProxyPageLayout { get; set; } = "Horizontal";
 
+    public string ProxyNodeSortMode { get; set; } = "Default";
+
     public string DelayTestUrl { get; set; } = "https://www.gstatic.com/generate_204";
 
     public bool IsAllowLanEnabled { get; set; }

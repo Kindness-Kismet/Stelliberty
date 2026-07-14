@@ -19,6 +19,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private readonly IProxyConfigProvider? _primaryConfigProvider;
     private readonly IProxyConfigProvider? _fallbackConfigProvider;
     private readonly ILocalizationService? _localization;
+    private readonly Action<ProxyNodeSortMode>? _persistSortMode;
+    private readonly Action<ProxyPageLayout>? _persistLayout;
     private ProxyConfig _config = new([], new Dictionary<string, ProxyNode>());
     private IReadOnlyList<ProxyGroup> _visibleGroups = [];
     private IReadOnlyDictionary<string, ProxyNode> _entryNodes = new Dictionary<string, ProxyNode>(StringComparer.Ordinal);
@@ -34,7 +36,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private string _searchKeyword = string.Empty;
     private ProxyPageLayout _layoutMode;
     private string? _expandedGroupName;
-    private readonly Action<ProxyPageLayout>? _persistLayout;
     private Domain.Proxies.OutboundMode _outboundMode = Domain.Proxies.OutboundMode.Rule;
     private bool _isCoreRunning;
     private readonly HashSet<string> _delayTestedNodeNames = new(StringComparer.Ordinal);
@@ -73,7 +74,9 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         ILocalizationService? localization = null,
         ProxySelectionService? selectionService = null,
         ProxyPageLayout initialLayout = ProxyPageLayout.Horizontal,
-        Action<ProxyPageLayout>? persistLayout = null)
+        Action<ProxyPageLayout>? persistLayout = null,
+        ProxyNodeSortMode initialSortMode = ProxyNodeSortMode.Default,
+        Action<ProxyNodeSortMode>? persistSortMode = null)
     {
         _loader = loader;
         _delayService = delayService;
@@ -82,6 +85,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         _primaryConfigProvider = primaryConfigProvider;
         _fallbackConfigProvider = fallbackConfigProvider;
         _localization = localization;
+        _sortMode = initialSortMode;
+        _persistSortMode = persistSortMode;
         _layoutMode = initialLayout;
         _persistLayout = persistLayout;
         _emptyText = Localize("Proxy.Empty.NoGroups");
@@ -369,6 +374,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         }
 
         _sortMode = mode;
+        _persistSortMode?.Invoke(mode);
         RaiseProxyStateChanged();
     }
 

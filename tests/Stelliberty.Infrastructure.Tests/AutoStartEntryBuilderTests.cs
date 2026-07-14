@@ -10,7 +10,6 @@ public sealed class AutoStartEntryBuilderTests
     {
         var xml = AutoStartEntryBuilder.WindowsScheduledTaskXml(
             @"C:\Program Files\Stelliberty\stelliberty.exe",
-            isSilentStartEnabled: true,
             userId: "S-1-5-21-test");
 
         Assert.Contains("<LogonTrigger>", xml);
@@ -23,9 +22,7 @@ public sealed class AutoStartEntryBuilderTests
     [Fact(DisplayName = "Windows scheduled task XML escapes path and omits silent argument")]
     public void WindowsScheduledTaskXmlEscapesPathAndOmitsSilentArgument()
     {
-        var xml = AutoStartEntryBuilder.WindowsScheduledTaskXml(
-            @"C:\A&B\stelliberty.exe",
-            isSilentStartEnabled: false);
+        var xml = AutoStartEntryBuilder.WindowsScheduledTaskXml(@"C:\A&B\stelliberty.exe");
 
         Assert.Contains(@"<Command>C:\A&amp;B\stelliberty.exe</Command>", xml);
         Assert.DoesNotContain("<Arguments>", xml);

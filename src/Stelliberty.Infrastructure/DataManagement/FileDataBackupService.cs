@@ -30,6 +30,7 @@ public sealed class FileDataBackupService(string appDataDirectory) : IDataManage
         "IsUnifiedDelayEnabled",
         "OutboundMode",
         "ProxyPageLayout",
+        "ProxyNodeSortMode",
         "DelayTestUrl",
         "IsAllowLanEnabled",
         "LanAuthenticationUserName",
