@@ -33,7 +33,7 @@ public static class AutoStartEntryBuilder
             "  <Triggers>",
             "    <LogonTrigger>",
             "      <Enabled>true</Enabled>",
-            "      <Delay>PT2S</Delay>"
+            "      <Delay>PT1S</Delay>"
         };
 
         if (!string.IsNullOrWhiteSpace(userId))
@@ -55,7 +55,7 @@ public static class AutoStartEntryBuilder
         }
 
         lines.Add("      <LogonType>InteractiveToken</LogonType>");
-        lines.Add("      <RunLevel>HighestAvailable</RunLevel>");
+        lines.Add("      <RunLevel>LeastPrivilege</RunLevel>");
         lines.AddRange(
         [
             "    </Principal>",
@@ -79,11 +79,6 @@ public static class AutoStartEntryBuilder
             "    <Exec>",
             $"      <Command>{Xml(binaryPath)}</Command>"
         ]);
-
-        if (isSilentStartEnabled)
-        {
-            lines.Add("      <Arguments>--silent-start</Arguments>");
-        }
 
         if (!string.IsNullOrWhiteSpace(workingDirectory))
         {

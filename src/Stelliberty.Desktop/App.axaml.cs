@@ -42,7 +42,6 @@ namespace Stelliberty.Desktop;
 
 public sealed partial class App : Avalonia.Application
 {
-    private const string SilentStartArgument = "--silent-start";
     private readonly DesktopTrayService _trayService = new();
     private SessionEndCleanupService? _sessionEndCleanup;
     private DispatcherTimer? _appUpdateAutoCheckTimer;
@@ -288,7 +287,7 @@ public sealed partial class App : Avalonia.Application
                 DataContext = viewModel
             };
 
-            var shouldStartHidden = ShouldStartHidden(desktop, settings);
+            var shouldStartHidden = ShouldStartHidden(settings);
             if (shouldStartHidden)
             {
                 // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
@@ -333,14 +332,9 @@ public sealed partial class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static bool ShouldStartHidden(IClassicDesktopStyleApplicationLifetime desktop, AppSettings settings)
+    private static bool ShouldStartHidden(AppSettings settings)
     {
-        return settings.IsSilentStartEnabled || HasSilentStartArgument(desktop.Args);
-    }
-
-    private static bool HasSilentStartArgument(string[]? args)
-    {
-        return args?.Any(arg => string.Equals(arg, SilentStartArgument, StringComparison.OrdinalIgnoreCase)) == true;
+        return settings.IsSilentStartEnabled;
     }
 
     private void StopBackgroundServices()
