@@ -63,14 +63,28 @@ public sealed class UniformWrapPanel : Panel
     protected override Size ArrangeOverride(Size finalSize)
     {
         var (columns, itemWidth) = ComputeLayout(finalSize.Width);
-        var rowPitch = ItemHeight + RowSpacing;
+        var x = 0d;
+        var y = 0d;
+        var nextY = 0d;
+
         for (var index = 0; index < Children.Count; index++)
         {
             var column = index % columns;
             var row = index / columns;
-            var x = column * (itemWidth + ColumnSpacing);
-            var y = row * rowPitch;
-            Children[index].Arrange(new Rect(x, y, itemWidth, ItemHeight));
+            var idealRight = (column + 1) * itemWidth + column * ColumnSpacing;
+            var idealBottom = (row + 1) * ItemHeight + row * RowSpacing;
+
+            // 复用已取整边界，避免末列因独立取整越过面板边界。
+            Children[index].Arrange(new Rect(new Point(x, y), new Point(idealRight, idealBottom)));
+            x = Children[index].Bounds.Right + ColumnSpacing;
+            nextY = Math.Max(nextY, Children[index].Bounds.Bottom);
+
+            if (column == columns - 1)
+            {
+                x = 0d;
+                y = nextY + RowSpacing;
+                nextY = 0d;
+            }
         }
 
         return finalSize;

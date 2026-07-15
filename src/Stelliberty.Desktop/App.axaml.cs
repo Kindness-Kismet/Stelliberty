@@ -63,12 +63,19 @@ public sealed partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+#if DEBUG
+            var startupStartedAt = Stopwatch.GetTimestamp();
+            LogStartupTrace("Framework initialization started", startupStartedAt);
+#endif
             AppLogger.Info("Creating main window");
             var platformDirectories = new DesktopPlatformDirectories();
             // 代理组图标磁盘缓存，进程重启后免重下。
             RemoteImageCache.Configure(Path.Combine(platformDirectories.AppDataDirectory, "icon-cache"));
             var settingsStore = new JsonAppSettingsStore(platformDirectories);
             var settings = settingsStore.Load();
+#if DEBUG
+            LogStartupTrace($"Settings loaded silent={settings.IsSilentStartEnabled} tun={settings.IsTunEnabled}", startupStartedAt);
+#endif
             var updateChecker = new GitHubAppUpdateChecker(() => settingsStore.Load().AppUpdateChannel);
             var systemProxyPlatform = CurrentSystemProxyPlatform();
             IUwpLoopbackService uwpLoopbackService = OperatingSystem.IsWindows()
@@ -178,6 +185,9 @@ public sealed partial class App : Avalonia.Application
 #endif
 
             var initialServiceModeStatus = GetInitialServiceModeStatus(serviceModeManager, settings.IsTunEnabled);
+#if DEBUG
+            LogStartupTrace($"Initial service status ready state={initialServiceModeStatus.State}", startupStartedAt);
+#endif
             var coreManager = CreateCoreManager(initialServiceModeStatus, serviceModeManager);
             var coreUpdater = new MihomoCoreUpdater(DesktopApplicationLayout.CoreBinaryPath, coreManager);
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
@@ -280,6 +290,9 @@ public sealed partial class App : Avalonia.Application
                 clipboardWriter: clipboardWriter,
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
+#if DEBUG
+            LogStartupTrace("Main view model created", startupStartedAt);
+#endif
             var autoUpdateScheduler = new AppUpdateAutoCheckScheduler(updateChecker, settingsStore.Load, settingsStore.Save, () => DateTimeOffset.Now);
             var autoUpdateRunner = new AppUpdateAutoCheckRunner(autoUpdateScheduler, viewModel.Update.ApplyAutoCheckResult);
             var subscriptionAutoUpdate = new SubscriptionAutoUpdateCoordinator(
@@ -295,13 +308,15 @@ public sealed partial class App : Avalonia.Application
             {
                 DataContext = viewModel
             };
+#if DEBUG
+            LogStartupTrace("Main window constructed and bound", startupStartedAt);
+#endif
 
             var shouldStartHidden = ShouldStartHidden(settings);
             if (shouldStartHidden)
             {
                 // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                mainWindow.PrepareForSilentStart();
                 AppLogger.Info("Silent start enabled; main window stays hidden");
             }
             else
@@ -325,17 +340,26 @@ public sealed partial class App : Avalonia.Application
             _sessionEndCleanup.Start();
             _trayService.Attach(desktop, mainWindow, viewModel, localization);
 #if DEBUG
+            LogStartupTrace("Tray service attached", startupStartedAt);
+#endif
+#if DEBUG
             DebugCommands.Start(mainWindow);
 #endif
             // 首屏出现后再启动重活，保持窗口启动响应。
             Dispatcher.UIThread.Post(
                 () =>
                 {
+#if DEBUG
+                    LogStartupTrace("Background startup dispatch entered", startupStartedAt);
+#endif
                     _ = InitializeSubscriptionServicesAsync(subscriptionPage, subscriptionAutoUpdate);
                     _ = overridePage.InitializeAsync();
                     _ = StartCoreServicesAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner, coreManager, viewModel, proxyPage, rulePage, proxySelectionRestorer);
                 },
                 DispatcherPriority.Background);
+#if DEBUG
+            LogStartupTrace("Framework initialization completed", startupStartedAt);
+#endif
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -481,41 +505,77 @@ public sealed partial class App : Avalonia.Application
 
     private static ServiceModeStatus GetInitialServiceModeStatus(IServiceModeManager serviceModeManager, bool waitForTunService)
     {
+#if DEBUG
+        var startedAt = Stopwatch.GetTimestamp();
+        AppLogger.Info($"[StartupTrace] Service status probing started waitForTun={waitForTunService}");
+#endif
         var status = ProbeServiceModeStatus(serviceModeManager);
         if (!waitForTunService || status.IsRunning || !status.IsInstalled)
         {
+#if DEBUG
+            AppLogger.Info($"[StartupTrace] Service status probing completed elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms polls=1 state={status.State}");
+#endif
             return status;
         }
 
         // TUN 启动依赖服务核心；登录瞬间服务可能仍在 SCM 启动路径上。
         var stopwatch = Stopwatch.StartNew();
+#if DEBUG
+        var pollCount = 1;
+#endif
         while (stopwatch.Elapsed < InitialServiceModeTunWaitTimeout)
         {
             Thread.Sleep(InitialServiceModeStatusPollInterval);
             status = ProbeServiceModeStatus(serviceModeManager);
+#if DEBUG
+            pollCount++;
+#endif
             if (status.IsRunning || !status.IsInstalled)
             {
+#if DEBUG
+                AppLogger.Info($"[StartupTrace] Service status probing completed elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms polls={pollCount} state={status.State}");
+#endif
                 return status;
             }
         }
 
+#if DEBUG
+        AppLogger.Info($"[StartupTrace] Service status probing timed out elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms polls={pollCount} state={status.State}");
+#endif
         return status;
     }
 
     private static ServiceModeStatus ProbeServiceModeStatus(IServiceModeManager serviceModeManager)
     {
+#if DEBUG
+        var startedAt = Stopwatch.GetTimestamp();
+#endif
         try
         {
-            return serviceModeManager.GetStatusAsync(CancellationToken.None)
+            var status = serviceModeManager.GetStatusAsync(CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
+#if DEBUG
+            AppLogger.Info($"[StartupTrace] Service status probe elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms state={status.State}");
+#endif
+            return status;
         }
         catch (Exception exception)
         {
+#if DEBUG
+            AppLogger.Info($"[StartupTrace] Service status probe failed elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms");
+#endif
             AppLogger.Warning($"Service-mode status probe failed: {exception.Message}");
             return ServiceModeStatus.Unavailable(exception.Message);
         }
     }
+
+#if DEBUG
+    private static void LogStartupTrace(string stage, long startedAt)
+    {
+        AppLogger.Info($"[StartupTrace] {stage} elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms");
+    }
+#endif
 
     private ICoreManager CreateCoreManager(ServiceModeStatus initialServiceModeStatus, IServiceModeManager serviceModeManager)
     {
