@@ -89,8 +89,7 @@ class SimulationTests:
             self.require("window.state", contains=["visible=true"]),
         ))
         self.step("Trigger window shortcut after recording", lambda: (
-            self.require("control.click Settings.BackButton"),
-            self.require("page.open home"),
+            self.require("control.click Navigation.HomeButton"),
             time.sleep(0.6),
             self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=true"]),
             self.require("window.state", contains=["visible=false"]),
