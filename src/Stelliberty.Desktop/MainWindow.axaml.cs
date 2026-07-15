@@ -5,6 +5,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -67,6 +68,7 @@ public sealed partial class MainWindow : Window
         DataContextChanged += OnDataContextChanged;
         PropertyChanged += OnWindowPropertyChanged;
         Opened += OnOpened;
+        AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Bubble, handledEventsToo: true);
         _windowStateService.Attach(this);
         UpdateWindowStateVisuals();
 #if DEBUG
@@ -164,6 +166,26 @@ public sealed partial class MainWindow : Window
         {
             _systemAccentColorService.Attach(this, viewModel.Theme);
             StartWarmup();
+        }
+    }
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs args)
+    {
+        if (args.Handled
+            || args.Key != Key.Escape
+            || args.KeyModifiers != KeyModifiers.None
+            || DialogHost.IsOpen
+            || DataContext is not MainWindowViewModel viewModel
+            || viewModel.CurrentPage != AppNavigationPage.Settings
+            || !viewModel.Settings.IsBackVisible)
+        {
+            return;
+        }
+
+        if (viewModel.Settings.BackCommand.CanExecute(null))
+        {
+            viewModel.Settings.BackCommand.Execute(null);
+            args.Handled = true;
         }
     }
 
