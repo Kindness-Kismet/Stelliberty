@@ -81,5 +81,32 @@
       </Border>
     </StackPanel>
   </Border>
+  <Border Classes="surface-group">
+    <Border Classes="settings-inline-row">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+        <StackPanel Grid.Column="0" Spacing="3">
+          <TextBlock Classes="settings-row-title" Text="{Binding AppBehavior.WindowToggleHotkeyText}" />
+          <TextBlock Classes="settings-row-subtitle"
+                     AutomationProperties.AutomationId="Settings.WindowToggleHotkeyDescriptionText"
+                     Text="{Binding AppBehavior.WindowToggleHotkeyDescriptionText}"
+                     TextWrapping="Wrap" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <TextBox x:Name="WindowToggleHotkeyBox"
+                   Width="170"
+                   Classes="settings-input"
+                   AutomationProperties.AutomationId="Settings.WindowToggleHotkeyBox"
+                   IsReadOnly="True"
+                   Text="{Binding AppBehavior.WindowToggleHotkey, Mode=OneWay}"
+                   PlaceholderText="{Binding AppBehavior.WindowToggleHotkeyWatermarkText}"
+                   KeyDown="OnWindowToggleHotkeyKeyDown" />
+          <Button Classes="settings-reset"
+                  AutomationProperties.AutomationId="Settings.WindowToggleHotkeyClearButton"
+                  Command="{Binding AppBehavior.ClearWindowToggleHotkeyCommand}"
+                  Content="{Binding AppBehavior.ClearWindowToggleHotkeyText}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Border>
 </StackPanel>
 </UserControl>

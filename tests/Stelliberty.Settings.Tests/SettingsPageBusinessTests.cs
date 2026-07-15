@@ -62,7 +62,6 @@ public sealed class SettingsPageBusinessTests
         Assert.Equal(1, service.ApplyCount);
         Assert.True(service.LastRequest?.IsLazyModeEnabled);
         Assert.True(service.LastRequest?.IsAutoStartEnabled);
-        Assert.True(viewModel.IsStatusVisible);
     }
 
     [Fact(DisplayName = "app behavior rolls back when platform request fails")]
@@ -79,7 +78,6 @@ public sealed class SettingsPageBusinessTests
         Assert.False(viewModel.IsAutoStartEnabled);
         Assert.Equal(0, store.SaveCount);
         Assert.Equal(1, service.ApplyCount);
-        Assert.True(viewModel.IsStatusVisible);
     }
 
     [Fact(DisplayName = "App behavior keeps autostart enabled when disabling is denied")]

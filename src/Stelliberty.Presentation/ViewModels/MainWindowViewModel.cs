@@ -75,6 +75,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Func<bool>? isServiceModeCoreHostActive = null,
         Func<SystemProxyApplicationRequest>? systemProxyRequestFactory = null,
         IAppBehaviorService? appBehaviorService = null,
+        IGlobalHotkeyService? globalHotkeyService = null,
         SelectedRuntimeFallbackGenerator? runtimeFallbackGenerator = null,
         RuntimeConfigGenerator? runtimeConfigGenerator = null,
         ISelectedSubscriptionRuntimeStore? runtimeStore = null,
@@ -121,7 +122,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
 
         Update = new SettingsUpdateViewModel(_settings, settingsStore, localization, _now, updateChecker);
-        AppBehavior = new SettingsAppBehaviorViewModel(_settings, settingsStore, localization, appBehaviorService);
+        AppBehavior = new SettingsAppBehaviorViewModel(_settings, settingsStore, localization, appBehaviorService, globalHotkeyService);
+        AppBehavior.ToastRequested += OnToastRequested;
         Language = new SettingsLanguageViewModel(_settings, settingsStore, localization);
         Theme = new SettingsThemeViewModel(_settings, settingsStore, localization, windowEffectCapability);
         CoreConfig = new SettingsCoreConfigViewModel(
@@ -247,6 +249,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SystemIntegration.ToastRequested -= OnToastRequested;
         HomePage.ToastRequested -= OnToastRequested;
         Update.ToastRequested -= OnToastRequested;
+        AppBehavior.ToastRequested -= OnToastRequested;
         HomePage.PropertyChanged -= OnHomePagePropertyChanged;
         ProxyPage.NodeSelectionClosedConnections -= OnProxyNodeSelectionClosedConnections;
         ProxyPage.PropertyChanged -= OnProxyPagePropertyChanged;

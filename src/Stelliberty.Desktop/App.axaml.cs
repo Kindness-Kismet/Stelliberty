@@ -90,6 +90,7 @@ public sealed partial class App : Avalonia.Application
             var networkConnectionProbe = new SystemNetworkConnectionProbe();
             var processPrivilegeProbe = new SystemProcessPrivilegeProbe();
             IAppBehaviorService appBehaviorService = CreateAppBehaviorService();
+            IGlobalHotkeyService globalHotkeyService = CreateGlobalHotkeyService(_trayService.ToggleMainWindowVisibility);
             var initialLanguage = AppLanguageParser.Parse(settings.Language);
             var localization = new JsonLocalizationService(initialLanguage);
             LocalizationManager.Initialize(localization);
@@ -273,6 +274,7 @@ public sealed partial class App : Avalonia.Application
                 isServiceModeCoreHostActive: () => _isServiceModeCoreHostActive,
                 systemProxyRequestFactory: () => SystemProxyApplicationRequest.Build(settingsStore.Load(), systemProxyPlatform),
                 appBehaviorService: appBehaviorService,
+                globalHotkeyService: globalHotkeyService,
                 runtimeFallbackGenerator: new SelectedRuntimeFallbackGenerator(
                     subscriptionStore,
                     overrideSelectionUpdater,
@@ -329,6 +331,7 @@ public sealed partial class App : Avalonia.Application
                 StopBackgroundServices();
                 viewModel.HomePage.DisableSystemProxyOnShutdown();
                 _trayService.Dispose();
+                globalHotkeyService.Dispose();
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
                 viewModel.Dispose();
@@ -339,6 +342,11 @@ public sealed partial class App : Avalonia.Application
             _sessionEndCleanup = new SessionEndCleanupService(viewModel.HomePage.DisableSystemProxyOnShutdown);
             _sessionEndCleanup.Start();
             _trayService.Attach(desktop, mainWindow, viewModel, localization);
+            var hotkeyResult = globalHotkeyService.Apply(settings.WindowToggleHotkey);
+            if (!hotkeyResult.IsSuccess)
+            {
+                AppLogger.Warning($"Global window hotkey startup registration failed: {hotkeyResult.Error}");
+            }
 #if DEBUG
             LogStartupTrace("Tray service attached", startupStartedAt);
 #endif
@@ -723,5 +731,12 @@ public sealed partial class App : Avalonia.Application
         }
 
         return new UnsupportedAppBehaviorService();
+    }
+
+    private static IGlobalHotkeyService CreateGlobalHotkeyService(Action activated)
+    {
+        return OperatingSystem.IsWindows()
+            ? new WindowsGlobalHotkeyService(activated)
+            : new UnsupportedGlobalHotkeyService();
     }
 }

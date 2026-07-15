@@ -39,6 +39,8 @@ public sealed class AppSettings
 
     public bool IsAutoStartEnabled { get; set; }
 
+    public string WindowToggleHotkey { get; set; } = string.Empty;
+
     public bool IsAutoCheckUpdateEnabled { get; set; }
 
     public string AppUpdateCheckInterval { get; set; } = "startup";

@@ -104,7 +104,7 @@ internal static partial class DebugCommands
             $"trayDoubleClick={Bool(behavior.IsTrayDoubleClickEnabled)}",
             $"lazyMode={Bool(behavior.IsLazyModeEnabled)}",
             $"autoStart={Bool(behavior.IsAutoStartEnabled)}",
-            $"status={behavior.StatusText}"
+            $"windowToggleHotkey={behavior.WindowToggleHotkey}"
         ]);
     }
 
@@ -670,7 +670,8 @@ internal static partial class DebugCommands
             "minimize-to-tray",
             "tray-double-click",
             "lazy-mode",
-            "auto-start"
+            "auto-start",
+            "window-toggle-hotkey"
         ];
     }
 
@@ -685,6 +686,7 @@ internal static partial class DebugCommands
             case "tray-double-click": behavior.IsTrayDoubleClickEnabled = ParseBool(normalizedValue); break;
             case "lazy-mode": behavior.IsLazyModeEnabled = ParseBool(normalizedValue); break;
             case "auto-start": behavior.SetAutoStartEnabled(ParseBool(normalizedValue)); break;
+            case "window-toggle-hotkey": behavior.SetWindowToggleHotkey(normalizedValue); break;
             default: throw new InvalidOperationException($"Unknown app behavior setting: {key}");
         }
     }

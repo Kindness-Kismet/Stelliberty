@@ -228,7 +228,7 @@ internal sealed class DesktopTrayService : IDisposable
         if (_viewModel?.AppBehavior.IsTrayDoubleClickEnabled != true)
         {
             _lastTrayClickTick = 0;
-            ToggleMainWindowVisibilityFromTray();
+            ToggleMainWindowVisibility();
             return;
         }
 
@@ -237,7 +237,7 @@ internal sealed class DesktopTrayService : IDisposable
             return;
         }
 
-        ToggleMainWindowVisibilityFromTray();
+        ToggleMainWindowVisibility();
     }
 
     private bool ConsumeTrayDoubleClick()
@@ -254,7 +254,7 @@ internal sealed class DesktopTrayService : IDisposable
         return elapsed <= TrayDoubleClickThreshold;
     }
 
-    private void ToggleMainWindowVisibilityFromTray()
+    public void ToggleMainWindowVisibility()
     {
         if (_window is null)
         {
