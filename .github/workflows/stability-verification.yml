@@ -176,6 +176,20 @@ jobs:
           echo "### Installer Data Persistence" >> "$GITHUB_STEP_SUMMARY"
           echo "${{ matrix.label }} replacement simulation preserved the built payload and portable data." >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify Windows shortcut registration and action routing
+        if: matrix.os_family == 'windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          python .github/scripts/simulation_tests.py --shortcut-only --os-family windows --app-exec "$env:APP_EXEC" --app-output "$env:APP_OUTPUT"
+
+      - name: Verify Unix shortcut action routing
+        if: matrix.os_family != 'windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/scripts/simulation_tests.py --shortcut-only --os-family ${{ matrix.os_family }} --app-exec "$APP_EXEC" --app-output "$APP_OUTPUT"
+
       - name: Run Windows post-build simulation tests
         if: matrix.os_family == 'windows'
         shell: pwsh
