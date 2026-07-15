@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.Threading;
+using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Localization;
 using Stelliberty.Presentation.ViewModels;
 
@@ -275,6 +276,10 @@ internal sealed class DesktopTrayService : IDisposable
         {
             return;
         }
+#if DEBUG
+        var startedAt = Stopwatch.GetTimestamp();
+        AppLogger.Info($"[StartupTrace] Tray window show started visible={_window.IsVisible} state={_window.WindowState}");
+#endif
         if (_desktop is not null)
         {
             if (_desktop.MainWindow is null)
@@ -290,6 +295,9 @@ internal sealed class DesktopTrayService : IDisposable
             _window.WindowState = WindowState.Normal;
         }
         _window.Activate();
+#if DEBUG
+        AppLogger.Info($"[StartupTrace] Tray window show returned elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms visible={_window.IsVisible} state={_window.WindowState}");
+#endif
     }
 
     private void OnCopyPowerShellClicked(object? sender, EventArgs args) => _homePage?.CopyTerminalProxyCommand(TerminalShell.PowerShell);

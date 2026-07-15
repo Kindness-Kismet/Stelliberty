@@ -40,6 +40,7 @@ public sealed partial class MainWindow : Window
 #if DEBUG
     private long _navigationDebugVersion;
     private long _hotReloadRecoveryVersion;
+    private long _warmupStartedAt;
 #endif
 
     private static readonly AppNavigationPage[] WarmupOrder =
@@ -152,6 +153,13 @@ public sealed partial class MainWindow : Window
 
     private void OnOpened(object? sender, EventArgs args)
     {
+#if DEBUG
+        var openedAt = Stopwatch.GetTimestamp();
+        AppLogger.Info($"[StartupTrace] Main window opened warmupBeforeFirstShow={_warmupBeforeFirstShow} pendingWarmup={HasPendingWarmup()}");
+        Dispatcher.UIThread.Post(
+            () => AppLogger.Info($"[StartupTrace] Main window first background turn elapsed={Stopwatch.GetElapsedTime(openedAt).TotalMilliseconds:0.0}ms"),
+            DispatcherPriority.Background);
+#endif
         _hasOpened = true;
         if (DataContext is MainWindowViewModel viewModel)
         {
@@ -166,6 +174,9 @@ public sealed partial class MainWindow : Window
     public void PrepareForSilentStart()
     {
         _warmupBeforeFirstShow = true;
+#if DEBUG
+        AppLogger.Info("[StartupTrace] Silent window warmup requested");
+#endif
         StartWarmup();
     }
 
@@ -205,7 +216,13 @@ public sealed partial class MainWindow : Window
     }
 
     private void StartWarmup()
-        => StartWarmup(++_warmupVersion);
+    {
+#if DEBUG
+        _warmupStartedAt = Stopwatch.GetTimestamp();
+        AppLogger.Info($"[StartupTrace] Window warmup started pages={WarmupOrder.Length}");
+#endif
+        StartWarmup(++_warmupVersion);
+    }
 
     private void StartWarmup(long version)
     {
@@ -219,6 +236,12 @@ public sealed partial class MainWindow : Window
     {
         if (version != _warmupVersion || index >= WarmupOrder.Length)
         {
+#if DEBUG
+            if (version == _warmupVersion && index >= WarmupOrder.Length)
+            {
+                AppLogger.Info($"[StartupTrace] Window warmup completed elapsed={Stopwatch.GetElapsedTime(_warmupStartedAt).TotalMilliseconds:0.0}ms");
+            }
+#endif
             return;
         }
 
@@ -231,11 +254,17 @@ public sealed partial class MainWindow : Window
                 }
 
                 var page = WarmupOrder[index];
+#if DEBUG
+                var pageStartedAt = Stopwatch.GetTimestamp();
+#endif
                 EnsurePageLoaded(page);
                 if (_pageHosts.TryGetValue(page, out var host))
                 {
                     host.UpdateLayout();
                 }
+#if DEBUG
+                AppLogger.Info($"[StartupTrace] Window warmup page={page} elapsed={Stopwatch.GetElapsedTime(pageStartedAt).TotalMilliseconds:0.0}ms total={Stopwatch.GetElapsedTime(_warmupStartedAt).TotalMilliseconds:0.0}ms");
+#endif
 
                 WarmupFrom(index + 1, version);
             },

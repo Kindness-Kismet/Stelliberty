@@ -1,4 +1,5 @@
 #if DEBUG
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using Avalonia.Threading;
@@ -50,7 +51,16 @@ internal static partial class DebugCommands
 
         try
         {
+            var receivedAt = Stopwatch.GetTimestamp();
+            if (string.Equals(command, "window.show", StringComparison.OrdinalIgnoreCase))
+            {
+                AppLogger.Info("[StartupTrace] Debug window.show received");
+            }
             var result = await Dispatcher.UIThread.InvokeAsync(() => ExecuteAsync(window, command));
+            if (string.Equals(command, "window.show", StringComparison.OrdinalIgnoreCase))
+            {
+                AppLogger.Info($"[StartupTrace] Debug window.show completed elapsed={Stopwatch.GetElapsedTime(receivedAt).TotalMilliseconds:0.0}ms");
+            }
             await writer.WriteLineAsync(result is null ? "OK" : $"OK {result}");
         }
         catch (Exception exception)
