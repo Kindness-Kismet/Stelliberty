@@ -133,6 +133,8 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         var currentValue = _settings.WindowToggleHotkey;
         if (string.Equals(currentValue, nextValue, StringComparison.Ordinal))
         {
+            var currentResult = _globalHotkeyService?.Apply(nextValue) ?? GlobalHotkeyApplyResult.Success();
+            ShowWindowToggleHotkeyResult(currentResult, nextValue);
             return;
         }
 
@@ -140,7 +142,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         if (!result.IsSuccess)
         {
             AppLogger.Warning($"Global window hotkey apply failed: {result.Error}");
-            ToastRequested?.Invoke(this, (HotkeyErrorText(result.Error), ToastType.Error));
+            ShowWindowToggleHotkeyResult(result, nextValue);
             return;
         }
 
@@ -167,10 +169,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         }
 
         OnPropertyChanged(nameof(WindowToggleHotkey));
-        var toastKey = string.IsNullOrEmpty(nextValue)
-            ? "Settings.AppBehavior.WindowToggleHotkey.Toast.Cleared"
-            : "Settings.AppBehavior.WindowToggleHotkey.Toast.Registered";
-        ToastRequested?.Invoke(this, (_localization.GetString(toastKey), ToastType.Success));
+        ShowWindowToggleHotkeyResult(result, nextValue);
     }
 
     public void Dispose()
@@ -215,6 +214,20 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
             _ => "Settings.AppBehavior.WindowToggleHotkey.Toast.Failed",
         };
         return _localization.GetString(key);
+    }
+
+    private void ShowWindowToggleHotkeyResult(GlobalHotkeyApplyResult result, string gesture)
+    {
+        if (!result.IsSuccess)
+        {
+            ToastRequested?.Invoke(this, (HotkeyErrorText(result.Error), ToastType.Error));
+            return;
+        }
+
+        var key = string.IsNullOrEmpty(gesture)
+            ? "Settings.AppBehavior.WindowToggleHotkey.Toast.Cleared"
+            : "Settings.AppBehavior.WindowToggleHotkey.Toast.Registered";
+        ToastRequested?.Invoke(this, (_localization.GetString(key), ToastType.Success));
     }
 
     private void OnLanguageChanged(object? sender, EventArgs e)

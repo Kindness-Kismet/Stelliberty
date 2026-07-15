@@ -13,7 +13,6 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
-    private const uint ModWin = 0x0008;
     private const uint ModNoRepeat = 0x4000;
     private const long ActivationCooldownMilliseconds = 500;
     private const int ErrorHotkeyAlreadyRegistered = 1409;
@@ -169,28 +168,39 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
     private static bool TryParse(string gesture, out ParsedHotkey hotkey)
     {
         var tokens = gesture.Split('+', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var modifiers = 0u;
-        var virtualKey = 0u;
-        foreach (var token in tokens)
+        if (tokens.Length is < 2 or > 3)
         {
-            switch (token.ToLowerInvariant())
+            hotkey = default;
+            return false;
+        }
+
+        var modifiers = 0u;
+        for (var index = 0; index < tokens.Length - 1; index++)
+        {
+            var modifier = tokens[index].ToLowerInvariant() switch
             {
-                case "ctrl": modifiers |= ModControl; break;
-                case "alt": modifiers |= ModAlt; break;
-                case "shift": modifiers |= ModShift; break;
-                case "win": modifiers |= ModWin; break;
-                default:
-                    if (virtualKey != 0 || !TryVirtualKey(token, out virtualKey))
-                    {
-                        hotkey = default;
-                        return false;
-                    }
-                    break;
+                "ctrl" => ModControl,
+                "alt" => ModAlt,
+                "shift" => ModShift,
+                _ => 0u,
+            };
+            if (modifier == 0 || (modifiers & modifier) != 0)
+            {
+                hotkey = default;
+                return false;
             }
+
+            modifiers |= modifier;
+        }
+
+        if (!TryVirtualKey(tokens[^1], out var virtualKey))
+        {
+            hotkey = default;
+            return false;
         }
 
         hotkey = new ParsedHotkey(modifiers, virtualKey);
-        return modifiers != 0 && virtualKey != 0;
+        return true;
     }
 
     private static bool TryVirtualKey(string token, out uint virtualKey)
@@ -204,31 +214,14 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
         if (token.Length is 2 or 3
             && token[0] is 'F' or 'f'
             && int.TryParse(token[1..], out var functionKey)
-            && functionKey is >= 1 and <= 24)
+            && functionKey is >= 1 and <= 12)
         {
             virtualKey = (uint)(0x70 + functionKey - 1);
             return true;
         }
 
-        virtualKey = token.ToLowerInvariant() switch
-        {
-            "space" => 0x20,
-            "tab" => 0x09,
-            "enter" => 0x0D,
-            "escape" => 0x1B,
-            "left" => 0x25,
-            "up" => 0x26,
-            "right" => 0x27,
-            "down" => 0x28,
-            "pageup" => 0x21,
-            "pagedown" => 0x22,
-            "end" => 0x23,
-            "home" => 0x24,
-            "insert" => 0x2D,
-            "delete" => 0x2E,
-            _ => 0,
-        };
-        return virtualKey != 0;
+        virtualKey = 0;
+        return false;
     }
 
     private readonly record struct ParsedHotkey(uint Modifiers, uint VirtualKey);

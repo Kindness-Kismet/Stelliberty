@@ -18,6 +18,12 @@ public sealed partial class SettingsAppBehaviorView : UserControl
             return;
         }
 
+        if (IsModifierKey(args.Key))
+        {
+            args.Handled = true;
+            return;
+        }
+
         var parts = new List<string>();
         if (args.KeyModifiers.HasFlag(KeyModifiers.Control)) parts.Add("Ctrl");
         if (args.KeyModifiers.HasFlag(KeyModifiers.Alt)) parts.Add("Alt");
@@ -28,6 +34,12 @@ public sealed partial class SettingsAppBehaviorView : UserControl
         viewModel.AppBehavior.SetWindowToggleHotkey(string.Join('+', parts));
         args.Handled = true;
     }
+
+    private static bool IsModifierKey(Key key) => key is
+        Key.LeftCtrl or Key.RightCtrl
+        or Key.LeftAlt or Key.RightAlt
+        or Key.LeftShift or Key.RightShift
+        or Key.LWin or Key.RWin;
 
     private static string ShortcutKeyName(Key key)
     {

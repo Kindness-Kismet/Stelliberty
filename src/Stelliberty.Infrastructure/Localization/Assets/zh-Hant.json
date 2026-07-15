@@ -459,7 +459,7 @@
   "Settings.AppBehavior.LazyMode.Description": "啟動時自動開啟系統代理",
   "Settings.AppBehavior.Startup": "開機自啟",
   "Settings.AppBehavior.WindowToggleHotkey": "顯示或隱藏視窗快捷鍵",
-  "Settings.AppBehavior.WindowToggleHotkey.Description": "點擊輸入框，然後按下包含 Ctrl、Alt、Shift 或 Win 的快捷鍵",
+  "Settings.AppBehavior.WindowToggleHotkey.Description": "支援 Ctrl、Alt、Shift 加數字、字母或 F1-F12，最多三個按鍵",
   "Settings.AppBehavior.WindowToggleHotkey.Watermark": "未設定",
   "Settings.AppBehavior.WindowToggleHotkey.Clear": "清除",
   "Settings.AppBehavior.WindowToggleHotkey.Toast.Registered": "快速鍵已註冊",

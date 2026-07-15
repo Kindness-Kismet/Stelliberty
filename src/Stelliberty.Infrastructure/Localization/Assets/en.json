@@ -459,7 +459,7 @@
   "Settings.AppBehavior.LazyMode.Description": "Automatically enable the system proxy on startup",
   "Settings.AppBehavior.Startup": "Launch at Startup",
   "Settings.AppBehavior.WindowToggleHotkey": "Show or Hide Window Shortcut",
-  "Settings.AppBehavior.WindowToggleHotkey.Description": "Click the field, then press a shortcut containing Ctrl, Alt, Shift, or Win",
+  "Settings.AppBehavior.WindowToggleHotkey.Description": "Use Ctrl, Alt, or Shift with a letter, number, or F1-F12, up to three keys",
   "Settings.AppBehavior.WindowToggleHotkey.Watermark": "Not set",
   "Settings.AppBehavior.WindowToggleHotkey.Clear": "Clear",
   "Settings.AppBehavior.WindowToggleHotkey.Toast.Registered": "Shortcut registered",
