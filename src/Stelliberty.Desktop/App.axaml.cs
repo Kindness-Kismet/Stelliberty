@@ -317,11 +317,7 @@ public sealed partial class App : Avalonia.Application
             {
                 // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                mainWindow.PrepareForSilentStart();
                 AppLogger.Info("Silent start enabled; main window stays hidden");
-#if DEBUG
-                LogStartupTrace("Silent warmup scheduled", startupStartedAt);
-#endif
             }
             else
             {

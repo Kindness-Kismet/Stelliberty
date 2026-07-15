@@ -35,7 +35,6 @@ public sealed partial class MainWindow : Window
     private AccentColorPickerView? _activeAccentPicker;
     private bool _isShutdownRequested;
     private bool _hasOpened;
-    private bool _warmupBeforeFirstShow;
     private long _warmupVersion;
 #if DEBUG
     private long _navigationDebugVersion;
@@ -155,7 +154,7 @@ public sealed partial class MainWindow : Window
     {
 #if DEBUG
         var openedAt = Stopwatch.GetTimestamp();
-        AppLogger.Info($"[StartupTrace] Main window opened warmupBeforeFirstShow={_warmupBeforeFirstShow} pendingWarmup={HasPendingWarmup()}");
+        AppLogger.Info($"[StartupTrace] Main window opened pendingWarmup={HasPendingWarmup()}");
         Dispatcher.UIThread.Post(
             () => AppLogger.Info($"[StartupTrace] Main window first background turn elapsed={Stopwatch.GetElapsedTime(openedAt).TotalMilliseconds:0.0}ms"),
             DispatcherPriority.Background);
@@ -164,20 +163,8 @@ public sealed partial class MainWindow : Window
         if (DataContext is MainWindowViewModel viewModel)
         {
             _systemAccentColorService.Attach(this, viewModel.Theme);
-            if (!_warmupBeforeFirstShow)
-            {
-                StartWarmup();
-            }
+            StartWarmup();
         }
-    }
-
-    public void PrepareForSilentStart()
-    {
-        _warmupBeforeFirstShow = true;
-#if DEBUG
-        AppLogger.Info("[StartupTrace] Silent window warmup requested");
-#endif
-        StartWarmup();
     }
 
     private void OnAttachedViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
