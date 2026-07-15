@@ -1,8 +1,6 @@
-- Windows startup settings now wait for permission-sensitive changes to succeed, avoid unrelated task prompts, and start after a one-second delay.
-- Proxy sorting now persists across app and core restarts, while horizontal group navigation supports smooth wheel and button scrolling.
-- Replacing the macOS or Linux application now preserves portable user data outside the replaceable application payload.
-- macOS now reports the correct application name and follows simplified Chinese system localization more reliably.
-- Subscription imports no longer fail when the stored subscription list is missing or incomplete.
+- Opening the main window after a silent startup is now faster because page preparation begins only after the window appears.
+- Locating the selected proxy no longer repeatedly pulls the node list back after you scroll elsewhere.
+- Wrapped grid items now stay aligned at fractional display scaling without clipping or overflowing the final column.
 
 ## Upgrading from versions before 2.0.0 [v2.0.0]
 
@@ -17,11 +15,9 @@ Skipping these steps may leave old startup or service components on the system a
 
 ---
 
-- Windows 开机启动设置现在会等待权限相关操作成功后再更新状态，不再触发无关的任务弹窗，并在 1 秒延时后启动。
-- 代理排序现在能够在应用和内核重启后保持，横向分组导航同时支持平滑的滚轮与按钮滚动。
-- 替换 macOS 或 Linux 应用时，便携用户数据现在会保存在可替换应用文件之外，不再随应用一起被覆盖。
-- macOS 现在能够显示正确的应用名称，并能更可靠地跟随简体中文系统语言。
-- 订阅列表缺失或内容不完整时，导入订阅不再失败。
+- 静默启动后打开主窗口的速度得到改善，页面准备会在窗口显示后再开始。
+- 定位已选代理后，即使滚动到其他位置，节点列表也不会再被后续刷新反复拉回。
+- 分数缩放下的网格项目现在能够保持对齐，最后一列不再被裁切或越出边界。
 
 ## 从 2.0.0 之前的版本升级 [v2.0.0]
 
