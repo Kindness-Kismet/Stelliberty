@@ -1,9 +1,17 @@
 namespace Stelliberty.Application.Platform;
 
+public enum GlobalHotkeyAction
+{
+    ToggleWindow = 1,
+    ToggleSystemProxy = 2,
+    ToggleTun = 3,
+}
+
 public enum GlobalHotkeyApplyError
 {
     None,
     Invalid,
+    Duplicate,
     Conflict,
     Unsupported,
     Failed,

@@ -8,39 +8,36 @@ namespace Stelliberty.Desktop.Services;
 [SupportedOSPlatform("windows")]
 internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
 {
-    private const int HotkeyId = 1;
     private const uint WmHotkey = 0x0312;
     private const uint ModAlt = 0x0001;
     private const uint ModControl = 0x0002;
     private const uint ModShift = 0x0004;
     private const uint ModNoRepeat = 0x4000;
-    private const long ActivationCooldownMilliseconds = 500;
     private const int ErrorHotkeyAlreadyRegistered = 1409;
     private static readonly IntPtr HwndMessage = new(-3);
 
-    private readonly Action _activated;
+    private readonly GlobalHotkeyActivationController _activationController;
     private readonly WndProc _wndProc; // 保持委托引用，防 GC 回收后回调悬空。
     private readonly string _className;
     private readonly IntPtr _instance;
+    private readonly Dictionary<GlobalHotkeyAction, ParsedHotkey> _registeredHotkeys = [];
     private IntPtr _windowHandle;
     private ushort _classAtom;
-    private ParsedHotkey? _registeredHotkey;
-    private long _lastActivationAt;
 
-    public WindowsGlobalHotkeyService(Action activated)
+    public WindowsGlobalHotkeyService(Action<GlobalHotkeyAction> activated)
     {
-        _activated = activated;
+        _activationController = new GlobalHotkeyActivationController(activated);
         _wndProc = HandleMessage;
         _className = $"StellibertyGlobalHotkey_{Environment.ProcessId}";
         _instance = GetModuleHandle(null);
         Initialize();
     }
 
-    public GlobalHotkeyApplyResult Apply(string gesture)
+    public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
     {
         if (string.IsNullOrWhiteSpace(gesture))
         {
-            UnregisterCurrentHotkey();
+            UnregisterHotkey(action);
             return GlobalHotkeyApplyResult.Success();
         }
 
@@ -50,30 +47,39 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
                 _windowHandle == IntPtr.Zero ? GlobalHotkeyApplyError.Failed : GlobalHotkeyApplyError.Invalid);
         }
 
-        if (_registeredHotkey == hotkey)
+        if (_registeredHotkeys.Any(pair => pair.Key != action && pair.Value == hotkey))
+        {
+            return GlobalHotkeyApplyResult.Failure(GlobalHotkeyApplyError.Duplicate);
+        }
+
+        if (_registeredHotkeys.TryGetValue(action, out var current) && current == hotkey)
         {
             return GlobalHotkeyApplyResult.Success();
         }
 
-        var previous = _registeredHotkey;
-        UnregisterCurrentHotkey();
-        if (RegisterHotKey(_windowHandle, HotkeyId, hotkey.Modifiers | ModNoRepeat, hotkey.VirtualKey))
+        ParsedHotkey? previous = _registeredHotkeys.TryGetValue(action, out current) ? current : null;
+        UnregisterHotkey(action);
+        if (RegisterHotKey(_windowHandle, (int)action, hotkey.Modifiers | ModNoRepeat, hotkey.VirtualKey))
         {
-            _registeredHotkey = hotkey;
-            AppLogger.Info($"Global window hotkey registered: {gesture}");
+            _registeredHotkeys[action] = hotkey;
+            AppLogger.Info($"Global hotkey registered: action={action} gesture={gesture}");
             return GlobalHotkeyApplyResult.Success();
         }
 
         var error = Marshal.GetLastWin32Error();
-        RestorePreviousHotkey(previous);
-        AppLogger.Warning($"Global window hotkey registration failed: error={error}");
+        RestorePreviousHotkey(action, previous);
+        AppLogger.Warning($"Global hotkey registration failed: action={action} error={error}");
         return GlobalHotkeyApplyResult.Failure(
             error == ErrorHotkeyAlreadyRegistered ? GlobalHotkeyApplyError.Conflict : GlobalHotkeyApplyError.Failed);
     }
 
     public void Dispose()
     {
-        UnregisterCurrentHotkey();
+        foreach (var action in _registeredHotkeys.Keys.ToArray())
+        {
+            UnregisterHotkey(action);
+        }
+
         if (_windowHandle != IntPtr.Zero)
         {
             DestroyWindow(_windowHandle);
@@ -86,6 +92,18 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
             _classAtom = 0;
         }
     }
+
+    public void SetActivationSuppressed(bool isSuppressed)
+    {
+        _activationController.SetSuppressed(isSuppressed);
+    }
+
+#if DEBUG
+    public bool SimulateActivation(GlobalHotkeyAction action)
+    {
+        return _registeredHotkeys.ContainsKey(action) && _activationController.TryActivate(action);
+    }
+#endif
 
     private void Initialize()
     {
@@ -127,41 +145,39 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
 
     private IntPtr HandleMessage(IntPtr windowHandle, uint message, IntPtr wParam, IntPtr lParam)
     {
-        if (message == WmHotkey && wParam == new IntPtr(HotkeyId))
+        if (message == WmHotkey)
         {
-            var now = Environment.TickCount64;
-            if (now - _lastActivationAt < ActivationCooldownMilliseconds)
+            var action = (GlobalHotkeyAction)wParam.ToInt32();
+            if (!_registeredHotkeys.ContainsKey(action))
             {
                 return IntPtr.Zero;
             }
 
-            _lastActivationAt = now;
-            _activated();
+            _activationController.TryActivate(action);
             return IntPtr.Zero;
         }
 
         return DefWindowProc(windowHandle, message, wParam, lParam);
     }
 
-    private void UnregisterCurrentHotkey()
+    private void UnregisterHotkey(GlobalHotkeyAction action)
     {
-        if (_windowHandle != IntPtr.Zero && _registeredHotkey is not null)
+        if (_windowHandle != IntPtr.Zero && _registeredHotkeys.Remove(action))
         {
-            UnregisterHotKey(_windowHandle, HotkeyId);
-            _registeredHotkey = null;
+            UnregisterHotKey(_windowHandle, (int)action);
         }
     }
 
-    private void RestorePreviousHotkey(ParsedHotkey? previous)
+    private void RestorePreviousHotkey(GlobalHotkeyAction action, ParsedHotkey? previous)
     {
         if (previous is null || _windowHandle == IntPtr.Zero)
         {
             return;
         }
 
-        if (RegisterHotKey(_windowHandle, HotkeyId, previous.Value.Modifiers | ModNoRepeat, previous.Value.VirtualKey))
+        if (RegisterHotKey(_windowHandle, (int)action, previous.Value.Modifiers | ModNoRepeat, previous.Value.VirtualKey))
         {
-            _registeredHotkey = previous;
+            _registeredHotkeys[action] = previous.Value;
         }
     }
 

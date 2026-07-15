@@ -30,6 +30,8 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         _globalHotkeyService = globalHotkeyService;
         ToggleAutoStartCommand = new RelayCommand(() => SetAutoStartEnabled(!IsAutoStartEnabled));
         ClearWindowToggleHotkeyCommand = new RelayCommand(() => SetWindowToggleHotkey(string.Empty));
+        ClearSystemProxyToggleHotkeyCommand = new RelayCommand(() => SetSystemProxyToggleHotkey(string.Empty));
+        ClearTunToggleHotkeyCommand = new RelayCommand(() => SetTunToggleHotkey(string.Empty));
         _localization.LanguageChanged += OnLanguageChanged;
     }
 
@@ -51,13 +53,17 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
 
     public string StartupText => _localization.GetString("Settings.AppBehavior.Startup");
 
+    public string HotkeysText => _localization.GetString("Settings.AppBehavior.Hotkeys");
+
     public string WindowToggleHotkeyText => _localization.GetString("Settings.AppBehavior.WindowToggleHotkey");
 
-    public string WindowToggleHotkeyDescriptionText => _localization.GetString("Settings.AppBehavior.WindowToggleHotkey.Description");
+    public string SystemProxyToggleHotkeyText => _localization.GetString("Settings.AppBehavior.SystemProxyToggleHotkey");
 
-    public string WindowToggleHotkeyWatermarkText => _localization.GetString("Settings.AppBehavior.WindowToggleHotkey.Watermark");
+    public string TunToggleHotkeyText => _localization.GetString("Settings.AppBehavior.TunToggleHotkey");
 
-    public string ClearWindowToggleHotkeyText => _localization.GetString("Settings.AppBehavior.WindowToggleHotkey.Clear");
+    public string HotkeyWatermarkText => _localization.GetString("Settings.AppBehavior.Hotkey.Watermark");
+
+    public string ClearHotkeyText => _localization.GetString("Settings.AppBehavior.Hotkey.Clear");
 
     public IReadOnlyList<string> Items =>
     [
@@ -67,6 +73,8 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         LazyModeText,
         StartupText,
         WindowToggleHotkeyText,
+        SystemProxyToggleHotkeyText,
+        TunToggleHotkeyText,
     ];
 
     public bool IsSilentStartEnabled
@@ -97,9 +105,17 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
 
     public string WindowToggleHotkey => _settings.WindowToggleHotkey;
 
+    public string SystemProxyToggleHotkey => _settings.SystemProxyToggleHotkey;
+
+    public string TunToggleHotkey => _settings.TunToggleHotkey;
+
     public ICommand ToggleAutoStartCommand { get; }
 
     public ICommand ClearWindowToggleHotkeyCommand { get; }
+
+    public ICommand ClearSystemProxyToggleHotkeyCommand { get; }
+
+    public ICommand ClearTunToggleHotkeyCommand { get; }
 
     public void SetAutoStartEnabled(bool isEnabled)
     {
@@ -129,47 +145,92 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
 
     public void SetWindowToggleHotkey(string gesture)
     {
-        var nextValue = gesture.Trim();
-        var currentValue = _settings.WindowToggleHotkey;
-        if (string.Equals(currentValue, nextValue, StringComparison.Ordinal))
-        {
-            var currentResult = _globalHotkeyService?.Apply(nextValue) ?? GlobalHotkeyApplyResult.Success();
-            ShowWindowToggleHotkeyResult(currentResult, nextValue);
-            return;
-        }
+        SetHotkey(
+            GlobalHotkeyAction.ToggleWindow,
+            gesture,
+            _settings.WindowToggleHotkey,
+            value => _settings.WindowToggleHotkey = value,
+            nameof(WindowToggleHotkey));
+    }
 
-        var result = _globalHotkeyService?.Apply(nextValue) ?? GlobalHotkeyApplyResult.Success();
+    public void SetSystemProxyToggleHotkey(string gesture)
+    {
+        SetHotkey(
+            GlobalHotkeyAction.ToggleSystemProxy,
+            gesture,
+            _settings.SystemProxyToggleHotkey,
+            value => _settings.SystemProxyToggleHotkey = value,
+            nameof(SystemProxyToggleHotkey));
+    }
+
+    public void SetTunToggleHotkey(string gesture)
+    {
+        SetHotkey(
+            GlobalHotkeyAction.ToggleTun,
+            gesture,
+            _settings.TunToggleHotkey,
+            value => _settings.TunToggleHotkey = value,
+            nameof(TunToggleHotkey));
+    }
+
+    public void SetHotkeyCaptureActive(bool isActive)
+    {
+        _globalHotkeyService?.SetActivationSuppressed(isActive);
+    }
+
+#if DEBUG
+    public bool SimulateHotkeyActivation(GlobalHotkeyAction action)
+    {
+        return _globalHotkeyService?.SimulateActivation(action) == true;
+    }
+#endif
+
+    private void SetHotkey(
+        GlobalHotkeyAction action,
+        string gesture,
+        string currentValue,
+        Action<string> assign,
+        string propertyName)
+    {
+        var nextValue = gesture.Trim();
+        var result = _globalHotkeyService?.Apply(action, nextValue) ?? GlobalHotkeyApplyResult.Success();
         if (!result.IsSuccess)
         {
-            AppLogger.Warning($"Global window hotkey apply failed: {result.Error}");
-            ShowWindowToggleHotkeyResult(result, nextValue);
+            AppLogger.Warning($"Global hotkey apply failed: action={action} error={result.Error}");
+            ShowHotkeyResult(result, nextValue);
             return;
         }
 
-        _settings.WindowToggleHotkey = nextValue;
+        if (string.Equals(currentValue, nextValue, StringComparison.Ordinal))
+        {
+            ShowHotkeyResult(result, nextValue);
+            return;
+        }
+
+        assign(nextValue);
         try
         {
             _settingsStore.Save(_settings);
         }
         catch (Exception exception)
         {
-            var restoreResult = _globalHotkeyService?.Apply(currentValue) ?? GlobalHotkeyApplyResult.Success();
-            _settings.WindowToggleHotkey = currentValue;
-            AppLogger.Warning($"Global window hotkey save failed: {exception.Message}");
+            var restoreResult = _globalHotkeyService?.Apply(action, currentValue) ?? GlobalHotkeyApplyResult.Success();
+            assign(currentValue);
+            AppLogger.Warning($"Global hotkey save failed: action={action} error={exception.Message}");
             if (!restoreResult.IsSuccess)
             {
-                AppLogger.Warning($"Global window hotkey restore failed: {restoreResult.Error}");
+                AppLogger.Warning($"Global hotkey restore failed: action={action} error={restoreResult.Error}");
             }
 
             ToastRequested?.Invoke(
                 this,
-                (_localization.GetString("Settings.AppBehavior.WindowToggleHotkey.Toast.SaveFailed"), ToastType.Error));
-            OnPropertyChanged(nameof(WindowToggleHotkey));
+                (_localization.GetString("Settings.AppBehavior.Hotkey.Toast.SaveFailed"), ToastType.Error));
+            OnPropertyChanged(propertyName);
             return;
         }
 
-        OnPropertyChanged(nameof(WindowToggleHotkey));
-        ShowWindowToggleHotkeyResult(result, nextValue);
+        OnPropertyChanged(propertyName);
+        ShowHotkeyResult(result, nextValue);
     }
 
     public void Dispose()
@@ -208,15 +269,16 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
     {
         var key = error switch
         {
-            GlobalHotkeyApplyError.Invalid => "Settings.AppBehavior.WindowToggleHotkey.Toast.Invalid",
-            GlobalHotkeyApplyError.Conflict => "Settings.AppBehavior.WindowToggleHotkey.Toast.Conflict",
-            GlobalHotkeyApplyError.Unsupported => "Settings.AppBehavior.WindowToggleHotkey.Toast.Unsupported",
-            _ => "Settings.AppBehavior.WindowToggleHotkey.Toast.Failed",
+            GlobalHotkeyApplyError.Invalid => "Settings.AppBehavior.Hotkey.Toast.Invalid",
+            GlobalHotkeyApplyError.Duplicate => "Settings.AppBehavior.Hotkey.Toast.Duplicate",
+            GlobalHotkeyApplyError.Conflict => "Settings.AppBehavior.Hotkey.Toast.Conflict",
+            GlobalHotkeyApplyError.Unsupported => "Settings.AppBehavior.Hotkey.Toast.Unsupported",
+            _ => "Settings.AppBehavior.Hotkey.Toast.Failed",
         };
         return _localization.GetString(key);
     }
 
-    private void ShowWindowToggleHotkeyResult(GlobalHotkeyApplyResult result, string gesture)
+    private void ShowHotkeyResult(GlobalHotkeyApplyResult result, string gesture)
     {
         if (!result.IsSuccess)
         {
@@ -225,8 +287,8 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         }
 
         var key = string.IsNullOrEmpty(gesture)
-            ? "Settings.AppBehavior.WindowToggleHotkey.Toast.Cleared"
-            : "Settings.AppBehavior.WindowToggleHotkey.Toast.Registered";
+            ? "Settings.AppBehavior.Hotkey.Toast.Cleared"
+            : "Settings.AppBehavior.Hotkey.Toast.Registered";
         ToastRequested?.Invoke(this, (_localization.GetString(key), ToastType.Success));
     }
 
@@ -240,10 +302,12 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(LazyModeText));
         OnPropertyChanged(nameof(LazyModeDescriptionText));
         OnPropertyChanged(nameof(StartupText));
+        OnPropertyChanged(nameof(HotkeysText));
         OnPropertyChanged(nameof(WindowToggleHotkeyText));
-        OnPropertyChanged(nameof(WindowToggleHotkeyDescriptionText));
-        OnPropertyChanged(nameof(WindowToggleHotkeyWatermarkText));
-        OnPropertyChanged(nameof(ClearWindowToggleHotkeyText));
+        OnPropertyChanged(nameof(SystemProxyToggleHotkeyText));
+        OnPropertyChanged(nameof(TunToggleHotkeyText));
+        OnPropertyChanged(nameof(HotkeyWatermarkText));
+        OnPropertyChanged(nameof(ClearHotkeyText));
         OnPropertyChanged(nameof(Items));
     }
 

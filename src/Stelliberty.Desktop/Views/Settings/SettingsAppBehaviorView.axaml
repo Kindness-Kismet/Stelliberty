@@ -81,32 +81,75 @@
       </Border>
     </StackPanel>
   </Border>
+  <TextBlock Classes="surface-group-title" Text="{Binding AppBehavior.HotkeysText}" />
   <Border Classes="surface-group">
-    <Border Classes="settings-inline-row">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
-        <StackPanel Grid.Column="0" Spacing="3">
-          <TextBlock Classes="settings-row-title" Text="{Binding AppBehavior.WindowToggleHotkeyText}" />
-          <TextBlock Classes="settings-row-subtitle"
-                     AutomationProperties.AutomationId="Settings.WindowToggleHotkeyDescriptionText"
-                     Text="{Binding AppBehavior.WindowToggleHotkeyDescriptionText}"
-                     TextWrapping="Wrap" />
-        </StackPanel>
-        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <TextBox x:Name="WindowToggleHotkeyBox"
-                   Width="170"
-                   Classes="settings-input"
-                   AutomationProperties.AutomationId="Settings.WindowToggleHotkeyBox"
-                   IsReadOnly="True"
-                   Text="{Binding AppBehavior.WindowToggleHotkey, Mode=OneWay}"
-                   PlaceholderText="{Binding AppBehavior.WindowToggleHotkeyWatermarkText}"
-                   KeyDown="OnWindowToggleHotkeyKeyDown" />
-          <Button Classes="settings-reset"
-                  AutomationProperties.AutomationId="Settings.WindowToggleHotkeyClearButton"
-                  Command="{Binding AppBehavior.ClearWindowToggleHotkeyCommand}"
-                  Content="{Binding AppBehavior.ClearWindowToggleHotkeyText}" />
-        </StackPanel>
-      </Grid>
-    </Border>
+    <StackPanel>
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding AppBehavior.WindowToggleHotkeyText}" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="settings-reset"
+                    AutomationProperties.AutomationId="Settings.WindowToggleHotkeyClearButton"
+                    Command="{Binding AppBehavior.ClearWindowToggleHotkeyCommand}"
+                    Content="{Binding AppBehavior.ClearHotkeyText}" />
+            <TextBox x:Name="WindowToggleHotkeyBox"
+                     Width="170"
+                     Classes="settings-input"
+                     AutomationProperties.AutomationId="Settings.WindowToggleHotkeyBox"
+                     IsReadOnly="True"
+                     Text="{Binding AppBehavior.WindowToggleHotkey, Mode=OneWay}"
+                     PlaceholderText="{Binding AppBehavior.HotkeyWatermarkText}"
+                     GotFocus="OnHotkeyBoxGotFocus"
+                     LostFocus="OnHotkeyBoxLostFocus"
+                     KeyDown="OnWindowToggleHotkeyKeyDown" />
+          </StackPanel>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding AppBehavior.SystemProxyToggleHotkeyText}" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="settings-reset"
+                    AutomationProperties.AutomationId="Settings.SystemProxyToggleHotkeyClearButton"
+                    Command="{Binding AppBehavior.ClearSystemProxyToggleHotkeyCommand}"
+                    Content="{Binding AppBehavior.ClearHotkeyText}" />
+            <TextBox x:Name="SystemProxyToggleHotkeyBox"
+                     Width="170"
+                     Classes="settings-input"
+                     AutomationProperties.AutomationId="Settings.SystemProxyToggleHotkeyBox"
+                     IsReadOnly="True"
+                     Text="{Binding AppBehavior.SystemProxyToggleHotkey, Mode=OneWay}"
+                     PlaceholderText="{Binding AppBehavior.HotkeyWatermarkText}"
+                     GotFocus="OnHotkeyBoxGotFocus"
+                     LostFocus="OnHotkeyBoxLostFocus"
+                     KeyDown="OnSystemProxyToggleHotkeyKeyDown" />
+          </StackPanel>
+        </Grid>
+      </Border>
+      <Border Classes="settings-row-divider" />
+      <Border Classes="settings-inline-row">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+          <TextBlock Grid.Column="0" Classes="settings-row-title" Text="{Binding AppBehavior.TunToggleHotkeyText}" />
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="settings-reset"
+                    AutomationProperties.AutomationId="Settings.TunToggleHotkeyClearButton"
+                    Command="{Binding AppBehavior.ClearTunToggleHotkeyCommand}"
+                    Content="{Binding AppBehavior.ClearHotkeyText}" />
+            <TextBox x:Name="TunToggleHotkeyBox"
+                     Width="170"
+                     Classes="settings-input"
+                     AutomationProperties.AutomationId="Settings.TunToggleHotkeyBox"
+                     IsReadOnly="True"
+                     Text="{Binding AppBehavior.TunToggleHotkey, Mode=OneWay}"
+                     PlaceholderText="{Binding AppBehavior.HotkeyWatermarkText}"
+                     GotFocus="OnHotkeyBoxGotFocus"
+                     LostFocus="OnHotkeyBoxLostFocus"
+                     KeyDown="OnTunToggleHotkeyKeyDown" />
+          </StackPanel>
+        </Grid>
+      </Border>
+    </StackPanel>
   </Border>
 </StackPanel>
 </UserControl>

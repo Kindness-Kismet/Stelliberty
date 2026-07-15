@@ -51,6 +51,8 @@ public sealed class JsonAppSettingsStore : IAppSettingsStore
         settings.AccentColor ??= defaults.AccentColor;
         settings.WindowEffect ??= defaults.WindowEffect;
         settings.WindowToggleHotkey ??= defaults.WindowToggleHotkey;
+        settings.SystemProxyToggleHotkey ??= defaults.SystemProxyToggleHotkey;
+        settings.TunToggleHotkey ??= defaults.TunToggleHotkey;
         settings.AppUpdateCheckInterval ??= defaults.AppUpdateCheckInterval;
         settings.AppUpdateChannel ??= defaults.AppUpdateChannel;
         if (!string.Equals(settings.AppUpdateChannel, "stable", StringComparison.OrdinalIgnoreCase)

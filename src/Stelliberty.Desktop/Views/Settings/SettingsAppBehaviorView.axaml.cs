@@ -1,5 +1,8 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Stelliberty.Presentation.ViewModels;
 
 namespace Stelliberty.Desktop.Views.Settings;
@@ -11,7 +14,55 @@ public sealed partial class SettingsAppBehaviorView : UserControl
         InitializeComponent();
     }
 
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property == IsVisibleProperty
+            && change.NewValue is false
+            && DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.AppBehavior.SetHotkeyCaptureActive(false);
+        }
+    }
+
     private void OnWindowToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
+    {
+        ApplyHotkey(args, viewModel => viewModel.AppBehavior.SetWindowToggleHotkey);
+    }
+
+    private void OnSystemProxyToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
+    {
+        ApplyHotkey(args, viewModel => viewModel.AppBehavior.SetSystemProxyToggleHotkey);
+    }
+
+    private void OnTunToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
+    {
+        ApplyHotkey(args, viewModel => viewModel.AppBehavior.SetTunToggleHotkey);
+    }
+
+    private void OnHotkeyBoxGotFocus(object? sender, RoutedEventArgs args)
+    {
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.AppBehavior.SetHotkeyCaptureActive(true);
+        }
+    }
+
+    private void OnHotkeyBoxLostFocus(object? sender, RoutedEventArgs args)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (DataContext is MainWindowViewModel viewModel)
+            {
+                var isCaptureActive = WindowToggleHotkeyBox.IsFocused
+                    || SystemProxyToggleHotkeyBox.IsFocused
+                    || TunToggleHotkeyBox.IsFocused;
+                viewModel.AppBehavior.SetHotkeyCaptureActive(isCaptureActive);
+            }
+        }, DispatcherPriority.Background);
+    }
+
+    private void ApplyHotkey(KeyEventArgs args, Func<MainWindowViewModel, Action<string>> resolveSetter)
     {
         if (DataContext is not MainWindowViewModel viewModel)
         {
@@ -31,7 +82,7 @@ public sealed partial class SettingsAppBehaviorView : UserControl
         if (args.KeyModifiers.HasFlag(KeyModifiers.Meta)) parts.Add("Win");
         parts.Add(ShortcutKeyName(args.Key));
 
-        viewModel.AppBehavior.SetWindowToggleHotkey(string.Join('+', parts));
+        resolveSetter(viewModel)(string.Join('+', parts));
         args.Handled = true;
     }
 

@@ -111,6 +111,61 @@ public sealed class SettingsPageBusinessTests
         Assert.True(viewModel.IsAutoStartEnabled);
     }
 
+    [Fact(DisplayName = "App behavior rejects a shortcut already used by another action")]
+    public void AppBehaviorRejectsDuplicateShortcut()
+    {
+        var settings = new AppSettings { WindowToggleHotkey = "Ctrl+F1" };
+        var store = new FakeSettingsStore(settings);
+        var hotkeys = new FakeGlobalHotkeyService
+        {
+            NextResult = GlobalHotkeyApplyResult.Failure(GlobalHotkeyApplyError.Duplicate),
+        };
+        var viewModel = new SettingsAppBehaviorViewModel(
+            settings,
+            store,
+            new FakeLocalizationService(),
+            null,
+            hotkeys);
+
+        viewModel.SetSystemProxyToggleHotkey("Ctrl+F1");
+
+        Assert.Equal(string.Empty, settings.SystemProxyToggleHotkey);
+        Assert.Equal(0, store.SaveCount);
+        Assert.Equal(GlobalHotkeyAction.ToggleSystemProxy, hotkeys.LastAction);
+    }
+
+    [Fact(DisplayName = "Global hotkey activation enforces cooldown across actions")]
+    public void GlobalHotkeyActivationEnforcesCooldownAcrossActions()
+    {
+        var now = 1000L;
+        var actions = new List<GlobalHotkeyAction>();
+        var controller = new GlobalHotkeyActivationController(actions.Add, () => now);
+
+        Assert.True(controller.TryActivate(GlobalHotkeyAction.ToggleWindow));
+        now = 1200;
+        Assert.False(controller.TryActivate(GlobalHotkeyAction.ToggleSystemProxy));
+        now = 1500;
+        Assert.True(controller.TryActivate(GlobalHotkeyAction.ToggleSystemProxy));
+
+        Assert.Equal(
+            [GlobalHotkeyAction.ToggleWindow, GlobalHotkeyAction.ToggleSystemProxy],
+            actions);
+    }
+
+    [Fact(DisplayName = "Global hotkey activation stays suppressed while recording")]
+    public void GlobalHotkeyActivationStaysSuppressedWhileRecording()
+    {
+        var actions = new List<GlobalHotkeyAction>();
+        var controller = new GlobalHotkeyActivationController(actions.Add, () => 1000);
+
+        controller.SetSuppressed(true);
+        Assert.False(controller.TryActivate(GlobalHotkeyAction.ToggleWindow));
+        controller.SetSuppressed(false);
+        Assert.True(controller.TryActivate(GlobalHotkeyAction.ToggleWindow));
+
+        Assert.Equal([GlobalHotkeyAction.ToggleWindow], actions);
+    }
+
     [Fact(DisplayName = "Changing silent start does not reconfigure platform startup")]
     public void ChangingSilentStartDoesNotReconfigurePlatformStartup()
     {
@@ -1148,6 +1203,34 @@ public sealed class SettingsPageBusinessTests
             }
 
             LastRequest = request;
+        }
+    }
+
+    private sealed class FakeGlobalHotkeyService : IGlobalHotkeyService
+    {
+        public GlobalHotkeyApplyResult NextResult { get; init; } = GlobalHotkeyApplyResult.Success();
+
+        public GlobalHotkeyAction LastAction { get; private set; }
+
+        public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
+        {
+            LastAction = action;
+            return NextResult;
+        }
+
+        public void SetActivationSuppressed(bool isSuppressed)
+        {
+        }
+
+#if DEBUG
+        public bool SimulateActivation(GlobalHotkeyAction action)
+        {
+            return false;
+        }
+#endif
+
+        public void Dispose()
+        {
         }
     }
 

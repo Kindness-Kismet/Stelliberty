@@ -545,6 +545,28 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         SetSystemProxy(!_isSystemProxyEnabled);
     }
 
+    public void ToggleSystemProxyFromHotkey()
+    {
+        if (!IsSystemProxyEnabled && !IsCoreInteractive)
+        {
+            RaiseToast(Localize("Home.Toast.SystemProxyHotkeyUnavailable"), ToastType.Warning);
+            return;
+        }
+
+        ToggleSystemProxy();
+    }
+
+    public void ToggleTunFromHotkey()
+    {
+        if (!IsCoreInteractive || (!IsTunEnabled && !CanToggleTun))
+        {
+            RaiseToast(Localize("Home.Toast.TunHotkeyUnavailable"), ToastType.Warning);
+            return;
+        }
+
+        IsTunEnabled = !IsTunEnabled;
+    }
+
     private void SetTun(bool shouldEnable)
     {
         var version = Interlocked.Increment(ref _tunApplyVersion);

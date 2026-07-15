@@ -41,6 +41,10 @@ public sealed class AppSettings
 
     public string WindowToggleHotkey { get; set; } = string.Empty;
 
+    public string SystemProxyToggleHotkey { get; set; } = string.Empty;
+
+    public string TunToggleHotkey { get; set; } = string.Empty;
+
     public bool IsAutoCheckUpdateEnabled { get; set; }
 
     public string AppUpdateCheckInterval { get; set; } = "startup";
