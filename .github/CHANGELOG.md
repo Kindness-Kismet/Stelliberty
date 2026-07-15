@@ -1,3 +1,7 @@
+- You can now register separate global shortcuts to show or hide the window, toggle the system proxy, and toggle virtual network adapter mode.
+- Shortcut registration rejects unsupported or duplicate combinations, pauses activation while recording, and ignores repeated activations for 500 milliseconds.
+- Pressing Escape now returns from a settings subpage.
+- Windows upgrades now turn off the system proxy after stopping the app, preventing an unusable proxy from remaining enabled.
 - Opening the main window after a silent startup is now faster because page preparation begins only after the window appears.
 - Locating the selected proxy no longer repeatedly pulls the node list back after you scroll elsewhere.
 - Wrapped grid items now stay aligned at fractional display scaling without clipping or overflowing the final column.
@@ -15,6 +19,10 @@ Skipping these steps may leave old startup or service components on the system a
 
 ---
 
+- 现在可以分别注册全局快捷键，用于显示或隐藏窗口、切换系统代理以及切换虚拟网卡模式。
+- 快捷键注册会拒绝不支持或重复的组合，录制期间暂停触发，并忽略 500 毫秒内的重复操作。
+- 现在可以在设置子页按 Escape 返回上一级。
+- Windows 升级安装停止应用后会关闭系统代理，避免留下无法使用的代理开关。
 - 静默启动后打开主窗口的速度得到改善，页面准备会在窗口显示后再开始。
 - 定位已选代理后，即使滚动到其他位置，节点列表也不会再被后续刷新反复拉回。
 - 分数缩放下的网格项目现在能够保持对齐，最后一列不再被裁切或越出边界。
