@@ -143,6 +143,16 @@ internal static partial class DebugCommands
             return Task.FromResult(ExecuteControlCommand(window, command));
         }
 
+        if (command.StartsWith("keyboard.", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(ExecuteKeyboardCommand(window, command));
+        }
+
+        if (command.StartsWith("hotkey.trigger ", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult<string?>(ExecuteHotkeyCommand(window, command));
+        }
+
         throw new InvalidOperationException($"Unknown command: {command}");
     }
 }

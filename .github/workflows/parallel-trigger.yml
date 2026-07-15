@@ -69,14 +69,18 @@ jobs:
           base_ref="${base_tag:-${BEFORE_SHA}}"
           should_build=false
 
-          while IFS= read -r path; do
-            case "${path}" in
-              *.cs|*.rs|*.axaml|Directory.Build.props)
-                should_build=true
-                break
-                ;;
-            esac
-          done < <(git diff --name-only "${base_ref}" "${AFTER_SHA}")
+          if git diff --name-only "${base_ref}" "${AFTER_SHA}" | grep -Fxq 'Directory.Build.props'; then
+            echo "Version metadata changed since ${base_ref}; beta build is skipped."
+          else
+            while IFS= read -r path; do
+              case "${path}" in
+                *.cs|*.rs|*.axaml)
+                  should_build=true
+                  break
+                  ;;
+              esac
+            done < <(git diff --name-only "${base_ref}" "${AFTER_SHA}")
+          fi
 
           echo "should_build=${should_build}" >> "$GITHUB_OUTPUT"
           if [ "${should_build}" = true ]; then

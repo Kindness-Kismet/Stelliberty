@@ -36,10 +36,11 @@ class CommandFailure(SimulationTestError):
 
 
 class SimulationTests:
-    def __init__(self, app_exec: Path, app_output: Path, os_family: str) -> None:
+    def __init__(self, app_exec: Path, app_output: Path, os_family: str, shortcut_only: bool = False) -> None:
         self.app_exec = app_exec
         self.app_output = app_output
         self.os_family = os_family
+        self.shortcut_only = shortcut_only
         self.env = os.environ.copy()
         self.env["PYTHONUTF8"] = "1"
         self.env["PYTHONDONTWRITEBYTECODE"] = "1"
@@ -54,6 +55,8 @@ class SimulationTests:
         self.step_index = 0
         self.failed = False
         self.service_touched = False
+        self.original_window_hotkey: str | None = None
+        self.window_hotkey_changed = False
         if self.os_family == "linux" and not self.env.get("XDG_RUNTIME_DIR"):
             xdg_runtime_dir = self.log_dir / "xdg-runtime"
             xdg_runtime_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -67,8 +70,69 @@ class SimulationTests:
         print()
 
         self.start_display()
-        self.run_steps()
+        if self.shortcut_only:
+            self.run_shortcut_steps()
+        else:
+            self.run_steps()
         print_summary(f"Passed {self.step_index}  Failed 0")
+
+    def run_shortcut_steps(self) -> None:
+        self.step("Start app and focus shortcut recorder", lambda: (
+            self.start_app(),
+            self.require("window.show"),
+            self.prepare_window_shortcut(),
+            self.require("page.open settings/app-behavior"),
+            self.require("control.click Settings.WindowToggleHotkeyBox"),
+        ))
+        self.step("Suppress shortcut while recording", lambda: (
+            self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=false"]),
+            self.require("window.state", contains=["visible=true"]),
+        ))
+        self.step("Trigger window shortcut after recording", lambda: (
+            self.require("control.click Navigation.HomeButton"),
+            time.sleep(0.6),
+            self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=true"]),
+            self.require("window.state", contains=["visible=false"]),
+            self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=false"]),
+            self.require("window.state", contains=["visible=false"]),
+            time.sleep(0.6),
+            self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=true"]),
+            self.require("window.state", contains=["visible=true"]),
+        ))
+        self.step("Restore shortcut setting", self.restore_window_shortcut)
+        self.step("Close app after shortcut verification", self.stop_app_step)
+
+    def prepare_window_shortcut(self) -> None:
+        if self.os_family != "windows":
+            return
+
+        state = self.require("settings.app_behavior.state")
+        self.original_window_hotkey = self.state_value(state, "windowToggleHotkey")
+        temporary_hotkey = "Ctrl+Shift+F12"
+        self.require(
+            f"settings.app_behavior.set window-toggle-hotkey {temporary_hotkey}",
+            contains=[f"windowToggleHotkey={temporary_hotkey}"],
+        )
+        self.window_hotkey_changed = self.original_window_hotkey != temporary_hotkey
+
+    def restore_window_shortcut(self) -> None:
+        if not self.window_hotkey_changed or not self.is_app_running():
+            return
+
+        value = self.original_window_hotkey or "__EMPTY__"
+        self.require(
+            f"settings.app_behavior.set window-toggle-hotkey {value}",
+            contains=[f"windowToggleHotkey={self.original_window_hotkey or ''}"],
+        )
+        self.window_hotkey_changed = False
+
+    @staticmethod
+    def state_value(state: str, key: str) -> str:
+        prefix = f"{key}="
+        for item in state.split(";"):
+            if item.startswith(prefix):
+                return item[len(prefix):]
+        raise SimulationTestError(f"State does not contain {key!r}: {state!r}")
 
     def run_steps(self) -> None:
         self.step("Start app and verify window", lambda: (
@@ -181,7 +245,7 @@ class SimulationTests:
             self.require("settings.language.state", contains=["language="]),
             self.require("settings.theme.state", contains=["theme=", "windowEffect="]),
             self.require("settings.app_behavior.keys", contains=["lazy-mode", "auto-start"]),
-            self.require("settings.app_behavior.state", contains=["lazyMode=", "status="]),
+            self.require("settings.app_behavior.state", contains=["lazyMode=", "windowToggleHotkey=", "systemProxyToggleHotkey=", "tunToggleHotkey="]),
             self.require("settings.update.state", contains=["autoCheck=", "interval="]),
         ))
         self.step("Settings data management and WebDAV state", self.verify_webdav_settings)
@@ -431,6 +495,12 @@ class SimulationTests:
         return self.app_process is not None and self.app_process.poll() is None
 
     def cleanup(self) -> None:
+        if self.window_hotkey_changed:
+            try:
+                self.restore_window_shortcut()
+            except Exception as exception:
+                print(f"  {warn('Shortcut setting cleanup failed')} {exception}", flush=True)
+
         if self.service_touched:
             try:
                 if not self.is_app_running():
@@ -472,6 +542,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--app-exec", type=Path, required=True, help="Built Debug app executable path")
     parser.add_argument("--app-output", type=Path, help="Built Debug app output directory")
     parser.add_argument("--os-family", choices=["windows", "linux", "macos"], default=detect_os_family())
+    parser.add_argument("--shortcut-only", action="store_true", help="Run only shortcut trigger simulations")
     return parser.parse_args()
 
 
@@ -487,7 +558,7 @@ def main() -> int:
     args = parse_args()
     app_exec = args.app_exec.resolve()
     app_output = (args.app_output or app_exec.parent).resolve()
-    runner = SimulationTests(app_exec, app_output, args.os_family)
+    runner = SimulationTests(app_exec, app_output, args.os_family, shortcut_only=args.shortcut_only)
     try:
         runner.run()
         return 0

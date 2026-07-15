@@ -95,9 +95,16 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [Code]
+const
+  InternetOptionRefresh = 37;
+  InternetOptionSettingsChanged = 39;
+
 var
   ResetDirButton: TButton;
   CleanUserData: Boolean;
+
+function InternetSetOption(hInternet: LongWord; Option: LongWord; Buffer: LongWord; BufferLength: LongWord): Boolean;
+  external 'InternetSetOptionW@wininet.dll stdcall';
 
 function GetSystemDrive(): String;
 var
@@ -259,6 +266,20 @@ begin
     '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + ScriptPath + '"');
 end;
 
+procedure DisableSystemProxy();
+var
+  RegistryPath: String;
+begin
+  RegistryPath := 'Software\Microsoft\Windows\CurrentVersion\Internet Settings';
+  if not RegWriteDWordValue(HKEY_CURRENT_USER, RegistryPath, 'ProxyEnable', 0) then
+    Log('Failed to disable the system proxy registry switch');
+
+  if not InternetSetOption(0, InternetOptionSettingsChanged, 0, 0) then
+    Log('Failed to broadcast the system proxy settings change');
+  if not InternetSetOption(0, InternetOptionRefresh, 0, 0) then
+    Log('Failed to refresh the system proxy settings');
+end;
+
 procedure RemoveScheduledTask();
 var
   ResultCode: Integer;
@@ -275,6 +296,7 @@ begin
   if CurStep = ssInstall then
   begin
     StopAppProcessIfNeeded();
+    DisableSystemProxy();
     StopCoreProcessIfNeeded();
   end
 end;
