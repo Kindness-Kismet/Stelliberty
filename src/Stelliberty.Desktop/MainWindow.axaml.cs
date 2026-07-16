@@ -345,28 +345,34 @@ public sealed partial class MainWindow : Window
             previousHost.ZIndex = 0;
             previousHost.IsHitTestVisible = false;
             previousHost.Opacity = 0;
+            previousHost.RenderTransform = PageTransition.LeaveToTransform;
         }
 
         nextHost.Transitions = null;
         nextHost.ZIndex = 1;
-        nextHost.IsHitTestVisible = true;
+        nextHost.IsHitTestVisible = false;
         nextHost.Opacity = 0;
         nextHost.RenderTransform = PageTransition.EnterFromTransform;
 
-        Dispatcher.UIThread.Post(
-            () =>
+        RequestPageEnterFrame(nextHost);
+    }
+
+    // 一个渲染帧足以提交起始态，避免低帧率下放大等待时间。
+    private void RequestPageEnterFrame(ContentControl nextHost)
+    {
+        RequestAnimationFrame(
+            _ =>
             {
-                // 期间又切走则放弃，避免覆盖新目标的进入动画。
                 if (!ReferenceEquals(_visiblePageHost, nextHost))
                 {
                     return;
                 }
 
                 nextHost.Transitions = PageTransition.CreateEnterTransitions();
+                nextHost.IsHitTestVisible = true;
                 nextHost.Opacity = 1;
                 nextHost.RenderTransform = PageTransition.RestTransform;
-            },
-            DispatcherPriority.Render);
+            });
     }
 
     private bool TryGetPageConverter(out PageToViewConverter converter)
@@ -579,6 +585,7 @@ public sealed partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         CloseAccentPicker();
+        _visiblePageHost = null;
         ClearPageHostContents();
         if (TryGetPageConverter(out var converter))
         {

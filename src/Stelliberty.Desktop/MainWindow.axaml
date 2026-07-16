@@ -179,7 +179,7 @@
               Classes="content-host"
               Classes.settings="{Binding IsSettingsSelected}"
               Background="Transparent">
-                    <!-- 页面常驻堆叠，导航只切透明度，避免重建视图。 -->
+          <!-- 页面常驻堆叠，导航只改合成属性，避免重建视图。 -->
           <Grid>
             <ContentControl x:Name="HomePageHost" Classes="page-host" />
             <ContentControl x:Name="ProxyPageHost" Classes="page-host" />

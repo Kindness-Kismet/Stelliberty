@@ -23,10 +23,12 @@
           <iconPacks:PackIconMingCuteIcons Classes="settings-back-icon"
                                             Kind="ArrowLeftLine" />
         </Button>
-        <TextBlock Text="{Binding Settings.HeaderText}"
+        <TextBlock x:Name="SettingsHeaderText"
+                   Text="{Binding Settings.HeaderText}"
                    FontSize="26"
                    FontWeight="SemiBold"
                    VerticalAlignment="Center"
+                   RenderTransformOrigin="50%,50%"
                    Foreground="{DynamicResource AppTextPrimaryBrush}" />
       </StackPanel>
 
@@ -35,7 +37,9 @@
                     AutomationProperties.AutomationId="Settings.ScrollViewer"
                     HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <Grid HorizontalAlignment="Stretch" Margin="8,0,25,12">
-          <StackPanel x:Name="SettingsContentPanel" HorizontalAlignment="Stretch">
+          <StackPanel x:Name="SettingsContentPanel"
+                      HorizontalAlignment="Stretch"
+                      RenderTransformOrigin="50%,50%">
             <!-- 以下各面板靠 Settings.IsXxxVisible 互斥显隐，等价于设置内部路由 -->
             <settingsViews:SettingsRootView />
 

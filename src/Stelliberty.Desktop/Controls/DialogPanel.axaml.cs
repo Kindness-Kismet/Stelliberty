@@ -1,5 +1,4 @@
 using Avalonia;
-using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -33,15 +32,6 @@ public sealed partial class DialogPanel : UserControl
         Focusable = true;
         IsTabStop = false;
         AddHandler(InputElement.PointerPressedEvent, OnPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
-        Transitions = new Transitions
-        {
-            new DoubleTransition
-            {
-                Property = OpacityProperty,
-                Duration = DialogTiming.ExitDuration,
-                Easing = DialogAnimation.FadeEasing,
-            },
-        };
     }
 
     public Control? DialogContent
@@ -108,7 +98,7 @@ public sealed partial class DialogPanel : UserControl
         }
 
         IsHitTestVisible = false;
-        Opacity = 0;
+        Opacity = 1;
         if (VisualRoot is null)
         {
             IsVisible = false;
