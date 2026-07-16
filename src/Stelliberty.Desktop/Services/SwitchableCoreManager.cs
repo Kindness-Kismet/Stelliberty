@@ -1,11 +1,12 @@
 using Stelliberty.Application.CoreLogs;
+using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Infrastructure.Core;
 
 namespace Stelliberty.Desktop.Services;
 
-internal sealed class SwitchableCoreManager : ICoreManager, IDisposable
+internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private ICoreManager _current;
@@ -32,24 +33,30 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable
         try
         {
             ThrowIfDisposed();
-            var previous = _current;
-            Detach(previous);
-            Attach(next);
-            _current = next;
+            CoreSnapshot snapshot;
             try
             {
-                await EnsureCoreReadyAsync(next, cancellationToken).ConfigureAwait(false);
+                snapshot = await EnsureCoreReadyAsync(next, cancellationToken).ConfigureAwait(false);
             }
             catch
             {
-                Detach(next);
                 DisposeCore(next);
-                _current = previous;
-                Attach(previous);
                 throw;
             }
 
+            var previous = _current;
+            Detach(previous);
+            _current = next;
+            Attach(next);
             DisposeCore(previous);
+            try
+            {
+                StateChanged?.Invoke(this, snapshot);
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Warning($"Core manager state observer failed during switch: {exception.Message}");
+            }
         }
         finally
         {
@@ -74,15 +81,27 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable
 
     public void Dispose()
     {
-        if (_isDisposed)
-        {
-            return;
-        }
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
 
-        _isDisposed = true;
-        Detach(_current);
-        DisposeCore(_current);
-        _gate.Dispose();
+    public async ValueTask DisposeAsync()
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            _isDisposed = true;
+            Detach(_current);
+            DisposeCore(_current);
+        }
+        finally
+        {
+            _gate.Release();
+        }
     }
 
     private async Task UseAsync(Func<ICoreManager, CancellationToken, Task> operation, CancellationToken cancellationToken)
@@ -113,7 +132,7 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable
         }
     }
 
-    private static async Task EnsureCoreReadyAsync(ICoreManager core, CancellationToken cancellationToken)
+    private static async Task<CoreSnapshot> EnsureCoreReadyAsync(ICoreManager core, CancellationToken cancellationToken)
     {
         switch (core)
         {
@@ -123,10 +142,9 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable
             case ServiceModeCoreManager serviceModeCoreManager:
                 await serviceModeCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
                 break;
-            default:
-                await core.GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
-                break;
         }
+
+        return await core.GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private void Attach(ICoreManager core)
@@ -153,9 +171,16 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable
 
     private static void DisposeCore(ICoreManager core)
     {
-        if (core is IDisposable disposable)
+        try
         {
-            disposable.Dispose();
+            if (core is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Core manager dispose failed: {exception.Message}");
         }
     }
 

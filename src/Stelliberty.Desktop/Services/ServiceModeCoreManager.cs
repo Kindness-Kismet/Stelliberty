@@ -69,10 +69,10 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     public async Task EnsureReadyAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
+        var pid = await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
         _logStreamer.Restart();
         StartStatusMonitor();
-        PublishState(CoreState.Running, null, null);
+        PublishState(CoreState.Running, pid, null);
     }
 
     public async Task<CoreApplyConfigResult> ApplyConfigAsync(CoreApplyConfigRequest request, CancellationToken cancellationToken = default)
@@ -89,8 +89,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             throw new InvalidOperationException(result.Message);
         }
 
-        var pid = ParsePid(result.Message) ?? 0;
-        await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
+        var pid = await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
         _logStreamer.Restart();
         StartStatusMonitor();
         PublishState(CoreState.Running, pid, null);
@@ -107,12 +106,11 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             throw new InvalidOperationException(result.Message);
         }
 
-        var pid = ParsePid(result.Message);
-        await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
+        var pid = await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
         _logStreamer.Restart();
         StartStatusMonitor();
         PublishState(CoreState.Running, pid, null);
-        AppLogger.Info($"Service-mode core restart is ready: pid={pid?.ToString() ?? "unknown"} elapsed={stopwatch.Elapsed.TotalMilliseconds:0}ms");
+        AppLogger.Info($"Service-mode core restart is ready: pid={pid} elapsed={stopwatch.Elapsed.TotalMilliseconds:0}ms");
     }
 
     private void StartStatusMonitor()
@@ -201,15 +199,19 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
     }
 
-    private async Task WaitReadyAsync(CancellationToken cancellationToken)
+    private async Task<int> WaitReadyAsync(CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
         while (stopwatch.Elapsed < ReadyTimeout)
         {
-            var version = await ProbeVersionAsync(cancellationToken).ConfigureAwait(false);
-            if (!string.IsNullOrWhiteSpace(version))
+            var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+            // 服务上报的进程号用于确认管道响应来自服务核心。
+            if (status.IsRunning
+                && status.CoreState == "running"
+                && status.CorePid is > 0
+                && !string.IsNullOrWhiteSpace(await ProbeVersionAsync(cancellationToken).ConfigureAwait(false)))
             {
-                return;
+                return status.CorePid.Value;
             }
 
             await Task.Delay(ReadyPollInterval, cancellationToken).ConfigureAwait(false);
@@ -270,24 +272,6 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private void ThrowIfDisposed()
     {
         ObjectDisposedException.ThrowIf(_isDisposed, this);
-    }
-
-    private static int? ParsePid(string message)
-    {
-        foreach (var part in message.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (!part.StartsWith("pid=", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            if (int.TryParse(part["pid=".Length..], out var pid) && pid > 0)
-            {
-                return pid;
-            }
-        }
-
-        return null;
     }
 
     private static CoreState ParseCoreState(string? value)

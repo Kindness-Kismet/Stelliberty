@@ -15,7 +15,7 @@ public static class HubBootstrap
         {
             if (_started)
             {
-                return BootstrapResult.Success("already initialized");
+                return StartCoreLocked();
             }
             try
             {
@@ -44,6 +44,44 @@ public static class HubBootstrap
         }
     }
 
+    public static BootstrapResult StartCore()
+    {
+        lock (Gate)
+        {
+            if (!_started)
+            {
+                return BootstrapResult.Failure("Hub is not initialized.");
+            }
+
+            return StartCoreLocked();
+        }
+    }
+
+    public static BootstrapResult StopCore()
+    {
+        lock (Gate)
+        {
+            if (!_started)
+            {
+                return BootstrapResult.Failure("Hub is not initialized.");
+            }
+
+            try
+            {
+                using FfiBootstrapResult ffi = Interop.hub_stop_core();
+                var message = ffi.message.String;
+                return ffi.ok.Is
+                    ? BootstrapResult.Success(message)
+                    : BootstrapResult.Failure(message);
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Error(exception, "normal core shutdown exception");
+                return BootstrapResult.Failure(exception.Message);
+            }
+        }
+    }
+
     public static void Shutdown()
     {
         try
@@ -53,6 +91,23 @@ public static class HubBootstrap
         catch (Exception ex)
         {
             AppLogger.Warning($"hub shutdown exception ignored: {ex.Message}");
+        }
+    }
+
+    private static BootstrapResult StartCoreLocked()
+    {
+        try
+        {
+            using FfiBootstrapResult ffi = Interop.hub_start_core();
+            var message = ffi.message.String;
+            return ffi.ok.Is
+                ? BootstrapResult.Success(message)
+                : BootstrapResult.Failure(message);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "normal core startup exception");
+            return BootstrapResult.Failure(exception.Message);
         }
     }
 }

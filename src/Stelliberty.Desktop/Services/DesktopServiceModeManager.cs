@@ -123,7 +123,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
 
         var installedStatus = await GetStatusAsync(cancellationToken).ConfigureAwait(false);
         return installedStatus.IsHealthy
-            ? ServiceModeOperationResult.Success("Service mode is installed and running. Restart the app to switch to service mode.", requiresRestart: true)
+            ? ServiceModeOperationResult.Success("Service mode is installed and running.")
             : ServiceModeOperationResult.Failed($"Service was installed but did not respond: {installedStatus.Message}");
     }
 

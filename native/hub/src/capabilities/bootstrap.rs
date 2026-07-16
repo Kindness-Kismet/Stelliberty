@@ -136,13 +136,9 @@ pub fn hub_bootstrap(
     bootstrap_yaml: ffi::String,
 ) -> BootstrapResult {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if let Some(inst) = INSTANCE.get() {
+        if INSTANCE.get().is_some() {
             // 首次 bootstrap 固定路径，后续调用只恢复核心运行。
-            return match run_core_task(inst.core.clone(), CoreTask::Start, Duration::from_secs(10))
-            {
-                Ok(()) => BootstrapResult::ok(),
-                Err(e) => BootstrapResult::err(format!("Core startup failed: {e:#}")),
-            };
+            return hub_start_core();
         }
         let pipe = pipe_name.as_str().to_owned();
         let mihomo = PathBuf::from(mihomo_path.as_str());
@@ -164,14 +160,36 @@ pub fn hub_bootstrap(
     }
 }
 
-pub fn hub_stop_core() {
-    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if let Some(inst) = INSTANCE.get()
-            && let Err(e) = run_core_task(inst.core.clone(), CoreTask::Stop, Duration::from_secs(7))
-        {
-            tracing::warn!("Failed to stop core: {e:#}");
+#[ffi]
+pub fn hub_start_core() -> BootstrapResult {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let Some(inst) = INSTANCE.get() else {
+            return BootstrapResult::err("Hub is not initialized");
+        };
+        match run_core_task(inst.core.clone(), CoreTask::Start, Duration::from_secs(10)) {
+            Ok(()) => BootstrapResult::ok(),
+            Err(e) => BootstrapResult::err(format!("Core startup failed: {e:#}")),
         }
-    }));
+    })) {
+        Ok(result) => result,
+        Err(panic) => BootstrapResult::err(format!("core startup panic：{panic:?}")),
+    }
+}
+
+#[ffi]
+pub fn hub_stop_core() -> BootstrapResult {
+    match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let Some(inst) = INSTANCE.get() else {
+            return BootstrapResult::err("Hub is not initialized");
+        };
+        match run_core_task(inst.core.clone(), CoreTask::Stop, Duration::from_secs(7)) {
+            Ok(()) => BootstrapResult::ok(),
+            Err(e) => BootstrapResult::err(format!("Core shutdown failed: {e:#}")),
+        }
+    })) {
+        Ok(result) => result,
+        Err(panic) => BootstrapResult::err(format!("core shutdown panic：{panic:?}")),
+    }
 }
 
 #[ffi]
@@ -179,7 +197,7 @@ pub fn hub_shutdown() {
     // 先停核心再停 IPC，避免特权子进程滞留。
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if let Some(inst) = INSTANCE.get() {
-            hub_stop_core();
+            let _ = hub_stop_core();
 
             if let Ok(mut guard) = inst.shutdown_tx.lock()
                 && let Some(tx) = guard.take()

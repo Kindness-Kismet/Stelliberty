@@ -608,7 +608,95 @@ public sealed class HomePageStateTests
         Assert.True(viewModel.CanToggleServiceMode);
         Assert.Equal(ServiceModeState.Stopped, viewModel.ServiceModeState);
         Assert.Equal("installed", viewModel.ServiceModeMessage);
-        Assert.Contains(toasts, toast => toast is { Message: "installed", Type: ToastType.Success });
+        Assert.Contains(toasts, toast => toast is { Message: "Home.Toast.ServiceModeInstallSucceeded", Type: ToastType.Success });
+    }
+
+    [Fact(DisplayName = "Service mode install activates the current session without restart")]
+    public async Task ServiceModeInstallActivatesCurrentSessionWithoutRestart()
+    {
+        var manager = new FakeServiceModeManager
+        {
+            Status = new ServiceModeStatus(ServiceModeState.Running, "running")
+        };
+        var activationCount = 0;
+        var toasts = new List<(string Message, ToastType Type)>();
+        var viewModel = new HomePageViewModel(
+            serviceModeManager: manager,
+            serviceModeSessionActivator: _ =>
+            {
+                activationCount++;
+                return Task.FromResult(ServiceModeOperationResult.Success("active"));
+            });
+        viewModel.ToastRequested += (_, toast) => toasts.Add(toast);
+
+        var result = await viewModel.InstallOrUpdateServiceModeAsync();
+
+        Assert.True(result.IsSuccess);
+        Assert.False(result.RequiresRestart);
+        Assert.Equal(1, activationCount);
+        Assert.Contains(toasts, toast => toast is { Message: "Home.Toast.ServiceModeInstallSucceeded", Type: ToastType.Success });
+    }
+
+    [Fact(DisplayName = "Installed service reports session activation failure separately")]
+    public async Task InstalledServiceReportsSessionActivationFailureSeparately()
+    {
+        var manager = new FakeServiceModeManager
+        {
+            Status = new ServiceModeStatus(ServiceModeState.Running, "running")
+        };
+        var toasts = new List<(string Message, ToastType Type)>();
+        var viewModel = new HomePageViewModel(
+            serviceModeManager: manager,
+            serviceModeSessionActivator: _ => Task.FromResult(ServiceModeOperationResult.Failed("switch failed")));
+        viewModel.ToastRequested += (_, toast) => toasts.Add(toast);
+
+        var result = await viewModel.InstallOrUpdateServiceModeAsync();
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("switch failed", result.Message);
+        Assert.Contains(toasts, toast => toast is { Message: "Home.Toast.ServiceModeActivationFailed", Type: ToastType.Warning });
+        Assert.DoesNotContain(toasts, toast => toast.Message == "Home.Toast.ServiceModeInstallFailed");
+    }
+
+    [Fact(DisplayName = "Installed service update does not switch the session again")]
+    public async Task InstalledServiceUpdateDoesNotSwitchSessionAgain()
+    {
+        var manager = new FakeServiceModeManager
+        {
+            Status = new ServiceModeStatus(ServiceModeState.Running, "running")
+        };
+        var activationCount = 0;
+        var viewModel = new HomePageViewModel(
+            serviceModeManager: manager,
+            initialServiceModeStatus: manager.Status,
+            serviceModeSessionActivator: _ =>
+            {
+                activationCount++;
+                return Task.FromResult(ServiceModeOperationResult.Success("active"));
+            });
+
+        var result = await viewModel.InstallOrUpdateServiceModeAsync();
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(0, activationCount);
+    }
+
+    [Fact(DisplayName = "Service mode uninstall requiring restart shows restart notice")]
+    public async Task ServiceModeUninstallRequiringRestartShowsRestartNotice()
+    {
+        var manager = new FakeServiceModeManager
+        {
+            Status = new ServiceModeStatus(ServiceModeState.NotInstalled, "not installed"),
+            UninstallResult = ServiceModeOperationResult.Success("uninstalled", requiresRestart: true)
+        };
+        var toasts = new List<(string Message, ToastType Type)>();
+        var viewModel = new HomePageViewModel(serviceModeManager: manager);
+        viewModel.ToastRequested += (_, toast) => toasts.Add(toast);
+
+        var result = await viewModel.UninstallServiceModeAsync();
+
+        Assert.True(result.RequiresRestart);
+        Assert.Contains(toasts, toast => toast is { Message: "Home.Toast.ServiceModeUninstallNeedsRestart", Type: ToastType.Success });
     }
 
     private static SystemProxyApplicationRequest Request()
@@ -798,6 +886,7 @@ public sealed class HomePageStateTests
         public int HeartbeatCount { get; private set; }
         public int InstallCount { get; private set; }
         public int UninstallCount { get; private set; }
+        public ServiceModeOperationResult UninstallResult { get; set; } = ServiceModeOperationResult.Success("uninstalled");
         public TaskCompletionSource InstallStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource<ServiceModeOperationResult> ReleaseInstall { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -819,7 +908,7 @@ public sealed class HomePageStateTests
         public Task<ServiceModeOperationResult> UninstallAsync(CancellationToken cancellationToken = default)
         {
             UninstallCount++;
-            return Task.FromResult(ServiceModeOperationResult.Success("uninstalled"));
+            return Task.FromResult(UninstallResult);
         }
 
         public Task<ServiceModeOperationResult> StartCoreHostAsync(ServiceModeCoreHostRequest request, CancellationToken cancellationToken = default)

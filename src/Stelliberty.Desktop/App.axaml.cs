@@ -205,6 +205,14 @@ public sealed partial class App : Avalonia.Application
             LogStartupTrace($"Initial service status ready state={initialServiceModeStatus.State}", startupStartedAt);
 #endif
             var coreManager = new SwitchableCoreManager(CreateCoreManager(initialServiceModeStatus, serviceModeManager));
+            var serviceModeSessionSwitcher = new ServiceModeSessionSwitcher(
+                serviceModeManager,
+                coreManager,
+                status => CreateCoreManager(status, serviceModeManager),
+                HubStartupCoordinator.StopCoreAsync,
+                HubStartupCoordinator.ResumeCoreAsync,
+                (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
+                isActive => _isServiceModeCoreHostActive = isActive);
             var coreUpdater = new MihomoCoreUpdater(DesktopApplicationLayout.CoreBinaryPath, coreManager);
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
             var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
@@ -306,11 +314,7 @@ public sealed partial class App : Avalonia.Application
                 initialServiceModeStatus: initialServiceModeStatus,
                 systemPlatform: systemProxyPlatform,
                 clipboardWriter: clipboardWriter,
-                serviceModeSessionActivator: cancellationToken => ActivateServiceModeSessionAsync(
-                    serviceModeManager,
-                    coreProcessCleaner,
-                    coreManager,
-                    cancellationToken),
+                serviceModeSessionActivator: serviceModeSessionSwitcher.ActivateAsync,
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
             hotkeyViewModel = viewModel;
@@ -461,7 +465,11 @@ public sealed partial class App : Avalonia.Application
     {
         try
         {
-            var bootstrap = await StartCoreHostAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner);
+            var bootstrap = await StartCoreHostAsync(
+                initialServiceModeStatus,
+                serviceModeManager,
+                coreProcessCleaner,
+                CancellationToken.None);
             if (bootstrap.Ok)
             {
                 await coreManager.EnsureReadyAsync(CancellationToken.None);
@@ -500,52 +508,26 @@ public sealed partial class App : Avalonia.Application
             AppLogger.Warning($"Startup proxy list refresh failed: {exception.Message}");
         }
 
-        rulePage.RefreshRulesCommand.Execute(null);
+        RefreshRulesForStartup(rulePage);
     }
 
-    private async Task<ServiceModeOperationResult> ActivateServiceModeSessionAsync(
-        IServiceModeManager serviceModeManager,
-        CoreProcessCleaner coreProcessCleaner,
-        SwitchableCoreManager coreManager,
-        CancellationToken cancellationToken)
+    internal static void RefreshRulesForStartup(RulePageViewModel rulePage)
     {
-        ServiceModeStatus status;
         try
         {
-            status = await serviceModeManager.GetStatusAsync(cancellationToken);
+            rulePage.RefreshRulesCommand.Execute(null);
         }
         catch (Exception exception)
         {
-            return ServiceModeOperationResult.Failed(exception.Message);
-        }
-
-        if (!status.IsRunning)
-        {
-            return ServiceModeOperationResult.Failed("Service mode is not running.");
-        }
-
-        var bootstrap = await StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner);
-        if (!bootstrap.Ok)
-        {
-            return ServiceModeOperationResult.Failed(bootstrap.Message);
-        }
-
-        try
-        {
-            await coreManager.SwitchAsync(CreateCoreManager(status, serviceModeManager), cancellationToken);
-            return ServiceModeOperationResult.Success("Service mode is active.");
-        }
-        catch (Exception exception)
-        {
-            _isServiceModeCoreHostActive = false;
-            return ServiceModeOperationResult.Failed(exception.Message);
+            AppLogger.Warning($"Startup rule list refresh failed: {exception.Message}");
         }
     }
 
     private async Task<BootstrapResult> StartCoreHostAsync(
         ServiceModeStatus initialServiceModeStatus,
         IServiceModeManager serviceModeManager,
-        CoreProcessCleaner coreProcessCleaner)
+        CoreProcessCleaner coreProcessCleaner,
+        CancellationToken cancellationToken)
     {
         if (initialServiceModeStatus.IsRunning)
         {
@@ -558,10 +540,9 @@ public sealed partial class App : Avalonia.Application
 
             var result = await serviceModeManager.StartCoreHostAsync(
                 HubStartupCoordinator.CreateServiceModeCoreHostRequest(),
-                CancellationToken.None);
+                cancellationToken);
             if (result.IsSuccess)
             {
-                _isServiceModeCoreHostActive = true;
                 AppLogger.Info("Service-mode core started");
                 return BootstrapResult.Success(result.Message);
             }

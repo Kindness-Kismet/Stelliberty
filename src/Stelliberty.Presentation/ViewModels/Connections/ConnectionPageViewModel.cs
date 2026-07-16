@@ -80,6 +80,10 @@ public sealed class ConnectionPageViewModel : ViewModelBase, IDisposable
 
     public bool IsMonitoringPaused => _state.IsMonitoringPaused;
 
+    public string MonitoringToggleTooltip => Localize(IsMonitoringPaused
+        ? "Connections.Action.Resume"
+        : "Connections.Action.Pause");
+
     public ConnectionFilterLevel FilterLevel => _filterLevel;
 
     public bool IsAllConnectionsSelected => _filterLevel == ConnectionFilterLevel.All;
@@ -535,6 +539,7 @@ public sealed class ConnectionPageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(TotalUploadSpeedText));
         OnPropertyChanged(nameof(TotalDownloadSpeedText));
         OnPropertyChanged(nameof(IsMonitoringPaused));
+        OnPropertyChanged(nameof(MonitoringToggleTooltip));
         OnPropertyChanged(nameof(FilterLevel));
         OnPropertyChanged(nameof(IsAllConnectionsSelected));
         OnPropertyChanged(nameof(IsDirectConnectionsSelected));

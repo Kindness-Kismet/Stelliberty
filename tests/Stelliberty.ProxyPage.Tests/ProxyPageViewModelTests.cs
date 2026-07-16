@@ -1,4 +1,5 @@
 using Stelliberty.Application.Connections;
+using Stelliberty.Application.Localization;
 using Stelliberty.Application.Proxies;
 using Stelliberty.Domain.Connections;
 using Stelliberty.Domain.Proxies;
@@ -10,6 +11,69 @@ namespace Stelliberty.ProxyPage.Tests;
 public sealed class ProxyPageViewModelTests
 {
     private static readonly TimeSpan AsyncTestTimeout = TimeSpan.FromSeconds(2);
+
+    [Fact(DisplayName = "Initial load completion is published after proxy state is ready")]
+    public void InitialLoadCompletionIsPublishedAfterProxyStateIsReady()
+    {
+        var page = new ProxyPageViewModel();
+        var groupCountAtCompletion = -1;
+        var rowCountAtCompletion = -1;
+        page.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ProxyPageViewModel.IsInitialLoadCompleted))
+            {
+                groupCountAtCompletion = page.ParsedGroupCount ?? -1;
+                rowCountAtCompletion = page.VisibleNodeRows.Count;
+            }
+        };
+
+        page.LoadConfig(SampleConfig());
+
+        Assert.True(page.IsInitialLoadCompleted);
+        Assert.Equal(SampleConfig().Groups.Count, groupCountAtCompletion);
+        Assert.Equal(2, rowCountAtCompletion);
+    }
+
+    [Fact(DisplayName = "Inactive proxy page rebuilds presentation after language change")]
+    public void InactiveProxyPageRebuildsPresentationAfterLanguageChange()
+    {
+        var localization = new FakeLocalizationService();
+        using var page = new ProxyPageViewModel(localization: localization);
+        page.LoadConfig(SampleConfig());
+        page.SelectGroup("Select");
+        page.DeactivatePresentation();
+
+        localization.SetLanguage(AppLanguage.En);
+
+        Assert.Empty(page.VisibleGroupRows);
+        Assert.Empty(page.VisibleNodeRows);
+
+        page.ActivatePresentation();
+
+        Assert.Equal(["Auto", "Fallback", "Select", "Balance"], page.VisibleGroupRows.Select(row => row.Name));
+        Assert.Equal(["JP", "KR", "US"], page.VisibleNodeRows.Select(row => row.Name));
+        Assert.Equal("Select", page.SelectedGroup?.Name);
+    }
+
+    [Fact(DisplayName = "Selection completed while inactive is rebuilt on activation")]
+    public async Task SelectionCompletedWhileInactiveIsRebuiltOnActivation()
+    {
+        var core = new FakeProxyCoreClient { BlockChange = true };
+        using var page = new ProxyPageViewModel(coreClient: core, selectionService: new ProxySelectionService(core));
+        page.LoadConfig(SampleConfig());
+        page.SelectGroup("Select");
+
+        var selection = page.SelectNodeAsync("KR");
+        await core.ChangeStarted.Task.WaitAsync(AsyncTestTimeout);
+        page.DeactivatePresentation();
+        core.ReleaseChange.TrySetResult();
+        await selection.WaitAsync(AsyncTestTimeout);
+
+        page.ActivatePresentation();
+
+        Assert.Equal("KR", page.SelectedGroup?.DisplaySelectionName);
+        Assert.True(page.VisibleNodeRows.Single(row => row.Name == "KR").IsSelected);
+    }
 
     [Fact(DisplayName = "Home statistics require parsing and successful delay tests")]
     public async Task HomeStatisticsRequireParsingAndSuccessfulDelayTests()
@@ -763,14 +827,23 @@ public sealed class ProxyPageViewModelTests
     {
         public List<ProxyChangeRequest> ChangeRequests { get; } = [];
         public List<ConnectionCloseRequest> CloseRequests { get; } = [];
+        public bool BlockChange { get; init; }
+        public TaskCompletionSource ChangeStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseChange { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<IReadOnlyList<ConnectionInfo>>([]);
 
-        public Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)
+        public async Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)
         {
             ChangeRequests.Add(request);
-            return Task.FromResult(true);
+            if (BlockChange)
+            {
+                ChangeStarted.TrySetResult();
+                await ReleaseChange.Task.WaitAsync(cancellationToken);
+            }
+
+            return true;
         }
 
         public Task<bool> ClearProxySelectionAsync(string groupName, CancellationToken cancellationToken = default)
@@ -799,6 +872,26 @@ public sealed class ProxyPageViewModelTests
 
         public Task<CoreTrafficRate?> GetTrafficAsync(CancellationToken cancellationToken = default)
             => Task.FromResult<CoreTrafficRate?>(null);
+    }
+
+    private sealed class FakeLocalizationService : ILocalizationService
+    {
+        public AppLanguage CurrentLanguage { get; private set; } = AppLanguage.ZhHans;
+
+        public AppLanguage EffectiveLanguage => CurrentLanguage;
+
+        public event EventHandler? LanguageChanged;
+
+        public void SetLanguage(AppLanguage language)
+        {
+            CurrentLanguage = language;
+            LanguageChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public string GetString(string key)
+        {
+            return key;
+        }
     }
 
     private sealed class FakeProxyDelayTester(IReadOnlyDictionary<string, int> delays) : IProxyDelayTester

@@ -1,0 +1,305 @@
+using Stelliberty.Application.CoreLogs;
+using Stelliberty.Application.Platform;
+using Stelliberty.Application.Rules;
+using Stelliberty.Application.Runtime;
+using Stelliberty.Desktop;
+using Stelliberty.Desktop.Services;
+using Stelliberty.Domain.CoreLogs;
+using Stelliberty.Native.Hub;
+using Xunit;
+
+namespace Stelliberty.Shell.Tests;
+
+public sealed class ServiceModeSessionSwitcherTests
+{
+    [Fact(DisplayName = "Startup rule refresh contains source failure")]
+    public void StartupRuleRefreshContainsSourceFailure()
+    {
+        var page = new Stelliberty.Presentation.ViewModels.RulePageViewModel(
+            new RuleListLoader(new ThrowingRuleConfigSource(), new RuleParser(), () => true));
+
+        App.RefreshRulesForStartup(page);
+
+        Assert.True(page.HasRequestedRefresh);
+        Assert.Empty(page.Rules);
+    }
+
+    [Fact(DisplayName = "Service session switch stops normal core before service core takes over")]
+    public async Task ServiceSessionSwitchStopsNormalCoreBeforeServiceCoreTakesOver()
+    {
+        var order = new List<string>();
+        var normal = new FakeCoreManager(RunningSnapshot(10));
+        var service = new FakeCoreManager(RunningSnapshot(20), _ =>
+        {
+            order.Add("ready-service");
+            return Task.FromResult(RunningSnapshot(20));
+        });
+        using var coreManager = new SwitchableCoreManager(normal);
+        var serviceMode = new FakeServiceModeManager();
+        var isServiceCoreActive = false;
+        var switcher = CreateSwitcher(
+            serviceMode,
+            coreManager,
+            service,
+            order,
+            resumeNormalCore: _ => Task.FromResult(BootstrapResult.Success()),
+            setActive: value => isServiceCoreActive = value);
+
+        var result = await switcher.ActivateAsync(CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(["stop-normal", "start-service", "ready-service"], order);
+        Assert.True(isServiceCoreActive);
+        Assert.Equal(1, normal.DisposeCount);
+        Assert.Equal(0, serviceMode.StopCoreCount);
+        Assert.Equal(20, (await coreManager.GetSnapshotAsync()).Pid);
+    }
+
+    [Fact(DisplayName = "Service startup failure stops service core and restores normal core")]
+    public async Task ServiceStartupFailureStopsServiceCoreAndRestoresNormalCore()
+    {
+        var order = new List<string>();
+        var normal = new FakeCoreManager(RunningSnapshot(10), _ =>
+        {
+            order.Add("ready-normal");
+            return Task.FromResult(RunningSnapshot(10));
+        });
+        using var coreManager = new SwitchableCoreManager(normal);
+        var serviceMode = new FakeServiceModeManager();
+        var resumeCount = 0;
+        var isServiceCoreActive = true;
+        var switcher = new ServiceModeSessionSwitcher(
+            serviceMode,
+            coreManager,
+            _ => new FakeCoreManager(RunningSnapshot(20)),
+            _ =>
+            {
+                order.Add("stop-normal");
+                return Task.FromResult(BootstrapResult.Success());
+            },
+            _ =>
+            {
+                resumeCount++;
+                order.Add("resume-normal");
+                return Task.FromResult(BootstrapResult.Success());
+            },
+            (_, _) =>
+            {
+                order.Add("start-service");
+                return Task.FromResult(BootstrapResult.Failure("start failed"));
+            },
+            value => isServiceCoreActive = value);
+
+        var result = await switcher.ActivateAsync(CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("start failed", result.Message);
+        Assert.Equal(1, serviceMode.StopCoreCount);
+        Assert.Equal(1, resumeCount);
+        Assert.False(isServiceCoreActive);
+        Assert.Equal(0, normal.DisposeCount);
+        Assert.Equal(["stop-normal", "start-service", "resume-normal", "ready-normal"], order);
+    }
+
+    [Fact(DisplayName = "Canceled service switch rolls back after normal core stops")]
+    public async Task CanceledServiceSwitchRollsBackAfterNormalCoreStops()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var normal = new FakeCoreManager(RunningSnapshot(10));
+        using var coreManager = new SwitchableCoreManager(normal);
+        var serviceMode = new FakeServiceModeManager();
+        var resumeCount = 0;
+        var switcher = new ServiceModeSessionSwitcher(
+            serviceMode,
+            coreManager,
+            _ => new FakeCoreManager(RunningSnapshot(20)),
+            _ => Task.FromResult(BootstrapResult.Success()),
+            _ =>
+            {
+                resumeCount++;
+                return Task.FromResult(BootstrapResult.Success());
+            },
+            (_, token) =>
+            {
+                cancellation.Cancel();
+                token.ThrowIfCancellationRequested();
+                return Task.FromResult(BootstrapResult.Success());
+            },
+            _ => { });
+
+        var result = await switcher.ActivateAsync(cancellation.Token);
+
+        Assert.True(result.IsCanceled);
+        Assert.Equal(1, serviceMode.StopCoreCount);
+        Assert.Equal(1, resumeCount);
+        Assert.Equal(0, normal.DisposeCount);
+    }
+
+    [Fact(DisplayName = "Failed candidate does not leak state or replace current core")]
+    public async Task FailedCandidateDoesNotLeakStateOrReplaceCurrentCore()
+    {
+        var normal = new FakeCoreManager(RunningSnapshot(10));
+        Action? candidateStateSource = null;
+        var candidate = new FakeCoreManager(RunningSnapshot(20), _ =>
+        {
+            candidateStateSource?.Invoke();
+            throw new InvalidOperationException("not ready");
+        });
+        candidateStateSource = () => candidate.EmitState(new CoreSnapshot(CoreState.Crashed, 20, "service", "failed"));
+        using var manager = new SwitchableCoreManager(normal);
+        var states = new List<CoreSnapshot>();
+        manager.StateChanged += (_, state) => states.Add(state);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.SwitchAsync(candidate));
+
+        Assert.Empty(states);
+        Assert.Equal(1, candidate.DisposeCount);
+        Assert.Equal(0, normal.DisposeCount);
+        Assert.Equal(10, (await manager.GetSnapshotAsync()).Pid);
+    }
+
+    [Fact(DisplayName = "Dispose waits for active core operation")]
+    public async Task DisposeWaitsForActiveCoreOperation()
+    {
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var normal = new FakeCoreManager(RunningSnapshot(10), async _ =>
+        {
+            started.TrySetResult();
+            await release.Task;
+            return RunningSnapshot(10);
+        });
+        var manager = new SwitchableCoreManager(normal);
+
+        var operation = manager.GetSnapshotAsync();
+        await started.Task;
+        var dispose = manager.DisposeAsync().AsTask();
+
+        Assert.False(dispose.IsCompleted);
+
+        release.TrySetResult();
+        await operation;
+        await dispose;
+
+        Assert.Equal(1, normal.DisposeCount);
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => manager.GetSnapshotAsync());
+    }
+
+    private static ServiceModeSessionSwitcher CreateSwitcher(
+        FakeServiceModeManager serviceMode,
+        SwitchableCoreManager coreManager,
+        ICoreManager serviceCore,
+        List<string> order,
+        Func<CancellationToken, Task<BootstrapResult>> resumeNormalCore,
+        Action<bool> setActive)
+    {
+        return new ServiceModeSessionSwitcher(
+            serviceMode,
+            coreManager,
+            _ => serviceCore,
+            _ =>
+            {
+                order.Add("stop-normal");
+                return Task.FromResult(BootstrapResult.Success());
+            },
+            resumeNormalCore,
+            (_, _) =>
+            {
+                order.Add("start-service");
+                return Task.FromResult(BootstrapResult.Success());
+            },
+            setActive);
+    }
+
+    private static CoreSnapshot RunningSnapshot(int pid)
+    {
+        return new CoreSnapshot(CoreState.Running, pid, "pipe", null);
+    }
+
+    private sealed class FakeCoreManager(
+        CoreSnapshot snapshot,
+        Func<CancellationToken, Task<CoreSnapshot>>? getSnapshot = null) : ICoreManager, IDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public event EventHandler<CoreSnapshot>? StateChanged;
+
+        public event EventHandler<CoreLogMessage>? CoreLogReceived
+        {
+            add { }
+            remove { }
+        }
+
+        public Task<CoreSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
+        {
+            return getSnapshot?.Invoke(cancellationToken) ?? Task.FromResult(snapshot);
+        }
+
+        public Task<CoreApplyConfigResult> ApplyConfigAsync(
+            CoreApplyConfigRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new CoreApplyConfigResult(CoreApplyMode.Reload, snapshot.Pid ?? 0));
+        }
+
+        public Task RestartAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public void EmitState(CoreSnapshot state)
+        {
+            StateChanged?.Invoke(this, state);
+        }
+
+        public void Dispose()
+        {
+            DisposeCount++;
+        }
+    }
+
+    private sealed class FakeServiceModeManager : IServiceModeManager
+    {
+        public int StopCoreCount { get; private set; }
+
+        public Task<ServiceModeStatus> GetStatusAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new ServiceModeStatus(
+                ServiceModeState.Running,
+                "running",
+                CoreState: "running",
+                CorePid: 20));
+        }
+
+        public Task<ServiceModeOperationResult> InstallOrUpdateAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(ServiceModeOperationResult.Success("installed"));
+
+        public Task<ServiceModeOperationResult> UninstallAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(ServiceModeOperationResult.Success("uninstalled"));
+
+        public Task<ServiceModeOperationResult> StartCoreHostAsync(
+            ServiceModeCoreHostRequest request,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(ServiceModeOperationResult.Success("started"));
+
+        public Task<ServiceModeOperationResult> StopCoreHostAsync(CancellationToken cancellationToken = default)
+        {
+            StopCoreCount++;
+            return Task.FromResult(ServiceModeOperationResult.Success("stopped"));
+        }
+
+        public Task<ServiceModeOperationResult> RestartCoreHostAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(ServiceModeOperationResult.Success("restarted"));
+
+        public Task<ServiceModeOperationResult> SendHeartbeatAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(ServiceModeOperationResult.Success("heartbeat"));
+    }
+
+    private sealed class ThrowingRuleConfigSource : IRuleConfigSource
+    {
+        public string ReadRuntimeConfig()
+        {
+            throw new IOException("rules unavailable");
+        }
+    }
+}

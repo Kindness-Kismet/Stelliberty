@@ -819,27 +819,60 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _isServiceModeBusy = true;
         RaiseHomeStateChanged();
         var token = cancellationToken.CanBeCanceled ? cancellationToken : _refreshCancellation?.Token ?? CancellationToken.None;
+        var shouldActivateSession = installOrUpdate && !_serviceModeStatus.IsInstalled;
         ServiceModeOperationResult result;
+        var sessionActivationFailed = false;
         try
         {
             result = installOrUpdate
                 ? await _serviceModeManager.InstallOrUpdateAsync(token)
                 : await _serviceModeManager.UninstallAsync(token);
 
-            if (installOrUpdate && result.IsSuccess && result.RequiresRestart && _serviceModeSessionActivator is not null)
+            if (shouldActivateSession && result.IsSuccess && _serviceModeSessionActivator is not null)
             {
-                result = await _serviceModeSessionActivator(token);
+                try
+                {
+                    var activation = await _serviceModeSessionActivator(token);
+                    if (activation.IsSuccess)
+                    {
+                        result = activation;
+                    }
+                    else
+                    {
+                        sessionActivationFailed = true;
+                        result = activation;
+                        AppLogger.Warning($"Service mode was installed but session activation failed: {activation.Message}");
+                    }
+                }
+                catch (OperationCanceledException exception) when (token.IsCancellationRequested)
+                {
+                    sessionActivationFailed = true;
+                    result = ServiceModeOperationResult.Canceled(exception.Message);
+                }
+                catch (Exception exception)
+                {
+                    sessionActivationFailed = true;
+                    result = ServiceModeOperationResult.Failed(exception.Message);
+                    AppLogger.Warning($"Service mode was installed but session activation failed: {exception.Message}");
+                }
             }
 
-            if (result.IsCanceled)
+            if (sessionActivationFailed)
+            {
+                RaiseToast(Localize("Home.Toast.ServiceModeActivationFailed"), ToastType.Warning);
+            }
+            else if (result.IsCanceled)
             {
                 RaiseToast(Localize("Home.Toast.ServiceModeOperationCanceled"), ToastType.Info);
             }
             else if (result.IsSuccess)
             {
-                RaiseToast(Localize(installOrUpdate
+                var key = installOrUpdate
                     ? "Home.Toast.ServiceModeInstallSucceeded"
-                    : "Home.Toast.ServiceModeUninstallSucceeded"), ToastType.Success);
+                    : result.RequiresRestart
+                        ? "Home.Toast.ServiceModeUninstallNeedsRestart"
+                        : "Home.Toast.ServiceModeUninstallSucceeded";
+                RaiseToast(Localize(key), ToastType.Success);
             }
             else
             {

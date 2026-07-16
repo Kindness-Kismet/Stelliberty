@@ -57,6 +57,10 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
 
     public bool IsMonitoringPaused => _state.IsMonitoringPaused;
 
+    public string MonitoringToggleTooltip => Localize(IsMonitoringPaused
+        ? "CoreLogs.Action.Resume"
+        : "CoreLogs.Action.Pause");
+
     public CoreLogLevel? FilterLevel => _state.FilterLevel;
 
     public bool IsAllLevelsSelected => _state.FilterLevel is null;
@@ -155,6 +159,7 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ErrorLogCount));
         OnPropertyChanged(nameof(MonitorStateText));
         OnPropertyChanged(nameof(IsMonitoringPaused));
+        OnPropertyChanged(nameof(MonitoringToggleTooltip));
         OnPropertyChanged(nameof(FilterLevel));
         OnPropertyChanged(nameof(IsAllLevelsSelected));
         OnPropertyChanged(nameof(IsDebugLevelSelected));

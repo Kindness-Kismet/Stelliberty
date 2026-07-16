@@ -272,7 +272,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     {
         CancelDelayTests();
         _hasLoadedConfig = true;
-        CompleteInitialLoad();
         _loadedSubscriptionId = subscriptionId;
         _configVersion++;
         var normalizedConfig = ProxyConfigSelectionNormalizer.EnsureManualSelections(config);
@@ -306,6 +305,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         _shouldChangeCoreOnSelection = shouldChangeCoreOnSelection;
         _shouldTestDelaysThroughService = shouldTestDelaysThroughService;
         RaiseProxyStateChanged();
+        CompleteInitialLoad();
     }
 
     public void ActivatePresentation()
@@ -892,6 +892,11 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         if (_isPresentationActive)
         {
             RefreshVisibleRows();
+            _isPresentationCacheReleased = false;
+        }
+        else
+        {
+            _isPresentationCacheReleased = true;
         }
 
         OnPropertyChanged(nameof(VisibleGroups));
@@ -1291,6 +1296,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         _visibleNodeIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
         _visibleGroupRows = [];
         _visibleGroupCards = [];
+        _isPresentationCacheReleased = true;
         RaiseProxyStateChanged();
     }
 
