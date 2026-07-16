@@ -28,19 +28,6 @@ public sealed class PageToViewConverter : IValueConverter
         return GetOrCreateView(page);
     }
 
-    public void Preload(params NavigationPage[] pages)
-    {
-        foreach (var page in pages)
-        {
-            _ = GetOrCreateView(page);
-        }
-    }
-
-    public Control? TryGetView(NavigationPage page)
-    {
-        return _views.GetValueOrDefault(page);
-    }
-
     public int ClearCache()
     {
         var count = _views.Count;
@@ -48,7 +35,7 @@ public sealed class PageToViewConverter : IValueConverter
         return count;
     }
 
-    private Control GetOrCreateView(NavigationPage page)
+    public Control GetOrCreateView(NavigationPage page)
     {
         if (!_views.TryGetValue(page, out var view))
         {

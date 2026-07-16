@@ -62,9 +62,16 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
     private void OnEffectiveViewportChanged(object? sender, EffectiveViewportChangedEventArgs e)
     {
         _hasViewport = true;
-        if (e.EffectiveViewport != _viewport)
+        var viewport = e.EffectiveViewport.Intersect(new Rect(Bounds.Size));
+        if (this.FindAncestorOfType<ScrollViewer>() is { Viewport.Height: > 0 } scrollViewer
+            && viewport.Height > scrollViewer.Viewport.Height)
         {
-            _viewport = e.EffectiveViewport;
+            viewport = new Rect(viewport.X, viewport.Y, viewport.Width, scrollViewer.Viewport.Height);
+        }
+
+        if (viewport != _viewport)
+        {
+            _viewport = viewport;
             InvalidateMeasure();
         }
     }
@@ -97,14 +104,8 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
         _columns = columns;
         var rowPitch = ItemHeight + RowSpacing;
 
-        var scrollViewer = this.FindAncestorOfType<ScrollViewer>();
         double viewportTop, viewportBottom;
-        if (scrollViewer is not null && scrollViewer.Viewport.Height > 0)
-        {
-            viewportTop = scrollViewer.Offset.Y;
-            viewportBottom = viewportTop + scrollViewer.Viewport.Height;
-        }
-        else if (_hasViewport && _viewport.Height > 0)
+        if (_hasViewport && _viewport.Height > 0)
         {
             viewportTop = _viewport.Top;
             viewportBottom = _viewport.Bottom;

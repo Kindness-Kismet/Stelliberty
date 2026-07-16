@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using Stelliberty.Desktop.Controls;
+using Stelliberty.Desktop.Views.Settings;
 using Stelliberty.Presentation.ViewModels;
 using NavigationPage = Stelliberty.Presentation.ViewModels.NavigationPage;
 
@@ -13,7 +14,10 @@ public sealed partial class SettingsView : UserControl
     private MainWindowViewModel? _viewModel;
     private SettingsPageViewModel? _settings;
     private readonly PagePointeroverSuppressor _pointeroverSuppressor;
+    private readonly Dictionary<SettingsSubPage, Vector> _scrollOffsets = new();
+    private SettingsSubPage _currentSubPage;
     private long _subPageAnimationVersion;
+    private bool _isAttached;
 
     public SettingsView()
     {
@@ -24,6 +28,21 @@ public sealed partial class SettingsView : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs args)
     {
+        if (_isAttached)
+        {
+            AttachSettings();
+        }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs args)
+    {
+        base.OnAttachedToVisualTree(args);
+        _isAttached = true;
+        AttachSettings();
+    }
+
+    private void AttachSettings()
+    {
         if (_settings is not null)
         {
             _settings.PropertyChanged -= OnSettingsPropertyChanged;
@@ -31,9 +50,11 @@ public sealed partial class SettingsView : UserControl
 
         _viewModel = DataContext as MainWindowViewModel;
         _settings = _viewModel?.Settings;
-        if (_viewModel is not null)
+        if (_settings is not null)
         {
-            _settings!.PropertyChanged += OnSettingsPropertyChanged;
+            _currentSubPage = _settings.SubPage;
+            _settings.PropertyChanged += OnSettingsPropertyChanged;
+            ShowSubPage(_currentSubPage);
         }
     }
 
@@ -41,11 +62,84 @@ public sealed partial class SettingsView : UserControl
     // 避免与进入设置页的主导航过渡叠加成双重动画。
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (args.PropertyName == nameof(SettingsPageViewModel.SubPage)
-            && _viewModel?.CurrentPage == NavigationPage.Settings)
+        if (args.PropertyName != nameof(SettingsPageViewModel.SubPage))
+        {
+            return;
+        }
+
+        SaveScrollOffset(_currentSubPage);
+        _currentSubPage = _settings?.SubPage ?? SettingsSubPage.Root;
+        ShowSubPage(_currentSubPage);
+        ScheduleScrollRestore(_currentSubPage);
+        if (_viewModel?.CurrentPage == NavigationPage.Settings)
         {
             AnimateSubPageEnter();
         }
+    }
+
+    internal IReadOnlyDictionary<SettingsSubPage, Vector> CaptureScrollOffsets()
+    {
+        SaveScrollOffset(_currentSubPage);
+        return new Dictionary<SettingsSubPage, Vector>(_scrollOffsets);
+    }
+
+    internal void RestoreScrollOffsets(IReadOnlyDictionary<SettingsSubPage, Vector> offsets)
+    {
+        _scrollOffsets.Clear();
+        foreach (var (page, offset) in offsets)
+        {
+            _scrollOffsets[page] = offset;
+        }
+
+        _currentSubPage = _settings?.SubPage ?? SettingsSubPage.Root;
+        RestoreScrollOffset(_currentSubPage);
+    }
+
+    private void SaveScrollOffset(SettingsSubPage page)
+        => _scrollOffsets[page] = SettingsScroll.Offset;
+
+    private void ScheduleScrollRestore(SettingsSubPage page)
+    {
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                if (_settings?.SubPage == page)
+                {
+                    RestoreScrollOffset(page);
+                }
+            },
+            DispatcherPriority.Render);
+    }
+
+    private void RestoreScrollOffset(SettingsSubPage page)
+    {
+        SettingsScroll.UpdateLayout();
+        SettingsScroll.Offset = _scrollOffsets.GetValueOrDefault(page);
+        SettingsScroll.UpdateLayout();
+    }
+
+    private void ShowSubPage(SettingsSubPage page)
+    {
+        SettingsContentPanel.Content = page switch
+        {
+            SettingsSubPage.Root => new SettingsRootView(),
+            SettingsSubPage.Theme => new SettingsThemeView(),
+            SettingsSubPage.Language => new SettingsLanguageView(),
+            SettingsSubPage.ClashFeatures => new SettingsClashFeaturesView(),
+            SettingsSubPage.AppBehavior => new SettingsAppBehaviorView(),
+            SettingsSubPage.DataManagement => new SettingsDataManagementView(),
+            SettingsSubPage.Update => new SettingsUpdateView(),
+            SettingsSubPage.About => new SettingsAboutView(),
+            SettingsSubPage.AppLog => new SettingsAppLogView(),
+            SettingsSubPage.Network => new SettingsNetworkView(),
+            SettingsSubPage.PortControl => new SettingsPortControlView(),
+            SettingsSubPage.SystemIntegration => new SettingsSystemIntegrationView(),
+            SettingsSubPage.Dns => new SettingsDnsView(),
+            SettingsSubPage.Performance => new SettingsPerformanceView(),
+            SettingsSubPage.CoreLog => new SettingsCoreLogView(),
+            _ => throw new ArgumentOutOfRangeException(nameof(page), page, null)
+        };
+        SettingsContentPanel.UpdateLayout();
     }
 
     private void AnimateSubPageEnter()
@@ -117,12 +211,15 @@ public sealed partial class SettingsView : UserControl
         _pointeroverSuppressor.Reset();
     }
 
-    // 设置页常驻不卸载；退订仅覆盖热重载重建旧实例时防订阅泄漏。
+    // 页面离开视觉树时解除设置订阅，允许隐藏窗口后回收。
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs args)
     {
+        SaveScrollOffset(_currentSubPage);
         base.OnDetachedFromVisualTree(args);
+        _isAttached = false;
         _subPageAnimationVersion++;
         RestoreSubPageVisualState();
+        SettingsContentPanel.Content = null;
         if (_settings is not null)
         {
             _settings.PropertyChanged -= OnSettingsPropertyChanged;

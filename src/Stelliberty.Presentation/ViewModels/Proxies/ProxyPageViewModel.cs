@@ -5,6 +5,7 @@ using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Localization;
 using Stelliberty.Application.Proxies;
 using Stelliberty.Domain.Proxies;
+using Stelliberty.Presentation.Collections;
 using Stelliberty.Presentation.Commands;
 
 namespace Stelliberty.Presentation.ViewModels;
@@ -26,7 +27,9 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private IReadOnlyDictionary<string, ProxyNode> _entryNodes = new Dictionary<string, ProxyNode>(StringComparer.Ordinal);
     private IReadOnlyList<ProxyGroupButtonViewModel> _visibleGroupRows = [];
     private IReadOnlyList<ProxyGroupCardViewModel> _visibleGroupCards = [];
-    private IReadOnlyList<ProxyNodeRowViewModel> _visibleNodeRows = [];
+    private readonly LazyRowList<string, ProxyNodeRowViewModel> _visibleNodeRows;
+    private IReadOnlyList<string> _visibleNodeNames = [];
+    private IReadOnlyDictionary<string, int> _visibleNodeIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
     private bool _isEmptyVisible = true;
     private string _emptyText = string.Empty;
     private string _emptySubtitle = string.Empty;
@@ -42,7 +45,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private readonly HashSet<string> _batchDelayTestedNodeNames = new(StringComparer.Ordinal);
     private readonly HashSet<string> _delayTestingNodeNames = new(StringComparer.Ordinal);
 
-    private readonly Dictionary<string, ProxyNodeRowViewModel> _nodeRowsByName = new(StringComparer.Ordinal);
     private string? _lastSelectedNodeName;
     private string? _locatedNodeName;
     private int _locateNodeRequestId;
@@ -62,6 +64,9 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private int _scrollToTopRequestId;
     private int _configVersion;
     private bool _hasLoadedConfig;
+    private bool _isInitialLoadCompleted;
+    private bool _isPresentationActive;
+    private bool _isPresentationCacheReleased;
     private string? _loadedSubscriptionId;
     private int _externalSelectionSyncRunning;
     private readonly ResilientProxyConfigLoader _resilientLoader = new();
@@ -77,7 +82,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         ProxyPageLayout initialLayout = ProxyPageLayout.Horizontal,
         Action<ProxyPageLayout>? persistLayout = null,
         ProxyNodeSortMode initialSortMode = ProxyNodeSortMode.Default,
-        Action<ProxyNodeSortMode>? persistSortMode = null)
+        Action<ProxyNodeSortMode>? persistSortMode = null,
+        bool isPresentationActive = true)
     {
         _loader = loader;
         _delayService = delayService;
@@ -90,6 +96,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         _persistSortMode = persistSortMode;
         _layoutMode = initialLayout;
         _persistLayout = persistLayout;
+        _isPresentationActive = isPresentationActive;
+        _visibleNodeRows = new LazyRowList<string, ProxyNodeRowViewModel>((name, _) => CreateNodeRow(name));
         _emptyText = Localize("Proxy.Empty.NoGroups");
         if (_localization is not null)
         {
@@ -142,6 +150,11 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public IReadOnlyList<ProxyNodeRowViewModel> VisibleNodeRows => _visibleNodeRows;
 
+    public int RealizedNodeRowCount => _visibleNodeRows.RealizedCount;
+
+    public int IndexOfNode(string nodeName)
+        => _visibleNodeIndexes.TryGetValue(nodeName, out var index) ? index : -1;
+
     public bool IsEmptyVisible => _isEmptyVisible;
 
     public bool HasGroups => VisibleGroups.Count > 0;
@@ -149,6 +162,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     public int? ParsedGroupCount => _hasLoadedConfig ? _config.Groups.Count : null;
 
     public int? ParsedNodeCount => _hasLoadedConfig ? _config.Nodes.Count : null;
+
+    public bool IsInitialLoadCompleted => _isInitialLoadCompleted;
 
     public int? TestedAverageDelay
     {
@@ -232,6 +247,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public bool IsBatchDelayTesting => _isBatchDelayTesting;
 
+    public bool IsPresentationActive => _isPresentationActive;
+
     public ICommand RefreshProxiesCommand { get; }
     public ICommand SelectGroupCommand { get; }
     public ICommand SelectNodeCommand { get; }
@@ -255,13 +272,25 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     {
         CancelDelayTests();
         _hasLoadedConfig = true;
+        CompleteInitialLoad();
         _loadedSubscriptionId = subscriptionId;
         _configVersion++;
         var normalizedConfig = ProxyConfigSelectionNormalizer.EnsureManualSelections(config);
         // 运行时 YAML 模式由设置注入，所以静态值只是偏好。
         _outboundMode = normalizedConfig.Mode ?? _outboundMode;
         _config = normalizedConfig with { Mode = _outboundMode };
-        RefreshConfigIndexes();
+        if (_isPresentationActive)
+        {
+            RefreshConfigIndexes();
+            _isPresentationCacheReleased = false;
+        }
+        else
+        {
+            _visibleGroups = _config.VisibleGroups;
+            _entryNodes = new Dictionary<string, ProxyNode>(StringComparer.Ordinal);
+            _isPresentationCacheReleased = true;
+        }
+
         _selectedGroup = VisibleGroups.FirstOrDefault();
         _expandedGroupName = null;
         _searchKeyword = string.Empty;
@@ -279,6 +308,62 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         RaiseProxyStateChanged();
     }
 
+    public void ActivatePresentation()
+    {
+        if (_isPresentationActive)
+        {
+            return;
+        }
+
+        if (_isPresentationCacheReleased)
+        {
+            WarmupPresentation();
+        }
+
+        _isPresentationActive = true;
+        OnPropertyChanged(nameof(IsPresentationActive));
+    }
+
+    public void WarmupPresentation()
+    {
+        if (_isPresentationActive || !_isPresentationCacheReleased)
+        {
+            return;
+        }
+
+        RefreshConfigIndexes();
+        _isPresentationCacheReleased = false;
+        _isPresentationActive = true;
+        RaiseProxyStateChanged();
+        _isPresentationActive = false;
+    }
+
+    public void DeactivatePresentation()
+    {
+        if (!_isPresentationActive)
+        {
+            return;
+        }
+
+        _isPresentationActive = false;
+        OnPropertyChanged(nameof(IsPresentationActive));
+    }
+
+    public void ReleasePresentationCache()
+    {
+        DeactivatePresentation();
+        CancelDelayTests();
+        _visibleGroupRows = [];
+        _visibleGroupCards = [];
+        _visibleNodeRows.Release();
+        _visibleNodeNames = [];
+        _visibleNodeIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
+        _entryNodes = new Dictionary<string, ProxyNode>(StringComparer.Ordinal);
+        _isPresentationCacheReleased = true;
+        OnPropertyChanged(nameof(VisibleGroupRows));
+        OnPropertyChanged(nameof(VisibleGroupCards));
+    }
+
     public void RefreshProxies()
     {
         RefreshProxiesAsync().SafeFireAndForget("RefreshProxies");
@@ -292,20 +377,36 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public async Task RefreshProxiesAsync(CancellationToken cancellationToken = default)
     {
-        CancelDelayTests();
-
-        if (_primaryConfigProvider is not null)
+        try
         {
-            await LoadAsync(_primaryConfigProvider, _fallbackConfigProvider, cancellationToken);
+            CancelDelayTests();
+
+            if (_primaryConfigProvider is not null)
+            {
+                await LoadAsync(_primaryConfigProvider, _fallbackConfigProvider, cancellationToken);
+                return;
+            }
+
+            if (_loader is not null)
+            {
+                LoadConfig(_loader.LoadConfig());
+            }
+        }
+        finally
+        {
+            CompleteInitialLoad();
+        }
+    }
+
+    private void CompleteInitialLoad()
+    {
+        if (_isInitialLoadCompleted)
+        {
             return;
         }
 
-        if (_loader is null)
-        {
-            return;
-        }
-
-        LoadConfig(_loader.LoadConfig());
+        _isInitialLoadCompleted = true;
+        OnPropertyChanged(nameof(IsInitialLoadCompleted));
     }
 
     public void SetOutboundMode(Domain.Proxies.OutboundMode mode)
@@ -315,11 +416,21 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        CancelDelayTests();
         // 出站模式会重建可见分组，所以按分组名恢复选择。
         var selectedGroupName = _selectedGroup?.Name;
         _outboundMode = mode;
         _config = _config with { Mode = mode };
-        RefreshConfigIndexes();
+        if (_isPresentationActive)
+        {
+            RefreshConfigIndexes();
+        }
+        else
+        {
+            _visibleGroups = _config.VisibleGroups;
+            _isPresentationCacheReleased = true;
+        }
+
         _selectedGroup = VisibleGroups.FirstOrDefault(group => string.Equals(group.Name, selectedGroupName, StringComparison.Ordinal))
             ?? VisibleGroups.FirstOrDefault();
         RaiseProxyStateChanged();
@@ -343,7 +454,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public async Task SyncExternalSelectionsAsync(CancellationToken cancellationToken = default)
     {
-        if (_primaryConfigProvider is null || _isDelayTesting)
+        if (!_isPresentationActive || _primaryConfigProvider is null || _isDelayTesting)
         {
             return;
         }
@@ -357,7 +468,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         {
             var config = await _resilientLoader.LoadAsync(_primaryConfigProvider, _fallbackConfigProvider, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            if (_isDelayTesting)
+            if (!_isPresentationActive || _isDelayTesting)
             {
                 return;
             }
@@ -687,7 +798,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         _delayTestingNodeNames.Remove(progress.ProxyName);
         _batchDelayResults[progress.ProxyName] = progress.Delay;
         _delayTestedNodeNames.Add(progress.ProxyName);
-        if (_nodeRowsByName.TryGetValue(progress.ProxyName, out var row))
+        if (_visibleNodeIndexes.TryGetValue(progress.ProxyName, out var index)
+            && _visibleNodeRows.GetRealizedRow(index) is { } row)
         {
             row.ApplyDelay(progress.Delay);
         }
@@ -777,7 +889,11 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     private void RaiseProxyStateChanged()
     {
-        RefreshVisibleRows();
+        if (_isPresentationActive)
+        {
+            RefreshVisibleRows();
+        }
+
         OnPropertyChanged(nameof(VisibleGroups));
         OnPropertyChanged(nameof(SelectedGroup));
         OnPropertyChanged(nameof(IsEmptyVisible));
@@ -846,14 +962,13 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         {
             if (_visibleNodeRows.Count > 0)
             {
-                _visibleNodeRows = [];
-                _nodeRowsByName.Clear();
-                OnPropertyChanged(nameof(VisibleNodeRows));
+                _visibleNodeNames = [];
+                _visibleNodeIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
+                _visibleNodeRows.Replace([]);
             }
         }
         else
         {
-            var clickable = _selectedGroup.IsManualSelectable;
             var orderedNames = _sorter.FilterAndSort(_selectedGroup.All, _entryNodes, _sortMode, _searchKeyword)
                 .Where(name => _entryNodes.ContainsKey(name))
                 .ToList();
@@ -861,34 +976,17 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             if (NodeRowsMatch(orderedNames))
             {
                 // 节点顺序稳定时复用行，保留滚动和动画状态。
-                for (var index = 0; index < orderedNames.Count; index++)
-                {
-                    var name = orderedNames[index];
-                    _visibleNodeRows[index].Update(
-                        _entryNodes[name],
-                        string.Equals(name, _selectedGroup.DisplaySelectionName, StringComparison.Ordinal),
-                        string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
-                        clickable,
-                        _delayTestingNodeNames.Contains(name));
-                }
+                _visibleNodeRows.UpdateInPlace(
+                    orderedNames,
+                    (row, name, _) => UpdateNodeRow(row, name, _selectedGroup));
             }
             else
             {
-                _visibleNodeRows = orderedNames
-                    .Select(name => new ProxyNodeRowViewModel(
-                        _entryNodes[name],
-                        string.Equals(name, _selectedGroup.DisplaySelectionName, StringComparison.Ordinal),
-                        string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
-                        clickable,
-                        _delayTestingNodeNames.Contains(name)))
-                    .ToList();
-                _nodeRowsByName.Clear();
-                foreach (var row in _visibleNodeRows)
-                {
-                    _nodeRowsByName[row.Name] = row;
-                }
-
-                OnPropertyChanged(nameof(VisibleNodeRows));
+                _visibleNodeNames = orderedNames;
+                _visibleNodeIndexes = orderedNames
+                    .Select((name, index) => (name, index))
+                    .ToDictionary(item => item.name, item => item.index, StringComparer.Ordinal);
+                _visibleNodeRows.Replace(orderedNames);
             }
         }
 
@@ -919,20 +1017,46 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     private bool NodeRowsMatch(IReadOnlyList<string> orderedNames)
     {
-        if (_visibleNodeRows.Count != orderedNames.Count)
+        if (_visibleNodeNames.Count != orderedNames.Count)
         {
             return false;
         }
 
         for (var index = 0; index < orderedNames.Count; index++)
         {
-            if (!string.Equals(_visibleNodeRows[index].Name, orderedNames[index], StringComparison.Ordinal))
+            if (!string.Equals(_visibleNodeNames[index], orderedNames[index], StringComparison.Ordinal))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private ProxyNodeRowViewModel CreateNodeRow(string name)
+    {
+        var row = new ProxyNodeRowViewModel(
+            _entryNodes[name],
+            string.Equals(name, _selectedGroup?.DisplaySelectionName, StringComparison.Ordinal),
+            string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
+            _selectedGroup?.IsManualSelectable == true,
+            _delayTestingNodeNames.Contains(name));
+        if (_batchDelayResults.TryGetValue(name, out var delay))
+        {
+            row.ApplyDelay(delay);
+        }
+
+        return row;
+    }
+
+    private void UpdateNodeRow(ProxyNodeRowViewModel row, string name, ProxyGroup? group)
+    {
+        row.Update(
+            _entryNodes[name],
+            string.Equals(name, group?.DisplaySelectionName, StringComparison.Ordinal),
+            string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
+            group?.IsManualSelectable == true,
+            _delayTestingNodeNames.Contains(name));
     }
 
     private void SyncGroupRows()
@@ -1162,7 +1286,9 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     private void OnLanguageChanged(object? sender, EventArgs args)
     {
-        _visibleNodeRows = [];
+        _visibleNodeRows.Release();
+        _visibleNodeNames = [];
+        _visibleNodeIndexes = new Dictionary<string, int>(StringComparer.Ordinal);
         _visibleGroupRows = [];
         _visibleGroupCards = [];
         RaiseProxyStateChanged();

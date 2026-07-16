@@ -2,7 +2,6 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
              xmlns:loc="using:Stelliberty.Desktop.Localization"
-             xmlns:settingsViews="clr-namespace:Stelliberty.Desktop.Views.Settings"
              xmlns:vm="using:Stelliberty.Presentation.ViewModels"
              xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
              x:Class="Stelliberty.Desktop.Views.SettingsView"
@@ -33,36 +32,15 @@
       </StackPanel>
 
       <!-- 承载全部设置子页面板 -->
-      <ScrollViewer Grid.Row="1"
+      <ScrollViewer x:Name="SettingsScroll"
+                    Grid.Row="1"
                     AutomationProperties.AutomationId="Settings.ScrollViewer"
                     HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <Grid HorizontalAlignment="Stretch" Margin="8,0,25,12">
-          <StackPanel x:Name="SettingsContentPanel"
-                      HorizontalAlignment="Stretch"
-                      RenderTransformOrigin="50%,50%">
-            <!-- 以下各面板靠 Settings.IsXxxVisible 互斥显隐，等价于设置内部路由 -->
-            <settingsViews:SettingsRootView />
-
-            <settingsViews:SettingsThemeView />
-
-            <settingsViews:SettingsLanguageView />
-
-            <settingsViews:SettingsClashFeaturesView />
-            <settingsViews:SettingsAppBehaviorView />
-            <settingsViews:SettingsDataManagementView />
-            <settingsViews:SettingsUpdateView />
-            <settingsViews:SettingsAboutView />
-            <settingsViews:SettingsAppLogView />
-            <settingsViews:SettingsNetworkView />
-            <settingsViews:SettingsPortControlView />
-            <settingsViews:SettingsSystemIntegrationView />
-            <settingsViews:SettingsDnsView />
-            <settingsViews:SettingsPerformanceView />
-            <settingsViews:SettingsCoreLogView />
-          </StackPanel>
-
-
-
+          <!-- 设置子页按当前路由创建，避免隐藏面板常驻视觉树。 -->
+          <ContentControl x:Name="SettingsContentPanel"
+                          HorizontalAlignment="Stretch"
+                          RenderTransformOrigin="50%,50%" />
         </Grid>
       </ScrollViewer>
     </Grid>

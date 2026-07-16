@@ -26,24 +26,9 @@ namespace Stelliberty.Desktop;
 
 public sealed partial class MainWindow : Window
 {
-    private readonly WindowAppearanceService _windowAppearanceService = new();
-    private readonly WindowStateService _windowStateService;
-    private readonly SystemAccentColorService _systemAccentColorService = new();
-    private readonly Dictionary<AppNavigationPage, ContentControl> _pageHosts = new();
-    private bool _pageHostsReady;
-    private ContentControl? _visiblePageHost;
-    private MainWindowViewModel? _attachedViewModel;
-    private AccentColorPickerView? _activeAccentPicker;
-    private bool _isShutdownRequested;
-    private bool _hasOpened;
-    private long _warmupVersion;
-#if DEBUG
-    private long _navigationDebugVersion;
-    private long _hotReloadRecoveryVersion;
-    private long _warmupStartedAt;
-#endif
-
-    private static readonly AppNavigationPage[] WarmupOrder =
+    // 短暂隐藏保留页面，长期驻留托盘后再回收视觉树。
+    private static readonly TimeSpan HiddenPageReleaseDelay = TimeSpan.FromSeconds(30);
+    private static readonly AppNavigationPage[] PageWarmupOrder =
     [
         AppNavigationPage.Proxy,
         AppNavigationPage.Connections,
@@ -54,6 +39,33 @@ public sealed partial class MainWindow : Window
         AppNavigationPage.Subscriptions,
         AppNavigationPage.Settings,
     ];
+    private readonly WindowAppearanceService _windowAppearanceService = new();
+    private readonly WindowStateService _windowStateService;
+    private readonly SystemAccentColorService _systemAccentColorService = new();
+    private readonly Dictionary<AppNavigationPage, ContentControl> _pageHosts = new();
+    private readonly Dictionary<AppNavigationPage, Dictionary<string, Vector>> _pageScrollOffsets = new();
+    private IReadOnlyDictionary<SettingsSubPage, Vector> _settingsScrollOffsets = new Dictionary<SettingsSubPage, Vector>();
+    private readonly DispatcherTimer _hiddenPageReleaseTimer;
+    private bool _pageHostsReady;
+    private bool _pageViewsReleasedWhileHidden;
+    private ContentControl? _visiblePageHost;
+    private ContentControl? _pendingPageHost;
+    private MainWindowViewModel? _attachedViewModel;
+    private AccentColorPickerView? _activeAccentPicker;
+    private bool _isShutdownRequested;
+    private bool _hasOpened;
+    private bool _isPageWarmupScheduled;
+    private bool _isPageStructureWarmupComplete;
+    private bool _isCompletingPageWarmup;
+    private int _pendingPageWarmupCount;
+    private long _pageWarmupVersion;
+    private long _pageTransitionVersion;
+#if DEBUG
+    private long _navigationDebugVersion;
+    private long _hotReloadRecoveryVersion;
+    private long _pageWarmupStartedAt;
+    private long _hiddenMemoryBeforeRelease;
+#endif
 
     public MainWindow()
         : this(null, null)
@@ -63,6 +75,8 @@ public sealed partial class MainWindow : Window
     public MainWindow(IAppSettingsStore? settingsStore, AppSettings? settings)
     {
         _windowStateService = new WindowStateService(settingsStore, settings);
+        _hiddenPageReleaseTimer = new DispatcherTimer { Interval = HiddenPageReleaseDelay };
+        _hiddenPageReleaseTimer.Tick += OnHiddenPageReleaseTimerTick;
         InitializeComponent();
         ApplyPlatformWindowDecorations();
         DataContextChanged += OnDataContextChanged;
@@ -129,6 +143,7 @@ public sealed partial class MainWindow : Window
             _attachedViewModel = viewModel;
             _attachedViewModel.Theme.CustomAccentRequested += OnCustomAccentRequested;
             _attachedViewModel.PropertyChanged += OnAttachedViewModelPropertyChanged;
+            _attachedViewModel.ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
             _windowAppearanceService.Attach(this, viewModel.Theme);
             if (_hasOpened)
             {
@@ -147,6 +162,7 @@ public sealed partial class MainWindow : Window
 
         _attachedViewModel.Theme.CustomAccentRequested -= OnCustomAccentRequested;
         _attachedViewModel.PropertyChanged -= OnAttachedViewModelPropertyChanged;
+        _attachedViewModel.ProxyPage.PropertyChanged -= OnProxyPagePropertyChanged;
         _windowAppearanceService.Dispose();
         _systemAccentColorService.Dispose();
         _attachedViewModel = null;
@@ -156,7 +172,7 @@ public sealed partial class MainWindow : Window
     {
 #if DEBUG
         var openedAt = Stopwatch.GetTimestamp();
-        AppLogger.Info($"[StartupTrace] Main window opened pendingWarmup={HasPendingWarmup()}");
+        AppLogger.Info("[StartupTrace] Main window opened");
         Dispatcher.UIThread.Post(
             () => AppLogger.Info($"[StartupTrace] Main window first background turn elapsed={Stopwatch.GetElapsedTime(openedAt).TotalMilliseconds:0.0}ms"),
             DispatcherPriority.Background);
@@ -165,7 +181,12 @@ public sealed partial class MainWindow : Window
         if (DataContext is MainWindowViewModel viewModel)
         {
             _systemAccentColorService.Attach(this, viewModel.Theme);
-            StartWarmup();
+            if (_visiblePageHost is null)
+            {
+                ShowInitialPage(viewModel.CurrentPage);
+            }
+
+            StartPageWarmup();
         }
     }
 
@@ -203,85 +224,44 @@ public sealed partial class MainWindow : Window
 #endif
     }
 
+    private void OnProxyPagePropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(ProxyPageViewModel.IsInitialLoadCompleted)
+            || sender is not ProxyPageViewModel { IsInitialLoadCompleted: true })
+        {
+            return;
+        }
+
+        CompletePageWarmupIfReady();
+    }
+
     // 将页面映射到持久宿主；XAML 按导航顺序堆叠宿主。
     private void InitializePageHosts()
     {
-        if (_pageHostsReady || _attachedViewModel is null)
+        if (_attachedViewModel is null)
         {
             return;
         }
 
-        _pageHosts[AppNavigationPage.Home] = HomePageHost;
-        _pageHosts[AppNavigationPage.Proxy] = ProxyPageHost;
-        _pageHosts[AppNavigationPage.Connections] = ConnectionsPageHost;
-        _pageHosts[AppNavigationPage.CoreLogs] = CoreLogsPageHost;
-        _pageHosts[AppNavigationPage.Rules] = RulesPageHost;
-        _pageHosts[AppNavigationPage.Subscriptions] = SubscriptionsPageHost;
-        _pageHosts[AppNavigationPage.Overrides] = OverridesPageHost;
-        _pageHosts[AppNavigationPage.Settings] = SettingsPageHost;
-        _pageHostsReady = true;
-
-        ShowInitialPage(_attachedViewModel.CurrentPage);
-    }
-
-    private void StartWarmup()
-    {
-#if DEBUG
-        _warmupStartedAt = Stopwatch.GetTimestamp();
-        AppLogger.Info($"[StartupTrace] Window warmup started pages={WarmupOrder.Length}");
-#endif
-        StartWarmup(++_warmupVersion);
-    }
-
-    private void StartWarmup(long version)
-    {
-        if (version == _warmupVersion && _pageHostsReady && HasPendingWarmup())
+        if (!_pageHostsReady)
         {
-            WarmupFrom(0, version);
-        }
-    }
-
-    private void WarmupFrom(int index, long version)
-    {
-        if (version != _warmupVersion || index >= WarmupOrder.Length)
-        {
-#if DEBUG
-            if (version == _warmupVersion && index >= WarmupOrder.Length)
-            {
-                AppLogger.Info($"[StartupTrace] Window warmup completed elapsed={Stopwatch.GetElapsedTime(_warmupStartedAt).TotalMilliseconds:0.0}ms");
-            }
-#endif
-            return;
+            _pageHosts[AppNavigationPage.Home] = HomePageHost;
+            _pageHosts[AppNavigationPage.Proxy] = ProxyPageHost;
+            _pageHosts[AppNavigationPage.Connections] = ConnectionsPageHost;
+            _pageHosts[AppNavigationPage.CoreLogs] = CoreLogsPageHost;
+            _pageHosts[AppNavigationPage.Rules] = RulesPageHost;
+            _pageHosts[AppNavigationPage.Subscriptions] = SubscriptionsPageHost;
+            _pageHosts[AppNavigationPage.Overrides] = OverridesPageHost;
+            _pageHosts[AppNavigationPage.Settings] = SettingsPageHost;
+            _pageHostsReady = true;
         }
 
-        Dispatcher.UIThread.Post(
-            () =>
-            {
-                if (version != _warmupVersion)
-                {
-                    return;
-                }
-
-                var page = WarmupOrder[index];
-#if DEBUG
-                var pageStartedAt = Stopwatch.GetTimestamp();
-#endif
-                EnsurePageLoaded(page);
-                if (_pageHosts.TryGetValue(page, out var host))
-                {
-                    host.UpdateLayout();
-                }
-#if DEBUG
-                AppLogger.Info($"[StartupTrace] Window warmup page={page} elapsed={Stopwatch.GetElapsedTime(pageStartedAt).TotalMilliseconds:0.0}ms total={Stopwatch.GetElapsedTime(_warmupStartedAt).TotalMilliseconds:0.0}ms");
-#endif
-
-                WarmupFrom(index + 1, version);
-            },
-            DispatcherPriority.Background);
+        if (IsVisible)
+        {
+            ShowInitialPage(_attachedViewModel.CurrentPage);
+            StartPageWarmup();
+        }
     }
-
-    private bool HasPendingWarmup()
-        => _pageHosts.Values.Any(host => host.Content is null);
 
     private void EnsurePageLoaded(AppNavigationPage page)
     {
@@ -293,9 +273,131 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        converter.Preload(page);
-        host.Content = converter.TryGetView(page);
+        host.Content = converter.GetOrCreateView(page);
     }
+
+    private void StartPageWarmup()
+    {
+        if (!IsVisible
+            || !_pageHostsReady
+            || _isPageWarmupScheduled)
+        {
+            return;
+        }
+
+        var pendingPages = PageWarmupOrder
+            .Where(page => _pageHosts.TryGetValue(page, out var host) && host.Content is null)
+            .ToArray();
+        if (pendingPages.Length == 0)
+        {
+            _isPageStructureWarmupComplete = true;
+            CompletePageWarmupIfReady();
+            return;
+        }
+
+        SetPageInteractionReady(false);
+        _isPageStructureWarmupComplete = false;
+        _isPageWarmupScheduled = true;
+        _pendingPageWarmupCount = pendingPages.Length;
+        var version = ++_pageWarmupVersion;
+#if DEBUG
+        _pageWarmupStartedAt = Stopwatch.GetTimestamp();
+        AppLogger.Info($"[StartupTrace] Window page warmup started pages={pendingPages.Length}");
+#endif
+
+        // 每页完成后重新排到后台队列，避免连续布局占满 UI 线程。
+        Dispatcher.UIThread.Post(
+            () => WarmupPage(pendingPages, 0, version),
+            DispatcherPriority.Background);
+    }
+
+    private void WarmupPage(IReadOnlyList<AppNavigationPage> pages, int index, long version)
+    {
+        if (version != _pageWarmupVersion || !IsVisible || index >= pages.Count)
+        {
+            return;
+        }
+
+        var page = pages[index];
+#if DEBUG
+        var pageStartedAt = Stopwatch.GetTimestamp();
+#endif
+        EnsurePageLoaded(page);
+        if (_pageHosts.TryGetValue(page, out var host))
+        {
+            if (host.Content is IPageContentLifecycle lifecycle)
+            {
+                lifecycle.WarmupPageContent();
+            }
+
+            WarmupPageLayout(page, host);
+        }
+
+#if DEBUG
+        var controls = CountPageControls(host?.Content as Control);
+        var state = _attachedViewModel is null ? string.Empty : BuildPageDebugState(page, _attachedViewModel);
+        AppLogger.Info($"[StartupTrace] Window page warmup page={page} elapsed={Stopwatch.GetElapsedTime(pageStartedAt).TotalMilliseconds:0.0}ms total={Stopwatch.GetElapsedTime(_pageWarmupStartedAt).TotalMilliseconds:0.0}ms controls={controls.Total} visible={controls.Visible} automation={controls.Automation} {state}");
+#endif
+        if (version != _pageWarmupVersion)
+        {
+            return;
+        }
+
+        _pendingPageWarmupCount--;
+        if (index + 1 < pages.Count)
+        {
+            Dispatcher.UIThread.Post(
+                () => WarmupPage(pages, index + 1, version),
+                DispatcherPriority.Background);
+            return;
+        }
+
+        _isPageWarmupScheduled = false;
+        _isPageStructureWarmupComplete = true;
+        CompletePageWarmupIfReady();
+#if DEBUG
+        AppLogger.Info($"[StartupTrace] Window page structure warmup completed elapsed={Stopwatch.GetElapsedTime(_pageWarmupStartedAt).TotalMilliseconds:0.0}ms");
+#endif
+    }
+
+    private void CompletePageWarmupIfReady()
+    {
+        if (!IsVisible
+            || !PageWarmupBlocker.IsVisible
+            || !_isPageStructureWarmupComplete
+            || _isCompletingPageWarmup
+            || _attachedViewModel?.ProxyPage.IsInitialLoadCompleted != true
+            || !_pageHosts.TryGetValue(AppNavigationPage.Proxy, out var proxyHost))
+        {
+            return;
+        }
+
+        _isCompletingPageWarmup = true;
+        if (proxyHost.Content is IPageContentLifecycle lifecycle)
+        {
+            lifecycle.WarmupPageContent();
+        }
+
+        WarmupPageLayout(AppNavigationPage.Proxy, proxyHost);
+        SetPageInteractionReady(true);
+        _isCompletingPageWarmup = false;
+#if DEBUG
+        var controls = CountPageControls(proxyHost.Content as Control);
+        AppLogger.Info($"[StartupTrace] Proxy data warmup completed controls={controls.Total} visible={controls.Visible} nodes={_attachedViewModel.ProxyPage.VisibleNodeRows.Count} realized={_attachedViewModel.ProxyPage.RealizedNodeRowCount}");
+#endif
+    }
+
+    private void CancelPageWarmup()
+    {
+        _pageWarmupVersion++;
+        _pendingPageWarmupCount = 0;
+        _isPageWarmupScheduled = false;
+        _isPageStructureWarmupComplete = false;
+        SetPageInteractionReady(false);
+    }
+
+    private void SetPageInteractionReady(bool isReady)
+        => PageWarmupBlocker.IsVisible = !isReady;
 
     // 首页直接显示无动画；其余宿主复位到隐藏的下浮起始态。
     private void ShowInitialPage(AppNavigationPage page)
@@ -305,8 +407,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        CancelPendingPageTransition();
         foreach (var other in _pageHosts.Values)
         {
+            DeactivatePageHost(other);
             other.Transitions = null;
             other.ZIndex = 0;
             other.IsHitTestVisible = false;
@@ -315,11 +419,13 @@ public sealed partial class MainWindow : Window
         }
 
         EnsurePageLoaded(page);
+        WarmupPageLayout(page, host);
         host.ZIndex = 1;
         host.IsHitTestVisible = true;
         host.Opacity = 1;
         host.RenderTransform = PageTransition.RestTransform;
         _visiblePageHost = host;
+        ActivatePageHost(host);
     }
 
     // 旧页快速淡出、新页淡入上浮；起始态须先无动画落位，再注入过渡才生效。
@@ -333,19 +439,19 @@ public sealed partial class MainWindow : Window
         EnsurePageLoaded(page);
         if (ReferenceEquals(nextHost, _visiblePageHost))
         {
+            CancelPendingPageTransition();
+            nextHost.IsHitTestVisible = true;
+            ActivatePageHost(nextHost);
             return;
         }
 
+        CancelPendingPageTransition();
         var previousHost = _visiblePageHost;
-        _visiblePageHost = nextHost;
-
+        var version = ++_pageTransitionVersion;
+        _pendingPageHost = nextHost;
         if (previousHost is not null)
         {
-            previousHost.Transitions = PageTransition.CreateLeaveTransitions();
-            previousHost.ZIndex = 0;
             previousHost.IsHitTestVisible = false;
-            previousHost.Opacity = 0;
-            previousHost.RenderTransform = PageTransition.LeaveToTransform;
         }
 
         nextHost.Transitions = null;
@@ -354,25 +460,82 @@ public sealed partial class MainWindow : Window
         nextHost.Opacity = 0;
         nextHost.RenderTransform = PageTransition.EnterFromTransform;
 
-        RequestPageEnterFrame(nextHost);
+        RequestPagePreparationFrame(previousHost, nextHost, version);
     }
 
-    // 一个渲染帧足以提交起始态，避免低帧率下放大等待时间。
-    private void RequestPageEnterFrame(ContentControl nextHost)
+    // 目标页先在隐藏状态完成激活和布局，下一帧再启动动画。
+    private void RequestPagePreparationFrame(ContentControl? previousHost, ContentControl nextHost, long version)
     {
         RequestAnimationFrame(
             _ =>
             {
-                if (!ReferenceEquals(_visiblePageHost, nextHost))
+                if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
                 {
                     return;
                 }
 
-                nextHost.Transitions = PageTransition.CreateEnterTransitions();
-                nextHost.IsHitTestVisible = true;
-                nextHost.Opacity = 1;
-                nextHost.RenderTransform = PageTransition.RestTransform;
+                ActivatePageHost(nextHost);
+                nextHost.UpdateLayout();
+                RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
             });
+    }
+
+    private void StartPageTransition(ContentControl? previousHost, ContentControl nextHost, long version)
+    {
+        if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
+        {
+            return;
+        }
+
+        _pendingPageHost = null;
+        _visiblePageHost = nextHost;
+        if (previousHost is not null)
+        {
+            DeactivatePageHost(previousHost);
+            previousHost.Transitions = PageTransition.CreateLeaveTransitions();
+            previousHost.ZIndex = 0;
+            previousHost.IsHitTestVisible = false;
+            previousHost.Opacity = 0;
+            previousHost.RenderTransform = PageTransition.LeaveToTransform;
+        }
+
+        nextHost.Transitions = PageTransition.CreateEnterTransitions();
+        nextHost.IsHitTestVisible = true;
+        nextHost.Opacity = 1;
+        nextHost.RenderTransform = PageTransition.RestTransform;
+    }
+
+    private void CancelPendingPageTransition()
+    {
+        _pageTransitionVersion++;
+        if (_pendingPageHost is not { } pendingHost)
+        {
+            return;
+        }
+
+        DeactivatePageHost(pendingHost);
+        pendingHost.Transitions = null;
+        pendingHost.ZIndex = 0;
+        pendingHost.IsHitTestVisible = false;
+        pendingHost.Opacity = 0;
+        pendingHost.RenderTransform = PageTransition.EnterFromTransform;
+        _pendingPageHost = null;
+    }
+
+    private static void ActivatePageHost(ContentControl host)
+    {
+        if (host.Content is IPageContentLifecycle lifecycle)
+        {
+            lifecycle.ActivatePageContent();
+        }
+    }
+
+    private static void DeactivatePageHost(ContentControl? host)
+    {
+        if (host?.Content is IPageContentLifecycle lifecycle)
+        {
+            lifecycle.DeactivatePageContent();
+        }
     }
 
     private bool TryGetPageConverter(out PageToViewConverter converter)
@@ -389,7 +552,6 @@ public sealed partial class MainWindow : Window
     }
 
 #if DEBUG
-
     [AvaloniaHotReload]
     private void OnHotReloaded()
     {
@@ -437,11 +599,12 @@ public sealed partial class MainWindow : Window
         // 宿主与缓存视图必须重新绑定，避免继续引用旧资源。
         ClearPageHostContents();
         converter.ClearCache();
+        CancelPageWarmup();
+        CancelPendingPageTransition();
         _pageHostsReady = false;
         _pageHosts.Clear();
         _visiblePageHost = null;
         InitializePageHosts();
-        StartWarmup();
     }
 
     private void ScheduleNavigationDebugLog(AppNavigationPage page)
@@ -465,16 +628,15 @@ public sealed partial class MainWindow : Window
         }
 
         var elapsedMs = Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds;
-        var controls = CountPageControls();
+        var controls = CountPageControls(GetNavigationPageView(page));
         AppLogger.Info($"Navigation complete: page={FormatPageDebugName(page)} elapsed={elapsedMs:0.0}ms controls={controls.Total} visible={controls.Visible} automation={controls.Automation} {BuildPageDebugState(page, _attachedViewModel)}");
     }
 
-    private (int Total, int Visible, int Automation) CountPageControls()
+    private static (int Total, int Visible, int Automation) CountPageControls(Control? page)
     {
-        if (_attachedViewModel is not null
-            && GetNavigationPageView(_attachedViewModel.CurrentPage) is Control currentPage)
+        if (page is not null)
         {
-            var controls = currentPage.GetVisualDescendants().OfType<Control>().Append(currentPage).ToList();
+            var controls = page.GetVisualDescendants().OfType<Control>().Append(page).ToList();
             return (
                 controls.Count,
                 controls.Count(IsControlEffectivelyVisible),
@@ -491,7 +653,7 @@ public sealed partial class MainWindow : Window
     {
         return page switch
         {
-            AppNavigationPage.Proxy => $"groups={viewModel.ProxyPage.VisibleGroups.Count} nodes={viewModel.ProxyPage.VisibleNodeRows.Count}",
+            AppNavigationPage.Proxy => $"groups={viewModel.ProxyPage.VisibleGroups.Count} nodes={viewModel.ProxyPage.VisibleNodeRows.Count} realized={viewModel.ProxyPage.RealizedNodeRowCount} parsed_nodes={viewModel.ProxyPage.ParsedNodeCount ?? 0}",
             AppNavigationPage.Connections => $"connections={viewModel.ConnectionPage.TotalConnectionCount} filtered={viewModel.ConnectionPage.FilteredConnectionCount}",
             AppNavigationPage.CoreLogs => $"core_logs={viewModel.CoreLogPage.TotalLogCount} filtered={viewModel.CoreLogPage.FilteredLogCount}",
             AppNavigationPage.Rules => $"rules={viewModel.RulePage.Rules.Count} filtered={viewModel.RulePage.FilteredRules.Count}",
@@ -584,6 +746,11 @@ public sealed partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        CancelPageWarmup();
+        CancelPendingPageTransition();
+        _hiddenPageReleaseTimer.Stop();
+        _hiddenPageReleaseTimer.Tick -= OnHiddenPageReleaseTimerTick;
+        _pageViewsReleasedWhileHidden = false;
         CloseAccentPicker();
         _visiblePageHost = null;
         ClearPageHostContents();
@@ -604,8 +771,88 @@ public sealed partial class MainWindow : Window
     {
         foreach (var host in _pageHosts.Values)
         {
+            if (host.Content is Control pageContent)
+            {
+                if (pageContent is IPageContentLifecycle lifecycle)
+                {
+                    lifecycle.ReleasePageContent();
+                }
+
+                pageContent.DataContext = null;
+            }
+
             host.Content = null;
         }
+    }
+
+    private void CapturePageScrollOffsets()
+    {
+        _pageScrollOffsets.Clear();
+        foreach (var (page, host) in _pageHosts)
+        {
+            if (page == AppNavigationPage.Settings || host.Content is not Control content)
+            {
+                continue;
+            }
+
+            var offsets = content.GetVisualDescendants()
+                .OfType<ScrollViewer>()
+                .Select(scrollViewer => (Id: AutomationProperties.GetAutomationId(scrollViewer), scrollViewer.Offset))
+                .Where(item => !string.IsNullOrWhiteSpace(item.Id) && (item.Offset.X > 0 || item.Offset.Y > 0))
+                .ToDictionary(item => item.Id!, item => item.Offset, StringComparer.Ordinal);
+            if (offsets.Count > 0)
+            {
+                _pageScrollOffsets[page] = offsets;
+            }
+        }
+
+        if (_pageHosts.TryGetValue(AppNavigationPage.Settings, out var settingsHost)
+            && settingsHost.Content is SettingsView settingsView)
+        {
+            _settingsScrollOffsets = settingsView.CaptureScrollOffsets();
+        }
+    }
+
+    private void WarmupPageLayout(AppNavigationPage page, ContentControl host)
+    {
+        host.UpdateLayout();
+        if (page == AppNavigationPage.Settings && host.Content is SettingsView settingsView)
+        {
+            settingsView.RestoreScrollOffsets(_settingsScrollOffsets);
+            host.UpdateLayout();
+            return;
+        }
+
+        if (!_pageScrollOffsets.Remove(page, out var offsets)
+            || host.Content is not Control content)
+        {
+            return;
+        }
+
+        var restoredCount = 0;
+        var maxVerticalOffset = 0d;
+        foreach (var scrollViewer in content.GetVisualDescendants().OfType<ScrollViewer>())
+        {
+            var automationId = AutomationProperties.GetAutomationId(scrollViewer);
+            if (automationId is null || !offsets.TryGetValue(automationId, out var offset))
+            {
+                continue;
+            }
+
+            scrollViewer.Offset = offset;
+            restoredCount++;
+            maxVerticalOffset = Math.Max(maxVerticalOffset, offset.Y);
+        }
+
+        if (restoredCount == 0)
+        {
+            return;
+        }
+
+        host.UpdateLayout();
+#if DEBUG
+        AppLogger.Info($"[StartupTrace] Page scroll restored page={page} viewers={restoredCount} max_y={maxVerticalOffset:0.0}");
+#endif
     }
 
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs args)
@@ -614,7 +861,114 @@ public sealed partial class MainWindow : Window
         {
             UpdateWindowStateVisuals();
         }
+
+        if (args.Property != Visual.IsVisibleProperty)
+        {
+            return;
+        }
+
+        if (IsVisible)
+        {
+            _hiddenPageReleaseTimer.Stop();
+            var pageViewsWereReleased = _pageViewsReleasedWhileHidden;
+            RestoreReleasedPageViews();
+            if (!pageViewsWereReleased && _visiblePageHost is not null)
+            {
+                ActivatePageHost(_visiblePageHost);
+            }
+
+            StartPageWarmup();
+        }
+        else if (!_isShutdownRequested)
+        {
+            CancelPageWarmup();
+            CancelPendingPageTransition();
+            DeactivatePageHost(_visiblePageHost);
+            ScheduleHiddenMemoryRelease();
+        }
     }
+
+    internal void ScheduleHiddenMemoryRelease()
+    {
+        if (IsVisible || _isShutdownRequested)
+        {
+            return;
+        }
+
+        _hiddenPageReleaseTimer.Stop();
+        _hiddenPageReleaseTimer.Start();
+    }
+
+    private void OnHiddenPageReleaseTimerTick(object? sender, EventArgs args)
+    {
+        _hiddenPageReleaseTimer.Stop();
+        if (IsVisible || _isShutdownRequested)
+        {
+            return;
+        }
+
+#if DEBUG
+        _hiddenMemoryBeforeRelease = GetPrivateMemorySize();
+#endif
+        CapturePageScrollOffsets();
+        _visiblePageHost = null;
+        ClearPageHostContents();
+        var releasedViewCount = 0;
+        if (TryGetPageConverter(out var converter))
+        {
+            releasedViewCount = converter.ClearCache();
+        }
+
+        _pageViewsReleasedWhileHidden = releasedViewCount > 0;
+        if (_pageViewsReleasedWhileHidden)
+        {
+            AppLogger.Debug($"Released {releasedViewCount} hidden page views");
+        }
+
+#if DEBUG
+        AppLogger.Info($"[StartupTrace] Hidden page release views={releasedViewCount} private_before={FormatMemory(_hiddenMemoryBeforeRelease)} private_after_release={FormatMemory(GetPrivateMemorySize())}");
+#endif
+
+        Dispatcher.UIThread.Post(CollectHiddenMemory, DispatcherPriority.Background);
+    }
+
+    private void RestoreReleasedPageViews()
+    {
+        if (!_pageViewsReleasedWhileHidden || _attachedViewModel is null)
+        {
+            return;
+        }
+
+        _pageViewsReleasedWhileHidden = false;
+        ShowInitialPage(_attachedViewModel.CurrentPage);
+    }
+
+    private void CollectHiddenMemory()
+    {
+        if (IsVisible || _isShutdownRequested)
+        {
+            return;
+        }
+
+#if DEBUG
+        var privateBeforeCollection = GetPrivateMemorySize();
+#endif
+        GC.Collect(GC.MaxGeneration, GCCollectionMode.Aggressive, blocking: true, compacting: true);
+#if DEBUG
+        AppLogger.Info($"[StartupTrace] Hidden memory collected private_before_release={FormatMemory(_hiddenMemoryBeforeRelease)} private_before_gc={FormatMemory(privateBeforeCollection)} private_after_gc={FormatMemory(GetPrivateMemorySize())}");
+#endif
+    }
+
+#if DEBUG
+    private static long GetPrivateMemorySize()
+    {
+        using var process = Process.GetCurrentProcess();
+        process.Refresh();
+        return process.PrivateMemorySize64;
+    }
+
+    private static string FormatMemory(long bytes) => $"{bytes / 1024d / 1024d:0.0}MB";
+#endif
 
     private void ClearTitleBarHoverState()
     {

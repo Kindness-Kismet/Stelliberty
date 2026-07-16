@@ -260,7 +260,8 @@ public sealed partial class App : Avalonia.Application
                 {
                     settings.ProxyNodeSortMode = sortMode.ToString();
                     settingsStore.Save(settings);
-                });
+                },
+                isPresentationActive: false);
             var rulePage = new RulePageViewModel(new RuleListLoader(
                 new FileRuntimeRuleConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore),
                 new RuleParser(),
@@ -335,6 +336,7 @@ public sealed partial class App : Avalonia.Application
             {
                 // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                mainWindow.ScheduleHiddenMemoryRelease();
                 AppLogger.Info("Silent start enabled; main window stays hidden");
             }
             else
@@ -482,17 +484,26 @@ public sealed partial class App : Avalonia.Application
         try
         {
             await proxySelectionRestorer.RestoreCurrentSubscriptionAsync();
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Startup proxy selection restore failed: {exception.Message}");
+        }
+
+        try
+        {
             await proxyPage.RefreshProxiesAsync();
             if (viewModel.SubscriptionPage.CurrentSubscriptionId is { } subscriptionId)
             {
                 proxyPage.BindLoadedConfigToSubscription(subscriptionId);
             }
-            rulePage.RefreshRulesCommand.Execute(null);
         }
         catch (Exception exception)
         {
-            AppLogger.Warning($"Startup refresh for runtime lists failed: {exception.Message}");
+            AppLogger.Warning($"Startup proxy list refresh failed: {exception.Message}");
         }
+
+        rulePage.RefreshRulesCommand.Execute(null);
     }
 
     private async Task<BootstrapResult> StartCoreHostAsync(
