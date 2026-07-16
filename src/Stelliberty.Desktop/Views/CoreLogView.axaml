@@ -106,7 +106,9 @@
                     AutomationProperties.AutomationId="CoreLogs.TogglePauseButton"
                     Command="{Binding TogglePauseCommand}"
                     ToolTip.Tip="{loc:Loc CoreLogs.Action.Pause}">
-              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="PauseLine" />
+              <iconPacks:PackIconMingCuteIcons Classes="icon pause-toggle-icon"
+                                                Classes.paused="{Binding IsMonitoringPaused}"
+                                                Width="15" Height="15" />
             </Button>
             <Button Classes="toolbar-icon"
                     AutomationProperties.AutomationId="CoreLogs.ClearButton"
