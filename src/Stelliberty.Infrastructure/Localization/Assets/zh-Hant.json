@@ -121,7 +121,7 @@
   "Home.Toast.ServiceModeActivationFailed": "服務模式已安裝，但目前工作階段切換失敗",
   "Home.Toast.ServiceModeInstallFailed": "服務模式安裝失敗",
   "Home.Toast.ServiceModeUninstallSucceeded": "服務模式解除安裝成功",
-  "Home.Toast.ServiceModeUninstallNeedsRestart": "服務模式解除安裝成功，請重新啟動應用程式",
+  "Home.Toast.ServiceModeSessionRecoveryFailed": "服務模式已解除安裝，但一般模式未能啟動",
   "Home.Toast.ServiceModeUninstallFailed": "服務模式解除安裝失敗",
   "Home.Toast.ServiceModeOperationCanceled": "服務模式操作已取消",
   "Home.Toast.SystemProxyFailed": "系統代理設定失敗",

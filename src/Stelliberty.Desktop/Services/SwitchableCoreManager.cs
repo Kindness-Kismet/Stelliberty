@@ -29,38 +29,22 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
 
     public async Task SwitchAsync(ICoreManager next, CancellationToken cancellationToken = default)
     {
+        using var transition = await BeginTransitionAsync(cancellationToken).ConfigureAwait(false);
+        await transition.SwitchAsync(next, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<CoreTransition> BeginTransitionAsync(CancellationToken cancellationToken = default)
+    {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfDisposed();
-            CoreSnapshot snapshot;
-            try
-            {
-                snapshot = await EnsureCoreReadyAsync(next, cancellationToken).ConfigureAwait(false);
-            }
-            catch
-            {
-                DisposeCore(next);
-                throw;
-            }
-
-            var previous = _current;
-            Detach(previous);
-            _current = next;
-            Attach(next);
-            DisposeCore(previous);
-            try
-            {
-                StateChanged?.Invoke(this, snapshot);
-            }
-            catch (Exception exception)
-            {
-                AppLogger.Warning($"Core manager state observer failed during switch: {exception.Message}");
-            }
+            return new CoreTransition(this);
         }
-        finally
+        catch
         {
             _gate.Release();
+            throw;
         }
     }
 
@@ -132,6 +116,57 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
         }
     }
 
+    private async Task SwitchCoreAsync(ICoreManager next, CancellationToken cancellationToken)
+    {
+        CoreSnapshot snapshot;
+        try
+        {
+            snapshot = await EnsureCoreReadyAsync(next, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            DisposeCore(next);
+            throw;
+        }
+
+        ReplaceCore(next, snapshot);
+    }
+
+    private async Task<Exception?> SwitchEvenIfUnavailableAsync(ICoreManager next, CancellationToken cancellationToken)
+    {
+        CoreSnapshot snapshot;
+        Exception? readinessFailure = null;
+        try
+        {
+            snapshot = await EnsureCoreReadyAsync(next, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            readinessFailure = exception;
+            snapshot = new CoreSnapshot(CoreState.Unavailable, null, string.Empty, exception.Message);
+        }
+
+        ReplaceCore(next, snapshot);
+        return readinessFailure;
+    }
+
+    private void ReplaceCore(ICoreManager next, CoreSnapshot snapshot)
+    {
+        var previous = _current;
+        Detach(previous);
+        _current = next;
+        Attach(next);
+        DisposeCore(previous);
+        try
+        {
+            StateChanged?.Invoke(this, snapshot);
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Core manager state observer failed during switch: {exception.Message}");
+        }
+    }
+
     private static async Task<CoreSnapshot> EnsureCoreReadyAsync(ICoreManager core, CancellationToken cancellationToken)
     {
         switch (core)
@@ -189,6 +224,36 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
         if (_isDisposed)
         {
             throw new ObjectDisposedException(nameof(SwitchableCoreManager));
+        }
+    }
+
+    internal sealed class CoreTransition : IDisposable
+    {
+        private SwitchableCoreManager? _owner;
+
+        internal CoreTransition(SwitchableCoreManager owner)
+        {
+            _owner = owner;
+        }
+
+        public Task SwitchAsync(ICoreManager next, CancellationToken cancellationToken = default)
+        {
+            var owner = _owner ?? throw new ObjectDisposedException(nameof(CoreTransition));
+            return owner.SwitchCoreAsync(next, cancellationToken);
+        }
+
+        public Task<Exception?> SwitchEvenIfUnavailableAsync(
+            ICoreManager next,
+            CancellationToken cancellationToken = default)
+        {
+            var owner = _owner ?? throw new ObjectDisposedException(nameof(CoreTransition));
+            return owner.SwitchEvenIfUnavailableAsync(next, cancellationToken);
+        }
+
+        public void Dispose()
+        {
+            var owner = Interlocked.Exchange(ref _owner, null);
+            owner?._gate.Release();
         }
     }
 }

@@ -90,6 +90,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SystemProxyPlatform systemPlatform = SystemProxyPlatform.Other,
         IClipboardWriter? clipboardWriter = null,
         Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionActivator = null,
+        Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionDeactivator = null,
         IAppLogReader? appLogReader = null,
         IAppLogExporter? appLogExporter = null)
     {
@@ -157,7 +158,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             localization,
             systemPlatform,
             clipboardWriter,
-            serviceModeSessionActivator);
+            serviceModeSessionActivator,
+            serviceModeSessionDeactivator);
         SystemIntegration = new SettingsSystemIntegrationViewModel(
             _settings,
             settingsStore,

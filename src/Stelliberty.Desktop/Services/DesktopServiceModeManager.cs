@@ -161,7 +161,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             StatusSettleTimeout,
             cancellationToken).ConfigureAwait(false);
         return status.State == ServiceModeState.NotInstalled
-            ? ServiceModeOperationResult.Success("Service mode is uninstalled. Restart the app to switch to normal mode.", requiresRestart: true)
+            ? ServiceModeOperationResult.Success("Service mode is uninstalled.")
             : ServiceModeOperationResult.Failed($"Service was uninstalled but is still visible: {status.Message}");
     }
 

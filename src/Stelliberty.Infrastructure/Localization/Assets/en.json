@@ -121,7 +121,7 @@
   "Home.Toast.ServiceModeActivationFailed": "Service mode is installed, but this session could not switch",
   "Home.Toast.ServiceModeInstallFailed": "Service mode installation failed",
   "Home.Toast.ServiceModeUninstallSucceeded": "Service mode uninstalled",
-  "Home.Toast.ServiceModeUninstallNeedsRestart": "Service mode uninstalled; restart the app",
+  "Home.Toast.ServiceModeSessionRecoveryFailed": "Service mode was uninstalled, but normal mode could not start",
   "Home.Toast.ServiceModeUninstallFailed": "Service mode uninstallation failed",
   "Home.Toast.ServiceModeOperationCanceled": "Service mode operation canceled",
   "Home.Toast.SystemProxyFailed": "System proxy setup failed",

@@ -209,6 +209,7 @@ public sealed partial class App : Avalonia.Application
                 serviceModeManager,
                 coreManager,
                 status => CreateCoreManager(status, serviceModeManager),
+                () => new IpcCoreManager(HubStartupCoordinator.PipeName),
                 HubStartupCoordinator.StopCoreAsync,
                 HubStartupCoordinator.ResumeCoreAsync,
                 (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
@@ -315,6 +316,7 @@ public sealed partial class App : Avalonia.Application
                 systemPlatform: systemProxyPlatform,
                 clipboardWriter: clipboardWriter,
                 serviceModeSessionActivator: serviceModeSessionSwitcher.ActivateAsync,
+                serviceModeSessionDeactivator: serviceModeSessionSwitcher.DeactivateAsync,
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
             hotkeyViewModel = viewModel;
@@ -362,7 +364,7 @@ public sealed partial class App : Avalonia.Application
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
                 viewModel.Dispose();
-                DisposeOwnedServices(coreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
+                DisposeOwnedServices(serviceModeSessionSwitcher, coreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
                 HubBootstrap.Shutdown();
             };
             // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。

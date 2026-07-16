@@ -7,12 +7,18 @@ namespace Stelliberty.Native.Hub;
 public static class HubBootstrap
 {
     private static bool _started;
+    private static bool _isShutdownRequested;
     private static readonly object Gate = new();
 
     public static BootstrapResult Start(BootstrapOptions options)
     {
         lock (Gate)
         {
+            if (_isShutdownRequested)
+            {
+                return BootstrapResult.Failure("Hub shutdown has started.");
+            }
+
             if (_started)
             {
                 return StartCoreLocked();
@@ -48,6 +54,11 @@ public static class HubBootstrap
     {
         lock (Gate)
         {
+            if (_isShutdownRequested)
+            {
+                return BootstrapResult.Failure("Hub shutdown has started.");
+            }
+
             if (!_started)
             {
                 return BootstrapResult.Failure("Hub is not initialized.");
@@ -84,13 +95,29 @@ public static class HubBootstrap
 
     public static void Shutdown()
     {
-        try
+        lock (Gate)
         {
-            Interop.hub_shutdown();
-        }
-        catch (Exception ex)
-        {
-            AppLogger.Warning($"hub shutdown exception ignored: {ex.Message}");
+            if (_isShutdownRequested)
+            {
+                return;
+            }
+
+            _isShutdownRequested = true;
+            try
+            {
+                if (_started)
+                {
+                    Interop.hub_shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warning($"hub shutdown exception ignored: {ex.Message}");
+            }
+            finally
+            {
+                _started = false;
+            }
         }
     }
 

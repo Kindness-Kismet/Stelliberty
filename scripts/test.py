@@ -16,6 +16,7 @@ import time
 from contextlib import contextmanager
 from pathlib import Path
 
+from build_support.builder import generate_bindings
 from build_support.console import fail, header, print_summary, timing
 from build_support.help import MultilineHelpFormatter
 
@@ -98,6 +99,9 @@ def main() -> None:
         if not targets:
             suffix = f" ({category_name(category_filter)})" if category_filter is not None else ""
             sys.exit(f"Unknown pre-build test{suffix}: {args.test}\nRun --help to see available tests.")
+
+    if any(handler.startswith("dotnet:") for _, handler, _ in targets):
+        generate_bindings()
 
     failed: list[str] = []
     for name, handler, description in targets:

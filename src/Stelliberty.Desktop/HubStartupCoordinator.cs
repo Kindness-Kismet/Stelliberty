@@ -39,14 +39,12 @@ internal static class HubStartupCoordinator
 
     public static Task<BootstrapResult> StopCoreAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.Run(HubBootstrap.StopCore);
+        return Task.Run(HubBootstrap.StopCore, cancellationToken);
     }
 
     public static Task<BootstrapResult> ResumeCoreAsync(CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.Run(HubBootstrap.StartCore);
+        return Task.Run(HubBootstrap.StartCore, cancellationToken);
     }
 
     public static BootstrapResult Start()
