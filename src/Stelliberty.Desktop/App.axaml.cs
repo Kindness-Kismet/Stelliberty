@@ -204,7 +204,7 @@ public sealed partial class App : Avalonia.Application
 #if DEBUG
             LogStartupTrace($"Initial service status ready state={initialServiceModeStatus.State}", startupStartedAt);
 #endif
-            var coreManager = CreateCoreManager(initialServiceModeStatus, serviceModeManager);
+            var coreManager = new SwitchableCoreManager(CreateCoreManager(initialServiceModeStatus, serviceModeManager));
             var coreUpdater = new MihomoCoreUpdater(DesktopApplicationLayout.CoreBinaryPath, coreManager);
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
             var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
@@ -306,6 +306,11 @@ public sealed partial class App : Avalonia.Application
                 initialServiceModeStatus: initialServiceModeStatus,
                 systemPlatform: systemProxyPlatform,
                 clipboardWriter: clipboardWriter,
+                serviceModeSessionActivator: cancellationToken => ActivateServiceModeSessionAsync(
+                    serviceModeManager,
+                    coreProcessCleaner,
+                    coreManager,
+                    cancellationToken),
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
             hotkeyViewModel = viewModel;
@@ -448,7 +453,7 @@ public sealed partial class App : Avalonia.Application
         ServiceModeStatus initialServiceModeStatus,
         IServiceModeManager serviceModeManager,
         CoreProcessCleaner coreProcessCleaner,
-        ICoreManager coreManager,
+        SwitchableCoreManager coreManager,
         MainWindowViewModel viewModel,
         ProxyPageViewModel proxyPage,
         RulePageViewModel rulePage,
@@ -459,15 +464,7 @@ public sealed partial class App : Avalonia.Application
             var bootstrap = await StartCoreHostAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner);
             if (bootstrap.Ok)
             {
-                if (coreManager is IpcCoreManager ipcCoreManager)
-                {
-                    // 仅在普通模式启动创建管道后连接。
-                    await ipcCoreManager.ConnectAsync(CancellationToken.None);
-                }
-                else if (coreManager is ServiceModeCoreManager serviceModeCoreManager)
-                {
-                    await serviceModeCoreManager.EnsureReadyAsync(CancellationToken.None);
-                }
+                await coreManager.EnsureReadyAsync(CancellationToken.None);
             }
             else
             {
@@ -504,6 +501,45 @@ public sealed partial class App : Avalonia.Application
         }
 
         rulePage.RefreshRulesCommand.Execute(null);
+    }
+
+    private async Task<ServiceModeOperationResult> ActivateServiceModeSessionAsync(
+        IServiceModeManager serviceModeManager,
+        CoreProcessCleaner coreProcessCleaner,
+        SwitchableCoreManager coreManager,
+        CancellationToken cancellationToken)
+    {
+        ServiceModeStatus status;
+        try
+        {
+            status = await serviceModeManager.GetStatusAsync(cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            return ServiceModeOperationResult.Failed(exception.Message);
+        }
+
+        if (!status.IsRunning)
+        {
+            return ServiceModeOperationResult.Failed("Service mode is not running.");
+        }
+
+        var bootstrap = await StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner);
+        if (!bootstrap.Ok)
+        {
+            return ServiceModeOperationResult.Failed(bootstrap.Message);
+        }
+
+        try
+        {
+            await coreManager.SwitchAsync(CreateCoreManager(status, serviceModeManager), cancellationToken);
+            return ServiceModeOperationResult.Success("Service mode is active.");
+        }
+        catch (Exception exception)
+        {
+            _isServiceModeCoreHostActive = false;
+            return ServiceModeOperationResult.Failed(exception.Message);
+        }
     }
 
     private async Task<BootstrapResult> StartCoreHostAsync(

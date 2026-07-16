@@ -23,6 +23,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private readonly ISystemProxyService? _systemProxyService;
     private readonly IServiceModeManager? _serviceModeManager;
     private readonly Func<bool> _isServiceModeCoreHostActive;
+    private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionActivator;
     private readonly Func<SystemProxyApplicationRequest>? _systemProxyRequestFactory;
     private readonly Action<bool>? _tunStateChanged;
 
@@ -97,7 +98,8 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         ServiceModeStatus? initialServiceModeStatus = null,
         ILocalizationService? localization = null,
         SystemProxyPlatform systemPlatform = SystemProxyPlatform.Other,
-        IClipboardWriter? clipboardWriter = null)
+        IClipboardWriter? clipboardWriter = null,
+        Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionActivator = null)
     {
         _localization = localization;
         _systemPlatform = systemPlatform;
@@ -105,6 +107,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _systemProxyService = systemProxyService;
         _serviceModeManager = serviceModeManager;
         _isServiceModeCoreHostActive = isServiceModeCoreHostActive ?? (() => serviceModeManager is not null);
+        _serviceModeSessionActivator = serviceModeSessionActivator;
         _systemProxyRequestFactory = systemProxyRequestFactory;
         _tunStateChanged = tunStateChanged;
         _coreRestart = coreRestart;
@@ -823,22 +826,36 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                 ? await _serviceModeManager.InstallOrUpdateAsync(token)
                 : await _serviceModeManager.UninstallAsync(token);
 
-            if (result.IsSuccess || result.IsCanceled)
+            if (installOrUpdate && result.IsSuccess && result.RequiresRestart && _serviceModeSessionActivator is not null)
             {
-                var toastType = result.IsSuccess ? ToastType.Success : ToastType.Info;
-                RaiseToast(result.Message, toastType);
+                result = await _serviceModeSessionActivator(token);
+            }
+
+            if (result.IsCanceled)
+            {
+                RaiseToast(Localize("Home.Toast.ServiceModeOperationCanceled"), ToastType.Info);
+            }
+            else if (result.IsSuccess)
+            {
+                RaiseToast(Localize(installOrUpdate
+                    ? "Home.Toast.ServiceModeInstallSucceeded"
+                    : "Home.Toast.ServiceModeUninstallSucceeded"), ToastType.Success);
             }
             else
             {
                 AppLogger.Warning($"Service mode operation returned failure: {result.Message}");
-                RaiseToast(Localize("Home.Toast.ServiceModeFailed"), ToastType.Error);
+                RaiseToast(Localize(installOrUpdate
+                    ? "Home.Toast.ServiceModeInstallFailed"
+                    : "Home.Toast.ServiceModeUninstallFailed"), ToastType.Error);
             }
         }
         catch (Exception exception)
         {
             AppLogger.Error(exception, "Service mode operation failed");
             result = ServiceModeOperationResult.Failed(exception.Message);
-            RaiseToast(Localize("Home.Toast.ServiceModeFailed"), ToastType.Error);
+            RaiseToast(Localize(installOrUpdate
+                ? "Home.Toast.ServiceModeInstallFailed"
+                : "Home.Toast.ServiceModeUninstallFailed"), ToastType.Error);
         }
         finally
         {
