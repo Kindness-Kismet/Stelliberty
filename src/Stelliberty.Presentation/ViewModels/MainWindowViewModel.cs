@@ -49,7 +49,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
     private long _lastNavTickMs;
     // 导航节流只覆盖双击窗口，不影响正常页面切换。
-    private const long NavThrottleMs = 50;
+    private const long NavThrottleMs = 150;
     private const int CoreLogFlushBatchSize = 4;
     private const int ToastMessageMaxLength = 72;
     private static readonly TimeSpan CoreLogFlushDelay = TimeSpan.FromMilliseconds(700);
