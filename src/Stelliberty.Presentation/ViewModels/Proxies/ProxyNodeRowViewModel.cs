@@ -29,6 +29,7 @@ public sealed class ProxyNodeRowViewModel : ViewModelBase
     public string RowAutomationId => $"Proxy.Node.{Name}";
     public string DelayAutomationId => $"Proxy.Node.{Name}.DelayText";
     public string TestDelayAutomationId => $"Proxy.Node.{Name}.TestDelayButton";
+    public string DelayTestingAutomationId => $"Proxy.Node.{Name}.DelaySpinner";
     public string SelectAutomationId => $"Proxy.Node.{Name}.SelectButton";
 
     public string Type => _node.Type;
@@ -58,7 +59,6 @@ public sealed class ProxyNodeRowViewModel : ViewModelBase
         {
             if (SetProperty(ref _isDelayTesting, value))
             {
-                OnPropertyChanged(nameof(DisplayDelayText));
                 OnPropertyChanged(nameof(DelayState));
             }
         }
@@ -70,8 +70,6 @@ public sealed class ProxyNodeRowViewModel : ViewModelBase
         < 0 => "-1 ms",
         _ => $"{_node.Delay} ms"
     };
-
-    public string DisplayDelayText => IsDelayTesting ? "..." : DelayText;
 
     public string DelayState => IsDelayTesting
         ? "testing"
@@ -100,7 +98,6 @@ public sealed class ProxyNodeRowViewModel : ViewModelBase
             if (delayChanged)
             {
                 OnPropertyChanged(nameof(DelayText));
-                OnPropertyChanged(nameof(DisplayDelayText));
                 OnPropertyChanged(nameof(DelayState));
                 OnPropertyChanged(nameof(DelayLevel));
             }
@@ -116,7 +113,6 @@ public sealed class ProxyNodeRowViewModel : ViewModelBase
     {
         _node = _node with { Delay = delay };
         OnPropertyChanged(nameof(DelayText));
-        OnPropertyChanged(nameof(DisplayDelayText));
         OnPropertyChanged(nameof(DelayState));
         OnPropertyChanged(nameof(DelayLevel));
         IsDelayTesting = false;
