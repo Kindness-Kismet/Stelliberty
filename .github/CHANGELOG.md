@@ -1,31 +1,5 @@
-- Added bouncier page, settings subpage, and dialog transitions, with smoother enter and exit motion during rapid navigation.
-- Page and dialog transitions now avoid stale hover states, visual overlap, and unfinished closing animations.
-- Pages are warmed up after the window opens, making the first visit to each section feel more responsive.
-- Hiding the app in the system tray now releases page content after 30 seconds to reduce memory use, while restoring the current page and scroll positions when reopened.
-- Settings subpages are now created only when needed and remember their individual scroll positions.
-- Large proxy node lists now render items on demand in a virtualized grid, improving first-open speed and scrolling smoothness.
-- The proxy page now rebuilds correctly after language changes or node selections that finish while the page is hidden.
-- Proxy delay tests now use a pulsing ellipsis indicator and keep results synchronized with nodes rendered later.
-- Connection and core log pause controls now switch between pause and resume icons with matching tooltips.
-- Scrollbar thumbs now keep fully rounded ends.
-- Installing or updating service mode now switches the current session to the service core immediately, while uninstalling returns to the normal core without restarting the app.
-- Service mode changes now recover the normal core after failed or canceled transitions and prevent normal and service cores from competing for the same runtime channel.
-- Service mode notices now distinguish installation, uninstallation, cancellation, session activation failure, and normal-mode recovery failure.
-- A failed proxy selection, proxy list, or rule refresh during startup no longer prevents the remaining runtime lists from loading.
+- Added an application behavior option to show or hide the live frame rate in the title bar, enabled by default.
 
 ---
 
-- 新增更加 Q 弹的页面、设置子页与对话框切换动画，快速切换时的进入和退出动效也更加顺滑。
-- 页面与对话框切换现在会避免残留悬停状态、画面重叠以及关闭动画未完成的问题。
-- 窗口打开后会在后台预热各个页面，首次进入不同功能区时响应更加流畅。
-- 应用隐藏到系统托盘 30 秒后会释放页面内容以降低内存占用，再次打开时会恢复当前页面和滚动位置。
-- 设置子页现在只在需要时创建，并会分别记住各自的滚动位置。
-- 大型代理节点列表现在会通过虚拟化网格按需渲染，首次打开速度和滚动流畅度得到改善。
-- 切换语言或节点选择在代理页隐藏期间完成后，再次进入代理页时也能正确重建显示状态。
-- 代理延迟测试现在使用呼吸变化的省略号提示，并会让稍后渲染的节点保持正确的测试结果。
-- 连接与核心日志页面的暂停控件现在会在暂停和继续图标之间切换，并同步更新提示文字。
-- 滚动条滑块现在会始终保持完整的圆角端点。
-- 安装或更新服务模式后，当前会话会立即切换到服务核心；卸载后也会直接恢复普通核心，无需重启应用。
-- 服务模式切换失败或取消后现在会恢复普通核心，并避免普通核心与服务核心争用同一个运行通道。
-- 服务模式提示现在会分别说明安装、卸载、取消、当前会话激活失败以及普通模式恢复失败。
-- 启动时恢复代理选择、刷新代理列表或刷新规则中的某一步失败，不再阻止其余运行列表继续加载。
+- 新增在标题栏显示或隐藏实时帧率的应用行为选项，并默认开启。
