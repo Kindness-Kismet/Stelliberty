@@ -385,10 +385,39 @@ jobs:
           gh api --paginate --slurp \
             "repos/${GITHUB_REPOSITORY}/pulls?state=closed&base=stable&sort=updated&direction=desc&per_page=100" \
             > stable-pulls.json
-          python scripts/beta_workflow.py select-promotion \
-            --pulls stable-pulls.json \
-            --repository "${GITHUB_REPOSITORY}" \
-            --stable-sha "${GITHUB_SHA}" | tee -a "$GITHUB_OUTPUT"
+          pull_number=''
+          source_sha=''
+          while IFS=$'\t' read -r candidate_number merge_sha candidate_source_sha; do
+            if git merge-base --is-ancestor "${merge_sha}" "${GITHUB_SHA}"; then
+              pull_number="${candidate_number}"
+              source_sha="${candidate_source_sha}"
+              break
+            fi
+          done < <(
+            jq -r --arg repository "${GITHUB_REPOSITORY}" '
+              [
+                .[][]
+                | select(
+                    .merged_at != null
+                    and .base.ref == "stable"
+                    and .head.ref == "beta"
+                    and .head.repo.full_name == $repository
+                    and .merge_commit_sha != null
+                    and .head.sha != null
+                  )
+              ]
+              | sort_by(.merged_at)
+              | reverse
+              | .[]
+              | [.number, .merge_commit_sha, .head.sha]
+              | @tsv
+            ' stable-pulls.json
+          )
+          if [ -z "${source_sha}" ]; then
+            echo '::error::No merged beta to stable pull request is included in this release.'
+            exit 1
+          fi
+          printf 'pull_number=%s\nsource_sha=%s\n' "${pull_number}" "${source_sha}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Create beta release baseline
         shell: bash

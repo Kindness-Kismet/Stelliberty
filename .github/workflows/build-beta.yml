@@ -65,13 +65,40 @@ jobs:
           set -euo pipefail
           props_version="$(sed -n 's:.*<AppVersion>\(.*\)</AppVersion>.*:\1:p' Directory.Build.props)"
           test -n "${props_version}"
-          gh api --paginate 'repos/Kindness-Kismet/stelliberty/releases?per_page=100' \
-            --jq '.[] | select(.draft | not) | .tag_name' > release-tags.txt
-          git tag --list > repository-tags.txt
-          python scripts/beta_workflow.py metadata \
-            --props-version "${props_version}" \
-            --release-tags release-tags.txt \
-            --repository-tags repository-tags.txt | tee -a "$GITHUB_OUTPUT"
+          tags="$(gh api --paginate 'repos/Kindness-Kismet/stelliberty/releases?per_page=100' --jq '.[] | select(.draft | not) | .tag_name')"
+          stable="${props_version}"
+          while IFS= read -r tag; do
+            if [[ "${tag}" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              candidate="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+              if [ "$(printf '%s\n%s\n' "${stable}" "${candidate}" | sort -V | tail -n 1)" = "${candidate}" ]; then
+                stable="${candidate}"
+              fi
+            fi
+          done <<< "${tags}"
+
+          IFS=. read -r major minor patch <<< "${stable}"
+          target="${major}.${minor}.$((patch + 1))"
+          beta=0
+          while IFS= read -r tag; do
+            if [[ "${tag}" =~ ^v?${target//./\.}-beta([0-9]+)$ ]] && [ "${BASH_REMATCH[1]}" -gt "${beta}" ]; then
+              beta="${BASH_REMATCH[1]}"
+            fi
+          done <<< "${tags}"
+
+          if [ "${beta}" -gt 0 ]; then
+            previous_tag="v${target}-beta${beta}"
+          else
+            stable_tag="v${stable}"
+            baseline_tag="beta-base/${stable_tag}"
+            if git ls-remote --exit-code --tags origin "refs/tags/${baseline_tag}" >/dev/null 2>&1; then
+              previous_tag="${baseline_tag}"
+            else
+              previous_tag="${stable_tag}"
+            fi
+          fi
+
+          version="${target}-beta$((beta + 1))"
+          printf 'version=%s\ntag=v%s\nprevious_tag=%s\n' "${version}" "${version}" "${previous_tag}" | tee -a "$GITHUB_OUTPUT"
 
       - name: Export beta metadata
         id: meta
