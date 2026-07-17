@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
         x:CompileBindings="True">
 
   <Style Selector="Button.proxy-group-tab">
@@ -105,17 +106,28 @@
     <Setter Property="Opacity" Value="0.72" />
   </Style>
 
-  <Style Selector="TextBlock.delay-badge.testing">
+  <Style Selector="iconPacks|PackIconMingCuteIcons.delay-spinner">
+    <Setter Property="Width" Value="16" />
+    <Setter Property="Height" Value="16" />
     <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
     <Style.Animations>
-      <Animation Duration="0:0:0.8" IterationCount="Infinite" Easing="SineEaseInOut">
+      <Animation Duration="0:0:0.8" IterationCount="Infinite" Easing="LinearEasing">
         <KeyFrame Cue="0%">
-          <Setter Property="Opacity" Value="0.35" />
+          <Setter Property="RotateTransform.Angle" Value="0" />
         </KeyFrame>
         <KeyFrame Cue="100%">
-          <Setter Property="Opacity" Value="1" />
+          <Setter Property="RotateTransform.Angle" Value="360" />
         </KeyFrame>
       </Animation>
     </Style.Animations>
+  </Style>
+  <Style Selector="Button.delay-test-button:pointerover iconPacks|PackIconMingCuteIcons.delay-spinner">
+    <Setter Property="Opacity" Value="0.7" />
   </Style>
 </Styles>

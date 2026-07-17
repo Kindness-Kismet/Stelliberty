@@ -205,11 +205,20 @@
                           Margin="0,0,11,9"
                           Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).TestNodeDelayCommand}"
                           CommandParameter="{Binding Name}">
-                    <TextBlock Classes="delay-badge"
-                               Classes.testing="{Binding IsDelayTesting}"
-                               Tag="{Binding DelayLevel}"
-                               Text="{Binding DisplayDelayText}"
-                               VerticalAlignment="Center" />
+                    <Panel Height="18">
+                      <TextBlock Classes="delay-badge"
+                                 AutomationProperties.AutomationId="{Binding DelayAutomationId}"
+                                 Tag="{Binding DelayLevel}"
+                                 IsVisible="{Binding !IsDelayTesting}"
+                                 Text="{Binding DelayText}"
+                                 VerticalAlignment="Center" />
+                      <iconPacks:PackIconMingCuteIcons Classes="delay-spinner"
+                                                        AutomationProperties.AutomationId="{Binding DelayTestingAutomationId}"
+                                                        HorizontalAlignment="Center"
+                                                        VerticalAlignment="Center"
+                                                        IsVisible="{Binding IsDelayTesting}"
+                                                        Kind="LoadingFill" />
+                    </Panel>
                   </Button>
                 </Grid>
               </Border>
@@ -325,11 +334,20 @@
                                       Margin="0,0,11,9"
                                       Command="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).TestNodeDelayCommand}"
                                       CommandParameter="{Binding Name}">
-                                <TextBlock Classes="delay-badge"
-                                           Classes.testing="{Binding IsDelayTesting}"
-                                           Tag="{Binding DelayLevel}"
-                                           Text="{Binding DisplayDelayText}"
-                                           VerticalAlignment="Center" />
+                                <Panel Height="18">
+                                  <TextBlock Classes="delay-badge"
+                                             AutomationProperties.AutomationId="{Binding DelayAutomationId}"
+                                             Tag="{Binding DelayLevel}"
+                                             IsVisible="{Binding !IsDelayTesting}"
+                                             Text="{Binding DelayText}"
+                                             VerticalAlignment="Center" />
+                                  <iconPacks:PackIconMingCuteIcons Classes="delay-spinner"
+                                                                    AutomationProperties.AutomationId="{Binding DelayTestingAutomationId}"
+                                                                    HorizontalAlignment="Center"
+                                                                    VerticalAlignment="Center"
+                                                                    IsVisible="{Binding IsDelayTesting}"
+                                                                    Kind="LoadingFill" />
+                                </Panel>
                               </Button>
                             </Grid>
                           </Border>
