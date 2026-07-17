@@ -1,39 +1,31 @@
-- You can now register separate global shortcuts to show or hide the window, toggle the system proxy, and toggle virtual network adapter mode.
-- Shortcut registration rejects unsupported or duplicate combinations, pauses activation while recording, and ignores repeated activations for 500 milliseconds.
-- Pressing Escape now returns from a settings subpage.
-- Windows upgrades now turn off the system proxy after stopping the app, preventing an unusable proxy from remaining enabled.
-- Opening the main window after a silent startup is now faster because page preparation begins only after the window appears.
-- Locating the selected proxy no longer repeatedly pulls the node list back after you scroll elsewhere.
-- Wrapped grid items now stay aligned at fractional display scaling without clipping or overflowing the final column.
-
-## Upgrading from versions before 2.0.0 [v2.0.0]
-
-Version 2.0.0 was a major rewrite and does not retain compatibility with installation state from the old Flutter version. Before installing this release over an older version:
-
-1. Disable and uninstall startup integration in the old version.
-2. Uninstall service mode in the old version.
-3. Exit and uninstall the old application completely.
-4. Install the current version only after the previous steps are complete.
-
-Skipping these steps may leave old startup or service components on the system and cause unexpected behavior.
+- Added bouncier page, settings subpage, and dialog transitions, with smoother enter and exit motion during rapid navigation.
+- Page and dialog transitions now avoid stale hover states, visual overlap, and unfinished closing animations.
+- Pages are warmed up after the window opens, making the first visit to each section feel more responsive.
+- Hiding the app in the system tray now releases page content after 30 seconds to reduce memory use, while restoring the current page and scroll positions when reopened.
+- Settings subpages are now created only when needed and remember their individual scroll positions.
+- Large proxy node lists now render items on demand in a virtualized grid, improving first-open speed and scrolling smoothness.
+- The proxy page now rebuilds correctly after language changes or node selections that finish while the page is hidden.
+- Proxy delay tests now use a pulsing ellipsis indicator and keep results synchronized with nodes rendered later.
+- Connection and core log pause controls now switch between pause and resume icons with matching tooltips.
+- Scrollbar thumbs now keep fully rounded ends.
+- Installing or updating service mode now switches the current session to the service core immediately, while uninstalling returns to the normal core without restarting the app.
+- Service mode changes now recover the normal core after failed or canceled transitions and prevent normal and service cores from competing for the same runtime channel.
+- Service mode notices now distinguish installation, uninstallation, cancellation, session activation failure, and normal-mode recovery failure.
+- A failed proxy selection, proxy list, or rule refresh during startup no longer prevents the remaining runtime lists from loading.
 
 ---
 
-- 现在可以分别注册全局快捷键，用于显示或隐藏窗口、切换系统代理以及切换虚拟网卡模式。
-- 快捷键注册会拒绝不支持或重复的组合，录制期间暂停触发，并忽略 500 毫秒内的重复操作。
-- 现在可以在设置子页按 Escape 返回上一级。
-- Windows 升级安装停止应用后会关闭系统代理，避免留下无法使用的代理开关。
-- 静默启动后打开主窗口的速度得到改善，页面准备会在窗口显示后再开始。
-- 定位已选代理后，即使滚动到其他位置，节点列表也不会再被后续刷新反复拉回。
-- 分数缩放下的网格项目现在能够保持对齐，最后一列不再被裁切或越出边界。
-
-## 从 2.0.0 之前的版本升级 [v2.0.0]
-
-2.0.0 是一次大规模重构，不兼容旧 Flutter 版本留下的安装状态。从旧版本升级到当前版本前，请依次完成以下操作：
-
-1. 在旧版本中关闭并卸载开机启动。
-2. 在旧版本中卸载服务模式。
-3. 完全退出并卸载旧应用。
-4. 确认以上步骤完成后，再安装当前版本。
-
-跳过这些步骤可能导致系统中残留旧版开机启动项或服务组件，进而引发异常行为。
+- 新增更加 Q 弹的页面、设置子页与对话框切换动画，快速切换时的进入和退出动效也更加顺滑。
+- 页面与对话框切换现在会避免残留悬停状态、画面重叠以及关闭动画未完成的问题。
+- 窗口打开后会在后台预热各个页面，首次进入不同功能区时响应更加流畅。
+- 应用隐藏到系统托盘 30 秒后会释放页面内容以降低内存占用，再次打开时会恢复当前页面和滚动位置。
+- 设置子页现在只在需要时创建，并会分别记住各自的滚动位置。
+- 大型代理节点列表现在会通过虚拟化网格按需渲染，首次打开速度和滚动流畅度得到改善。
+- 切换语言或节点选择在代理页隐藏期间完成后，再次进入代理页时也能正确重建显示状态。
+- 代理延迟测试现在使用呼吸变化的省略号提示，并会让稍后渲染的节点保持正确的测试结果。
+- 连接与核心日志页面的暂停控件现在会在暂停和继续图标之间切换，并同步更新提示文字。
+- 滚动条滑块现在会始终保持完整的圆角端点。
+- 安装或更新服务模式后，当前会话会立即切换到服务核心；卸载后也会直接恢复普通核心，无需重启应用。
+- 服务模式切换失败或取消后现在会恢复普通核心，并避免普通核心与服务核心争用同一个运行通道。
+- 服务模式提示现在会分别说明安装、卸载、取消、当前会话激活失败以及普通模式恢复失败。
+- 启动时恢复代理选择、刷新代理列表或刷新规则中的某一步失败，不再阻止其余运行列表继续加载。
