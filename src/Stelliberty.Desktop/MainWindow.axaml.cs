@@ -86,7 +86,7 @@ public sealed partial class MainWindow : Window
         _windowStateService.Attach(this);
         UpdateWindowStateVisuals();
 #if DEBUG
-        AttachFpsCounter();
+        AttachDevBadge();
 #endif
     }
 
@@ -105,8 +105,7 @@ public sealed partial class MainWindow : Window
         }
     }
 #if DEBUG
-    // 在标题栏按钮前插入 Debug 标识与 FPS 计数器。
-    private void AttachFpsCounter()
+    private void AttachDevBadge()
     {
         var devBadge = new Border
         {
@@ -119,18 +118,6 @@ public sealed partial class MainWindow : Window
         };
         AutomationProperties.SetAutomationId(devBadge, "TitleBar.DevBadge");
         TitleBarLayout.Children.Insert(0, devBadge);
-
-        var fps = new FpsCounter
-        {
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 10, 0),
-            FontFamily = new FontFamily("Consolas"),
-            FontSize = 11,
-            FontWeight = FontWeight.SemiBold,
-        };
-        AutomationProperties.SetAutomationId(fps, "TitleBar.FpsCounter");
-        fps.Bind(FpsCounter.ForegroundProperty, this.GetResourceObservable("AppTextSecondaryBrush"));
-        CaptionButtons.Children.Insert(0, fps);
     }
 #endif
 

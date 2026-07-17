@@ -51,6 +51,8 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
 
     public string LazyModeDescriptionText => _localization.GetString("Settings.AppBehavior.LazyMode.Description");
 
+    public string TitleBarFpsText => _localization.GetString("Settings.AppBehavior.TitleBarFps");
+
     public string StartupText => _localization.GetString("Settings.AppBehavior.Startup");
 
     public string HotkeysText => _localization.GetString("Settings.AppBehavior.Hotkeys");
@@ -71,6 +73,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         MinimizeToTrayText,
         TrayDoubleClickText,
         LazyModeText,
+        TitleBarFpsText,
         StartupText,
         WindowToggleHotkeyText,
         SystemProxyToggleHotkeyText,
@@ -99,6 +102,12 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
     {
         get => _settings.IsTrayDoubleClickEnabled;
         set => Apply(_settings.IsTrayDoubleClickEnabled, value, next => _settings.IsTrayDoubleClickEnabled = next);
+    }
+
+    public bool IsTitleBarFpsVisible
+    {
+        get => _settings.IsTitleBarFpsVisible;
+        set => Apply(_settings.IsTitleBarFpsVisible, value, next => _settings.IsTitleBarFpsVisible = next);
     }
 
     public bool IsAutoStartEnabled => _settings.IsAutoStartEnabled;
@@ -301,6 +310,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(TrayDoubleClickDescriptionText));
         OnPropertyChanged(nameof(LazyModeText));
         OnPropertyChanged(nameof(LazyModeDescriptionText));
+        OnPropertyChanged(nameof(TitleBarFpsText));
         OnPropertyChanged(nameof(StartupText));
         OnPropertyChanged(nameof(HotkeysText));
         OnPropertyChanged(nameof(WindowToggleHotkeyText));

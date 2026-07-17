@@ -48,9 +48,19 @@
             AutomationProperties.AutomationId="TitleBar.Root"
             Background="Transparent"
             PointerPressed="OnTitleBarPointerPressed">
-      <Grid x:Name="TitleBarLayout" ColumnDefinitions="*,Auto">
+      <Grid x:Name="TitleBarLayout" ColumnDefinitions="*,Auto,Auto">
+        <controls:FpsCounter Grid.Column="1"
+                             AutomationProperties.AutomationId="TitleBar.FpsCounter"
+                             IsVisible="{Binding AppBehavior.IsTitleBarFpsVisible}"
+                             IsHitTestVisible="False"
+                             VerticalAlignment="Center"
+                             Margin="0,0,10,0"
+                             FontFamily="Consolas"
+                             FontSize="11"
+                             FontWeight="SemiBold"
+                             Foreground="{DynamicResource AppTextSecondaryBrush}" />
         <StackPanel x:Name="CaptionButtons"
-                    Grid.Column="1"
+                    Grid.Column="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Stretch">

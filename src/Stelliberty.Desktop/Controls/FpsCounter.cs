@@ -1,4 +1,3 @@
-#if DEBUG
 using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
@@ -9,7 +8,7 @@ using Avalonia.Threading;
 
 namespace Stelliberty.Desktop.Controls;
 
-internal sealed class FpsCounter : Control
+public sealed class FpsCounter : Control
 {
     public static readonly StyledProperty<IBrush?> ForegroundProperty =
         AvaloniaProperty.Register<FpsCounter, IBrush?>(nameof(Foreground));
@@ -111,4 +110,3 @@ internal sealed class FpsCounter : Control
         FontSize,
         Foreground ?? Brushes.Gray);
 }
-#endif

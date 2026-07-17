@@ -24,6 +24,7 @@ public sealed class FileDataBackupService(string appDataDirectory) : IDataManage
         "IsMinimizeToTrayEnabled",
         "IsTrayDoubleClickEnabled",
         "IsLazyModeEnabled",
+        "IsTitleBarFpsVisible",
         "IsAutoCheckUpdateEnabled",
         "AppUpdateCheckInterval",
         "IgnoredUpdateVersion",
