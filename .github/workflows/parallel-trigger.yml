@@ -61,10 +61,17 @@ jobs:
         id: changes
         shell: bash
         env:
+          BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+          if git diff --unified=0 "${BEFORE_SHA}" "${AFTER_SHA}" -- Directory.Build.props | grep -Eq '^[+-].*<AppVersion>'; then
+            echo 'should_build=false' >> "$GITHUB_OUTPUT"
+            echo 'Stable version metadata changed in this push; beta build is skipped.'
+            exit 0
+          fi
+
           props_version="$(sed -n 's:.*<AppVersion>\(.*\)</AppVersion>.*:\1:p' Directory.Build.props)"
           tags="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.draft | not) | .tag_name')"
           stable="${props_version}"
