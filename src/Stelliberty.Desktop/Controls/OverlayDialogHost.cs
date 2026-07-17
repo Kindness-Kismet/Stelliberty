@@ -1,6 +1,7 @@
 using System;
 using Avalonia;
 using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
@@ -30,11 +31,13 @@ public sealed class OverlayDialogHost : Control
     private IDisposable? _boundsSubscription;
     private bool _closing;
     private bool _clearContentAfterClose;
+    private long _animationRevision;
 
     private const double DialogMargin = 32;
 
-    private static readonly ITransform ClosedScale = DialogAnimation.ClosedScale;
-    private static readonly ITransform OpenScale = DialogAnimation.OpenScale;
+    private static readonly ITransform ClosedTransform = DialogAnimation.ClosedTransform;
+    private static readonly ITransform OpenTransform = DialogAnimation.OpenTransform;
+    private static readonly ITransform ExitTransform = DialogAnimation.ExitTransform;
 
     public OverlayDialogHost()
     {
@@ -43,16 +46,8 @@ public sealed class OverlayDialogHost : Control
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             RenderTransformOrigin = RelativePoint.Center,
-            RenderTransform = ClosedScale,
-            Transitions = new Transitions
-            {
-                new TransformOperationsTransition
-                {
-                    Property = Visual.RenderTransformProperty,
-                    Duration = DialogTiming.ExitDuration,
-                    Easing = DialogAnimation.ScaleEasing,
-                },
-            },
+            RenderTransform = ClosedTransform,
+            Opacity = 0,
         };
         _presenter[!ContentPresenter.ContentProperty] = this[!DialogContentProperty];
 
@@ -61,15 +56,6 @@ public sealed class OverlayDialogHost : Control
             Background = new SolidColorBrush(Color.FromArgb(0x99, 0, 0, 0)),
             Child = _presenter,
             Opacity = 0,
-            Transitions = new Transitions
-            {
-                new DoubleTransition
-                {
-                    Property = Visual.OpacityProperty,
-                    Duration = DialogTiming.ExitDuration,
-                    Easing = DialogAnimation.FadeEasing,
-                },
-            },
         };
         _scrim[!DataContextProperty] = this[!DataContextProperty];
     }
@@ -117,6 +103,7 @@ public sealed class OverlayDialogHost : Control
         base.OnDetachedFromVisualTree(e);
 
         _closing = true;
+        _animationRevision++;
         RemoveScrim();
         _layer = null;
     }
@@ -130,9 +117,7 @@ public sealed class OverlayDialogHost : Control
         }
         else if (change.Property == AnimateScaleProperty && !change.GetNewValue<bool>())
         {
-            // 移除缩放过渡并固定尺寸，保持子级虚拟化稳定。
-            _presenter.Transitions = null;
-            _presenter.RenderTransform = OpenScale;
+            _presenter.RenderTransform = OpenTransform;
         }
     }
 
@@ -156,12 +141,15 @@ public sealed class OverlayDialogHost : Control
         }
 
         _closing = false;
+        var revision = ++_animationRevision;
 
         if (_scrim.Parent is null)
         {
-
+            _scrim.Transitions = null;
+            _presenter.Transitions = null;
             _scrim.Opacity = 0;
-            _presenter.RenderTransform = AnimateScale ? ClosedScale : OpenScale;
+            _presenter.Opacity = 0;
+            _presenter.RenderTransform = AnimateScale ? ClosedTransform : OpenTransform;
 
             _boundsSubscription?.Dispose();
             _boundsSubscription = _layer.GetObservable(BoundsProperty).Subscribe(new AnonymousObserver<Rect>(bounds =>
@@ -175,18 +163,8 @@ public sealed class OverlayDialogHost : Control
             _layer.Children.Add(_scrim);
         }
 
-        Dispatcher.UIThread.Post(
-            () =>
-            {
-                if (!IsOpen)
-                {
-                    return;
-                }
-
-                _scrim.Opacity = 1;
-                _presenter.RenderTransform = OpenScale;
-            },
-            DispatcherPriority.Render);
+        ConfigureTransitions(DialogTiming.EnterDuration, DialogAnimation.EnterEasing);
+        RequestOpenFrame(revision);
     }
 
     private void DetachScrim()
@@ -199,19 +177,84 @@ public sealed class OverlayDialogHost : Control
         }
 
         _closing = true;
+        var revision = ++_animationRevision;
+        ConfigureTransitions(DialogTiming.ExitDuration, DialogAnimation.ExitEasing);
         _scrim.Opacity = 0;
-        _presenter.RenderTransform = AnimateScale ? ClosedScale : OpenScale;
+        _presenter.Opacity = 0;
+        _presenter.RenderTransform = AnimateScale ? ExitTransform : OpenTransform;
 
         DispatcherTimer.RunOnce(
             () =>
             {
-                if (_closing)
+                if (_closing && revision == _animationRevision)
                 {
                     RemoveScrim();
                     ClearContentAfterClose();
                 }
             },
             DialogTiming.ExitDuration);
+    }
+
+    private void RequestOpenFrame(long revision)
+    {
+        if (TopLevel.GetTopLevel(this) is not { } topLevel)
+        {
+            if (IsOpen && revision == _animationRevision)
+            {
+                _scrim.Opacity = 1;
+                _presenter.Opacity = 1;
+                _presenter.RenderTransform = OpenTransform;
+            }
+
+            return;
+        }
+
+        topLevel.RequestAnimationFrame(
+            _ =>
+            {
+                if (!IsOpen || revision != _animationRevision)
+                {
+                    return;
+                }
+
+                _scrim.Opacity = 1;
+                _presenter.Opacity = 1;
+                _presenter.RenderTransform = OpenTransform;
+            });
+    }
+
+    private void ConfigureTransitions(TimeSpan duration, Easing easing)
+    {
+        var presenterTransitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Property = Visual.OpacityProperty,
+                Duration = duration,
+                Easing = easing,
+            },
+        };
+        if (AnimateScale)
+        {
+            presenterTransitions.Add(
+                new TransformOperationsTransition
+                {
+                    Property = Visual.RenderTransformProperty,
+                    Duration = duration,
+                    Easing = easing,
+                });
+        }
+
+        _presenter.Transitions = presenterTransitions;
+        _scrim.Transitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Property = Visual.OpacityProperty,
+                Duration = duration,
+                Easing = easing,
+            },
+        };
     }
 
     private void RemoveScrim()

@@ -11,6 +11,12 @@
     <Setter Property="VerticalAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
   </Style>
+  <Style Selector="iconPacks|PackIconMingCuteIcons.pause-toggle-icon">
+    <Setter Property="Kind" Value="PauseLine" />
+  </Style>
+  <Style Selector="iconPacks|PackIconMingCuteIcons.pause-toggle-icon.paused">
+    <Setter Property="Kind" Value="PlayLine" />
+  </Style>
   <Style Selector="Path.icon">
     <Setter Property="Stretch" Value="Uniform" />
     <Setter Property="Fill" Value="{Binding Path=Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />

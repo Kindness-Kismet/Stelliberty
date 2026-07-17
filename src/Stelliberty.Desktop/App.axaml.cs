@@ -204,7 +204,16 @@ public sealed partial class App : Avalonia.Application
 #if DEBUG
             LogStartupTrace($"Initial service status ready state={initialServiceModeStatus.State}", startupStartedAt);
 #endif
-            var coreManager = CreateCoreManager(initialServiceModeStatus, serviceModeManager);
+            var coreManager = new SwitchableCoreManager(CreateCoreManager(initialServiceModeStatus, serviceModeManager));
+            var serviceModeSessionSwitcher = new ServiceModeSessionSwitcher(
+                serviceModeManager,
+                coreManager,
+                status => CreateCoreManager(status, serviceModeManager),
+                () => new IpcCoreManager(HubStartupCoordinator.PipeName),
+                HubStartupCoordinator.StopCoreAsync,
+                HubStartupCoordinator.ResumeCoreAsync,
+                (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
+                isActive => _isServiceModeCoreHostActive = isActive);
             var coreUpdater = new MihomoCoreUpdater(DesktopApplicationLayout.CoreBinaryPath, coreManager);
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
             var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
@@ -260,7 +269,8 @@ public sealed partial class App : Avalonia.Application
                 {
                     settings.ProxyNodeSortMode = sortMode.ToString();
                     settingsStore.Save(settings);
-                });
+                },
+                isPresentationActive: false);
             var rulePage = new RulePageViewModel(new RuleListLoader(
                 new FileRuntimeRuleConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore),
                 new RuleParser(),
@@ -305,6 +315,8 @@ public sealed partial class App : Avalonia.Application
                 initialServiceModeStatus: initialServiceModeStatus,
                 systemPlatform: systemProxyPlatform,
                 clipboardWriter: clipboardWriter,
+                serviceModeSessionActivator: serviceModeSessionSwitcher.ActivateAsync,
+                serviceModeSessionDeactivator: serviceModeSessionSwitcher.DeactivateAsync,
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
             hotkeyViewModel = viewModel;
@@ -335,6 +347,7 @@ public sealed partial class App : Avalonia.Application
             {
                 // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
                 desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                mainWindow.ScheduleHiddenMemoryRelease();
                 AppLogger.Info("Silent start enabled; main window stays hidden");
             }
             else
@@ -351,7 +364,7 @@ public sealed partial class App : Avalonia.Application
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
                 viewModel.Dispose();
-                DisposeOwnedServices(coreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
+                DisposeOwnedServices(serviceModeSessionSwitcher, coreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
                 HubBootstrap.Shutdown();
             };
             // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。
@@ -446,7 +459,7 @@ public sealed partial class App : Avalonia.Application
         ServiceModeStatus initialServiceModeStatus,
         IServiceModeManager serviceModeManager,
         CoreProcessCleaner coreProcessCleaner,
-        ICoreManager coreManager,
+        SwitchableCoreManager coreManager,
         MainWindowViewModel viewModel,
         ProxyPageViewModel proxyPage,
         RulePageViewModel rulePage,
@@ -454,18 +467,14 @@ public sealed partial class App : Avalonia.Application
     {
         try
         {
-            var bootstrap = await StartCoreHostAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner);
+            var bootstrap = await StartCoreHostAsync(
+                initialServiceModeStatus,
+                serviceModeManager,
+                coreProcessCleaner,
+                CancellationToken.None);
             if (bootstrap.Ok)
             {
-                if (coreManager is IpcCoreManager ipcCoreManager)
-                {
-                    // 仅在普通模式启动创建管道后连接。
-                    await ipcCoreManager.ConnectAsync(CancellationToken.None);
-                }
-                else if (coreManager is ServiceModeCoreManager serviceModeCoreManager)
-                {
-                    await serviceModeCoreManager.EnsureReadyAsync(CancellationToken.None);
-                }
+                await coreManager.EnsureReadyAsync(CancellationToken.None);
             }
             else
             {
@@ -482,23 +491,45 @@ public sealed partial class App : Avalonia.Application
         try
         {
             await proxySelectionRestorer.RestoreCurrentSubscriptionAsync();
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Startup proxy selection restore failed: {exception.Message}");
+        }
+
+        try
+        {
             await proxyPage.RefreshProxiesAsync();
             if (viewModel.SubscriptionPage.CurrentSubscriptionId is { } subscriptionId)
             {
                 proxyPage.BindLoadedConfigToSubscription(subscriptionId);
             }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Startup proxy list refresh failed: {exception.Message}");
+        }
+
+        RefreshRulesForStartup(rulePage);
+    }
+
+    internal static void RefreshRulesForStartup(RulePageViewModel rulePage)
+    {
+        try
+        {
             rulePage.RefreshRulesCommand.Execute(null);
         }
         catch (Exception exception)
         {
-            AppLogger.Warning($"Startup refresh for runtime lists failed: {exception.Message}");
+            AppLogger.Warning($"Startup rule list refresh failed: {exception.Message}");
         }
     }
 
     private async Task<BootstrapResult> StartCoreHostAsync(
         ServiceModeStatus initialServiceModeStatus,
         IServiceModeManager serviceModeManager,
-        CoreProcessCleaner coreProcessCleaner)
+        CoreProcessCleaner coreProcessCleaner,
+        CancellationToken cancellationToken)
     {
         if (initialServiceModeStatus.IsRunning)
         {
@@ -511,10 +542,9 @@ public sealed partial class App : Avalonia.Application
 
             var result = await serviceModeManager.StartCoreHostAsync(
                 HubStartupCoordinator.CreateServiceModeCoreHostRequest(),
-                CancellationToken.None);
+                cancellationToken);
             if (result.IsSuccess)
             {
-                _isServiceModeCoreHostActive = true;
                 AppLogger.Info("Service-mode core started");
                 return BootstrapResult.Success(result.Message);
             }

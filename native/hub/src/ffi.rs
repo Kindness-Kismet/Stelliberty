@@ -7,6 +7,8 @@ pub fn inventory() -> RustInventory {
     RustInventory::new()
         .register(builtins_string!())
         .register(function!(bootstrap::hub_bootstrap))
+        .register(function!(bootstrap::hub_start_core))
+        .register(function!(bootstrap::hub_stop_core))
         .register(function!(bootstrap::hub_shutdown))
         .register(function!(age_text::hub_age_decrypt_text))
         .register(function!(overrides::hub_overrides_apply_yaml))

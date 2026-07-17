@@ -43,6 +43,13 @@ internal sealed class PagePointeroverSuppressor
         }
     }
 
+    public void Reset()
+    {
+        _isActive = false;
+        _anchorPosition = null;
+        SetSuppressed(false);
+    }
+
     private void OnPointerPressed(object? sender, PointerPressedEventArgs args)
     {
         _lastPointerPosition = args.GetPosition(_scope);

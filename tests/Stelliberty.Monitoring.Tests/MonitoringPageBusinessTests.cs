@@ -189,6 +189,18 @@ public sealed class MonitoringPageBusinessTests
         Assert.Equal("800 B/s", page.TotalDownloadSpeedText);
     }
 
+    [Fact(DisplayName = "Connection monitoring tooltip follows pause state")]
+    public void ConnectionMonitoringTooltipFollowsPauseState()
+    {
+        var page = new ConnectionPageViewModel();
+
+        Assert.Equal("Connections.Action.Pause", page.MonitoringToggleTooltip);
+
+        page.TogglePause();
+
+        Assert.Equal("Connections.Action.Resume", page.MonitoringToggleTooltip);
+    }
+
     [Fact(DisplayName = "Connection page refresh loads connections and applies traffic rate only when running")]
     public async Task ConnectionPageRefreshLoadsConnectionsAndAppliesTrafficRateOnlyWhenRunning()
     {
@@ -266,6 +278,18 @@ public sealed class MonitoringPageBusinessTests
         Assert.True(cleared);
         Assert.Empty(page.Logs);
         Assert.False(page.IsCoreRunning);
+    }
+
+    [Fact(DisplayName = "Core log monitoring tooltip follows pause state")]
+    public void CoreLogMonitoringTooltipFollowsPauseState()
+    {
+        var page = new CoreLogPageViewModel();
+
+        Assert.Equal("CoreLogs.Action.Pause", page.MonitoringToggleTooltip);
+
+        page.TogglePause();
+
+        Assert.Equal("CoreLogs.Action.Resume", page.MonitoringToggleTooltip);
     }
 
     [Fact(DisplayName = "Core log page core stop resets paused filter and search state")]

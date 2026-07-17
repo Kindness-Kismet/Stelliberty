@@ -161,7 +161,7 @@ pub async fn launch_via_ipc(test_dir: &Path, bootstrap_yaml: &str) -> Result<Hub
         final_bootstrap,
         events_tx.clone(),
     )?);
-    core.start_initial().await?;
+    core.start_core().await?;
 
     let handler: Arc<dyn MethodHandler> = core.clone();
     let (server, _events, shutdown_tx) = IpcServer::new(handler);

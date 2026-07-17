@@ -10,11 +10,12 @@ using Stelliberty.Presentation.ViewModels;
 
 namespace Stelliberty.Desktop.Views;
 
-public sealed partial class ProxyView : UserControl
+public sealed partial class ProxyView : UserControl, IPageContentLifecycle
 {
     // 单格滚轮约移动一个分组标签，触控板增量仍按比例生效。
     private const double GroupTabsWheelStep = 72;
     private ProxyPageViewModel? _attachedViewModel;
+    private bool _isPageContentActive;
     private int _handledLocateNodeRequestId;
     private int _handledScrollToTopRequestId;
     private double _savedNodeScrollOffset;
@@ -28,12 +29,12 @@ public sealed partial class ProxyView : UserControl
             RoutingStrategies.Tunnel,
             handledEventsToo: true);
         ProxyPageRoot.DataContextChanged += OnDataContextChanged;
-        AttachViewModel();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         _savedNodeScrollOffset = NodeListScroll.Offset.Y;
+        DeactivatePageContent();
         DetachViewModel();
         base.OnDetachedFromVisualTree(e);
     }
@@ -41,7 +42,17 @@ public sealed partial class ProxyView : UserControl
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
+        if (!_isPageContentActive)
+        {
+            return;
+        }
+
         AttachViewModel();
+        RestoreNodeScrollOffset();
+    }
+
+    private void RestoreNodeScrollOffset()
+    {
         if (_savedNodeScrollOffset <= 0)
         {
             return;
@@ -55,7 +66,14 @@ public sealed partial class ProxyView : UserControl
 
     private void OnDataContextChanged(object? sender, EventArgs args)
     {
-        AttachViewModel();
+        if (_isPageContentActive)
+        {
+            AttachViewModel();
+        }
+        else
+        {
+            DetachViewModel();
+        }
     }
 
     private void AttachViewModel()
@@ -68,6 +86,10 @@ public sealed partial class ProxyView : UserControl
         if (_attachedViewModel is not null)
         {
             _attachedViewModel.PropertyChanged += OnViewModelPropertyChanged;
+            if (_isPageContentActive)
+            {
+                _attachedViewModel.ActivatePresentation();
+            }
         }
     }
 
@@ -80,6 +102,41 @@ public sealed partial class ProxyView : UserControl
 
         _attachedViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         _attachedViewModel = null;
+    }
+
+    void IPageContentLifecycle.ActivatePageContent()
+    {
+        _isPageContentActive = true;
+        AttachViewModel();
+        RestoreNodeScrollOffset();
+    }
+
+    void IPageContentLifecycle.WarmupPageContent()
+    {
+        if (_isPageContentActive
+            || ProxyPageRoot.DataContext is not ProxyPageViewModel viewModel)
+        {
+            return;
+        }
+
+        viewModel.WarmupPresentation();
+    }
+
+    void IPageContentLifecycle.DeactivatePageContent()
+        => DeactivatePageContent();
+
+    private void DeactivatePageContent()
+    {
+        _isPageContentActive = false;
+        _attachedViewModel?.DeactivatePresentation();
+        DetachViewModel();
+    }
+
+    void IPageContentLifecycle.ReleasePageContent()
+    {
+        var viewModel = _attachedViewModel ?? ProxyPageRoot.DataContext as ProxyPageViewModel;
+        DeactivatePageContent();
+        viewModel?.ReleasePresentationCache();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -114,17 +171,7 @@ public sealed partial class ProxyView : UserControl
             return;
         }
 
-        var rows = _attachedViewModel.VisibleNodeRows;
-        var index = -1;
-        for (var i = 0; i < rows.Count; i++)
-        {
-            if (string.Equals(rows[i].Name, nodeName, StringComparison.Ordinal))
-            {
-                index = i;
-                break;
-            }
-        }
-
+        var index = _attachedViewModel.IndexOfNode(nodeName);
         if (index < 0)
         {
             return;

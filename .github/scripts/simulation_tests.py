@@ -260,19 +260,15 @@ class SimulationTests:
         self.step("Close app and verify exit", self.stop_app_step)
 
     def ensure_process_core_host(self) -> None:
-        self.require("service.uninstall", contains=["result=Succeeded", "state=NotInstalled"])
-        self.service_touched = False
-        self.restart_app()
-        self.wait_for("home.state", contains=["core=true", "coreHost=process", "serviceMode=NotInstalled"])
+        self.uninstall_service_mode()
 
     def install_service_mode(self) -> None:
         self.service_touched = True
-        self.require("service.install", contains=["result=Succeeded", "requiresRestart=true", "state=Running"])
+        self.require("service.install", contains=["result=Succeeded", "requiresRestart=false", "state=Running"])
 
     def uninstall_service_mode(self) -> None:
-        self.require("service.uninstall", contains=["result=Succeeded", "state=NotInstalled"])
+        self.require("service.uninstall", contains=["result=Succeeded", "requiresRestart=false", "state=NotInstalled"])
         self.service_touched = False
-        self.restart_app()
         self.wait_for("home.state", contains=["core=true", "coreHost=process", "serviceMode=NotInstalled"])
         self.wait_for("service.status", contains=["state=NotInstalled", "core=unknown"])
 

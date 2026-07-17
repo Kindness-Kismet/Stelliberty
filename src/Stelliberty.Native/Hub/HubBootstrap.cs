@@ -7,15 +7,21 @@ namespace Stelliberty.Native.Hub;
 public static class HubBootstrap
 {
     private static bool _started;
+    private static bool _isShutdownRequested;
     private static readonly object Gate = new();
 
     public static BootstrapResult Start(BootstrapOptions options)
     {
         lock (Gate)
         {
+            if (_isShutdownRequested)
+            {
+                return BootstrapResult.Failure("Hub shutdown has started.");
+            }
+
             if (_started)
             {
-                return BootstrapResult.Success("already initialized");
+                return StartCoreLocked();
             }
             try
             {
@@ -44,15 +50,91 @@ public static class HubBootstrap
         }
     }
 
+    public static BootstrapResult StartCore()
+    {
+        lock (Gate)
+        {
+            if (_isShutdownRequested)
+            {
+                return BootstrapResult.Failure("Hub shutdown has started.");
+            }
+
+            if (!_started)
+            {
+                return BootstrapResult.Failure("Hub is not initialized.");
+            }
+
+            return StartCoreLocked();
+        }
+    }
+
+    public static BootstrapResult StopCore()
+    {
+        lock (Gate)
+        {
+            if (!_started)
+            {
+                return BootstrapResult.Failure("Hub is not initialized.");
+            }
+
+            try
+            {
+                using FfiBootstrapResult ffi = Interop.hub_stop_core();
+                var message = ffi.message.String;
+                return ffi.ok.Is
+                    ? BootstrapResult.Success(message)
+                    : BootstrapResult.Failure(message);
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Error(exception, "normal core shutdown exception");
+                return BootstrapResult.Failure(exception.Message);
+            }
+        }
+    }
+
     public static void Shutdown()
+    {
+        lock (Gate)
+        {
+            if (_isShutdownRequested)
+            {
+                return;
+            }
+
+            _isShutdownRequested = true;
+            try
+            {
+                if (_started)
+                {
+                    Interop.hub_shutdown();
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warning($"hub shutdown exception ignored: {ex.Message}");
+            }
+            finally
+            {
+                _started = false;
+            }
+        }
+    }
+
+    private static BootstrapResult StartCoreLocked()
     {
         try
         {
-            Interop.hub_shutdown();
+            using FfiBootstrapResult ffi = Interop.hub_start_core();
+            var message = ffi.message.String;
+            return ffi.ok.Is
+                ? BootstrapResult.Success(message)
+                : BootstrapResult.Failure(message);
         }
-        catch (Exception ex)
+        catch (Exception exception)
         {
-            AppLogger.Warning($"hub shutdown exception ignored: {ex.Message}");
+            AppLogger.Error(exception, "normal core startup exception");
+            return BootstrapResult.Failure(exception.Message);
         }
     }
 }

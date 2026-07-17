@@ -1,9 +1,11 @@
 #if DEBUG
+using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
+using Avalonia.VisualTree;
 
 namespace Stelliberty.Desktop.Debug;
 
@@ -14,6 +16,7 @@ internal static partial class DebugCommands
         return string.Equals(command, "screenshot.take", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "clipboard.read", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "toast.state", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(command, "app.memory", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "app.quit", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "window.state", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "window.close", StringComparison.OrdinalIgnoreCase)
@@ -38,6 +41,11 @@ internal static partial class DebugCommands
         {
             var viewModel = RequireViewModel(window);
             return $"visible={viewModel.IsToastVisible.ToString().ToLowerInvariant()};type={viewModel.ToastType};message={viewModel.ToastMessage}";
+        }
+
+        if (string.Equals(command, "app.memory", StringComparison.OrdinalIgnoreCase))
+        {
+            return MemoryStateText(window);
         }
 
         if (string.Equals(command, "app.quit", StringComparison.OrdinalIgnoreCase))
@@ -101,6 +109,25 @@ internal static partial class DebugCommands
             $"screenWidth={workingArea?.Width.ToString(CultureInfo.InvariantCulture) ?? string.Empty}",
             $"screenHeight={workingArea?.Height.ToString(CultureInfo.InvariantCulture) ?? string.Empty}");
     }
+
+    private static string MemoryStateText(MainWindow window)
+    {
+        using var process = Process.GetCurrentProcess();
+        process.Refresh();
+        var memory = GC.GetGCMemoryInfo();
+        var controls = window.GetVisualDescendants().OfType<Control>().Count() + 1;
+        return string.Join(
+            ';',
+            $"private_mb={ToMegabytes(process.PrivateMemorySize64)}",
+            $"working_set_mb={ToMegabytes(process.WorkingSet64)}",
+            $"managed_mb={ToMegabytes(GC.GetTotalMemory(false))}",
+            $"gc_heap_mb={ToMegabytes(memory.HeapSizeBytes)}",
+            $"gc_committed_mb={ToMegabytes(memory.TotalCommittedBytes)}",
+            $"controls={controls}");
+    }
+
+    private static string ToMegabytes(long bytes)
+        => (bytes / 1024d / 1024d).ToString("0.0", CultureInfo.InvariantCulture);
 
     private static void MoveWindow(MainWindow window, string spec)
     {

@@ -46,6 +46,7 @@
   <Style Selector="ContentControl.page-host">
     <Setter Property="Opacity" Value="0" />
     <Setter Property="IsHitTestVisible" Value="False" />
+    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
   </Style>
 
   <Style Selector="iconPacks|PackIconMingCuteIcons">

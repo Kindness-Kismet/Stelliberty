@@ -1,6 +1,5 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
         x:CompileBindings="True">
 
   <Style Selector="Button.proxy-group-tab">
@@ -88,6 +87,13 @@
     <Setter Property="HorizontalContentAlignment" Value="Center" />
     <Setter Property="VerticalContentAlignment" Value="Center" />
     <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <ContentPresenter Content="{TemplateBinding Content}"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center" />
+      </ControlTemplate>
+    </Setter>
   </Style>
   <Style Selector="Button.delay-test-button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
     <Setter Property="Background" Value="Transparent" />
@@ -99,35 +105,17 @@
     <Setter Property="Opacity" Value="0.72" />
   </Style>
 
-  <Style Selector="iconPacks|PackIconMingCuteIcons.delay-spinner">
-    <Setter Property="Width" Value="16" />
-    <Setter Property="Height" Value="16" />
+  <Style Selector="TextBlock.delay-badge.testing">
     <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
-    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <DoubleTransition Property="Opacity" Duration="0:0:0.2" />
-      </Transitions>
-    </Setter>
     <Style.Animations>
-      <Animation Duration="0:0:0.8" IterationCount="Infinite" Easing="LinearEasing">
+      <Animation Duration="0:0:0.8" IterationCount="Infinite" Easing="SineEaseInOut">
         <KeyFrame Cue="0%">
-          <Setter Property="RotateTransform.Angle" Value="0" />
+          <Setter Property="Opacity" Value="0.35" />
         </KeyFrame>
         <KeyFrame Cue="100%">
-          <Setter Property="RotateTransform.Angle" Value="360" />
+          <Setter Property="Opacity" Value="1" />
         </KeyFrame>
       </Animation>
     </Style.Animations>
-  </Style>
-  <Style Selector="Button.delay-test-button:pointerover iconPacks|PackIconMingCuteIcons.delay-spinner">
-    <Setter Property="Opacity" Value="0.7" />
-  </Style>
-
-  <Style Selector="TextBlock.proxy-node-tooltip">
-    <Setter Property="MaxWidth" Value="520" />
-    <Setter Property="MaxLines" Value="3" />
-    <Setter Property="TextWrapping" Value="Wrap" />
-    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
 </Styles>

@@ -179,7 +179,7 @@
               Classes="content-host"
               Classes.settings="{Binding IsSettingsSelected}"
               Background="Transparent">
-                    <!-- 页面常驻堆叠，导航只切透明度，避免重建视图。 -->
+          <!-- 窗口显示后预热全部页面；长期隐藏后释放页面。 -->
           <Grid>
             <ContentControl x:Name="HomePageHost" Classes="page-host" />
             <ContentControl x:Name="ProxyPageHost" Classes="page-host" />
@@ -200,5 +200,12 @@
                                 IsOpen="{Binding IsToastVisible}"
                                 Type="{Binding ToastType}"
                                 Message="{Binding ToastMessage}" />
+
+    <!-- 所有页面首屏预热完成前统一拦截交互，避免切页时补布局。 -->
+    <Border x:Name="PageWarmupBlocker"
+            Grid.RowSpan="2"
+            ZIndex="900"
+            Background="Transparent"
+            AutomationProperties.AutomationId="Shell.WarmupBlocker" />
   </Grid>
 </Window>

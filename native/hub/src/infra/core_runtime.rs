@@ -137,11 +137,6 @@ impl CoreRuntime {
         })
     }
 
-    pub async fn start_initial(&self) -> Result<()> {
-        let _lifecycle = self.lifecycle.lock().await;
-        self.start_if_needed_locked().await
-    }
-
     async fn start_if_needed_locked(&self) -> Result<()> {
         let (already_running, has_child) = {
             let inner = self.state.lock().await;
@@ -270,13 +265,13 @@ impl CoreRuntime {
     }
 
     async fn stop_mihomo(&self) -> Result<()> {
-        let (child_opt, log_task, stop_generation) = {
+        let (child_opt, log_task) = {
             let mut inner = self.state.lock().await;
             // 主动停止推进世代，旧退出监视器不会把它记成崩溃。
             inner.generation += 1;
             inner.state = CoreState::Stopping;
             broadcast_state(&self.events, &inner);
-            (inner.child.take(), inner.log_task.take(), inner.generation)
+            (inner.child.take(), inner.log_task.take())
         };
         if let Some(task) = log_task {
             // 先结束日志流，让旧管道客户端句柄释放。
@@ -289,10 +284,8 @@ impl CoreRuntime {
                 .context("Failed to shut down mihomo")?;
         }
         let mut inner = self.state.lock().await;
-        if inner.generation == stop_generation {
-            inner.state = CoreState::Stopped;
-            broadcast_state(&self.events, &inner);
-        }
+        inner.state = CoreState::Stopped;
+        broadcast_state(&self.events, &inner);
         Ok(())
     }
 

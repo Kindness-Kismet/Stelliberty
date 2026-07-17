@@ -37,6 +37,16 @@ internal static class HubStartupCoordinator
         }
     }
 
+    public static Task<BootstrapResult> StopCoreAsync(CancellationToken cancellationToken)
+    {
+        return Task.Run(HubBootstrap.StopCore, cancellationToken);
+    }
+
+    public static Task<BootstrapResult> ResumeCoreAsync(CancellationToken cancellationToken)
+    {
+        return Task.Run(Start, cancellationToken);
+    }
+
     public static BootstrapResult Start()
     {
         var result = HubBootstrap.Start(CreateBootstrapOptions());
