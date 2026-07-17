@@ -40,6 +40,9 @@ CSHARP_TESTS: list[tuple[str, Path, str]] = [
 CSHARP_TEST_ATTRIBUTE_PREFIXES = ("[Fact", "[Theory")
 CSHARP_TEST_DISPLAY_NAME_PATTERN = re.compile(r'DisplayName\s*=\s*"([^"]+)"')
 CSHARP_TEST_DISPLAY_NAME_MIN_LENGTH = 20
+WORKFLOW_TESTS: list[tuple[str, Path, str]] = [
+    ("beta-workflow", ROOT / "tests" / "scripts", "Beta workflow versioning, build detection, and stable promotion baseline selection"),
+]
 
 class TestStep:
     def __init__(self) -> None:
@@ -84,6 +87,7 @@ def main() -> None:
     category = parser.add_mutually_exclusive_group()
     category.add_argument("--rust", action="store_true", help="Run only Rust scenario integration tests")
     category.add_argument("--csharp", action="store_true", help="Run only C# business tests")
+    category.add_argument("--workflow", action="store_true", help="Run only workflow script tests")
     args = parser.parse_args()
     category_filter = selected_category(args)
 
@@ -124,6 +128,8 @@ def run_handler(handler: str) -> bool:
         return run_features_test_bin(handler[len("rust:") :])
     if handler.startswith("dotnet:"):
         return run_dotnet_tests(Path(handler[len("dotnet:") :]))
+    if handler.startswith("python:"):
+        return run_python_tests(Path(handler[len("python:") :]))
     sys.exit(f"Unknown handler: {handler}")
 
 def available_tests() -> list[tuple[str, str, str]]:
@@ -131,6 +137,9 @@ def available_tests() -> list[tuple[str, str, str]]:
     for name, project, description in CSHARP_TESTS:
         if project.exists():
             tests.append((name, f"dotnet:{project}", description))
+    for name, directory, description in WORKFLOW_TESTS:
+        if directory.exists():
+            tests.append((name, f"python:{directory}", description))
     return tests
 
 def selected_category(args: argparse.Namespace) -> str | None:
@@ -138,6 +147,8 @@ def selected_category(args: argparse.Namespace) -> str | None:
         return "rust"
     if args.csharp:
         return "dotnet"
+    if args.workflow:
+        return "python"
     return None
 
 def filter_tests(tests: list[tuple[str, str, str]], category: str | None) -> list[tuple[str, str, str]]:
@@ -149,11 +160,13 @@ def category_name(category: str | None) -> str:
     return {
         "rust": "Rust scenario integration tests",
         "dotnet": "C# business tests",
+        "python": "Workflow script tests",
     }.get(category, "all tests")
 
 def format_available_tests(tests: list[tuple[str, str, str]]) -> str:
     rust_tests = filter_tests(tests, "rust")
     csharp_tests = filter_tests(tests, "dotnet")
+    workflow_tests = filter_tests(tests, "python")
     return "\n".join(
         [
             "Available pre-build tests:",
@@ -163,6 +176,9 @@ def format_available_tests(tests: list[tuple[str, str, str]]) -> str:
             "",
             "C# business pre-build tests:",
             *format_test_lines(csharp_tests),
+            "",
+            "Workflow script tests:",
+            *format_test_lines(workflow_tests),
         ]
     )
 
@@ -200,6 +216,20 @@ def run_dotnet_tests(project: Path) -> bool:
         "quiet",
     ]
     return subprocess.run(command).returncode == 0
+
+
+def run_python_tests(directory: Path) -> bool:
+    command = [
+        sys.executable,
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        str(directory),
+        "-p",
+        "test_*.py",
+    ]
+    return subprocess.run(command, cwd=ROOT).returncode == 0
 
 def validate_csharp_test_descriptions(project: Path) -> bool:
     failures: list[str] = []

@@ -31,6 +31,13 @@ class ParsedVersion:
         return f"{self.major}.{self.minor}.{self.patch}-beta{self.beta}"
 
 
+@dataclass(frozen=True)
+class BetaReleaseMetadata:
+    version: str
+    tag: str
+    previous_tag: str
+
+
 def parse_version(value: str) -> ParsedVersion | None:
     match = _VERSION_RE.match(value.strip())
     if match is None:
@@ -71,6 +78,37 @@ def next_beta_version(tags: list[str], stable_base: ParsedVersion | None = None)
             max_beta = max(max_beta, parsed.beta or 0)
 
     return ParsedVersion(target_core[0], target_core[1], target_core[2], beta=max_beta + 1).format()
+
+
+def beta_release_metadata(
+    release_tags: list[str],
+    props_version: str,
+    repository_tags: list[str],
+) -> BetaReleaseMetadata:
+    props_base = parse_version(props_version)
+    if props_base is None or not props_base.is_stable:
+        raise ValueError("AppVersion must use major.minor.patch")
+
+    release_base = latest_stable_version(release_tags)
+    stable_base = props_base
+    if release_base is not None and release_base.core > stable_base.core:
+        stable_base = release_base
+
+    version = next_beta_version(release_tags, stable_base)
+    parsed = parse_version(version)
+    if parsed is None or parsed.beta is None:
+        raise ValueError("Failed to compute beta version")
+
+    if parsed.beta > 1:
+        previous_tag = to_tag(
+            ParsedVersion(parsed.major, parsed.minor, parsed.patch, parsed.beta - 1).format()
+        )
+    else:
+        stable_tag = to_tag(stable_base.format())
+        baseline_tag = f"beta-base/{stable_tag}"
+        previous_tag = baseline_tag if baseline_tag in repository_tags else stable_tag
+
+    return BetaReleaseMetadata(version, to_tag(version), previous_tag)
 
 
 def to_tag(version: str) -> str:

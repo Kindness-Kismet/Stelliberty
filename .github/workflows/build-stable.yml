@@ -334,6 +334,11 @@ jobs:
     if: ${{ needs.build.result == 'success' }}
 
     steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: Download release artifacts
         uses: actions/download-artifact@v8
         with:
@@ -369,3 +374,43 @@ jobs:
           prerelease: false
           overwrite_files: true
           make_latest: true
+
+      - name: Find promoted beta source
+        id: promotion
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api --paginate --slurp \
+            "repos/${GITHUB_REPOSITORY}/pulls?state=closed&base=stable&sort=updated&direction=desc&per_page=100" \
+            > stable-pulls.json
+          python scripts/beta_workflow.py select-promotion \
+            --pulls stable-pulls.json \
+            --repository "${GITHUB_REPOSITORY}" \
+            --stable-sha "${GITHUB_SHA}" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Create beta release baseline
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ steps.promotion.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          baseline_tag="beta-base/${{ needs.prepare.outputs.tag }}"
+          existing_sha="$(
+            git ls-remote --tags origin "refs/tags/${baseline_tag}" "refs/tags/${baseline_tag}^{}" |
+              awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { print peeled ? peeled : direct }'
+          )"
+          if [ -n "${existing_sha}" ]; then
+            if [ "${existing_sha}" != "${SOURCE_SHA}" ]; then
+              echo "::error::${baseline_tag} already points to ${existing_sha}, expected ${SOURCE_SHA}."
+              exit 1
+            fi
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${baseline_tag}" \
+              -f sha="${SOURCE_SHA}" >/dev/null
+          fi
+          echo "Beta baseline ${baseline_tag} points to ${SOURCE_SHA}."
+          echo "- Beta baseline: \`${baseline_tag}\`" >> "$GITHUB_STEP_SUMMARY"

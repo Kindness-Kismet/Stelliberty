@@ -13,7 +13,7 @@ on:
       - '.github/workflows/stability-verification.yml'
       - 'Directory.Build.props'
       - 'Stelliberty.slnx'
-      - 'Cargo.toml'
+      - '**/Cargo.toml'
       - 'Cargo.lock'
       - 'global.json'
       - '**/*.csproj'
@@ -61,32 +61,30 @@ jobs:
         id: changes
         shell: bash
         env:
-          BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          base_tag="$(git tag --merged "${AFTER_SHA}" --list 'v[0-9]*' --sort=-version:refname | sed -n '1p')"
-          base_ref="${base_tag:-${BEFORE_SHA}}"
-          should_build=false
+          props_version="$(sed -n 's:.*<AppVersion>\(.*\)</AppVersion>.*:\1:p' Directory.Build.props)"
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | select(.draft | not) | .tag_name' > release-tags.txt
+          git tag --list > repository-tags.txt
+          python scripts/beta_workflow.py metadata \
+            --props-version "${props_version}" \
+            --release-tags release-tags.txt \
+            --repository-tags repository-tags.txt > beta-metadata.env
+          source beta-metadata.env
 
-          if git diff --name-only "${base_ref}" "${AFTER_SHA}" | grep -Fxq 'Directory.Build.props'; then
-            echo "Version metadata changed since ${base_ref}; beta build is skipped."
-          else
-            while IFS= read -r path; do
-              case "${path}" in
-                *.cs|*.rs|*.axaml)
-                  should_build=true
-                  break
-                  ;;
-              esac
-            done < <(git diff --name-only "${base_ref}" "${AFTER_SHA}")
-          fi
+          git fetch --force origin "refs/tags/${previous_tag}:refs/tags/${previous_tag}"
+          git diff --name-only "${previous_tag}" "${AFTER_SHA}" > changed-paths.txt
+          python scripts/beta_workflow.py should-build --paths changed-paths.txt > beta-build.env
+          cat beta-build.env >> "$GITHUB_OUTPUT"
+          source beta-build.env
 
-          echo "should_build=${should_build}" >> "$GITHUB_OUTPUT"
           if [ "${should_build}" = true ]; then
-            echo "Product changes since ${base_ref} require a beta build."
+            echo "Product changes since ${previous_tag} require a beta build."
           else
-            echo "No product changes since ${base_ref}; beta build is skipped."
+            echo "No product changes since ${previous_tag}; beta build is skipped."
           fi
 
   code-quality:

@@ -46,6 +46,7 @@
 !/tests/**/
 !/tests/**/*.cs
 !/tests/**/*.csproj
+!/tests/**/*.py
 
 /build/
 **/target/
