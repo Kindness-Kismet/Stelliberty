@@ -37,6 +37,8 @@ public sealed class AppSettings
 
     public bool IsLazyModeEnabled { get; set; }
 
+    public bool IsTitleBarFpsVisible { get; set; } = true;
+
     public bool IsAutoStartEnabled { get; set; }
 
     public string WindowToggleHotkey { get; set; } = string.Empty;

@@ -467,6 +467,7 @@
   "Settings.AppBehavior.TrayDoubleClick.Description": "When off, switch to single-click behavior",
   "Settings.AppBehavior.LazyMode": "Lazy Mode",
   "Settings.AppBehavior.LazyMode.Description": "Automatically enable the system proxy on startup",
+  "Settings.AppBehavior.TitleBarFps": "Show FPS in Title Bar",
   "Settings.AppBehavior.Startup": "Launch at Startup",
   "Settings.AppBehavior.Hotkeys": "Shortcut Registration",
   "Settings.AppBehavior.WindowToggleHotkey": "Show/Hide Window",

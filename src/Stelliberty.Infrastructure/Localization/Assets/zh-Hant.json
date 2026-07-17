@@ -467,6 +467,7 @@
   "Settings.AppBehavior.TrayDoubleClick.Description": "關閉後，變更為單擊行為",
   "Settings.AppBehavior.LazyMode": "懶惰模式",
   "Settings.AppBehavior.LazyMode.Description": "啟動時自動開啟系統代理",
+  "Settings.AppBehavior.TitleBarFps": "標題列顯示幀率",
   "Settings.AppBehavior.Startup": "開機自啟",
   "Settings.AppBehavior.Hotkeys": "快速鍵註冊",
   "Settings.AppBehavior.WindowToggleHotkey": "顯示/隱藏視窗",

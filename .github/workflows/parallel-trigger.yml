@@ -13,7 +13,7 @@ on:
       - '.github/workflows/stability-verification.yml'
       - 'Directory.Build.props'
       - 'Stelliberty.slnx'
-      - 'Cargo.toml'
+      - '**/Cargo.toml'
       - 'Cargo.lock'
       - 'global.json'
       - '**/*.csproj'
@@ -63,30 +63,67 @@ jobs:
         env:
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          base_tag="$(git tag --merged "${AFTER_SHA}" --list 'v[0-9]*' --sort=-version:refname | sed -n '1p')"
-          base_ref="${base_tag:-${BEFORE_SHA}}"
-          should_build=false
-
-          if git diff --name-only "${base_ref}" "${AFTER_SHA}" | grep -Fxq 'Directory.Build.props'; then
-            echo "Version metadata changed since ${base_ref}; beta build is skipped."
-          else
-            while IFS= read -r path; do
-              case "${path}" in
-                *.cs|*.rs|*.axaml)
-                  should_build=true
-                  break
-                  ;;
-              esac
-            done < <(git diff --name-only "${base_ref}" "${AFTER_SHA}")
+          if git diff --unified=0 "${BEFORE_SHA}" "${AFTER_SHA}" -- Directory.Build.props | grep -Eq '^[+-].*<AppVersion>'; then
+            echo 'should_build=false' >> "$GITHUB_OUTPUT"
+            echo 'Stable version metadata changed in this push; beta build is skipped.'
+            exit 0
           fi
 
-          echo "should_build=${should_build}" >> "$GITHUB_OUTPUT"
-          if [ "${should_build}" = true ]; then
-            echo "Product changes since ${base_ref} require a beta build."
+          props_version="$(sed -n 's:.*<AppVersion>\(.*\)</AppVersion>.*:\1:p' Directory.Build.props)"
+          tags="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.draft | not) | .tag_name')"
+          stable="${props_version}"
+          while IFS= read -r tag; do
+            if [[ "${tag}" =~ ^v?([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              candidate="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+              if [ "$(printf '%s\n%s\n' "${stable}" "${candidate}" | sort -V | tail -n 1)" = "${candidate}" ]; then
+                stable="${candidate}"
+              fi
+            fi
+          done <<< "${tags}"
+
+          IFS=. read -r major minor patch <<< "${stable}"
+          target="${major}.${minor}.$((patch + 1))"
+          beta=0
+          while IFS= read -r tag; do
+            if [[ "${tag}" =~ ^v?${target//./\.}-beta([0-9]+)$ ]] && [ "${BASH_REMATCH[1]}" -gt "${beta}" ]; then
+              beta="${BASH_REMATCH[1]}"
+            fi
+          done <<< "${tags}"
+
+          if [ "${beta}" -gt 0 ]; then
+            previous_tag="v${target}-beta${beta}"
           else
-            echo "No product changes since ${base_ref}; beta build is skipped."
+            stable_tag="v${stable}"
+            baseline_tag="beta-base/${stable_tag}"
+            if git ls-remote --exit-code --tags origin "refs/tags/${baseline_tag}" >/dev/null 2>&1; then
+              previous_tag="${baseline_tag}"
+            else
+              previous_tag="${stable_tag}"
+            fi
+          fi
+
+          git fetch --force origin "refs/tags/${previous_tag}:refs/tags/${previous_tag}"
+          git diff --name-only "${previous_tag}" "${AFTER_SHA}" > changed-paths.txt
+          should_build=false
+          while IFS= read -r path; do
+            case "${path}" in
+              Directory.Build.props)
+                ;;
+              *.cs|*.rs|*.axaml|*.csproj|Cargo.toml|*/Cargo.toml|Cargo.lock|Directory.Packages.props|Stelliberty.slnx|global.json)
+                should_build=true
+                break
+                ;;
+            esac
+          done < changed-paths.txt
+          echo "should_build=${should_build}" >> "$GITHUB_OUTPUT"
+
+          if [ "${should_build}" = true ]; then
+            echo "Product changes since ${previous_tag} require a beta build."
+          else
+            echo "No product changes since ${previous_tag}; beta build is skipped."
           fi
 
   code-quality:
