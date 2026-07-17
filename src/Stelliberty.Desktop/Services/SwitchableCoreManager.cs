@@ -27,12 +27,6 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
         return UseAsync(EnsureCoreReadyAsync, cancellationToken);
     }
 
-    public async Task SwitchAsync(ICoreManager next, CancellationToken cancellationToken = default)
-    {
-        using var transition = await BeginTransitionAsync(cancellationToken).ConfigureAwait(false);
-        await transition.SwitchAsync(next, cancellationToken).ConfigureAwait(false);
-    }
-
     public async Task<CoreTransition> BeginTransitionAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);

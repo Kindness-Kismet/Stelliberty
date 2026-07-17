@@ -443,7 +443,10 @@ public sealed class ServiceModeSessionSwitcherTests
         var states = new List<CoreSnapshot>();
         manager.StateChanged += (_, state) => states.Add(state);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => manager.SwitchAsync(candidate));
+        using (var transition = await manager.BeginTransitionAsync())
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => transition.SwitchAsync(candidate));
+        }
 
         Assert.Empty(states);
         Assert.Equal(1, candidate.DisposeCount);

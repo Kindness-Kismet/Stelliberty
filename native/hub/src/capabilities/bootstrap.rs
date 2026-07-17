@@ -115,7 +115,7 @@ fn run_bootstrap(
                 tracing::error!("ipc server exited: {e}");
             }
         });
-        if let Err(e) = core.start_initial().await {
+        if let Err(e) = core.start_core().await {
             let _ = shutdown_tx.try_send(());
             return Err(e);
         }
