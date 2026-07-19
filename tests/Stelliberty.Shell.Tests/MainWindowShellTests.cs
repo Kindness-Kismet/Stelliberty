@@ -318,7 +318,8 @@ public sealed class MainWindowShellTests
         try
         {
             await provider.Started.Task.WaitAsync(AsyncTestTimeout);
-            await Task.Delay(60);
+            // 等待导航节流结束，确保切页触发取消链路。
+            await Task.Delay(200);
             viewModel.ShowHomeCommand.Execute(null);
             await WaitUntilAsync(() => provider.CancellationObserved);
             provider.Release.TrySetResult();

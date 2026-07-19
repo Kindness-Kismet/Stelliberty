@@ -1,5 +1,7 @@
-- Proxy delay tests once again show a rotating circular indicator instead of an ellipsis.
+- Remote subscriptions now work with more restrictive download services and reject HTML error pages without exposing subscription details.
+- Rapid sidebar clicks no longer interrupt page navigation.
 
 ---
 
-- 代理延迟测试重新显示旋转圆环，不再使用省略号。
+- 远程订阅现在可兼容限制更严格的下载服务，并会在不泄露订阅信息的情况下拒绝 HTML 错误页面。
+- 快速点击侧栏时不再打断页面切换。
