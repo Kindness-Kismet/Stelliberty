@@ -1,6 +1,5 @@
 using System.Net;
-using System.Text;
-using System.Text.RegularExpressions;
+using System.Net.Http.Headers;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Settings;
 using Stelliberty.Application.Subscriptions;
@@ -11,12 +10,8 @@ namespace Stelliberty.Infrastructure.Subscriptions;
 
 public sealed class HttpRemoteSubscriptionDownloader : IRemoteSubscriptionDownloader
 {
-    private const int FailureHtmlPrefixLength = 4096;
-    private const int MaxDiagnosticValueLength = 200;
-    private static readonly Regex HtmlTitleRegex = new(
-        @"<title[^>]*>(?<title>.*?)</title>",
-        RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant,
-        TimeSpan.FromSeconds(1));
+    private const int MaxSubscriptionContentBytes = 10 * 1024 * 1024;
+    private static readonly TimeSpan DownloadTimeout = TimeSpan.FromSeconds(10);
 
     private readonly Func<(string Host, int Port)> _coreProxyEndpointProvider;
 
@@ -32,7 +27,10 @@ public sealed class HttpRemoteSubscriptionDownloader : IRemoteSubscriptionDownlo
 
     public async Task<RemoteSubscriptionDownloadResult> DownloadAsync(RemoteSubscriptionDownloadRequest request, CancellationToken cancellationToken = default)
     {
-        using var handler = new HttpClientHandler();
+        using var handler = new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate | DecompressionMethods.Brotli
+        };
         if (request.ProxyMode == SubscriptionUpdateProxyMode.Direct)
         {
             handler.UseProxy = false;
@@ -51,24 +49,35 @@ public sealed class HttpRemoteSubscriptionDownloader : IRemoteSubscriptionDownlo
 
         using var client = new HttpClient(handler)
         {
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = Timeout.InfiniteTimeSpan
         };
-        using var message = new HttpRequestMessage(HttpMethod.Get, request.SourceLocation);
-        if (!string.IsNullOrWhiteSpace(request.UserAgent))
+        using var timeoutCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCancellation.CancelAfter(DownloadTimeout);
+        var requestCancellationToken = timeoutCancellation.Token;
+        using var message = new HttpRequestMessage(HttpMethod.Get, request.SourceLocation)
         {
-            message.Headers.UserAgent.ParseAdd(request.UserAgent);
-        }
+            Version = HttpVersion.Version11,
+            VersionPolicy = HttpVersionPolicy.RequestVersionExact
+        };
+        message.Headers.UserAgent.ParseAdd(SubscriptionDefaults.NormalizeUserAgent(request.UserAgent));
+        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/yaml"));
+        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/yaml"));
+        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-yaml"));
+        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/plain"));
+        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*", 0.1));
+        message.Headers.CacheControl = new CacheControlHeaderValue { NoCache = true };
+        message.Headers.Pragma.Add(new NameValueHeaderValue("no-cache"));
 
         HttpResponseMessage response;
         try
         {
-            response = await client.SendAsync(message, cancellationToken);
+            response = await client.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, requestCancellationToken);
         }
         catch (HttpRequestException exception)
         {
             throw new HttpRequestException(
                 BuildTransportFailureMessage(request, exception),
-                exception,
+                null,
                 exception.StatusCode);
         }
 
@@ -76,50 +85,51 @@ public sealed class HttpRemoteSubscriptionDownloader : IRemoteSubscriptionDownlo
         {
             if (!response.IsSuccessStatusCode)
             {
-                throw await CreateResponseFailureExceptionAsync(request, response, cancellationToken);
+                throw CreateResponseFailureException(request, response);
             }
 
-            AppLogger.Info($"Remote subscription downloaded: {request.SourceLocation}");
-            var content = await HttpContentTextReader.ReadAsStringAsync(response.Content, cancellationToken);
+            await response.Content.LoadIntoBufferAsync(MaxSubscriptionContentBytes, requestCancellationToken);
+            var content = await HttpContentTextReader.ReadAsStringAsync(response.Content, requestCancellationToken);
+            if (LooksLikeHtmlDocument(content))
+            {
+                throw CreateUnexpectedHtmlResponseException(request, response);
+            }
+
             var trafficInfo = response.Headers.TryGetValues("subscription-userinfo", out var values)
                 ? SubscriptionTrafficInfo.ParseHeader(values.FirstOrDefault() ?? string.Empty)
                 : null;
+            AppLogger.Info($"Remote subscription downloaded: proxy={request.ProxyMode}");
             return new RemoteSubscriptionDownloadResult(content, trafficInfo);
         }
     }
 
-    private static async Task<HttpRequestException> CreateResponseFailureExceptionAsync(
+    private static HttpRequestException CreateUnexpectedHtmlResponseException(
         RemoteSubscriptionDownloadRequest request,
-        HttpResponseMessage response,
-        CancellationToken cancellationToken)
+        HttpResponseMessage response)
+    {
+        return new HttpRequestException(
+            $"Subscription download returned an HTML page instead of a configuration: HTTP {(int)response.StatusCode}; proxy={request.ProxyMode}",
+            null,
+            response.StatusCode);
+    }
+
+    private static HttpRequestException CreateResponseFailureException(
+        RemoteSubscriptionDownloadRequest request,
+        HttpResponseMessage response)
     {
         var finalUri = response.RequestMessage?.RequestUri;
         var requestedUri = Uri.TryCreate(request.SourceLocation, UriKind.Absolute, out var sourceUri) ? sourceUri : null;
         var wasRedirected = requestedUri is not null
             && finalUri is not null
             && Uri.Compare(requestedUri, finalUri, UriComponents.HttpRequestUrl, UriFormat.SafeUnescaped, StringComparison.OrdinalIgnoreCase) != 0;
-        var title = await TryReadHtmlTitleAsync(response.Content, cancellationToken);
-        var contentType = response.Content.Headers.ContentType?.ToString() ?? "unknown";
         var contentLength = response.Content.Headers.ContentLength?.ToString() ?? "unknown";
-        var server = response.Headers.Server.ToString();
         var details = new List<string>
         {
-            $"HTTP {(int)response.StatusCode} {SanitizeDiagnosticValue(response.ReasonPhrase, "unknown")}",
-            $"type={SanitizeDiagnosticValue(contentType, "unknown")}",
-            $"host={SanitizeDiagnosticValue(finalUri?.Host, "unknown")}",
+            $"HTTP {(int)response.StatusCode}",
             $"redirected={wasRedirected}",
             $"proxy={request.ProxyMode}",
             $"length={contentLength}"
         };
-        if (!string.IsNullOrWhiteSpace(server))
-        {
-            details.Add($"server={SanitizeDiagnosticValue(server, "unknown")}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(title))
-        {
-            details.Add($"title={title}");
-        }
 
         return new HttpRequestException(
             $"Subscription download request failed: {string.Join("; ", details)}",
@@ -127,54 +137,55 @@ public sealed class HttpRemoteSubscriptionDownloader : IRemoteSubscriptionDownlo
             response.StatusCode);
     }
 
-    private static async Task<string?> TryReadHtmlTitleAsync(HttpContent content, CancellationToken cancellationToken)
+    private static bool LooksLikeHtmlDocument(string content)
     {
-        if (!string.Equals(content.Headers.ContentType?.MediaType, "text/html", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
+        var prefix = TrimHtmlPreamble(content.AsSpan());
+        return prefix.StartsWith("<!doctype html", StringComparison.OrdinalIgnoreCase)
+            || prefix.StartsWith("<html", StringComparison.OrdinalIgnoreCase)
+            || prefix.StartsWith("<head", StringComparison.OrdinalIgnoreCase)
+            || prefix.StartsWith("<body", StringComparison.OrdinalIgnoreCase);
+    }
 
-        await using var stream = await content.ReadAsStreamAsync(cancellationToken);
-        var buffer = new byte[FailureHtmlPrefixLength];
-        var length = 0;
-        while (length < buffer.Length)
+    private static ReadOnlySpan<char> TrimHtmlPreamble(ReadOnlySpan<char> content)
+    {
+        while (true)
         {
-            var read = await stream.ReadAsync(buffer.AsMemory(length), cancellationToken);
-            if (read == 0)
+            content = content.TrimStart();
+            while (!content.IsEmpty && content[0] is '\uFEFF' or '\u200B')
             {
-                break;
+                content = content[1..].TrimStart();
             }
 
-            length += read;
-        }
+            if (content.StartsWith("<?xml", StringComparison.OrdinalIgnoreCase))
+            {
+                var declarationEnd = content.IndexOf("?>", StringComparison.Ordinal);
+                if (declarationEnd < 0)
+                {
+                    return content;
+                }
 
-        if (length == 0)
-        {
-            return null;
-        }
+                content = content[(declarationEnd + 2)..];
+                continue;
+            }
 
-        var match = HtmlTitleRegex.Match(Encoding.UTF8.GetString(buffer, 0, length));
-        return match.Success
-            ? SanitizeDiagnosticValue(WebUtility.HtmlDecode(match.Groups["title"].Value), string.Empty)
-            : null;
+            if (content.StartsWith("<!--", StringComparison.Ordinal))
+            {
+                var commentEnd = content.IndexOf("-->", StringComparison.Ordinal);
+                if (commentEnd < 0)
+                {
+                    return content;
+                }
+
+                content = content[(commentEnd + 3)..];
+                continue;
+            }
+
+            return content;
+        }
     }
 
     private static string BuildTransportFailureMessage(RemoteSubscriptionDownloadRequest request, HttpRequestException exception)
     {
-        var host = Uri.TryCreate(request.SourceLocation, UriKind.Absolute, out var sourceUri)
-            ? sourceUri.Host
-            : "unknown";
-        return $"Subscription download request could not be completed: host={SanitizeDiagnosticValue(host, "unknown")}; proxy={request.ProxyMode}; error={SanitizeDiagnosticValue(exception.Message, "unknown")}";
-    }
-
-    private static string SanitizeDiagnosticValue(string? value, string fallback)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return fallback;
-        }
-
-        var trimmed = value.Trim();
-        return AppLogSanitizer.Sanitize(trimmed.Length <= MaxDiagnosticValueLength ? trimmed : trimmed[..MaxDiagnosticValueLength]);
+        return $"Subscription download request could not be completed: proxy={request.ProxyMode}; error={exception.HttpRequestError}";
     }
 }
