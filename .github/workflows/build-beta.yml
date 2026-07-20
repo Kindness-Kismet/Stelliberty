@@ -21,7 +21,7 @@ env:
 jobs:
   validate-branch:
     name: Validate beta branch
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Require beta branch
         shell: bash
@@ -30,7 +30,7 @@ jobs:
   prepare:
     name: Prepare beta metadata
     needs: validate-branch
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     outputs:
       app_name: ${{ steps.meta.outputs.app_name }}
       app_display_name: ${{ steps.meta.outputs.app_display_name }}
@@ -186,12 +186,12 @@ jobs:
             rust_target: aarch64-pc-windows-msvc
             os_family: windows
           - label: Linux x64
-            runner: ubuntu-22.04
+            runner: ubuntu-26.04
             platform: linux-x64
             rust_target: x86_64-unknown-linux-gnu
             os_family: linux
           - label: Linux arm64
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-26.04-arm
             platform: linux-arm64
             rust_target: aarch64-unknown-linux-gnu
             os_family: linux
@@ -348,7 +348,7 @@ jobs:
     name: Publish beta to download repository
     needs: [prepare, build]
     if: ${{ needs.prepare.outputs.can_build == 'true' && needs.build.result == 'success' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Download beta artifacts

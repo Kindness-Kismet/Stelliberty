@@ -30,7 +30,7 @@ env:
 jobs:
   validate-branch:
     name: Validate stable branch
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Require stable branch
         shell: bash
@@ -39,7 +39,7 @@ jobs:
   detect-version-change:
     name: Detect version change
     needs: validate-branch
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     outputs:
       should_build: ${{ steps.detect.outputs.should_build }}
 
@@ -69,7 +69,7 @@ jobs:
     name: Prepare release metadata
     needs: detect-version-change
     if: needs.detect-version-change.outputs.should_build == 'true'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     outputs:
       app_name: ${{ steps.meta.outputs.app_name }}
       app_display_name: ${{ steps.meta.outputs.app_display_name }}
@@ -169,12 +169,12 @@ jobs:
             rust_target: aarch64-pc-windows-msvc
             os_family: windows
           - label: Linux x64
-            runner: ubuntu-22.04
+            runner: ubuntu-26.04
             platform: linux-x64
             rust_target: x86_64-unknown-linux-gnu
             os_family: linux
           - label: Linux arm64
-            runner: ubuntu-22.04-arm
+            runner: ubuntu-26.04-arm
             platform: linux-arm64
             rust_target: aarch64-unknown-linux-gnu
             os_family: linux
@@ -330,7 +330,7 @@ jobs:
   release:
     name: Publish to download repository
     needs: [prepare, build]
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     if: ${{ needs.build.result == 'success' }}
 
     steps:

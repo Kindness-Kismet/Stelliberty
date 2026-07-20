@@ -39,7 +39,7 @@ jobs:
   validate-branch:
     name: Validate trigger branch
     if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Require beta branch
         shell: bash
@@ -48,7 +48,7 @@ jobs:
   detect-beta-build-changes:
     name: Detect beta build changes
     if: github.event_name == 'push' && github.ref == 'refs/heads/beta'
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     outputs:
       should_build: ${{ steps.changes.outputs.should_build }}
     steps:
@@ -175,7 +175,7 @@ jobs:
         needs.code-quality.result == 'success' &&
         needs.stability-verification.result == 'success'
       }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Report intentional skip
         shell: bash

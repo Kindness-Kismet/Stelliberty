@@ -17,7 +17,7 @@ env:
 jobs:
   quality:
     name: Formatting and static checks
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
 
     steps:
