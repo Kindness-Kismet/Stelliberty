@@ -20,7 +20,8 @@ jobs:
           ref: beta
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
-      - name: Update runner labels
+      # 只替换已下架的 ubuntu 标签；仍支持的版本保持不动，避免抬高 glibc 损害 Linux 兼容性
+      - name: Replace retired runner labels
         uses: actions/github-script@v8
         with:
           script: |
@@ -34,35 +35,41 @@ jobs:
 
             const readme = await response.text();
             const available = [...readme.matchAll(/`(ubuntu-\d+\.\d+(?:-arm)?)`/g)].map(match => match[1]);
-            const latest = current => {
+            // 仍在支持列表则原样保留；已下架时选同架构下最老可用版，优先兼容旧系统
+            const resolve = current => {
+              if (available.includes(current)) {
+                return current;
+              }
               const expression = current.endsWith('-arm')
                 ? /^ubuntu-(\d+)\.(\d+)-arm$/
                 : /^ubuntu-(\d+)\.(\d+)$/;
               const candidates = available
                 .map(label => ({ label, match: label.match(expression) }))
                 .filter(item => item.match)
-                .sort((left, right) => Number(right.match[1]) - Number(left.match[1]) || Number(right.match[2]) - Number(left.match[2]));
+                .sort((left, right) => Number(left.match[1]) - Number(right.match[1]) || Number(left.match[2]) - Number(right.match[2]));
               return candidates[0]?.label ?? current;
             };
 
             for (const file of fs.readdirSync('.github/workflows').filter(file => /\.ya?ml$/.test(file))) {
               const filePath = path.join('.github/workflows', file);
               const original = fs.readFileSync(filePath, 'utf8');
-              const updated = original.replace(/((?:runs-on|runner):\s*)(ubuntu-\d+\.\d+(?:-arm)?)/g, (_, prefix, label) => prefix + latest(label));
+              const updated = original.replace(/((?:runs-on|runner):\s*)(ubuntu-\d+\.\d+(?:-arm)?)/g, (_, prefix, label) => prefix + resolve(label));
               if (updated !== original) {
                 fs.writeFileSync(filePath, updated);
                 core.info('Updated ' + filePath);
               }
             }
 
-      - name: Open runner upgrade pull request
+      - name: Open runner maintenance pull request
         uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           base: beta
           branch: automation/runner-version-upgrade
           delete-branch: true
-          commit-message: Upgrade GitHub Actions runner versions
-          title: Upgrade GitHub Actions runner versions
+          commit-message: Replace retired GitHub Actions runner labels
+          title: Replace retired GitHub Actions runner labels
           body: |
-            Automated update of GitHub Actions runner labels to supported versions.
+            Automated replacement of retired Ubuntu runner labels.
+
+            Still-supported labels (for example `ubuntu-22.04`) are left unchanged so Linux package glibc compatibility is not raised unnecessarily. When a label is removed from runner-images, it is replaced with the oldest still-available matching variant.
