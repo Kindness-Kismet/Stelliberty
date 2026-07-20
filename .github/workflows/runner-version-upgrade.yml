@@ -18,6 +18,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: beta
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Update runner labels
         uses: actions/github-script@v8
@@ -55,9 +56,9 @@ jobs:
             }
 
       - name: Open runner upgrade pull request
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           base: beta
           branch: automation/runner-version-upgrade
           delete-branch: true
