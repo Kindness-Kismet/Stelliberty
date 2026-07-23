@@ -111,17 +111,6 @@ public sealed partial class ProxyView : UserControl, IPageContentLifecycle
         RestoreNodeScrollOffset();
     }
 
-    void IPageContentLifecycle.WarmupPageContent()
-    {
-        if (_isPageContentActive
-            || ProxyPageRoot.DataContext is not ProxyPageViewModel viewModel)
-        {
-            return;
-        }
-
-        viewModel.WarmupPresentation();
-    }
-
     void IPageContentLifecycle.DeactivatePageContent()
         => DeactivatePageContent();
 

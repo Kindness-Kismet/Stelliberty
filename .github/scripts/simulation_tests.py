@@ -81,7 +81,7 @@ class SimulationTests:
             self.start_app(),
             self.require("window.show"),
             self.prepare_window_shortcut(),
-            self.require("page.open settings/app-behavior"),
+            self.open_page("settings/app-behavior", "Settings.WindowToggleHotkeyBox"),
             self.require("control.click Settings.WindowToggleHotkeyBox"),
         ))
         self.step("Suppress shortcut while recording", lambda: (
@@ -176,14 +176,12 @@ class SimulationTests:
         self.step("Uninstall service mode and return to process core", self.uninstall_service_mode)
 
         self.step("Proxy page empty state", lambda: (
-            self.require("page.open proxies"),
-            self.require("control.exists Proxy.Toolbar"),
+            self.open_page("proxies", "Proxy.Toolbar"),
             self.require("proxies.state", contains=["groups=", "nodes=", "testing=false"]),
         ))
         self.step("Refresh proxy page", lambda: self.require("proxies.refresh", contains=["groups=", "testing=false"]))
         self.step("Connection page initial state", lambda: (
-            self.require("page.open connections"),
-            self.require("control.exists Connections.Toolbar"),
+            self.open_page("connections", "Connections.Toolbar"),
             self.require("connections.state", contains=["total=", "paused=false", "filter=All"]),
         ))
         self.step("Refresh connection list", lambda: self.require("connections.refresh", contains=["filter=All"]))
@@ -194,8 +192,7 @@ class SimulationTests:
         self.step("Resume connection monitoring", lambda: self.require("connections.pause", contains=["paused=false"]))
         self.step("Close all connections", lambda: self.require("connections.close_all", contains=["closedAll=true"]))
         self.step("Core logs page initial state", lambda: (
-            self.require("page.open core-logs"),
-            self.require("control.exists CoreLogs.Toolbar"),
+            self.open_page("core-logs", "CoreLogs.Toolbar"),
             self.require("core_logs.state", contains=["running=true", "filter=All"]),
         ))
         self.step("Filter core logs by info", lambda: self.require("core_logs.filter info", contains=["filter=Info"]))
@@ -205,8 +202,7 @@ class SimulationTests:
         self.step("Resume core log monitoring", lambda: self.require("core_logs.pause", contains=["paused=false"]))
         self.step("Clear core logs", lambda: self.require("core_logs.clear", contains=["running=true"]))
         self.step("Rules page initial state", lambda: (
-            self.require("page.open rules"),
-            self.require("control.exists Rules.Toolbar"),
+            self.open_page("rules", "Rules.Toolbar"),
             self.require("rules.state", contains=["running=true", "bucket=All"]),
         ))
         self.step("Refresh rule list", lambda: self.require("rules.refresh", contains=["refresh=true"]))
@@ -219,8 +215,7 @@ class SimulationTests:
             self.require("rules.search example", contains=["search=example"]),
         ))
         self.step("Subscription page remains empty", lambda: (
-            self.require("page.open subscriptions"),
-            self.require("control.exists Subscriptions.Toolbar"),
+            self.open_page("subscriptions", "Subscriptions.Toolbar"),
             self.require("control.exists Subscriptions.EmptyText"),
             self.require("subscriptions.state", contains=["total=0", "dialog=false"]),
             self.require("control.click Subscriptions.AddButton"),
@@ -232,15 +227,13 @@ class SimulationTests:
             self.require("subscriptions.list", equals=""),
         ))
         self.step("Override page remains empty", lambda: (
-            self.require("page.open overrides"),
-            self.require("control.exists Overrides.Toolbar"),
+            self.open_page("overrides", "Overrides.Toolbar"),
             self.require("control.exists Overrides.EmptyText"),
             self.require("overrides.state", contains=["total=0", "dialog=false"]),
             self.require("overrides.list", equals=""),
         ))
         self.step("Settings basic state", lambda: (
-            self.require("page.open settings/root"),
-            self.require("control.exists Settings.Root"),
+            self.open_page("settings/root", "Settings.Root"),
             self.require("settings.state", contains=["language=", "theme=", "proxyHost="]),
             self.require("settings.language.state", contains=["language="]),
             self.require("settings.theme.state", contains=["theme=", "windowEffect="]),
@@ -250,8 +243,7 @@ class SimulationTests:
         ))
         self.step("Settings data management and WebDAV state", self.verify_webdav_settings)
         self.step("System integration and Clash settings state", lambda: (
-            self.require("page.open settings/system-integration"),
-            self.require("control.exists Settings.PacModeToggle"),
+            self.open_page("settings/system-integration", "Settings.PacModeToggle"),
             self.require("settings.system_integration.keys", contains=["proxy-host", "pac-script"]),
             self.require("settings.system_integration.state", contains=["proxyHost=", "pacMode="]),
             self.require("clash.keys", contains=["network.unified-delay", "core-log.level"]),
@@ -273,7 +265,7 @@ class SimulationTests:
         self.wait_for("service.status", contains=["state=NotInstalled", "core=unknown"])
 
     def verify_webdav_settings(self) -> None:
-        self.require("page.open settings/data-management")
+        self.open_page("settings/data-management", "Settings.WebDavEnableToggle")
         self.require("settings.data_management.webdav_keys", contains=["enabled", "url", "retention-count"])
         self.require("settings.data_management.webdav_state", contains=["webdavEnabled=", "webdavBusy=false"])
         self.require("settings.data_management.webdav_set enabled off", contains=["webdavEnabled=false"])
@@ -294,6 +286,15 @@ class SimulationTests:
         self.wait_for_app_exit(timeout=15)
         if self.is_app_running():
             raise SimulationTestError("App process is still running after the quit command returned")
+
+    def open_page(self, page: str, ready_control: str) -> None:
+        self.require(f"page.open {page}")
+        self.wait_for(
+            f"control.exists {ready_control}",
+            contains=[],
+            timeout=15,
+            interval=0.1,
+        )
 
     def step(self, label: str, action) -> None:
         self.step_index += 1

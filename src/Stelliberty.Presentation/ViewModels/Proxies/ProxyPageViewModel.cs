@@ -454,7 +454,9 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public async Task SyncExternalSelectionsAsync(CancellationToken cancellationToken = default)
     {
-        if (!_isPresentationActive || _primaryConfigProvider is null || _isDelayTesting)
+        if (!_isPresentationActive
+            || _primaryConfigProvider is null
+            || _isDelayTesting)
         {
             return;
         }
@@ -861,16 +863,61 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private void ApplySyncedConfig(ProxyConfig config)
     {
         var selectedGroupName = _selectedGroup?.Name;
-        _configVersion++;
         var currentDelays = CurrentEntryDelays();
         var normalizedConfig = ProxyConfigSelectionNormalizer.EnsureManualSelections(config)
             .WithEntryDelays(currentDelays);
-        _outboundMode = normalizedConfig.Mode ?? _outboundMode;
-        _config = normalizedConfig with { Mode = _outboundMode };
+        var nextMode = normalizedConfig.Mode ?? _outboundMode;
+        var nextConfig = normalizedConfig with { Mode = nextMode };
+
+        // 选中态与分组结构未变时跳过全量刷新，避免每 2 s 重建界面模型。
+        if (AreProxySelectionsEquivalent(_config, nextConfig)
+            && _outboundMode == nextMode)
+        {
+            return;
+        }
+
+        _configVersion++;
+        _outboundMode = nextMode;
+        _config = nextConfig;
         RefreshConfigIndexes();
         _selectedGroup = VisibleGroups.FirstOrDefault(group => string.Equals(group.Name, selectedGroupName, StringComparison.Ordinal))
             ?? VisibleGroups.FirstOrDefault();
         RaiseProxyStateChanged();
+    }
+
+    private static bool AreProxySelectionsEquivalent(ProxyConfig left, ProxyConfig right)
+    {
+        if (!Nullable.Equals(left.Mode, right.Mode)
+            || left.Groups.Count != right.Groups.Count
+            || left.Nodes.Count != right.Nodes.Count)
+        {
+            return false;
+        }
+
+        for (var index = 0; index < left.Groups.Count; index++)
+        {
+            var leftGroup = left.Groups[index];
+            var rightGroup = right.Groups[index];
+            if (!string.Equals(leftGroup.Name, rightGroup.Name, StringComparison.Ordinal)
+                || !string.Equals(leftGroup.Type, rightGroup.Type, StringComparison.Ordinal)
+                || !string.Equals(leftGroup.Now, rightGroup.Now, StringComparison.Ordinal)
+                || !string.Equals(leftGroup.Fixed, rightGroup.Fixed, StringComparison.Ordinal)
+                || leftGroup.IsHidden != rightGroup.IsHidden
+                || leftGroup.All.Count != rightGroup.All.Count)
+            {
+                return false;
+            }
+
+            for (var nodeIndex = 0; nodeIndex < leftGroup.All.Count; nodeIndex++)
+            {
+                if (!string.Equals(leftGroup.All[nodeIndex], rightGroup.All[nodeIndex], StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     // 外部同步只更新核心选择，当前会话的延迟测试结果由代理页持有。

@@ -189,7 +189,6 @@
               Classes="content-host"
               Classes.settings="{Binding IsSettingsSelected}"
               Background="Transparent">
-          <!-- 窗口显示后预热全部页面；长期隐藏后释放页面。 -->
           <Grid>
             <ContentControl x:Name="HomePageHost" Classes="page-host" />
             <ContentControl x:Name="ProxyPageHost" Classes="page-host" />
@@ -199,6 +198,19 @@
             <ContentControl x:Name="SubscriptionsPageHost" Classes="page-host" />
             <ContentControl x:Name="OverridesPageHost" Classes="page-host" />
             <ContentControl x:Name="SettingsPageHost" Classes="page-host" />
+            <!-- 加载层只拦截内容区，导航仍可切换页面。 -->
+            <Border x:Name="PageLoadingOverlay"
+                    ZIndex="50"
+                    Opacity="0"
+                    IsHitTestVisible="False"
+                    Background="{DynamicResource AppRootSurfaceBrush}"
+                    AutomationProperties.AutomationId="Shell.PageLoadingOverlay">
+              <controls:PageLoadingIndicator x:Name="PageLoadingIndicator"
+                                             HorizontalAlignment="Stretch"
+                                             VerticalAlignment="Center"
+                                             Height="140"
+                                             AutomationProperties.AutomationId="Shell.PageLoadingIndicator" />
+            </Border>
           </Grid>
       </Border>
     </Grid>
@@ -210,12 +222,5 @@
                                 IsOpen="{Binding IsToastVisible}"
                                 Type="{Binding ToastType}"
                                 Message="{Binding ToastMessage}" />
-
-    <!-- 所有页面首屏预热完成前统一拦截交互，避免切页时补布局。 -->
-    <Border x:Name="PageWarmupBlocker"
-            Grid.RowSpan="2"
-            ZIndex="900"
-            Background="Transparent"
-            AutomationProperties.AutomationId="Shell.WarmupBlocker" />
   </Grid>
 </Window>
