@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Generators;
+using Avalonia.Controls.Presenters;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.VisualTree;
@@ -23,9 +23,13 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
 
     private readonly Dictionary<int, Control> _realized = new();
     private readonly Dictionary<object, Stack<Control>> _recyclePool = new();
+    private readonly List<int> _recycleCandidates = new();
     private Rect _viewport;
     private bool _hasViewport;
     private int _columns = 1;
+    private int _realizedFirstIndex = -1;
+    private int _realizedLastIndex = -1;
+    private ScrollViewer? _scrollViewer;
 
     public static readonly StyledProperty<double> MinItemWidthProperty =
         AvaloniaProperty.Register<VirtualizingWrapPanel, double>(nameof(MinItemWidth), 168d);
@@ -63,15 +67,25 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
     {
         _hasViewport = true;
         var viewport = e.EffectiveViewport.Intersect(new Rect(Bounds.Size));
-        if (this.FindAncestorOfType<ScrollViewer>() is { Viewport.Height: > 0 } scrollViewer
+        _scrollViewer ??= this.FindAncestorOfType<ScrollViewer>();
+        if (_scrollViewer is { Viewport.Height: > 0 } scrollViewer
             && viewport.Height > scrollViewer.Viewport.Height)
         {
             viewport = new Rect(viewport.X, viewport.Y, viewport.Width, scrollViewer.Viewport.Height);
         }
 
-        if (viewport != _viewport)
+        if (viewport == _viewport)
         {
-            _viewport = viewport;
+            return;
+        }
+
+        var viewportSizeChanged = viewport.Size != _viewport.Size;
+        _viewport = viewport;
+        var (firstIndex, lastIndex) = ComputeRealizationRange(viewport, Items.Count, _columns);
+        if (viewportSizeChanged
+            || firstIndex != _realizedFirstIndex
+            || lastIndex != _realizedLastIndex)
+        {
             InvalidateMeasure();
         }
     }
@@ -102,24 +116,13 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
             : availableSize.Width;
         var (columns, itemWidth) = ComputeLayout(availableWidth);
         _columns = columns;
-        var rowPitch = ItemHeight + RowSpacing;
 
-        double viewportTop, viewportBottom;
-        if (_hasViewport && _viewport.Height > 0)
-        {
-            viewportTop = _viewport.Top;
-            viewportBottom = _viewport.Bottom;
-        }
-        else
-        {
-            viewportTop = 0;
-            viewportBottom = FallbackViewportHeight;
-        }
-
-        var firstRow = Math.Max(0, (int)Math.Floor(viewportTop / rowPitch) - CacheRows);
-        var lastRow = (int)Math.Floor((viewportBottom - 0.0001) / rowPitch) + CacheRows;
-        var firstIndex = Math.Clamp(firstRow * columns, 0, count - 1);
-        var lastIndex = Math.Clamp((lastRow + 1) * columns - 1, firstIndex, count - 1);
+        var viewport = _hasViewport && _viewport.Height > 0
+            ? _viewport
+            : new Rect(0, 0, availableWidth, FallbackViewportHeight);
+        var (firstIndex, lastIndex) = ComputeRealizationRange(viewport, count, columns);
+        _realizedFirstIndex = firstIndex;
+        _realizedLastIndex = lastIndex;
 
         RecycleOutside(firstIndex, lastIndex);
 
@@ -133,6 +136,21 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
         var totalRows = (count + columns - 1) / columns;
         var extentHeight = totalRows > 0 ? totalRows * ItemHeight + (totalRows - 1) * RowSpacing : 0;
         return new Size(availableWidth, extentHeight);
+    }
+
+    private (int FirstIndex, int LastIndex) ComputeRealizationRange(Rect viewport, int count, int columns)
+    {
+        if (count == 0)
+        {
+            return (-1, -1);
+        }
+
+        var rowPitch = ItemHeight + RowSpacing;
+        var firstRow = Math.Max(0, (int)Math.Floor(viewport.Top / rowPitch) - CacheRows);
+        var lastRow = (int)Math.Floor((viewport.Bottom - 0.0001) / rowPitch) + CacheRows;
+        var firstIndex = Math.Clamp(firstRow * columns, 0, count - 1);
+        var lastIndex = Math.Clamp((lastRow + 1) * columns - 1, firstIndex, count - 1);
+        return (firstIndex, lastIndex);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -211,6 +229,12 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
         var recycled = pool.Pop();
         recycled.IsVisible = true;
         var generator = ItemContainerGenerator!;
+        if (recycled is ContentPresenter presenter)
+        {
+            // 先切换内容以复用 DataTemplate 视觉树，再刷新容器状态。
+            presenter.Content = item;
+        }
+
         generator.PrepareItemContainer(recycled, item, index);
         generator.ItemContainerPrepared(recycled, item, index);
         return recycled;
@@ -221,18 +245,19 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
         if (_realized.Count == 0)
             return;
 
-        List<int>? toRecycle = null;
+        _recycleCandidates.Clear();
         foreach (var index in _realized.Keys)
         {
             if (index < firstIndex || index > lastIndex)
-                (toRecycle ??= new List<int>()).Add(index);
+            {
+                _recycleCandidates.Add(index);
+            }
         }
 
-        if (toRecycle is null)
-            return;
-
-        foreach (var index in toRecycle)
+        foreach (var index in _recycleCandidates)
+        {
             RecycleAt(index);
+        }
     }
 
     private void RecycleAllRealized()
@@ -240,8 +265,12 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
         if (_realized.Count == 0)
             return;
 
-        foreach (var index in _realized.Keys.ToList())
+        _recycleCandidates.Clear();
+        _recycleCandidates.AddRange(_realized.Keys);
+        foreach (var index in _recycleCandidates)
+        {
             RecycleAt(index);
+        }
     }
 
     private void RecycleAt(int index)
@@ -256,7 +285,10 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
             return;
         }
 
-        ItemContainerGenerator!.ClearItemContainer(container);
+        if (container is not ContentPresenter)
+        {
+            ItemContainerGenerator!.ClearItemContainer(container);
+        }
         container.IsVisible = false;
         if (!_recyclePool.TryGetValue(recycleKey, out var pool))
         {
@@ -271,15 +303,21 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
     protected override void OnItemsChanged(IReadOnlyList<object?> items, NotifyCollectionChangedEventArgs e)
     {
         RecycleAllRealized();
+        _realizedFirstIndex = -1;
+        _realizedLastIndex = -1;
         InvalidateMeasure();
     }
 
     protected override void OnItemsControlChanged(ItemsControl? oldValue)
     {
-        foreach (var index in _realized.Keys.ToList())
+        _recycleCandidates.Clear();
+        _recycleCandidates.AddRange(_realized.Keys);
+        foreach (var index in _recycleCandidates)
         {
             if (_realized.Remove(index, out var container))
+            {
                 RemoveInternalChild(container);
+            }
         }
 
         foreach (var pool in _recyclePool.Values)
@@ -289,6 +327,9 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
         }
 
         _recyclePool.Clear();
+        _realizedFirstIndex = -1;
+        _realizedLastIndex = -1;
+        _scrollViewer = null;
     }
 
     protected override Control? ContainerFromIndex(int index)
@@ -306,7 +347,7 @@ public sealed class VirtualizingWrapPanel : VirtualizingPanel
     }
 
     protected override IEnumerable<Control>? GetRealizedContainers()
-        => _realized.Values.ToList();
+        => _realized.Values;
 
     protected override Control? ScrollIntoView(int index)
     {
