@@ -28,17 +28,7 @@ public sealed partial class MainWindow : Window
 {
     // 短暂隐藏保留页面，长期驻留托盘后再回收视觉树。
     private static readonly TimeSpan HiddenPageReleaseDelay = TimeSpan.FromSeconds(30);
-    private static readonly AppNavigationPage[] PageWarmupOrder =
-    [
-        AppNavigationPage.Proxy,
-        AppNavigationPage.Connections,
-        AppNavigationPage.Rules,
-        AppNavigationPage.Overrides,
-        AppNavigationPage.CoreLogs,
-        AppNavigationPage.Home,
-        AppNavigationPage.Subscriptions,
-        AppNavigationPage.Settings,
-    ];
+    private static readonly TimeSpan PageLoadingMinVisible = TimeSpan.FromMilliseconds(300);
     private readonly WindowAppearanceService _windowAppearanceService = new();
     private readonly WindowStateService _windowStateService;
     private readonly SystemAccentColorService _systemAccentColorService = new();
@@ -54,16 +44,11 @@ public sealed partial class MainWindow : Window
     private AccentColorPickerView? _activeAccentPicker;
     private bool _isShutdownRequested;
     private bool _hasOpened;
-    private bool _isPageWarmupScheduled;
-    private bool _isPageStructureWarmupComplete;
-    private bool _isCompletingPageWarmup;
-    private int _pendingPageWarmupCount;
-    private long _pageWarmupVersion;
     private long _pageTransitionVersion;
+    private long _pageLoadingShownAt;
 #if DEBUG
     private long _navigationDebugVersion;
     private long _hotReloadRecoveryVersion;
-    private long _pageWarmupStartedAt;
     private long _hiddenMemoryBeforeRelease;
 #endif
 
@@ -130,7 +115,6 @@ public sealed partial class MainWindow : Window
             _attachedViewModel = viewModel;
             _attachedViewModel.Theme.CustomAccentRequested += OnCustomAccentRequested;
             _attachedViewModel.PropertyChanged += OnAttachedViewModelPropertyChanged;
-            _attachedViewModel.ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
             _windowAppearanceService.Attach(this, viewModel.Theme);
             if (_hasOpened)
             {
@@ -149,7 +133,6 @@ public sealed partial class MainWindow : Window
 
         _attachedViewModel.Theme.CustomAccentRequested -= OnCustomAccentRequested;
         _attachedViewModel.PropertyChanged -= OnAttachedViewModelPropertyChanged;
-        _attachedViewModel.ProxyPage.PropertyChanged -= OnProxyPagePropertyChanged;
         _windowAppearanceService.Dispose();
         _systemAccentColorService.Dispose();
         _attachedViewModel = null;
@@ -172,8 +155,6 @@ public sealed partial class MainWindow : Window
             {
                 ShowInitialPage(viewModel.CurrentPage);
             }
-
-            StartPageWarmup();
         }
     }
 
@@ -211,17 +192,6 @@ public sealed partial class MainWindow : Window
 #endif
     }
 
-    private void OnProxyPagePropertyChanged(object? sender, PropertyChangedEventArgs args)
-    {
-        if (args.PropertyName != nameof(ProxyPageViewModel.IsInitialLoadCompleted)
-            || sender is not ProxyPageViewModel { IsInitialLoadCompleted: true })
-        {
-            return;
-        }
-
-        CompletePageWarmupIfReady();
-    }
-
     // 将页面映射到持久宿主；XAML 按导航顺序堆叠宿主。
     private void InitializePageHosts()
     {
@@ -246,7 +216,6 @@ public sealed partial class MainWindow : Window
         if (IsVisible)
         {
             ShowInitialPage(_attachedViewModel.CurrentPage);
-            StartPageWarmup();
         }
     }
 
@@ -263,128 +232,22 @@ public sealed partial class MainWindow : Window
         host.Content = converter.GetOrCreateView(page);
     }
 
-    private void StartPageWarmup()
+    private void SetPageLoadingVisible(bool isVisible)
     {
-        if (!IsVisible
-            || !_pageHostsReady
-            || _isPageWarmupScheduled)
+        if (isVisible)
         {
+            _pageLoadingShownAt = Stopwatch.GetTimestamp();
+            PageLoadingIndicator.Start();
+            PageLoadingOverlay.Opacity = 1;
+            PageLoadingOverlay.IsHitTestVisible = true;
             return;
         }
 
-        var pendingPages = PageWarmupOrder
-            .Where(page => _pageHosts.TryGetValue(page, out var host) && host.Content is null)
-            .ToArray();
-        if (pendingPages.Length == 0)
-        {
-            _isPageStructureWarmupComplete = true;
-            CompletePageWarmupIfReady();
-            return;
-        }
-
-        SetPageInteractionReady(false);
-        _isPageStructureWarmupComplete = false;
-        _isPageWarmupScheduled = true;
-        _pendingPageWarmupCount = pendingPages.Length;
-        var version = ++_pageWarmupVersion;
-#if DEBUG
-        _pageWarmupStartedAt = Stopwatch.GetTimestamp();
-        AppLogger.Info($"[StartupTrace] Window page warmup started pages={pendingPages.Length}");
-#endif
-
-        // 每页完成后重新排到后台队列，避免连续布局占满 UI 线程。
-        Dispatcher.UIThread.Post(
-            () => WarmupPage(pendingPages, 0, version),
-            DispatcherPriority.Background);
+        PageLoadingOverlay.Opacity = 0;
+        PageLoadingOverlay.IsHitTestVisible = false;
+        PageLoadingIndicator.Stop();
+        _pageLoadingShownAt = 0;
     }
-
-    private void WarmupPage(IReadOnlyList<AppNavigationPage> pages, int index, long version)
-    {
-        if (version != _pageWarmupVersion || !IsVisible || index >= pages.Count)
-        {
-            return;
-        }
-
-        var page = pages[index];
-#if DEBUG
-        var pageStartedAt = Stopwatch.GetTimestamp();
-#endif
-        EnsurePageLoaded(page);
-        if (_pageHosts.TryGetValue(page, out var host))
-        {
-            if (host.Content is IPageContentLifecycle lifecycle)
-            {
-                lifecycle.WarmupPageContent();
-            }
-
-            WarmupPageLayout(page, host);
-        }
-
-#if DEBUG
-        var controls = CountPageControls(host?.Content as Control);
-        var state = _attachedViewModel is null ? string.Empty : BuildPageDebugState(page, _attachedViewModel);
-        AppLogger.Info($"[StartupTrace] Window page warmup page={page} elapsed={Stopwatch.GetElapsedTime(pageStartedAt).TotalMilliseconds:0.0}ms total={Stopwatch.GetElapsedTime(_pageWarmupStartedAt).TotalMilliseconds:0.0}ms controls={controls.Total} visible={controls.Visible} automation={controls.Automation} {state}");
-#endif
-        if (version != _pageWarmupVersion)
-        {
-            return;
-        }
-
-        _pendingPageWarmupCount--;
-        if (index + 1 < pages.Count)
-        {
-            Dispatcher.UIThread.Post(
-                () => WarmupPage(pages, index + 1, version),
-                DispatcherPriority.Background);
-            return;
-        }
-
-        _isPageWarmupScheduled = false;
-        _isPageStructureWarmupComplete = true;
-        CompletePageWarmupIfReady();
-#if DEBUG
-        AppLogger.Info($"[StartupTrace] Window page structure warmup completed elapsed={Stopwatch.GetElapsedTime(_pageWarmupStartedAt).TotalMilliseconds:0.0}ms");
-#endif
-    }
-
-    private void CompletePageWarmupIfReady()
-    {
-        if (!IsVisible
-            || !PageWarmupBlocker.IsVisible
-            || !_isPageStructureWarmupComplete
-            || _isCompletingPageWarmup
-            || _attachedViewModel?.ProxyPage.IsInitialLoadCompleted != true
-            || !_pageHosts.TryGetValue(AppNavigationPage.Proxy, out var proxyHost))
-        {
-            return;
-        }
-
-        _isCompletingPageWarmup = true;
-        if (proxyHost.Content is IPageContentLifecycle lifecycle)
-        {
-            lifecycle.WarmupPageContent();
-        }
-
-        WarmupPageLayout(AppNavigationPage.Proxy, proxyHost);
-        SetPageInteractionReady(true);
-        _isCompletingPageWarmup = false;
-#if DEBUG
-        var controls = CountPageControls(proxyHost.Content as Control);
-        AppLogger.Info($"[StartupTrace] Proxy data warmup completed controls={controls.Total} visible={controls.Visible} nodes={_attachedViewModel.ProxyPage.VisibleNodeRows.Count} realized={_attachedViewModel.ProxyPage.RealizedNodeRowCount}");
-#endif
-    }
-
-    private void CancelPageWarmup()
-    {
-        _pageWarmupVersion++;
-        _pendingPageWarmupCount = 0;
-        _isPageWarmupScheduled = false;
-        _isPageStructureWarmupComplete = false;
-        SetPageInteractionReady(false);
-    }
-
-    private void SetPageInteractionReady(bool isReady)
-        => PageWarmupBlocker.IsVisible = !isReady;
 
     // 首页直接显示无动画；其余宿主复位到隐藏的下浮起始态。
     private void ShowInitialPage(AppNavigationPage page)
@@ -403,19 +266,18 @@ public sealed partial class MainWindow : Window
             other.IsHitTestVisible = false;
             other.Opacity = 0;
             other.RenderTransform = PageTransition.EnterFromTransform;
+            // 非当前页退出布局，避免多棵视觉树持续参与 Measure。
+            other.IsVisible = false;
         }
 
         EnsurePageLoaded(page);
-        WarmupPageLayout(page, host);
-        host.ZIndex = 1;
-        host.IsHitTestVisible = true;
-        host.Opacity = 1;
-        host.RenderTransform = PageTransition.RestTransform;
+        host.IsVisible = true;
+        PreparePageLayout(page, host);
+        ShowPageHost(host);
         _visiblePageHost = host;
         ActivatePageHost(host);
     }
 
-    // 旧页快速淡出、新页淡入上浮；起始态须先无动画落位，再注入过渡才生效。
     private void AnimatePageTransition(AppNavigationPage page)
     {
         if (!_pageHostsReady || !_pageHosts.TryGetValue(page, out var nextHost))
@@ -423,11 +285,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        EnsurePageLoaded(page);
-        if (ReferenceEquals(nextHost, _visiblePageHost))
+        if (ReferenceEquals(nextHost, _visiblePageHost) && nextHost.Content is not null)
         {
             CancelPendingPageTransition();
-            nextHost.IsHitTestVisible = true;
+            ShowPageHost(nextHost);
             ActivatePageHost(nextHost);
             return;
         }
@@ -441,17 +302,75 @@ public sealed partial class MainWindow : Window
             previousHost.IsHitTestVisible = false;
         }
 
+        if (nextHost.Content is not null)
+        {
+            PrepareNextHostEnterState(nextHost);
+            RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: false);
+            return;
+        }
+
+        // 页面创建前先提交加载帧，确保重布局前已有导航反馈。
+        if (previousHost is not null)
+        {
+            DeactivatePageHost(previousHost);
+            previousHost.Transitions = null;
+            previousHost.Opacity = 0;
+            previousHost.IsVisible = false;
+            previousHost.IsHitTestVisible = false;
+            previousHost.ZIndex = 0;
+        }
+
+        SetPageLoadingVisible(true);
+        RequestAnimationFrame(
+            _ =>
+            {
+                if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
+                {
+                    return;
+                }
+
+                RequestAnimationFrame(
+                    _ =>
+                    {
+                        if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
+                        {
+                            return;
+                        }
+
+                        Dispatcher.UIThread.Post(
+                            () =>
+                            {
+                                if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
+                                {
+                                    return;
+                                }
+
+                                EnsurePageLoaded(page);
+                                PrepareNextHostEnterState(nextHost);
+                                RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: true);
+                            },
+                            DispatcherPriority.Background);
+                    });
+            });
+    }
+
+    private static void PrepareNextHostEnterState(ContentControl nextHost)
+    {
+        nextHost.IsVisible = true;
         nextHost.Transitions = null;
         nextHost.ZIndex = 1;
         nextHost.IsHitTestVisible = false;
         nextHost.Opacity = 0;
         nextHost.RenderTransform = PageTransition.EnterFromTransform;
-
-        RequestPagePreparationFrame(previousHost, nextHost, version);
     }
 
     // 目标页先在隐藏状态完成激活和布局，下一帧再启动动画。
-    private void RequestPagePreparationFrame(ContentControl? previousHost, ContentControl nextHost, long version)
+    private void RequestPagePreparationFrame(
+        ContentControl? previousHost,
+        ContentControl nextHost,
+        AppNavigationPage page,
+        long version,
+        bool enforceMinLoading)
     {
         RequestAnimationFrame(
             _ =>
@@ -462,9 +381,47 @@ public sealed partial class MainWindow : Window
                 }
 
                 ActivatePageHost(nextHost);
-                nextHost.UpdateLayout();
-                RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
+                PreparePageLayout(page, nextHost);
+                CompletePageLoadingThenEnter(previousHost, nextHost, version, enforceMinLoading);
             });
+    }
+
+    private void CompletePageLoadingThenEnter(
+        ContentControl? previousHost,
+        ContentControl nextHost,
+        long version,
+        bool enforceMinLoading)
+    {
+        if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
+        {
+            return;
+        }
+
+        if (!enforceMinLoading || _pageLoadingShownAt == 0)
+        {
+            RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
+            return;
+        }
+
+        var remaining = PageLoadingMinVisible - Stopwatch.GetElapsedTime(_pageLoadingShownAt);
+        if (remaining <= TimeSpan.Zero)
+        {
+            RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
+            return;
+        }
+
+        var timer = new DispatcherTimer { Interval = remaining };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
+            {
+                return;
+            }
+
+            StartPageTransition(previousHost, nextHost, version);
+        };
+        timer.Start();
     }
 
     private void StartPageTransition(ContentControl? previousHost, ContentControl nextHost, long version)
@@ -474,9 +431,12 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        SetPageLoadingVisible(false);
         _pendingPageHost = null;
         _visiblePageHost = nextHost;
-        if (previousHost is not null)
+        if (previousHost is not null
+            && !ReferenceEquals(previousHost, nextHost)
+            && previousHost.IsVisible)
         {
             DeactivatePageHost(previousHost);
             previousHost.Transitions = PageTransition.CreateLeaveTransitions();
@@ -484,6 +444,11 @@ public sealed partial class MainWindow : Window
             previousHost.IsHitTestVisible = false;
             previousHost.Opacity = 0;
             previousHost.RenderTransform = PageTransition.LeaveToTransform;
+            ScheduleHidePageHost(previousHost);
+        }
+        else if (previousHost is not null && !ReferenceEquals(previousHost, nextHost))
+        {
+            HidePageHost(previousHost);
         }
 
         nextHost.Transitions = PageTransition.CreateEnterTransitions();
@@ -495,18 +460,53 @@ public sealed partial class MainWindow : Window
     private void CancelPendingPageTransition()
     {
         _pageTransitionVersion++;
+        SetPageLoadingVisible(false);
         if (_pendingPageHost is not { } pendingHost)
         {
             return;
         }
 
         DeactivatePageHost(pendingHost);
-        pendingHost.Transitions = null;
-        pendingHost.ZIndex = 0;
-        pendingHost.IsHitTestVisible = false;
-        pendingHost.Opacity = 0;
-        pendingHost.RenderTransform = PageTransition.EnterFromTransform;
+        HidePageHost(pendingHost);
         _pendingPageHost = null;
+    }
+
+    // 离场动画结束后再踢出布局，避免快切时误藏当前页。
+    private void ScheduleHidePageHost(ContentControl host)
+    {
+        var timer = new DispatcherTimer { Interval = PageTransition.LeaveDuration };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            if (ReferenceEquals(host, _visiblePageHost)
+                || ReferenceEquals(host, _pendingPageHost))
+            {
+                return;
+            }
+
+            HidePageHost(host);
+        };
+        timer.Start();
+    }
+
+    private static void HidePageHost(ContentControl host)
+    {
+        host.Transitions = null;
+        host.ZIndex = 0;
+        host.IsHitTestVisible = false;
+        host.Opacity = 0;
+        host.RenderTransform = PageTransition.EnterFromTransform;
+        host.IsVisible = false;
+    }
+
+    private static void ShowPageHost(ContentControl host)
+    {
+        host.Transitions = null;
+        host.ZIndex = 1;
+        host.IsHitTestVisible = true;
+        host.Opacity = 1;
+        host.RenderTransform = PageTransition.RestTransform;
+        host.IsVisible = true;
     }
 
     private static void ActivatePageHost(ContentControl host)
@@ -586,7 +586,7 @@ public sealed partial class MainWindow : Window
         // 宿主与缓存视图必须重新绑定，避免继续引用旧资源。
         ClearPageHostContents();
         converter.ClearCache();
-        CancelPageWarmup();
+        SetPageLoadingVisible(false);
         CancelPendingPageTransition();
         _pageHostsReady = false;
         _pageHosts.Clear();
@@ -611,6 +611,15 @@ public sealed partial class MainWindow : Window
             || _attachedViewModel is null
             || _attachedViewModel.CurrentPage != page)
         {
+            return;
+        }
+
+        // 首次创建走 Background，可能比本日志队列更晚完成。
+        if (GetNavigationPageView(page) is null && PageLoadingOverlay.Opacity > 0)
+        {
+            Dispatcher.UIThread.Post(
+                () => LogNavigationDebug(page, startedAt, version),
+                DispatcherPriority.Background);
             return;
         }
 
@@ -733,7 +742,7 @@ public sealed partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
-        CancelPageWarmup();
+        SetPageLoadingVisible(false);
         CancelPendingPageTransition();
         _hiddenPageReleaseTimer.Stop();
         _hiddenPageReleaseTimer.Tick -= OnHiddenPageReleaseTimerTick;
@@ -800,7 +809,7 @@ public sealed partial class MainWindow : Window
         }
     }
 
-    private void WarmupPageLayout(AppNavigationPage page, ContentControl host)
+    private void PreparePageLayout(AppNavigationPage page, ContentControl host)
     {
         host.UpdateLayout();
         if (page == AppNavigationPage.Settings && host.Content is SettingsView settingsView)
@@ -863,12 +872,10 @@ public sealed partial class MainWindow : Window
             {
                 ActivatePageHost(_visiblePageHost);
             }
-
-            StartPageWarmup();
         }
         else if (!_isShutdownRequested)
         {
-            CancelPageWarmup();
+            SetPageLoadingVisible(false);
             CancelPendingPageTransition();
             DeactivatePageHost(_visiblePageHost);
             ScheduleHiddenMemoryRelease();

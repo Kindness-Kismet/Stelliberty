@@ -12,7 +12,7 @@ internal static class PageTransition
 {
     private static readonly TimeSpan EnterDuration = TimeSpan.FromMilliseconds(280);
     private static readonly TimeSpan HeaderEnterDuration = TimeSpan.FromMilliseconds(220);
-    private static readonly TimeSpan LeaveDuration = TimeSpan.FromMilliseconds(120);
+    public static readonly TimeSpan LeaveDuration = TimeSpan.FromMilliseconds(120);
     private static readonly Easing EnterEasing = new SplineEasing
     {
         X1 = 0.16,

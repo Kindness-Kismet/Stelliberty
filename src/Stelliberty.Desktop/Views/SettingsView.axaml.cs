@@ -15,6 +15,7 @@ public sealed partial class SettingsView : UserControl
     private SettingsPageViewModel? _settings;
     private readonly PagePointeroverSuppressor _pointeroverSuppressor;
     private readonly Dictionary<SettingsSubPage, Vector> _scrollOffsets = new();
+    private readonly Dictionary<SettingsSubPage, Control> _subPageViews = new();
     private SettingsSubPage _currentSubPage;
     private long _subPageAnimationVersion;
     private bool _isAttached;
@@ -120,27 +121,36 @@ public sealed partial class SettingsView : UserControl
 
     private void ShowSubPage(SettingsSubPage page)
     {
-        SettingsContentPanel.Content = page switch
+        // 子页按需创建并缓存，避免快速往返时重建整棵视觉树。
+        if (!_subPageViews.TryGetValue(page, out var view))
         {
-            SettingsSubPage.Root => new SettingsRootView(),
-            SettingsSubPage.Theme => new SettingsThemeView(),
-            SettingsSubPage.Language => new SettingsLanguageView(),
-            SettingsSubPage.ClashFeatures => new SettingsClashFeaturesView(),
-            SettingsSubPage.AppBehavior => new SettingsAppBehaviorView(),
-            SettingsSubPage.DataManagement => new SettingsDataManagementView(),
-            SettingsSubPage.Update => new SettingsUpdateView(),
-            SettingsSubPage.About => new SettingsAboutView(),
-            SettingsSubPage.AppLog => new SettingsAppLogView(),
-            SettingsSubPage.Network => new SettingsNetworkView(),
-            SettingsSubPage.PortControl => new SettingsPortControlView(),
-            SettingsSubPage.SystemIntegration => new SettingsSystemIntegrationView(),
-            SettingsSubPage.Dns => new SettingsDnsView(),
-            SettingsSubPage.Performance => new SettingsPerformanceView(),
-            SettingsSubPage.CoreLog => new SettingsCoreLogView(),
-            _ => throw new ArgumentOutOfRangeException(nameof(page), page, null)
-        };
+            view = CreateSubPage(page);
+            _subPageViews[page] = view;
+        }
+
+        SettingsContentPanel.Content = view;
         SettingsContentPanel.UpdateLayout();
     }
+
+    private static Control CreateSubPage(SettingsSubPage page) => page switch
+    {
+        SettingsSubPage.Root => new SettingsRootView(),
+        SettingsSubPage.Theme => new SettingsThemeView(),
+        SettingsSubPage.Language => new SettingsLanguageView(),
+        SettingsSubPage.ClashFeatures => new SettingsClashFeaturesView(),
+        SettingsSubPage.AppBehavior => new SettingsAppBehaviorView(),
+        SettingsSubPage.DataManagement => new SettingsDataManagementView(),
+        SettingsSubPage.Update => new SettingsUpdateView(),
+        SettingsSubPage.About => new SettingsAboutView(),
+        SettingsSubPage.AppLog => new SettingsAppLogView(),
+        SettingsSubPage.Network => new SettingsNetworkView(),
+        SettingsSubPage.PortControl => new SettingsPortControlView(),
+        SettingsSubPage.SystemIntegration => new SettingsSystemIntegrationView(),
+        SettingsSubPage.Dns => new SettingsDnsView(),
+        SettingsSubPage.Performance => new SettingsPerformanceView(),
+        SettingsSubPage.CoreLog => new SettingsCoreLogView(),
+        _ => throw new ArgumentOutOfRangeException(nameof(page), page, null)
+    };
 
     private void AnimateSubPageEnter()
     {

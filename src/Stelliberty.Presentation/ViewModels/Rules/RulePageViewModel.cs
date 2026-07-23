@@ -12,6 +12,8 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     private readonly RuleListLoader? _loader;
     private readonly ILocalizationService? _localization;
     private IReadOnlyList<RuleItem> _rules = [];
+    private IReadOnlyList<RuleItem> _filteredRules = [];
+    private IReadOnlyList<RuleRowViewModel> _filteredRuleRows = [];
     private string _searchKeyword = string.Empty;
     private RuleTypeBucket _typeBucket = RuleTypeBucket.All;
     private bool _isCoreRunning = true;
@@ -37,14 +39,9 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
     public IReadOnlyList<RuleItem> Rules => _rules;
 
-    public IReadOnlyList<RuleItem> FilteredRules => _search
-        .Filter(_rules, _searchKeyword)
-        .Where(rule => MatchesBucket(rule.Type, _typeBucket))
-        .ToList();
+    public IReadOnlyList<RuleItem> FilteredRules => _filteredRules;
 
-    public IReadOnlyList<RuleRowViewModel> FilteredRuleRows => FilteredRules
-        .Select((rule, index) => new RuleRowViewModel(index + 1, rule, _localization))
-        .ToList();
+    public IReadOnlyList<RuleRowViewModel> FilteredRuleRows => _filteredRuleRows;
 
     public bool IsCoreRunning => _isCoreRunning;
 
@@ -54,7 +51,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
     public bool HasRequestedRefresh => _hasRequestedRefresh;
 
-    public bool IsEmptyVisible => !_isCoreRunning || FilteredRules.Count == 0;
+    public bool IsEmptyVisible => !_isCoreRunning || _filteredRules.Count == 0;
 
     public string EmptyText => !_isCoreRunning
         ? Localize("Rules.Empty.CoreStopped")
@@ -146,6 +143,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
     private void RaiseRuleStateChanged()
     {
+        RebuildFilteredRows();
         OnPropertyChanged(nameof(Rules));
         OnPropertyChanged(nameof(FilteredRules));
         OnPropertyChanged(nameof(FilteredRuleRows));
@@ -162,6 +160,18 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsIpRulesSelected));
         OnPropertyChanged(nameof(IsRuleSetRulesSelected));
         OnPropertyChanged(nameof(IsOtherRulesSelected));
+    }
+
+    // 筛选结果缓存为快照，避免属性访问重复分配整表行模型。
+    private void RebuildFilteredRows()
+    {
+        _filteredRules = _search
+            .Filter(_rules, _searchKeyword)
+            .Where(rule => MatchesBucket(rule.Type, _typeBucket))
+            .ToList();
+        _filteredRuleRows = _filteredRules
+            .Select((rule, index) => new RuleRowViewModel(index + 1, rule, _localization))
+            .ToList();
     }
 
     public void Dispose()
