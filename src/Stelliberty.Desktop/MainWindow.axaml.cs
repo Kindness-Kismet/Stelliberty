@@ -546,9 +546,8 @@ public sealed partial class MainWindow : Window
             return Task.FromException(new InvalidOperationException($"Page host is not available: {page}"));
         }
 
-        var startedAt = Stopwatch.GetTimestamp();
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        WaitForPageReadyOnNextFrame(page, host, startedAt, completion);
+        WaitForPageReadyOnNextFrame(page, host, completion);
         return completion.Task;
     }
 
@@ -556,7 +555,6 @@ public sealed partial class MainWindow : Window
     private void WaitForPageReadyOnNextFrame(
         AppNavigationPage page,
         ContentControl host,
-        long startedAt,
         TaskCompletionSource completion)
     {
         RequestAnimationFrame(
@@ -572,12 +570,11 @@ public sealed partial class MainWindow : Window
                     && host.Content is Control
                     && host.IsVisible)
                 {
-                    AppLogger.Info($"[NavigationTrace] Debug page.open ready page={FormatPageDebugName(page)} elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms");
                     completion.TrySetResult();
                     return;
                 }
 
-                WaitForPageReadyOnNextFrame(page, host, startedAt, completion);
+                WaitForPageReadyOnNextFrame(page, host, completion);
             });
     }
 
