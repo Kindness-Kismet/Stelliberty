@@ -134,7 +134,7 @@ internal static partial class DebugCommands
 
         if (command.StartsWith("page.", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult(ExecuteNavigationCommand(window, command));
+            return ExecuteNavigationCommandAsync(window, command);
         }
 
         if (command.StartsWith("control.", StringComparison.OrdinalIgnoreCase)

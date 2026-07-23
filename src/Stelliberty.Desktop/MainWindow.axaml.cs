@@ -349,7 +349,7 @@ public sealed partial class MainWindow : Window
                                 PrepareNextHostEnterState(nextHost);
                                 RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: true);
                             },
-                            DispatcherPriority.Render);
+                            DispatcherPriority.Background);
                     });
             });
     }
@@ -539,6 +539,48 @@ public sealed partial class MainWindow : Window
     }
 
 #if DEBUG
+    internal Task WaitForPageReadyAsync(AppNavigationPage page)
+    {
+        if (!_pageHosts.TryGetValue(page, out var host))
+        {
+            return Task.FromException(new InvalidOperationException($"Page host is not available: {page}"));
+        }
+
+        var startedAt = Stopwatch.GetTimestamp();
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        WaitForPageReadyOnNextFrame(page, host, startedAt, completion);
+        return completion.Task;
+    }
+
+    // 调试协议在目标页进入视觉树后才响应，避免自动化查询抢占首次创建。
+    private void WaitForPageReadyOnNextFrame(
+        AppNavigationPage page,
+        ContentControl host,
+        long startedAt,
+        TaskCompletionSource completion)
+    {
+        RequestAnimationFrame(
+            _ =>
+            {
+                if (_attachedViewModel?.CurrentPage != page)
+                {
+                    completion.TrySetException(new InvalidOperationException($"Navigation was superseded: {page}"));
+                    return;
+                }
+
+                if (ReferenceEquals(_visiblePageHost, host)
+                    && host.Content is Control
+                    && host.IsVisible)
+                {
+                    AppLogger.Info($"[NavigationTrace] Debug page.open ready page={FormatPageDebugName(page)} elapsed={Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds:0.0}ms");
+                    completion.TrySetResult();
+                    return;
+                }
+
+                WaitForPageReadyOnNextFrame(page, host, startedAt, completion);
+            });
+    }
+
     [AvaloniaHotReload]
     private void OnHotReloaded()
     {

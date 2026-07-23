@@ -9,7 +9,7 @@ namespace Stelliberty.Desktop.Debug;
 
 internal static partial class DebugCommands
 {
-    private static string? ExecuteNavigationCommand(MainWindow window, string command)
+    private static async Task<string?> ExecuteNavigationCommandAsync(MainWindow window, string command)
     {
         if (command.StartsWith("page.scroll_y", StringComparison.OrdinalIgnoreCase))
         {
@@ -18,94 +18,58 @@ internal static partial class DebugCommands
 
         if (command.StartsWith("page.open ", StringComparison.OrdinalIgnoreCase))
         {
-            Navigate(window, command["page.open ".Length..].Trim());
+            var page = Navigate(window, command["page.open ".Length..].Trim());
+            await window.WaitForPageReadyAsync(page);
             return null;
         }
 
         throw new InvalidOperationException($"Unknown page command: {command}");
     }
 
-    private static void Navigate(MainWindow window, string spec)
+    private static AppNavigationPage Navigate(MainWindow window, string spec)
     {
         if (window.DataContext is not MainWindowViewModel viewModel)
         {
             throw new InvalidOperationException("DataContext is not ready");
         }
 
-        var key = spec.ToLowerInvariant();
-        switch (key)
+        var page = spec.ToLowerInvariant() switch
         {
-            case "home": viewModel.CurrentPage = AppNavigationPage.Home; break;
-            case "proxies": viewModel.CurrentPage = AppNavigationPage.Proxy; break;
-            case "connections": viewModel.CurrentPage = AppNavigationPage.Connections; break;
-            case "core-logs": viewModel.CurrentPage = AppNavigationPage.CoreLogs; break;
-            case "rules": viewModel.CurrentPage = AppNavigationPage.Rules; break;
-            case "subscriptions": viewModel.CurrentPage = AppNavigationPage.Subscriptions; break;
-            case "overrides": viewModel.CurrentPage = AppNavigationPage.Overrides; break;
-            case "settings":
-            case "settings/root":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.Root;
-                break;
-            case "settings/theme":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.Theme;
-                break;
-            case "settings/language":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.Language;
-                break;
-            case "settings/clash-features":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.ClashFeatures;
-                break;
-            case "settings/app-behavior":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.AppBehavior;
-                break;
-            case "settings/data-management":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.DataManagement;
-                break;
-            case "settings/update":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.Update;
-                break;
-            case "settings/about":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.About;
-                break;
-            case "settings/app-log":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.AppLog;
-                break;
-            case "settings/network":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.Network;
-                break;
-            case "settings/port-control":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.PortControl;
-                break;
-            case "settings/system-integration":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.SystemIntegration;
-                break;
-            case "settings/dns":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.Dns;
-                break;
-            case "settings/performance":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.Performance;
-                break;
-            case "settings/core-log":
-                viewModel.CurrentPage = AppNavigationPage.Settings;
-                viewModel.Settings.SubPage = SettingsSubPage.CoreLog;
-                break;
-            default:
-                throw new InvalidOperationException($"Unknown page: {spec}");
-        }
+            "home" => AppNavigationPage.Home,
+            "proxies" => AppNavigationPage.Proxy,
+            "connections" => AppNavigationPage.Connections,
+            "core-logs" => AppNavigationPage.CoreLogs,
+            "rules" => AppNavigationPage.Rules,
+            "subscriptions" => AppNavigationPage.Subscriptions,
+            "overrides" => AppNavigationPage.Overrides,
+            _ => NavigateSettingsPage(viewModel, spec),
+        };
+        viewModel.CurrentPage = page;
+        return page;
+    }
+
+    private static AppNavigationPage NavigateSettingsPage(MainWindowViewModel viewModel, string spec)
+    {
+        viewModel.Settings.SubPage = spec.ToLowerInvariant() switch
+        {
+            "settings" or "settings/root" => SettingsSubPage.Root,
+            "settings/theme" => SettingsSubPage.Theme,
+            "settings/language" => SettingsSubPage.Language,
+            "settings/clash-features" => SettingsSubPage.ClashFeatures,
+            "settings/app-behavior" => SettingsSubPage.AppBehavior,
+            "settings/data-management" => SettingsSubPage.DataManagement,
+            "settings/update" => SettingsSubPage.Update,
+            "settings/about" => SettingsSubPage.About,
+            "settings/app-log" => SettingsSubPage.AppLog,
+            "settings/network" => SettingsSubPage.Network,
+            "settings/port-control" => SettingsSubPage.PortControl,
+            "settings/system-integration" => SettingsSubPage.SystemIntegration,
+            "settings/dns" => SettingsSubPage.Dns,
+            "settings/performance" => SettingsSubPage.Performance,
+            "settings/core-log" => SettingsSubPage.CoreLog,
+            _ => throw new InvalidOperationException($"Unknown page: {spec}"),
+        };
+        return AppNavigationPage.Settings;
     }
 
     private static double ReadOrSetCurrentPageScrollViewerY(MainWindow window, string spec)
