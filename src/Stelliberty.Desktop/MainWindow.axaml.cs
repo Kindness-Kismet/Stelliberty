@@ -349,7 +349,7 @@ public sealed partial class MainWindow : Window
                                 PrepareNextHostEnterState(nextHost);
                                 RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: true);
                             },
-                            DispatcherPriority.Background);
+                            DispatcherPriority.Render);
                     });
             });
     }
