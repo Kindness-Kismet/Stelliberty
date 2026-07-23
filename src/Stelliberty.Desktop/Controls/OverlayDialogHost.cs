@@ -163,6 +163,7 @@ public sealed class OverlayDialogHost : Control
             _layer.Children.Add(_scrim);
         }
 
+        ConfigureTransitions(DialogTiming.EnterDuration, DialogAnimation.EnterEasing);
         RequestOpenFrame(revision);
     }
 
@@ -200,7 +201,6 @@ public sealed class OverlayDialogHost : Control
         {
             if (IsOpen && revision == _animationRevision)
             {
-                ConfigureTransitions(DialogTiming.EnterDuration, DialogAnimation.EnterEasing);
                 _scrim.Opacity = 1;
                 _presenter.Opacity = 1;
                 _presenter.RenderTransform = OpenTransform;
@@ -217,20 +217,9 @@ public sealed class OverlayDialogHost : Control
                     return;
                 }
 
-                // 关闭态先渲染一帧建立过渡基线，下一帧再挂过渡并翻到目标态。
-                topLevel.RequestAnimationFrame(
-                    _ =>
-                    {
-                        if (!IsOpen || revision != _animationRevision)
-                        {
-                            return;
-                        }
-
-                        ConfigureTransitions(DialogTiming.EnterDuration, DialogAnimation.EnterEasing);
-                        _scrim.Opacity = 1;
-                        _presenter.Opacity = 1;
-                        _presenter.RenderTransform = OpenTransform;
-                    });
+                _scrim.Opacity = 1;
+                _presenter.Opacity = 1;
+                _presenter.RenderTransform = OpenTransform;
             });
     }
 
