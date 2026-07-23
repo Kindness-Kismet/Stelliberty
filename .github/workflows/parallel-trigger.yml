@@ -105,6 +105,13 @@ jobs:
             fi
           fi
 
+          # 基线 tag 尚未建立时优雅跳过，避免 fetch 失败拖垮整条验证流
+          if ! git ls-remote --exit-code --tags origin "refs/tags/${previous_tag}" >/dev/null 2>&1; then
+            echo 'should_build=false' >> "$GITHUB_OUTPUT"
+            echo "::notice::Base tag ${previous_tag} does not exist yet; beta build is skipped."
+            exit 0
+          fi
+
           git fetch --force origin "refs/tags/${previous_tag}:refs/tags/${previous_tag}"
           git diff --name-only "${previous_tag}" "${AFTER_SHA}" > changed-paths.txt
           should_build=false

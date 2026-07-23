@@ -50,7 +50,11 @@ public sealed class HomePageStateTests
     [Fact(DisplayName = "System proxy failure rolls back latest optimistic state")]
     public async Task SystemProxyFailureRollsBackLatestOptimisticState()
     {
-        var service = new FakeSystemProxyService { NextEnableSuccess = false };
+        var service = new FakeSystemProxyService
+        {
+            NextEnableSuccess = false,
+            BlockDisable = true,
+        };
         var viewModel = new HomePageViewModel(
             systemProxyService: service,
             systemProxyRequestFactory: Request);
@@ -65,7 +69,9 @@ public sealed class HomePageStateTests
         service.NextDisableSuccess = false;
         viewModel.IsSystemProxyEnabled = false;
 
+        Assert.True(service.DisableStarted.Wait(AsyncTestTimeout));
         Assert.False(viewModel.IsSystemProxyEnabled);
+        service.ReleaseDisable.Set();
         await WaitUntilAsync(() => viewModel.IsSystemProxyEnabled);
         Assert.True(viewModel.IsSystemProxyEnabled);
     }
@@ -762,8 +768,11 @@ public sealed class HomePageStateTests
         public bool NextEnableSuccess { get; set; } = true;
         public bool NextDisableSuccess { get; set; } = true;
         public bool BlockEnable { get; init; }
+        public bool BlockDisable { get; init; }
         public ManualResetEventSlim EnableStarted { get; } = new(false);
         public ManualResetEventSlim ReleaseEnable { get; } = new(false);
+        public ManualResetEventSlim DisableStarted { get; } = new(false);
+        public ManualResetEventSlim ReleaseDisable { get; } = new(false);
         public int EnableCount
         {
             get { lock (_gate) return _enableCount; }
@@ -799,6 +808,12 @@ public sealed class HomePageStateTests
             lock (_gate)
             {
                 _disableCount++;
+            }
+
+            DisableStarted.Set();
+            if (BlockDisable)
+            {
+                ReleaseDisable.Wait(AsyncTestTimeout);
             }
 
             return new SystemProxyOperationResult(NextDisableSuccess, NextDisableSuccess ? "disabled" : "failed");

@@ -539,6 +539,45 @@ public sealed partial class MainWindow : Window
     }
 
 #if DEBUG
+    internal Task WaitForPageReadyAsync(AppNavigationPage page)
+    {
+        if (!_pageHosts.TryGetValue(page, out var host))
+        {
+            return Task.FromException(new InvalidOperationException($"Page host is not available: {page}"));
+        }
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        WaitForPageReadyOnNextFrame(page, host, completion);
+        return completion.Task;
+    }
+
+    // 调试协议在目标页进入视觉树后才响应，避免自动化查询抢占首次创建。
+    private void WaitForPageReadyOnNextFrame(
+        AppNavigationPage page,
+        ContentControl host,
+        TaskCompletionSource completion)
+    {
+        RequestAnimationFrame(
+            _ =>
+            {
+                if (_attachedViewModel?.CurrentPage != page)
+                {
+                    completion.TrySetException(new InvalidOperationException($"Navigation was superseded: {page}"));
+                    return;
+                }
+
+                if (ReferenceEquals(_visiblePageHost, host)
+                    && host.Content is Control
+                    && host.IsVisible)
+                {
+                    completion.TrySetResult();
+                    return;
+                }
+
+                WaitForPageReadyOnNextFrame(page, host, completion);
+            });
+    }
+
     [AvaloniaHotReload]
     private void OnHotReloaded()
     {
