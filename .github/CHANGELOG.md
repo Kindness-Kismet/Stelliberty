@@ -1,7 +1,7 @@
-- Remote subscriptions now work with more restrictive download services and reject HTML error pages without exposing subscription details.
-- Rapid sidebar clicks no longer interrupt page navigation.
+- Pages now open on demand with a loading animation, reducing startup work and keeping navigation responsive.
+- Proxy lists with thousands of nodes now remain smooth while scrolling in both layouts.
 
 ---
 
-- 远程订阅现在可兼容限制更严格的下载服务，并会在不泄露订阅信息的情况下拒绝 HTML 错误页面。
-- 快速点击侧栏时不再打断页面切换。
+- 页面现在按需打开并显示加载动画，减少启动时的额外工作，同时保持导航响应流畅。
+- 代理列表包含数千个节点时，横向和纵向布局的滚动依然流畅。
