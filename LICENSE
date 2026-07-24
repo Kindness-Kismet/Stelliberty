@@ -1,0 +1,121 @@
+WTF LICENSE
+Version 1.0, July 2026
+
+Copyright (c) 2026 Stelliberty contributors
+
+Permission is granted, free of charge, to any person obtaining a copy of the
+original Stelliberty software and its documentation (the "Software"), to use,
+copy, study, modify, merge, publish, and distribute the Software solely for
+noncommercial purposes, subject to all conditions below.
+
+1. No commercial use
+
+   The Software and any work based on it must not be used for commercial
+   purposes. Commercial purposes include, without limitation, selling or
+   licensing the Software, charging for access or services, using it in a
+   paid product or service, monetizing it through advertising or data, or
+   using it primarily to obtain commercial advantage or monetary
+   compensation.
+
+2. Source availability and copyleft
+
+   Any modified version, derivative work, or other work based on the Software
+   must make its source available under this same WTF License. When such a
+   work is distributed, published, made available to another person, or used to
+   provide a service over a network, its complete corresponding source code
+   and build instructions must be made publicly available at no charge and
+   without access restrictions at the same time.
+
+   The source code must include every modification and all material needed to
+   build and run the work, except generally available system tools. No
+   additional term may restrict rights granted by this license.
+
+3. Removal of original identifiers
+
+   Any modified version or derivative work must remove every identifier
+   associated with the original Stelliberty software. It must not contain,
+   display, or use the Stelliberty name, logos, icons, product names, package
+   or application identifiers, domains, artwork, or any other original
+   branding or source-identifying marks, except where a factual reference is
+   strictly required by law.
+
+4. Third-party projects
+
+   Third-party components, assets, and dependencies are not relicensed by
+   this license. Their original licenses, notices, and attribution
+   requirements remain in force and must be followed.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM,
+OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+THIRD-PARTY PROJECTS AND ASSETS
+
+Stelliberty directly uses, distributes, tests with, or builds with the
+projects listed below. Each project remains governed by its own license.
+This list does not replace the license text and notices shipped by each
+project or by its transitive dependencies.
+
+Application frameworks and libraries:
+
+- .NET: https://github.com/dotnet/runtime
+- Avalonia: https://github.com/AvaloniaUI/Avalonia
+- AvaloniaEdit: https://github.com/AvaloniaUI/AvaloniaEdit
+- Semi.Avalonia: https://github.com/irihitech/Semi.Avalonia
+- HotAvalonia: https://github.com/Kira-NT/HotAvalonia
+- IconPacks.Avalonia: https://github.com/MahApps/IconPacks.Avalonia
+- MingCute Icons: https://github.com/Richard9394/MingCute
+- TextMateSharp and TextMateSharp.Grammars:
+  https://github.com/danipen/TextMateSharp
+- QRCoder: https://github.com/Shane32/QRCoder
+- YamlDotNet: https://github.com/aaubry/YamlDotNet
+
+Runtime components and data:
+
+- mihomo: https://github.com/MetaCubeX/mihomo
+- MetaCubeX meta-rules-dat: https://github.com/MetaCubeX/meta-rules-dat
+- ios_rule_script: https://github.com/blackmatrix7/ios_rule_script
+
+Fonts:
+
+- Google Fonts and Google Sans: https://fonts.google.com
+- Noto CJK: https://github.com/notofonts/noto-cjk
+
+Rust libraries and toolchain:
+
+- Rust: https://github.com/rust-lang/rust
+- age: https://github.com/str4d/rage
+- anyhow: https://github.com/dtolnay/anyhow
+- async-trait: https://github.com/dtolnay/async-trait
+- futures-util: https://github.com/rust-lang/futures-rs
+- interoptopus and interoptopus_csharp:
+  https://github.com/ralfbiedert/interoptopus
+- interprocess: https://github.com/kotauskas/interprocess
+- libc: https://github.com/rust-lang/libc
+- once_cell: https://github.com/matklad/once_cell
+- rquickjs: https://github.com/DelSkayn/rquickjs
+- serde and serde_json: https://github.com/serde-rs/serde
+- serde_yaml_ng: https://github.com/acatton/serde-yaml-ng
+- thiserror: https://github.com/dtolnay/thiserror
+- time: https://github.com/time-rs/time
+- tokio: https://github.com/tokio-rs/tokio
+- tokio-tungstenite: https://github.com/snapview/tokio-tungstenite
+- tracing and tracing-subscriber: https://github.com/tokio-rs/tracing
+- uuid: https://github.com/uuid-rs/uuid
+- windows: https://github.com/microsoft/windows-rs
+- windows-service: https://github.com/mullvad/windows-service-rs
+
+Testing and packaging tools:
+
+- Python: https://github.com/python/cpython
+- Microsoft.NET.Test.Sdk: https://github.com/microsoft/vstest
+- NUnit: https://github.com/nunit/nunit
+- xUnit.net and xunit.runner.visualstudio: https://github.com/xunit/xunit
+- Inno Setup: https://github.com/jrsoftware/issrc
+- Inno Setup Chinese Simplified Translation:
+  https://github.com/kira-96/Inno-Setup-Chinese-Simplified-Translation
+- Inno Setup contributed translations: https://jrsoftware.org/files/istrans/
