@@ -283,15 +283,28 @@
                           </StackPanel>
                         </StackPanel>
                       </StackPanel>
-                      <iconPacks:PackIconMingCuteIcons Grid.Column="1"
-                                                       Classes="group-expand-chevron"
-                                                       Width="18" Height="18"
-                                                       Kind="RightSmallLine"
-                                                       VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                      <TransitioningContentControl Grid.Column="1"
+                                                   Width="18" Height="18"
+                                                   VerticalAlignment="Center"
+                                                   Content="{Binding ExpandIconKind}">
+                        <TransitioningContentControl.PageTransition>
+                          <CrossFade Duration="0:0:0.18" />
+                        </TransitioningContentControl.PageTransition>
+                        <TransitioningContentControl.ContentTemplate>
+                          <DataTemplate x:CompileBindings="False">
+                            <iconPacks:PackIconMingCuteIcons Width="18" Height="18"
+                                                             Kind="{Binding}"
+                                                             Foreground="{DynamicResource AppTextTertiaryBrush}" />
+                          </DataTemplate>
+                        </TransitioningContentControl.ContentTemplate>
+                      </TransitioningContentControl>
                     </Grid>
                   </Panel>
-                  <Border IsVisible="{Binding IsExpanded}" Padding="16,2,16,14">
+                  <Border Classes="group-expand-content"
+                          Padding="16,2,16,14"
+                          ClipToBounds="True"
+                          AttachedToVisualTree="OnGroupContentAttachedToVisualTree"
+                          DetachedFromVisualTree="OnGroupContentDetachedFromVisualTree">
                     <ItemsControl ItemsSource="{Binding #ProxyPageRoot.((vm:ProxyPageViewModel)DataContext).VisibleNodeRows}">
                       <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>

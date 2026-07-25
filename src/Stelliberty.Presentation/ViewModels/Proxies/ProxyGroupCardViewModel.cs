@@ -40,8 +40,16 @@ public sealed class ProxyGroupCardViewModel : ViewModelBase
     public bool IsExpanded
     {
         get => _isExpanded;
-        private set => SetProperty(ref _isExpanded, value);
+        private set
+        {
+            if (SetProperty(ref _isExpanded, value))
+            {
+                OnPropertyChanged(nameof(ExpandIconKind));
+            }
+        }
     }
+
+    public string ExpandIconKind => IsExpanded ? "DownSmallLine" : "RightSmallLine";
 
     public string CardAutomationId => $"Proxy.GroupCard.{Name}";
 

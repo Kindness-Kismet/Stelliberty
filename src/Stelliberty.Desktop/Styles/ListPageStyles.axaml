@@ -189,18 +189,6 @@
   <Style Selector="Border.surface-card.group.expanded">
     <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
   </Style>
-  <Style Selector="iconPacks|PackIconMingCuteIcons.group-expand-chevron">
-    <Setter Property="RenderTransformOrigin" Value="50%,50%" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.2" Easing="CubicEaseOut" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="Border.surface-card.group.expanded iconPacks|PackIconMingCuteIcons.group-expand-chevron">
-    <Setter Property="RenderTransform" Value="rotate(90deg)" />
-  </Style>
-
   <Style Selector="Border.list-info-strip">
     <Setter Property="Background" Value="{DynamicResource AppOverlaySubtleBrush}" />
     <Setter Property="CornerRadius" Value="10" />
