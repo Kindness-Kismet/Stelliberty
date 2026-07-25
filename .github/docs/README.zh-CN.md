@@ -102,7 +102,10 @@ Stelliberty 是跨平台桌面代理客户端，覆盖 Windows、Linux 与 macOS
 
 ### 安装 .NET 11 运行时
 
-运行 Stelliberty 前，确保你已安装 [.NET 11 桌面运行时](https://dotnet.microsoft.com/download/dotnet/11.0)。
+运行 Stelliberty 前，请先安装 .NET 11 运行时：
+
+- 通用：[微软官方下载](https://dotnet.microsoft.com/download/dotnet/11.0)
+- Arch Linux 及其衍生发行版：AUR 包 [`dotnet-core-preview-bin`](https://aur.archlinux.org/packages/dotnet-core-preview-bin)
 
 ### UWP 回环与管理员权限
 

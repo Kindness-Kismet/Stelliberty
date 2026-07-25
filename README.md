@@ -102,7 +102,10 @@ Config format is fully compatible with Clash Meta — see the [mihomo documentat
 
 ### Installing .NET 11 Runtime
 
-Before running Stelliberty, make sure the [.NET 11 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/11.0) is installed.
+Install the .NET 11 Runtime before running Stelliberty:
+
+- General: [Microsoft download](https://dotnet.microsoft.com/download/dotnet/11.0)
+- Arch Linux and derivatives: AUR package [`dotnet-core-preview-bin`](https://aur.archlinux.org/packages/dotnet-core-preview-bin)
 
 ### UWP Loopback & Administrator Privileges
 
