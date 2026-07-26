@@ -1032,6 +1032,36 @@ public sealed class SubscriptionBusinessTests
         await firstTick;
     }
 
+    [Fact(DisplayName = "Auto delay coordinator swallows failures and keeps next cycle")]
+    public async Task AutoDelayCoordinatorSwallowsFailuresAndKeepsNextCycle()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var subscriptionPage = new SubscriptionPageViewModel();
+        subscriptionPage.AddSubscription(new SubscriptionItemViewModel(
+            "sub-1",
+            "Remote",
+            "https://sub.example/config.yaml",
+            isLocalFile: false,
+            autoTestDelayIntervalMinutes: 1));
+        var delayTester = new ThrowingProxyDelayTester();
+        var proxyPage = new ProxyPageViewModel(delayService: new ProxyDelayService(delayTester));
+        proxyPage.LoadConfig(new ProxyConfig(
+            [new ProxyGroup("Select", ProxyGroupTypes.Select, "Node", ["Node"])],
+            new Dictionary<string, ProxyNode>(StringComparer.Ordinal)
+            {
+                ["Node"] = new("Node", "ss", Server: "node.example", Port: 443),
+            }));
+        var coordinator = new SubscriptionAutoDelayCoordinator(subscriptionPage, proxyPage, () => now);
+
+        await coordinator.RunDueAsync();
+        now = now.AddMinutes(1);
+        await coordinator.RunDueAsync();
+        now = now.AddMinutes(1);
+        await coordinator.RunDueAsync();
+
+        Assert.Equal(2, delayTester.CallCount);
+    }
+
     [Fact(DisplayName = "Provider parser handles YAML merge and counts")]
     public void ProviderParserHandlesYamlMergeAndCounts()
     {
@@ -1717,6 +1747,17 @@ public sealed class SubscriptionBusinessTests
             var current = states[Math.Min(_index, states.Count - 1)];
             _index++;
             return Task.FromResult(current);
+        }
+    }
+
+    private sealed class ThrowingProxyDelayTester : IProxyDelayTester
+    {
+        public int CallCount { get; private set; }
+
+        public Task<int> TestDelayAsync(string proxyName, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            throw new InvalidOperationException("delay backend offline");
         }
     }
 
