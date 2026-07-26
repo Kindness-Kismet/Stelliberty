@@ -6,8 +6,6 @@
     <Setter Property="VerticalAlignment" Value="Bottom" />
     <Setter Property="Margin" Value="0,0,0,45" />
     <Setter Property="Background" Value="{DynamicResource ToastSurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource ToastBorderBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="12" />
     <Setter Property="Padding" Value="14,10" />
     <Setter Property="MaxWidth" Value="520" />
@@ -15,7 +13,6 @@
   </Style>
   <Style Selector="Border.toast:light">
     <Setter Property="Background" Value="{DynamicResource ToastSurfaceBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource ToastBorderBrush}" />
   </Style>
 
   <Style Selector="Grid.toast-content">

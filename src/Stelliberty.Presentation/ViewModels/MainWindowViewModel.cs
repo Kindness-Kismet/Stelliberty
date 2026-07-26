@@ -52,6 +52,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private const long NavThrottleMs = 150;
     private const int CoreLogFlushBatchSize = 4;
     private const int ToastMessageMaxLength = 72;
+    private static readonly TimeSpan ToastDisplayDuration = TimeSpan.FromMilliseconds(1500);
     private static readonly TimeSpan CoreLogFlushDelay = TimeSpan.FromMilliseconds(700);
     private static readonly TimeSpan ProxySelectionSyncInterval = TimeSpan.FromSeconds(2);
 
@@ -1114,8 +1115,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                     OnPropertyChanged(nameof(IsToastVisible));
                 });
 
-                // 每条 toast 显示 3 秒，保证可读性。
-                await Task.Delay(3000);
+                await Task.Delay(ToastDisplayDuration);
                 if (_isDisposed)
                 {
                     return;
