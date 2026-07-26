@@ -119,7 +119,7 @@
                     AutomationProperties.AutomationId="Connections.CloseAllButton"
                     Command="{Binding CloseAllConnectionsCommand}"
                     ToolTip.Tip="{loc:Loc Connections.Action.CloseAll}">
-              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="ListCheckLine" />
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="CloseLine" />
             </Button>
           </StackPanel>
         </Grid>

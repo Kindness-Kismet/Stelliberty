@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
         xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
+        xmlns:loc="using:Stelliberty.Desktop.Localization"
         xmlns:views="clr-namespace:Stelliberty.Desktop.Views"
         xmlns:vm="using:Stelliberty.Presentation.ViewModels"
         x:Class="Stelliberty.Desktop.MainWindow"
@@ -217,6 +218,81 @@
 
     <controls:OverlayDialogHost x:Name="DialogHost"
                                 Grid.RowSpan="2" />
+
+    <controls:OverlayDialogHost x:Name="UpdateDialogHost"
+                                Grid.RowSpan="2"
+                                AutomationProperties.AutomationId="Settings.UpdateDialogOverlay"
+                                IsOpen="{Binding Update.IsUpdateDialogVisible}">
+      <controls:OverlayDialogHost.DialogContent>
+        <controls:DialogPanel PanelWidth="500"
+                              ContentPadding="0"
+                              AutomationProperties.AutomationId="Settings.UpdateDialog"
+                              IsOpen="{Binding Update.IsUpdateDialogVisible}">
+          <controls:DialogPanel.DialogContent>
+            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="18">
+              <!-- 标题栏：徽章 + 标题 + 副说明，右上角关闭 -->
+              <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14" Margin="24,24,24,0">
+                <Border Classes="surface-card-badge" VerticalAlignment="Top">
+                  <iconPacks:PackIconMingCuteIcons Width="20" Height="20" Kind="DownloadLine"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                  <TextBlock Classes="dialog-title"
+                             Text="{loc:Loc Settings.Update.Dialog.Title}" />
+                  <TextBlock Classes="dialog-subtitle"
+                             Text="{loc:Loc Settings.Update.Dialog.Message}"
+                             TextWrapping="Wrap" />
+                </StackPanel>
+                <Button Grid.Column="2"
+                        Classes="dialog-close"
+                        VerticalAlignment="Top"
+                        AutomationProperties.AutomationId="Settings.UpdateDialog.CloseButton"
+                        Command="{Binding Update.CloseUpdateDialogCommand}">
+                  <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                </Button>
+              </Grid>
+
+              <!-- 版本对比：旧版 → 新版，新版加 .accent 强调 -->
+              <Grid Grid.Row="1" ColumnDefinitions="*,Auto,*" ColumnSpacing="12" Margin="24,0,24,0">
+                <Border Classes="update-version-slot">
+                  <StackPanel Spacing="3">
+                    <TextBlock Classes="uv-label" Text="{loc:Loc Settings.Update.CurrentVersion}" />
+                    <TextBlock Classes="uv-value"
+                               AutomationProperties.AutomationId="Settings.UpdateDialog.CurrentVersionText"
+                               Text="{Binding Settings.AppVersionText}" />
+                  </StackPanel>
+                </Border>
+                <iconPacks:PackIconMingCuteIcons Grid.Column="1" Width="18" Height="18" Kind="ArrowRightLine"
+                                                 Foreground="{DynamicResource AppTextTertiaryBrush}"
+                                                 VerticalAlignment="Center" />
+                <Border Grid.Column="2" Classes="update-version-slot accent">
+                  <StackPanel Spacing="3">
+                    <TextBlock Classes="uv-label" Text="{loc:Loc Settings.Update.LatestVersion}" />
+                    <TextBlock Classes="uv-value"
+                               AutomationProperties.AutomationId="Settings.UpdateDialog.LatestVersionText"
+                               Text="{Binding Update.LatestVersionText}" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+
+              <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8"
+                          HorizontalAlignment="Right" Margin="24,0,24,24">
+                <Button Classes="dialog-secondary"
+                        AutomationProperties.AutomationId="Settings.UpdateDialog.LaterButton"
+                        Command="{Binding Update.CloseUpdateDialogCommand}"
+                        Content="{loc:Loc Common.Close}" />
+                <Button Classes="dialog-primary"
+                        AutomationProperties.AutomationId="Settings.UpdateDialog.OpenReleaseButton"
+                        IsVisible="{Binding Update.CanOpenLatestRelease}"
+                        Tag="{Binding Update.LatestReleaseUrl}"
+                        Click="OnOpenUpdateReleaseClicked"
+                        Content="{loc:Loc Settings.Update.OpenRelease}" />
+              </StackPanel>
+            </Grid>
+          </controls:DialogPanel.DialogContent>
+        </controls:DialogPanel>
+      </controls:OverlayDialogHost.DialogContent>
+    </controls:OverlayDialogHost>
 
     <controls:ToastNotification Grid.RowSpan="2"
                                 IsOpen="{Binding IsToastVisible}"

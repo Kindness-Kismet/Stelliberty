@@ -6,14 +6,14 @@ public sealed class AppUpdateAutoCheckRunner(
 {
     public async Task<AppUpdateAutoCheckResult> RunStartupCheckAsync()
     {
-        var result = await Task.Run(scheduler.CheckOnStartup);
+        var result = await scheduler.CheckOnStartupAsync();
         applyResult(result);
         return result;
     }
 
     public async Task<AppUpdateAutoCheckResult> RunDueCheckAsync()
     {
-        var result = await Task.Run(scheduler.CheckWhenDue);
+        var result = await scheduler.CheckWhenDueAsync();
         if (result.WasChecked)
         {
             applyResult(result);

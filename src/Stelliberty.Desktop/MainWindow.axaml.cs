@@ -164,6 +164,7 @@ public sealed partial class MainWindow : Window
             || args.Key != Key.Escape
             || args.KeyModifiers != KeyModifiers.None
             || DialogHost.IsOpen
+            || UpdateDialogHost.IsOpen
             || DataContext is not MainWindowViewModel viewModel
             || viewModel.CurrentPage != AppNavigationPage.Settings
             || !viewModel.Settings.IsBackVisible)
@@ -1038,6 +1039,23 @@ public sealed partial class MainWindow : Window
         _activeAccentPicker.Cancelled += OnAccentPickerCancelled;
 
         DialogHost.Show(new DialogPanel { DialogContent = _activeAccentPicker });
+    }
+
+    private void OnOpenUpdateReleaseClicked(object? sender, RoutedEventArgs args)
+    {
+        try
+        {
+            if (sender is not Button { Tag: string url } || string.IsNullOrWhiteSpace(url))
+            {
+                return;
+            }
+
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"External link open failed: {exception.Message}");
+        }
     }
 
     private void OnAccentPickerConfirmed(object? sender, EventArgs args)
