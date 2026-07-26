@@ -60,9 +60,9 @@ internal sealed class ProxyCoreClient : IProxyCoreClient, IDisposable
         }
     }
 
-    public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
     {
-        return _fallback?.GetConnectionsAsync(cancellationToken) ?? Task.FromResult<IReadOnlyList<ConnectionInfo>>([]);
+        return _fallback?.GetConnectionsAsync(cancellationToken) ?? Task.FromResult<IReadOnlyList<ConnectionInfo>?>([]);
     }
 
     public async Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)

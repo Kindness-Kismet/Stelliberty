@@ -23,6 +23,7 @@ public sealed class ConnectionPageViewModel : ViewModelBase, IDisposable
     private ConnectionInfo? _selectedConnection;
     private bool _isDetailVisible;
     private bool _hasClosedAllConnections;
+    private bool _isRefreshing;
     private const int MaxClosedConnectionIds = 500;
     private readonly List<string> _closedConnectionIds = [];
     private int _directConnectionCount;
@@ -156,14 +157,29 @@ public sealed class ConnectionPageViewModel : ViewModelBase, IDisposable
 
     public async Task RefreshConnectionsAsync(CancellationToken cancellationToken = default)
     {
-        if (_coreClient is null)
+        // 单在途互斥：上一轮未归时跳过本轮，避免请求堆积与旧结果乱序覆盖
+        if (_coreClient is null || _isRefreshing)
         {
             return;
         }
 
-        var connections = await _coreClient.GetConnectionsAsync(cancellationToken);
-        ApplyIncoming(connections, updateTrafficRate: false);
-        ApplyTrafficRate(await _coreClient.GetTrafficAsync(cancellationToken));
+        _isRefreshing = true;
+        try
+        {
+            var connections = await _coreClient.GetConnectionsAsync(cancellationToken);
+            // 读取失败保留现有列表，不显示成"没有连接"
+            if (connections is null)
+            {
+                return;
+            }
+
+            ApplyIncoming(connections, updateTrafficRate: false);
+            ApplyTrafficRate(await _coreClient.GetTrafficAsync(cancellationToken));
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
     }
 
     private void ApplyTrafficRate(CoreTrafficRate? trafficRate)

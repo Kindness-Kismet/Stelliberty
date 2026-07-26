@@ -232,6 +232,23 @@ public sealed class MonitoringPageBusinessTests
         Assert.Equal("456 B/s", page.TotalDownloadSpeedText);
     }
 
+    [Fact(DisplayName = "Connection page refresh keeps current list when read fails")]
+    public async Task ConnectionPageRefreshKeepsCurrentListWhenReadFails()
+    {
+        var core = new FakeProxyCoreClient
+        {
+            Connections = [Connection("c1")],
+        };
+        var page = new ConnectionPageViewModel(core, now: () => DateTimeOffset.UnixEpoch);
+        await page.RefreshConnectionsAsync();
+
+        core.FailConnectionRead = true;
+        await page.RefreshConnectionsAsync();
+
+        Assert.Equal(2, core.ConnectionReadCount);
+        Assert.Equal(["c1"], page.Connections.Select(connection => connection.Id));
+    }
+
     [Fact(DisplayName = "Core log parser handles JSON and text lines")]
     public void CoreLogParserHandlesJsonAndTextLines()
     {
@@ -511,10 +528,12 @@ public sealed class MonitoringPageBusinessTests
         public int ConnectionReadCount { get; private set; }
         public int TrafficReadCount { get; private set; }
 
-        public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        public bool FailConnectionRead { get; set; }
+
+        public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
         {
             ConnectionReadCount++;
-            return Task.FromResult(Connections);
+            return Task.FromResult<IReadOnlyList<ConnectionInfo>?>(FailConnectionRead ? null : Connections);
         }
 
         public Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)

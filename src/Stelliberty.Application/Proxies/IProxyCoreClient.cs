@@ -6,7 +6,8 @@ namespace Stelliberty.Application.Proxies;
 
 public interface IProxyCoreClient
 {
-    Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default);
+    // null 表示读取失败，空列表表示确无连接
+    Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default);
 
     Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default);
 

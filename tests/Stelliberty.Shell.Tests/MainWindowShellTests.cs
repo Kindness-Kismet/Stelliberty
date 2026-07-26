@@ -1033,10 +1033,10 @@ public sealed class MainWindowShellTests
         public int OutboundModeReadCount { get; private set; }
         public int VersionReadCount { get; private set; }
 
-        public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
         {
             ConnectionReadCount++;
-            return Task.FromResult(Connections);
+            return Task.FromResult<IReadOnlyList<ConnectionInfo>?>(Connections);
         }
 
         public Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)
