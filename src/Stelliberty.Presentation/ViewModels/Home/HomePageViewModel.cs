@@ -1211,8 +1211,11 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         // 短暂等待后台操作响应取消，避免销毁过程中触发 toast
         if (_isServiceModeBusy || _isCoreUpdating || _isCoreRestarting)
         {
-            _systemProxyApplyLock.Wait(200);
-            _systemProxyApplyLock.Release();
+            // 超时未取得信号量时不得 Release，否则持有者释放时抛 SemaphoreFullException
+            if (_systemProxyApplyLock.Wait(200))
+            {
+                _systemProxyApplyLock.Release();
+            }
             Thread.Sleep(50);
         }
         cancellation?.Dispose();
