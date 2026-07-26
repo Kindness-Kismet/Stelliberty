@@ -726,7 +726,6 @@ public sealed class ProxyPageViewModelTests
 
         Assert.Equal(["Auto", "Fallback", "Select", "Balance"], page.VisibleGroupCards.Select(card => card.Name));
         Assert.All(page.VisibleGroupCards, card => Assert.False(card.IsExpanded));
-        Assert.All(page.VisibleGroupCards, card => Assert.Equal("RightSmallLine", card.ExpandIconKind));
         Assert.Null(page.ExpandedGroupName);
         Assert.True(page.IsVerticalContentVisible);
         Assert.False(page.IsEmptyVisible);
@@ -742,21 +741,17 @@ public sealed class ProxyPageViewModelTests
         Assert.Equal("Select", page.ExpandedGroupName);
         Assert.Equal("Select", page.SelectedGroup?.Name);
         Assert.True(page.VisibleGroupCards.Single(card => card.Name == "Select").IsExpanded);
-        Assert.Equal("DownSmallLine", page.VisibleGroupCards.Single(card => card.Name == "Select").ExpandIconKind);
         Assert.Equal(["JP", "KR", "US"], page.VisibleNodeRows.Select(row => row.Name));
 
         page.ToggleGroupExpandCommand.Execute("Fallback");
         Assert.Equal("Fallback", page.ExpandedGroupName);
         Assert.False(page.VisibleGroupCards.Single(card => card.Name == "Select").IsExpanded);
-        Assert.Equal("RightSmallLine", page.VisibleGroupCards.Single(card => card.Name == "Select").ExpandIconKind);
         Assert.True(page.VisibleGroupCards.Single(card => card.Name == "Fallback").IsExpanded);
-        Assert.Equal("DownSmallLine", page.VisibleGroupCards.Single(card => card.Name == "Fallback").ExpandIconKind);
         Assert.Equal(["US", "KR"], page.VisibleNodeRows.Select(row => row.Name));
 
         page.ToggleGroupExpandCommand.Execute("Fallback");
         Assert.Null(page.ExpandedGroupName);
         Assert.All(page.VisibleGroupCards, card => Assert.False(card.IsExpanded));
-        Assert.All(page.VisibleGroupCards, card => Assert.Equal("RightSmallLine", card.ExpandIconKind));
     }
 
     private static ProxyConfig SampleConfig()

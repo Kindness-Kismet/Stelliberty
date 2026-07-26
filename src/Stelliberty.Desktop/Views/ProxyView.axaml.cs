@@ -123,6 +123,13 @@ public sealed partial class ProxyView : UserControl, IPageContentLifecycle
 
     private void DeactivatePageContent()
     {
+        _groupContentSequenceCancellation.Cancel();
+        foreach (var (content, state) in _groupContentAnimations)
+        {
+            SetGroupContentState(content, state.Card.IsExpanded);
+            ((Border)content.Child!).Height = double.NaN;
+        }
+
         _isPageContentActive = false;
         _attachedViewModel?.DeactivatePresentation();
         DetachViewModel();
@@ -233,6 +240,7 @@ public sealed partial class ProxyView : UserControl, IPageContentLifecycle
     {
         if (sender is Border content)
         {
+            _groupContentSequenceCancellation.Cancel();
             RemoveGroupContentAnimation(content);
         }
     }
@@ -271,22 +279,26 @@ public sealed partial class ProxyView : UserControl, IPageContentLifecycle
         if (targetContent is not null
             && _groupContentAnimations.TryGetValue(targetContent, out var state)
             && state.Card.IsExpanded
-            && !targetContent.IsVisible)
+            && (!targetContent.IsVisible || !double.IsPositiveInfinity(targetContent.MaxHeight)))
         {
             await AnimateGroupContentAsync(targetContent, true, cancellationToken);
         }
     }
 
-    private static async Task<bool> AnimateGroupContentAsync(
+    private async Task<bool> AnimateGroupContentAsync(
         Border content,
         bool isExpanded,
         CancellationToken cancellationToken)
     {
-        var startHeight = isExpanded ? 0 : content.Bounds.Height;
-        var endHeight = isExpanded ? MeasureExpandedHeight(content) : 0;
+        var surface = (Border)content.Child!;
+        var startHeight = content.IsVisible ? content.Bounds.Height : 0;
+        var startOpacity = content.IsVisible ? content.Opacity : 0;
+        var endHeight = isExpanded ? MeasureExpandedHeight(content, surface) : 0;
+        surface.Height = isExpanded ? endHeight : startHeight;
         content.IsVisible = true;
+        content.IsHitTestVisible = false;
         content.MaxHeight = startHeight;
-        content.Opacity = isExpanded ? 0 : 1;
+        content.Opacity = startOpacity;
 
         var animation = new Animation
         {
@@ -301,7 +313,7 @@ public sealed partial class ProxyView : UserControl, IPageContentLifecycle
                     Setters =
                     {
                         new Setter(MaxHeightProperty, startHeight),
-                        new Setter(OpacityProperty, isExpanded ? 0d : 1d),
+                        new Setter(OpacityProperty, startOpacity),
                     },
                 },
                 new KeyFrame
@@ -322,6 +334,7 @@ public sealed partial class ProxyView : UserControl, IPageContentLifecycle
         }
         catch (OperationCanceledException)
         {
+            surface.Height = double.NaN;
             return false;
         }
 
@@ -329,27 +342,32 @@ public sealed partial class ProxyView : UserControl, IPageContentLifecycle
         {
             content.MaxHeight = double.PositiveInfinity;
             content.Opacity = 1;
+            content.IsHitTestVisible = true;
+            surface.Height = double.NaN;
         }
         else
         {
             SetGroupContentState(content, false);
+            surface.Height = double.NaN;
         }
 
         return true;
     }
 
-    private static double MeasureExpandedHeight(Border content)
+    private static double MeasureExpandedHeight(Border content, Border surface)
     {
         content.IsVisible = true;
         content.MaxHeight = double.PositiveInfinity;
+        surface.Height = double.NaN;
         var availableWidth = (content.Parent as Control)?.Bounds.Width ?? content.Bounds.Width;
-        content.Measure(new Size(availableWidth, double.PositiveInfinity));
-        return content.DesiredSize.Height;
+        surface.Measure(new Size(availableWidth, double.PositiveInfinity));
+        return surface.DesiredSize.Height;
     }
 
     private static void SetGroupContentState(Border content, bool isExpanded)
     {
         content.IsVisible = isExpanded;
+        content.IsHitTestVisible = isExpanded;
         content.MaxHeight = isExpanded ? double.PositiveInfinity : 0;
         content.Opacity = isExpanded ? 1 : 0;
     }
