@@ -1,15 +1,18 @@
 using System;
-using System.Diagnostics;
 using Avalonia;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia.Threading;
+using Avalonia.Rendering.Composition;
+using Avalonia.Rendering.Composition.Animations;
 
 namespace Stelliberty.Desktop.Controls;
 
-public sealed class PageLoadingIndicator : Control
+public sealed class PageLoadingIndicator : Panel
 {
     private static readonly TimeSpan OneWayDuration = TimeSpan.FromMilliseconds(1200);
+    private const double BarHeight = 6d;
+    private const double ThumbWidthRatio = 0.34d;
 
     public static readonly StyledProperty<IBrush?> AccentBrushProperty =
         AvaloniaProperty.Register<PageLoadingIndicator, IBrush?>(nameof(AccentBrush));
@@ -20,24 +23,24 @@ public sealed class PageLoadingIndicator : Control
     public static readonly StyledProperty<IBrush?> SurfaceBrushProperty =
         AvaloniaProperty.Register<PageLoadingIndicator, IBrush?>(nameof(SurfaceBrush));
 
-    private readonly DispatcherTimer _timer;
-    private long _startedAt;
-    private bool _awaitingFirstFrame;
+    private readonly Border _surface;
+    private readonly Border _track;
+    private readonly Border _thumb;
+    private double _animationDistance;
     private bool _isAttached;
     private bool _isRunning;
 
-    static PageLoadingIndicator()
-    {
-        AffectsRender<PageLoadingIndicator>(
-            AccentBrushProperty,
-            TrackBrushProperty,
-            SurfaceBrushProperty);
-    }
-
     public PageLoadingIndicator()
     {
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
-        _timer.Tick += OnTick;
+        _surface = CreateBar(70d / byte.MaxValue);
+        _track = CreateBar(55d / byte.MaxValue);
+        _thumb = new Border
+        {
+            CornerRadius = new CornerRadius(3),
+            IsHitTestVisible = false,
+        };
+        Children.AddRange([_surface, _track, _thumb]);
+        ActualThemeVariantChanged += OnActualThemeVariantChanged;
         MinWidth = 240;
         MinHeight = 64;
         IsHitTestVisible = false;
@@ -63,69 +66,69 @@ public sealed class PageLoadingIndicator : Control
 
     public void Start()
     {
-        _awaitingFirstFrame = true;
-        _startedAt = 0;
         _isRunning = true;
-        if (_isAttached && !_timer.IsEnabled)
-        {
-            _timer.Start();
-        }
-
-        InvalidateVisual();
+        StartCompositionAnimation();
     }
 
     public void Stop()
     {
         _isRunning = false;
-        _awaitingFirstFrame = false;
-        _timer.Stop();
-        _startedAt = 0;
+        StopCompositionAnimation();
     }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         _isAttached = true;
+        UpdateBrushes();
         if (_isRunning)
         {
-            _timer.Start();
+            StartCompositionAnimation();
         }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        _timer.Stop();
+        StopCompositionAnimation();
         _isAttached = false;
         base.OnDetachedFromVisualTree(e);
     }
 
-    private void OnTick(object? sender, EventArgs e)
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
-        if (!_isAttached || !_isRunning)
+        base.OnPropertyChanged(change);
+        if (change.Property == AccentBrushProperty
+            || change.Property == TrackBrushProperty
+            || change.Property == SurfaceBrushProperty)
         {
-            return;
+            UpdateBrushes();
         }
-
-        InvalidateVisual();
     }
 
-    public override void Render(DrawingContext context)
+    protected override Size MeasureOverride(Size availableSize)
     {
-        base.Render(context);
-        var bounds = Bounds;
-        if (bounds.Width <= 0 || bounds.Height <= 0)
+        _surface.Measure(availableSize);
+        _track.Measure(availableSize);
+        _thumb.Measure(availableSize);
+        return new Size(MinWidth, MinHeight);
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        var barRect = ResolveBarRect(finalSize);
+        var thumbWidth = barRect.Width * ThumbWidthRatio;
+        _surface.Arrange(barRect);
+        _track.Arrange(barRect);
+        _thumb.Arrange(new Rect(barRect.X, barRect.Y, thumbWidth, barRect.Height));
+
+        var animationDistance = barRect.Width - thumbWidth;
+        if (Math.Abs(_animationDistance - animationDistance) > 0.1d)
         {
-            return;
+            _animationDistance = animationDistance;
+            StartCompositionAnimation();
         }
 
-        // 首帧绘制后再计时，确保加载条从起点开始。
-        if (_isRunning && _awaitingFirstFrame)
-        {
-            _awaitingFirstFrame = false;
-            _startedAt = Stopwatch.GetTimestamp();
-        }
-
-        DrawSoftBar(context, bounds, ResolveAccent(), ResolveTrack(), ResolveSurface());
+        return finalSize;
     }
 
     private IBrush ResolveAccent()
@@ -146,42 +149,64 @@ public sealed class PageLoadingIndicator : Control
     private IBrush? TryGetBrush(string key)
         => TryGetResource(key, ActualThemeVariant, out var value) ? value as IBrush : null;
 
-    private double ResolveTravel()
+    private void OnActualThemeVariantChanged(object? sender, EventArgs args)
     {
-        if (_startedAt == 0 || _awaitingFirstFrame)
-        {
-            return 0;
-        }
-
-        var elapsed = Stopwatch.GetElapsedTime(_startedAt).TotalSeconds;
-        var oneWaySeconds = OneWayDuration.TotalSeconds;
-        var cycle = elapsed / oneWaySeconds;
-        // 三角波把单向时间映射为 0→1→0。
-        var segment = cycle % 2d;
-        return segment <= 1d ? segment : 2d - segment;
+        UpdateBrushes();
     }
 
-    private void DrawSoftBar(DrawingContext context, Rect bounds, IBrush accent, IBrush track, IBrush surface)
+    private void UpdateBrushes()
     {
-        var barWidth = Math.Min(280, Math.Max(180, bounds.Width * 0.42));
-        var barHeight = 6d;
-        var x = (bounds.Width - barWidth) * 0.5;
-        var y = bounds.Height * 0.5 - barHeight * 0.5;
-        var trackRect = new Rect(x, y, barWidth, barHeight);
-        using (context.PushOpacity(70d / byte.MaxValue))
+        _surface.Background = ResolveSurface();
+        _track.Background = ResolveTrack();
+        _thumb.Background = ResolveAccent();
+    }
+
+    private static Border CreateBar(double opacity)
+        => new()
         {
-            context.FillRectangle(surface, trackRect, 3);
+            CornerRadius = new CornerRadius(3),
+            IsHitTestVisible = false,
+            Opacity = opacity,
+        };
+
+    private void StartCompositionAnimation()
+    {
+        if (!_isAttached || !_isRunning || _animationDistance <= 0
+            || ElementComposition.GetElementVisual(_thumb) is not { } visual)
+        {
+            return;
         }
 
-        using (context.PushOpacity(55d / byte.MaxValue))
+        visual.StopAnimation(nameof(CompositionVisual.Translation));
+        visual.Translation = default;
+
+        var animation = visual.Compositor.CreateVector3DKeyFrameAnimation();
+        animation.Duration = OneWayDuration + OneWayDuration;
+        animation.IterationBehavior = AnimationIterationBehavior.Forever;
+        var easing = new SineEaseInOut();
+        animation.InsertKeyFrame(0f, default);
+        animation.InsertKeyFrame(0.5f, new Vector3D(_animationDistance, 0, 0), easing);
+        animation.InsertKeyFrame(1f, default, easing);
+        visual.StartAnimation(nameof(CompositionVisual.Translation), animation);
+    }
+
+    private void StopCompositionAnimation()
+    {
+        if (ElementComposition.GetElementVisual(_thumb) is not { } visual)
         {
-            context.FillRectangle(track, trackRect, 3);
+            return;
         }
 
-        var travel = ResolveTravel();
-        var thumbWidth = barWidth * 0.34;
-        var thumbX = x + (barWidth - thumbWidth) * travel;
-        context.FillRectangle(accent, new Rect(thumbX, y, thumbWidth, barHeight), 3);
+        visual.StopAnimation(nameof(CompositionVisual.Translation));
+        visual.Translation = default;
+    }
+
+    private static Rect ResolveBarRect(Size size)
+    {
+        var barWidth = Math.Min(280, Math.Max(180, size.Width * 0.42));
+        var x = (size.Width - barWidth) * 0.5;
+        var y = size.Height * 0.5 - BarHeight * 0.5;
+        return new Rect(x, y, barWidth, BarHeight);
     }
 
 }

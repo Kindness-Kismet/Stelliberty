@@ -851,11 +851,15 @@ public sealed partial class MainWindow : Window
 
     private void PreparePageLayout(AppNavigationPage page, ContentControl host)
     {
-        host.UpdateLayout();
         if (page == AppNavigationPage.Settings && host.Content is SettingsView settingsView)
         {
-            settingsView.RestoreScrollOffsets(_settingsScrollOffsets);
+            if (_settingsScrollOffsets.Count == 0)
+            {
+                return;
+            }
+
             host.UpdateLayout();
+            settingsView.RestoreScrollOffsets(_settingsScrollOffsets);
             return;
         }
 
@@ -865,6 +869,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        host.UpdateLayout();
         var restoredCount = 0;
         var maxVerticalOffset = 0d;
         foreach (var scrollViewer in content.GetVisualDescendants().OfType<ScrollViewer>())
