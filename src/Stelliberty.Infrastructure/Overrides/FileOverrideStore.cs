@@ -19,7 +19,7 @@ public sealed class FileOverrideStore(string rootDirectory) : IOverrideStore
         var oldContentPath = index >= 0 ? ContentPath(overrides[index]) : null;
         var newContentPath = ContentPath(overrideProfile);
 
-        File.WriteAllText(newContentPath, content);
+        AtomicFile.WriteAllText(newContentPath, content);
 
         if (index < 0)
         {
@@ -87,7 +87,7 @@ public sealed class FileOverrideStore(string rootDirectory) : IOverrideStore
         {
             WriteIndented = true
         });
-        File.WriteAllText(_listPath, json);
+        AtomicFile.WriteAllText(_listPath, json);
         AppLogger.Info("Override list order saved");
     }
 
