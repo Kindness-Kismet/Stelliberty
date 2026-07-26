@@ -3,15 +3,11 @@ using Stelliberty.Application.Diagnostics;
 
 namespace Stelliberty.Application.Subscriptions;
 
-public sealed class LocalSubscriptionImporter(
-    ISubscriptionStore store,
-    SubscriptionConfigValidator? validator = null,
-    SubscriptionContentNormalizer? contentNormalizer = null,
-    SubscriptionChainProxyAnalyzer? chainProxyAnalyzer = null)
+public sealed class LocalSubscriptionImporter(ISubscriptionStore store)
 {
-    private readonly SubscriptionConfigValidator _validator = validator ?? new SubscriptionConfigValidator();
-    private readonly SubscriptionContentNormalizer _contentNormalizer = contentNormalizer ?? new SubscriptionContentNormalizer();
-    private readonly SubscriptionChainProxyAnalyzer _chainProxyAnalyzer = chainProxyAnalyzer ?? new SubscriptionChainProxyAnalyzer();
+    private readonly SubscriptionConfigValidator _validator = new();
+    private readonly SubscriptionContentNormalizer _contentNormalizer = new();
+    private readonly SubscriptionChainProxyAnalyzer _chainProxyAnalyzer = new();
 
     public Subscription Import(
         string name,
