@@ -45,7 +45,6 @@ internal sealed class DesktopTrayService : IDisposable
     private static readonly HashSet<string> MenuAffectingProps =
     [
         nameof(HomePageViewModel.IsSystemProxyEnabled),
-        nameof(HomePageViewModel.IsSystemProxyToggleEnabled),
         nameof(HomePageViewModel.IsTunEnabled),
         nameof(HomePageViewModel.IsTunToggleEnabled),
         nameof(HomePageViewModel.IsCoreRunning),
@@ -61,7 +60,6 @@ internal sealed class DesktopTrayService : IDisposable
         bool IsGlobalOutboundSelected,
         bool IsDirectOutboundSelected,
         bool IsSystemProxyEnabled,
-        bool IsSystemProxyToggleEnabled,
         bool IsTunEnabled,
         bool IsTunToggleEnabled,
         bool CanRestartCore,
@@ -326,8 +324,7 @@ internal sealed class DesktopTrayService : IDisposable
 
     private void OnSystemProxyClicked(object? sender, EventArgs args)
     {
-        // 禁用态备选处理 Windows 托盘勾选渲染不可靠的问题。
-        if (_homePage?.IsSystemProxyToggleEnabled != true)
+        if (_homePage is null)
         {
             return;
         }
@@ -412,7 +409,6 @@ internal sealed class DesktopTrayService : IDisposable
             _homePage.IsGlobalOutboundSelected,
             _homePage.IsDirectOutboundSelected,
             _homePage.IsSystemProxyEnabled,
-            _homePage.IsSystemProxyToggleEnabled,
             _homePage.IsTunEnabled,
             _homePage.IsTunToggleEnabled,
             _homePage.CanRestartCore,
@@ -448,7 +444,6 @@ internal sealed class DesktopTrayService : IDisposable
         if (_systemProxyItem is not null)
         {
             _systemProxyItem.IsChecked = state.IsSystemProxyEnabled;
-            _systemProxyItem.IsEnabled = state.IsSystemProxyToggleEnabled;
         }
         // 切换 TUN 需要权限和稳定核心。
         if (_tunItem is not null)

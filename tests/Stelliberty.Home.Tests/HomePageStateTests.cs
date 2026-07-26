@@ -25,7 +25,6 @@ public sealed class HomePageStateTests
         viewModel.IsSystemProxyEnabled = true;
 
         Assert.True(viewModel.IsSystemProxyEnabled);
-        Assert.True(viewModel.IsSystemProxyToggleEnabled);
         await WaitUntilAsync(() => service.EnableCount == 1);
         Assert.Equal(1, service.EnableCount);
     }

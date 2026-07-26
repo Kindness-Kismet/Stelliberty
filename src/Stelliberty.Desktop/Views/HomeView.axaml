@@ -214,7 +214,6 @@
                 </StackPanel>
                 <ToggleSwitch Grid.Column="2" VerticalAlignment="Center"
                               AutomationProperties.AutomationId="Home.SystemProxyToggle"
-                              IsEnabled="{Binding IsSystemProxyToggleEnabled}"
                               IsChecked="{Binding IsSystemProxyEnabled, Mode=TwoWay}"
                               OnContent="" OffContent="" />
               </Grid>

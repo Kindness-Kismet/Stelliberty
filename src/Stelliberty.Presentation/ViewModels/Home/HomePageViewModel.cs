@@ -357,9 +357,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     // 核心仅在运行且未重启/更新时可用。
     public bool IsCoreInteractive => _isCoreRunning && !_isCoreRestarting && !_isCoreUpdating;
 
-    // 系统代理写入平台网络设置，不依赖核心状态。
-    public bool IsSystemProxyToggleEnabled => true;
-
     // TUN 只能在有权限且核心稳定时切换。
     public bool IsTunToggleEnabled => CanToggleTun && IsCoreInteractive;
 
@@ -1158,7 +1155,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsServiceModeBusy));
         OnPropertyChanged(nameof(CanUpdateCore));
         OnPropertyChanged(nameof(IsCoreInteractive));
-        OnPropertyChanged(nameof(IsSystemProxyToggleEnabled));
         OnPropertyChanged(nameof(IsTunToggleEnabled));
         OnPropertyChanged(nameof(CoreSignalTag));
         OnPropertyChanged(nameof(IsNetworkConnected));
