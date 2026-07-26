@@ -102,6 +102,18 @@ internal static partial class DebugCommands
             return $"copied={page.CopiedLink ?? string.Empty};{SubscriptionState(page, viewModel)}";
         }
 
+        if (spec.StartsWith("show_qr ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ShowQrCodeCommand.Execute(spec["show_qr ".Length..].Trim());
+            return $"subscription={page.QrCodeSubscriptionId ?? string.Empty};dialog={page.IsQrCodeDialogVisible.ToString().ToLowerInvariant()}";
+        }
+
+        if (spec.StartsWith("chain_proxy ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ShowChainProxyDialogCommand.Execute(spec["chain_proxy ".Length..].Trim());
+            return $"subscription={page.ChainProxy.DialogSubscriptionId ?? string.Empty};dialog={page.ChainProxy.IsDialogVisible.ToString().ToLowerInvariant()};builtins={page.ChainProxy.BuiltinItems.Count};customs={page.ChainProxy.CustomItems.Count}";
+        }
+
         if (spec.StartsWith("open_external_editor ", StringComparison.OrdinalIgnoreCase))
         {
             page.OpenExternalEditorCommand.Execute(spec["open_external_editor ".Length..].Trim());
