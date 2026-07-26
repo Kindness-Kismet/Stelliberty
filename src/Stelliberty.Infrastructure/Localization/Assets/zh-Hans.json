@@ -70,7 +70,6 @@
   "Home.ServiceMode.Running": "服务模式运行中",
   "Home.ServiceMode.Stopped": "服务已安装，未运行",
   "Home.ServiceMode.NotInstalled": "服务模式未安装",
-  "Home.ServiceMode.Unsupported": "当前平台不支持服务模式",
   "Home.ServiceMode.Unknown": "服务状态未知",
   "Home.RuntimeStatus.Title": "运行状态",
   "Home.Field.Uptime": "运行时长",

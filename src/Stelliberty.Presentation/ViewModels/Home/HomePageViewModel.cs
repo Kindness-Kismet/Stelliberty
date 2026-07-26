@@ -263,7 +263,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             ? Localize("Home.ServiceMode.Uninstall")
             : Localize("Home.ServiceMode.Install");
 
-    public bool CanToggleServiceMode => !_isServiceModeBusy && _serviceModeManager is not null && _serviceModeStatus.IsSupported;
+    public bool CanToggleServiceMode => !_isServiceModeBusy && _serviceModeManager is not null;
 
     public bool IsTakeoverProxyTabSelected => !_isTakeoverTunTab;
 

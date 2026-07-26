@@ -84,7 +84,6 @@ internal static partial class DebugCommands
     {
         return status.State switch
         {
-            ServiceModeState.Unsupported => "Service mode is unsupported",
             ServiceModeState.NeedsRepair => "Service mode needs repair",
             ServiceModeState.Running => "Service mode is running",
             ServiceModeState.Stopped => "Service mode is stopped",
