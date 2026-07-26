@@ -1,6 +1,7 @@
 using System.Text;
 using Stelliberty.Application.Localization;
 using Stelliberty.Application.Overrides;
+using Stelliberty.Application.Platform;
 using Stelliberty.Application.Proxies;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Application.Subscriptions;
@@ -139,6 +140,25 @@ public sealed class SubscriptionBusinessTests
 
         Assert.Equal(["remote", "local"], opener.OpenedSubscriptionIds);
         Assert.Null(page.SelectedRowMenuAction);
+    }
+
+    [Fact(DisplayName = "Page copy link reports success only for remote subscriptions")]
+    public void PageCopyLinkReportsSuccessOnlyForRemoteSubscriptions()
+    {
+        var clipboard = new FakeClipboardWriter();
+        var page = new SubscriptionPageViewModel(
+            clipboardWriter: clipboard,
+            localization: new FakeLocalizationService());
+        page.LoadSubscriptions([Subscription("remote"), Subscription("local", isLocal: true)]);
+        var toasts = new List<(string Message, ToastType Type)>();
+        page.ToastRequested += (_, toast) => toasts.Add(toast);
+
+        page.CopyLinkCommand.Execute("remote");
+        page.CopyLinkCommand.Execute("local");
+        page.CopyLinkCommand.Execute("missing");
+
+        Assert.Equal(["https://sub.example/config.yaml"], clipboard.Texts);
+        Assert.Equal([("订阅链接已复制", ToastType.Success)], toasts);
     }
 
     [Fact(DisplayName = "Page move subscription with transient item updates view but skips persisting order")]
@@ -1565,6 +1585,16 @@ public sealed class SubscriptionBusinessTests
         }
     }
 
+    private sealed class FakeClipboardWriter : IClipboardWriter
+    {
+        public List<string> Texts { get; } = [];
+
+        public void WriteText(string text)
+        {
+            Texts.Add(text);
+        }
+    }
+
     private sealed class FakeLocalizationService : ILocalizationService
     {
         public AppLanguage CurrentLanguage { get; private set; } = AppLanguage.ZhHans;
@@ -1587,6 +1617,7 @@ public sealed class SubscriptionBusinessTests
                 "Subscriptions.Toast.ImportLocalSucceeded" => "本地订阅导入成功：{0}",
                 "Subscriptions.Toast.ImportRemoteFailed" => "远程订阅导入失败，请稍后重试",
                 "Subscriptions.Toast.ImportLocalFailed" => "本地订阅导入失败，请稍后重试",
+                "Subscriptions.Toast.LinkCopied" => "订阅链接已复制",
                 _ => key,
             };
         }

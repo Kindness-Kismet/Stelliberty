@@ -356,6 +356,7 @@
   "Subscriptions.Toast.ImportLocalSucceeded": "Local subscription imported: {0}",
   "Subscriptions.Toast.ImportRemoteFailed": "Remote subscription import failed",
   "Subscriptions.Toast.ImportLocalFailed": "Local subscription import failed",
+  "Subscriptions.Toast.LinkCopied": "Subscription link copied",
   "Subscriptions.Toast.UpdateSucceeded": "Update succeeded",
   "Subscriptions.Toast.UpdateFailed": "Update failed",
   "Subscriptions.Toast.UpdateAllCompleted": "Update completed: {0} succeeded, {1} failed",

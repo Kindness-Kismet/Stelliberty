@@ -356,6 +356,7 @@
   "Subscriptions.Toast.ImportLocalSucceeded": "本地订阅导入成功：{0}",
   "Subscriptions.Toast.ImportRemoteFailed": "远程订阅导入失败",
   "Subscriptions.Toast.ImportLocalFailed": "本地订阅导入失败",
+  "Subscriptions.Toast.LinkCopied": "订阅链接已复制",
   "Subscriptions.Toast.UpdateSucceeded": "更新成功",
   "Subscriptions.Toast.UpdateFailed": "更新失败",
   "Subscriptions.Toast.UpdateAllCompleted": "更新完成，成功 {0} 个，失败 {1} 个",

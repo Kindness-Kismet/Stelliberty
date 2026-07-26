@@ -74,6 +74,7 @@ public sealed partial class SubscriptionPageViewModel
         if (!string.IsNullOrWhiteSpace(_copiedLink))
         {
             _clipboardWriter?.WriteText(_copiedLink);
+            ShowToast(Localize("Subscriptions.Toast.LinkCopied"), ToastType.Success);
         }
 
         RaiseMenuStateChanged();
