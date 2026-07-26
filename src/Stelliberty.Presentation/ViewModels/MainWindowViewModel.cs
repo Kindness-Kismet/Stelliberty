@@ -53,6 +53,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private const int CoreLogFlushBatchSize = 4;
     private const int ToastMessageMaxLength = 72;
     private static readonly TimeSpan ToastDisplayDuration = TimeSpan.FromMilliseconds(1500);
+    // 与 ToastNotification.CloseDuration 联动，退场完成后再进下一条
+    private static readonly TimeSpan ToastCloseDuration = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan CoreLogFlushDelay = TimeSpan.FromMilliseconds(700);
     private static readonly TimeSpan ProxySelectionSyncInterval = TimeSpan.FromSeconds(2);
 
@@ -1134,8 +1136,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 }
                 if (hasMore)
                 {
-                    // toast 之间留 300 ms，避免退出和进入动画重叠。
-                    await Task.Delay(300);
+                    await Task.Delay(ToastCloseDuration);
                 }
             }
             catch (Exception ex)
