@@ -978,7 +978,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     private void RaiseToast(string message, ToastType type)
     {
-        if (string.IsNullOrWhiteSpace(message))
+        if (string.IsNullOrWhiteSpace(message) || _isDisposed)
         {
             return;
         }
@@ -1208,6 +1208,13 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         var cancellation = _refreshCancellation;
         _refreshCancellation = null;
         cancellation?.Cancel();
+        // 短暂等待后台操作响应取消，避免销毁过程中触发 toast
+        if (_isServiceModeBusy || _isCoreUpdating || _isCoreRestarting)
+        {
+            _systemProxyApplyLock.Wait(200);
+            _systemProxyApplyLock.Release();
+            Thread.Sleep(50);
+        }
         cancellation?.Dispose();
     }
 }
