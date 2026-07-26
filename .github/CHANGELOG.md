@@ -1,11 +1,21 @@
-- Update checks now fall back to the system and core proxies, and update alerts appear on every page.
-- Vertical proxy groups now expand and collapse with smoother chevron and height animations.
-- Automatic delay-test and subscription-update intervals now show their minute units.
-- The close-all-connections action now uses a clearer close icon.
+- Fixed error notifications appearing when closing the app while service mode is active.
+- Corrupt settings files are now automatically backed up before being reset to defaults.
+- Data files are now saved using atomic operations to prevent corruption during writes.
+- Update checks now retry automatically after network failures.
+- Fixed connection list occasionally becoming empty or unresponsive during refresh.
+- Subscription delay tests that fail no longer interfere with other operations.
+- Copying subscription links now shows a confirmation message.
+- Notification display timing has been refined for better visibility.
+- The app now responds more quickly when loading.
 
 ---
 
-- 更新检查现在会依次尝试系统代理与核心代理，更新提醒可在任意页面显示。
-- 竖向代理组现在以更流畅的箭头和高度动画展开、折叠。
-- 自动测试延迟和订阅更新间隔现在会显示分钟单位。
-- 关闭全部连接操作现在使用更明确的关闭图标。
+- 修复了在服务模式运行时关闭应用弹出错误提示的问题。
+- 损坏的设置文件现在会在重置为默认值之前自动备份。
+- 数据文件现在使用原子操作保存，防止写入过程中损坏。
+- 更新检查在网络失败后会自动重试。
+- 修复了连接列表在刷新时偶尔变空或无响应的问题。
+- 订阅延迟测试失败不再影响其他操作。
+- 复制订阅链接时现在会显示确认消息。
+- 优化了通知显示时长，提升可见性。
+- 应用加载时响应更快。
