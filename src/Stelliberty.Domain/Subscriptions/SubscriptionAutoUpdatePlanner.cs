@@ -15,19 +15,15 @@ public sealed class SubscriptionAutoUpdatePlanner
     private static SubscriptionAutoUpdatePlan Plan(IReadOnlyList<Subscription> subscriptions, Func<Subscription, bool> shouldUpdate)
     {
         var updateIds = new List<string>();
-        var skippedIds = new List<string>();
         foreach (var subscription in subscriptions)
         {
             if (shouldUpdate(subscription))
             {
                 updateIds.Add(subscription.Id);
-                continue;
             }
-
-            skippedIds.Add(subscription.Id);
         }
 
-        return new SubscriptionAutoUpdatePlan(updateIds, skippedIds);
+        return new SubscriptionAutoUpdatePlan(updateIds);
     }
 
     private static bool IsDueIntervalSubscription(Subscription subscription, DateTimeOffset now)

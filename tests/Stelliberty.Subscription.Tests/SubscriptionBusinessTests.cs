@@ -896,7 +896,7 @@ public sealed class SubscriptionBusinessTests
 
         Assert.Equal(["startup"], startup.UpdateSubscriptionIds);
         Assert.Equal(["due"], interval.UpdateSubscriptionIds);
-        Assert.Contains("fresh", interval.SkippedSubscriptionIds);
+        Assert.DoesNotContain("fresh", interval.UpdateSubscriptionIds);
     }
 
     [Fact(DisplayName = "Auto update planner waits one interval after failed attempt")]
