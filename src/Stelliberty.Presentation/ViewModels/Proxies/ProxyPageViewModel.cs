@@ -13,7 +13,6 @@ namespace Stelliberty.Presentation.ViewModels;
 public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 {
     private readonly ProxyNodeSorter _sorter = new();
-    private readonly ProxyConfigLoader? _loader;
     private readonly ProxyDelayService? _delayService;
     private readonly IProxyCoreClient? _coreClient;
     private readonly ProxySelectionService _selectionService;
@@ -72,7 +71,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private readonly ResilientProxyConfigLoader _resilientLoader = new();
 
     public ProxyPageViewModel(
-        ProxyConfigLoader? loader = null,
         ProxyDelayService? delayService = null,
         IProxyCoreClient? coreClient = null,
         IProxyConfigProvider? primaryConfigProvider = null,
@@ -85,7 +83,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         Action<ProxyNodeSortMode>? persistSortMode = null,
         bool isPresentationActive = true)
     {
-        _loader = loader;
         _delayService = delayService;
         _coreClient = coreClient;
         _selectionService = selectionService ?? new ProxySelectionService(coreClient);
@@ -384,12 +381,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             if (_primaryConfigProvider is not null)
             {
                 await LoadAsync(_primaryConfigProvider, _fallbackConfigProvider, cancellationToken);
-                return;
-            }
-
-            if (_loader is not null)
-            {
-                LoadConfig(_loader.LoadConfig());
             }
         }
         finally

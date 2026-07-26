@@ -255,7 +255,6 @@ public sealed partial class App : Avalonia.Application
                 ? parsedProxyNodeSortMode
                 : ProxyNodeSortMode.Default;
             var proxyPage = new ProxyPageViewModel(
-                proxyConfigLoader,
                 new ProxyDelayService(proxyDelayTester),
                 proxyCoreClient,
                 primaryProxyConfigProvider,
