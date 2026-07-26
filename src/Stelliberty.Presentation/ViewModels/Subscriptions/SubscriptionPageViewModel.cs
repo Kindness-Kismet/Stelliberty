@@ -294,16 +294,6 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
         RaiseSubscriptionStateChanged();
     }
 
-    public void LoadAvailableOverrides(IReadOnlyList<SubscriptionOverrideOptionViewModel> overrides)
-    {
-        OverrideSelector.LoadAvailable(overrides);
-    }
-
-    public void ApplySavedOverrideSelection(Subscription subscription)
-    {
-        OverrideSelector.ApplySaved(subscription);
-    }
-
     public bool CurrentSubscriptionUsesAnyOverride(IReadOnlyCollection<string> overrideIds)
     {
         if (string.IsNullOrWhiteSpace(_currentSubscriptionId) || overrideIds.Count == 0)

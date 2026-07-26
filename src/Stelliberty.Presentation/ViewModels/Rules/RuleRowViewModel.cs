@@ -14,8 +14,6 @@ public sealed record RuleRowViewModel(int Index, RuleItem Rule, ILocalizationSer
 
     public string TypeAutomationId => $"Rules.Row.{Index}.TypeText";
 
-    public string OptionsAutomationId => $"Rules.Row.{Index}.OptionsText";
-
     public string ProxyAutomationId => $"Rules.Row.{Index}.ProxyText";
 
     public string SourceAutomationId => $"Rules.Row.{Index}.SourceText";
@@ -27,8 +25,6 @@ public sealed record RuleRowViewModel(int Index, RuleItem Rule, ILocalizationSer
     public string Payload => string.IsNullOrWhiteSpace(Rule.Payload) ? "-" : Rule.Payload;
 
     public string Proxy => Rule.Proxy;
-
-    public string Policy => Rule.Proxy;
 
     public string Options => string.IsNullOrWhiteSpace(Rule.Options) ? string.Empty : Rule.Options;
 

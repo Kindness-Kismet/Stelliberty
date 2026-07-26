@@ -9,9 +9,4 @@ public sealed class RuleListLoader(
     {
         return parser.Parse(source.ReadRuntimeConfig());
     }
-
-    public IReadOnlyList<RuleItem> Search(string keyword)
-    {
-        return new RuleSearch().Filter(LoadRules(), keyword);
-    }
 }

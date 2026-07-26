@@ -100,11 +100,6 @@ public sealed partial class SettingsCoreConfigViewModel : ViewModelBase, IDispos
         return true;
     }
 
-    private bool SetTrimmedLocalStringWithArea(string currentValue, string nextValue, Action<string> assign, string changeArea, [CallerMemberName] string? propertyName = null)
-    {
-        return SetLocalWithArea(currentValue, nextValue.Trim(), assign, changeArea, propertyName);
-    }
-
     private bool SetIntWithArea(
         int currentValue,
         string text,

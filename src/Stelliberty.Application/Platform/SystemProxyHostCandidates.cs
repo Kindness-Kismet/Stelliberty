@@ -19,26 +19,6 @@ public static class SystemProxyHostCandidates
             .ToArray();
     }
 
-    public static string SelectPreferred(IReadOnlyList<string> candidates)
-    {
-        return candidates.FirstOrDefault(IsIpv4NetworkAddress)
-            ?? candidates.FirstOrDefault(IsNetworkAddress)
-            ?? candidates.FirstOrDefault()
-            ?? "127.0.0.1";
-    }
-
-    private static bool IsIpv4NetworkAddress(string value)
-    {
-        return IsNetworkAddress(value) && value.Contains('.', StringComparison.Ordinal) && !value.Contains(':', StringComparison.Ordinal);
-    }
-
-    private static bool IsNetworkAddress(string value)
-    {
-        return !string.Equals(value, "127.0.0.1", StringComparison.Ordinal)
-            && !string.Equals(value, "localhost", StringComparison.OrdinalIgnoreCase)
-            && !value.EndsWith(".local", StringComparison.OrdinalIgnoreCase);
-    }
-
     private static string RemoveScopeId(string value)
     {
         var scopeIndex = value.IndexOf('%');

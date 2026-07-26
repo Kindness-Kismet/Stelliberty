@@ -348,24 +348,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         return Enum.TryParse<T>(value, out var result) ? result : fallback;
     }
 
-    private async Task SyncCoreStateAsync()
-    {
-        if (CoreManager is null)
-        {
-            return;
-        }
-
-        try
-        {
-            ApplyCoreSnapshot(await CoreManager.GetSnapshotAsync());
-        }
-        catch (Exception exception)
-        {
-            AppLogger.Warning($"Core state sync failed: {exception.Message}");
-            ApplyCoreSnapshot(new CoreSnapshot(CoreState.Unavailable, null, string.Empty, exception.Message));
-        }
-    }
-
     private void OnCoreStateChanged(object? sender, CoreSnapshot snapshot)
     {
         if (_isDisposed)

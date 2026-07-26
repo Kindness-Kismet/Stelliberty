@@ -43,14 +43,4 @@ public sealed class CoreLogReducer
     {
         return state with { FilterLevel = level };
     }
-
-    public CoreLogState SetSearchKeyword(CoreLogState state, string keyword)
-    {
-        return state with { SearchKeyword = keyword };
-    }
-
-    public CoreLogState ResetForStoppedCore(CoreLogState state)
-    {
-        return CoreLogState.Initial;
-    }
 }

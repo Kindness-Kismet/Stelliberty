@@ -142,12 +142,6 @@ public sealed class FileDataBackupService(string appDataDirectory) : IDataManage
         return new DataManagementOperationResult(true, "Backup created");
     }
 
-    public IReadOnlyList<string> ListEntries(string backupPath)
-    {
-        using var archive = ZipFile.OpenRead(backupPath);
-        return archive.Entries.Select(entry => entry.FullName).Order().ToList();
-    }
-
     public DataManagementOperationResult RestoreBackup(DataRestoreMode mode)
     {
         var latestBackupPath = Directory.Exists(Path.Combine(appDataDirectory, "backups"))

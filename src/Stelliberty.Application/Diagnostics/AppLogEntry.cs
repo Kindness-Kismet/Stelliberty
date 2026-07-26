@@ -4,15 +4,6 @@ public sealed record AppLogEntry(AppLogLevel Level, DateTime Timestamp, string M
 {
     public string LevelText => $"[{LevelCode}]";
 
-    public string LevelColor => Level switch
-    {
-        AppLogLevel.Debug => "#6B7280",
-        AppLogLevel.Info => "#22D3EE",
-        AppLogLevel.Warning => "#FBBF24",
-        AppLogLevel.Error => "#F87171",
-        _ => "#9CA3AF"
-    };
-
     public string Text => $"{Timestamp:yyyy/M/d HH:mm:ss} {Message}";
 
     public string Format() => $"{LevelText} {Text}";
