@@ -424,6 +424,18 @@ public sealed class OverrideBusinessTests
         Assert.Equal(["a"], opener.OpenedOverrideIds);
     }
 
+    [Fact(DisplayName = "Page dispose releases every language subscription")]
+    public void PageDisposeReleasesEveryLanguageSubscription()
+    {
+        var localization = new FakeLocalizationService();
+        var page = new OverridePageViewModel(localization: localization);
+        Assert.True(localization.LanguageChangedSubscriberCount > 0);
+
+        page.Dispose();
+
+        Assert.Equal(0, localization.LanguageChangedSubscriberCount);
+    }
+
     [Fact(DisplayName = "Page remote override import reports success and failure toasts")]
     public async Task PageRemoteOverrideImportReportsSuccessAndFailureToasts()
     {
@@ -600,12 +612,28 @@ public sealed class OverrideBusinessTests
 
         public AppLanguage EffectiveLanguage => CurrentLanguage;
 
-        public event EventHandler? LanguageChanged;
+        private EventHandler? _languageChanged;
+
+        public int LanguageChangedSubscriberCount { get; private set; }
+
+        public event EventHandler? LanguageChanged
+        {
+            add
+            {
+                _languageChanged += value;
+                LanguageChangedSubscriberCount++;
+            }
+            remove
+            {
+                _languageChanged -= value;
+                LanguageChangedSubscriberCount--;
+            }
+        }
 
         public void SetLanguage(AppLanguage language)
         {
             CurrentLanguage = language;
-            LanguageChanged?.Invoke(this, EventArgs.Empty);
+            _languageChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public string GetString(string key)

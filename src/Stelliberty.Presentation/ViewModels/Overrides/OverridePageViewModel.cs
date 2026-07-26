@@ -725,7 +725,8 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
             _localization.LanguageChanged -= OnLanguageChanged;
         }
 
-        // 只释放持有外部订阅的子 VM。
+        // 两个对话框都经基类订阅语言事件，必须一起释放
+        AddDialog.Dispose();
         EditDialog.Dispose();
     }
 
