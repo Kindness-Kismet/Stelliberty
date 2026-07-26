@@ -11,8 +11,6 @@ using Stelliberty.Application.Runtime;
 using Stelliberty.Presentation.Commands;
 using Stelliberty.Presentation.Formatting;
 
-using CoreOutboundMode = Stelliberty.Domain.Proxies.OutboundMode;
-
 namespace Stelliberty.Presentation.ViewModels;
 
 public sealed class HomePageViewModel : ViewModelBase, IDisposable
@@ -20,12 +18,12 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private readonly ILocalizationService? _localization;
     private readonly SystemProxyPlatform _systemPlatform;
     private readonly IClipboardWriter? _clipboardWriter;
-    private readonly ISystemProxyService? _systemProxyService;
+    private readonly ISystemProxyService _systemProxyService;
     private readonly IServiceModeManager? _serviceModeManager;
     private readonly Func<bool> _isServiceModeCoreHostActive;
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionActivator;
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionDeactivator;
-    private readonly Func<SystemProxyApplicationRequest>? _systemProxyRequestFactory;
+    private readonly Func<SystemProxyApplicationRequest> _systemProxyRequestFactory;
     private readonly Action<bool>? _tunStateChanged;
 
     private readonly Func<Task>? _coreRestart;
@@ -49,7 +47,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     private bool _isTakeoverTunTab;
     private bool _isCoreRunning;
-    private HomeOutboundMode _outboundMode = HomeOutboundMode.Rule;
+    private OutboundMode _outboundMode = OutboundMode.Rule;
     private DateTimeOffset? _coreRunningSince;
     private TimeSpan _uptime = TimeSpan.Zero;
     private string? _memoryValueText;
@@ -82,10 +80,10 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource? _refreshCancellation;
 
     public HomePageViewModel(
-        ISystemProxyService? systemProxyService = null,
+        ISystemProxyService systemProxyService,
+        Func<SystemProxyApplicationRequest> systemProxyRequestFactory,
         IServiceModeManager? serviceModeManager = null,
         Func<bool>? isServiceModeCoreHostActive = null,
-        Func<SystemProxyApplicationRequest>? systemProxyRequestFactory = null,
         Action<bool>? tunStateChanged = null,
         INetworkConnectionProbe? networkProbe = null,
         IProxyCoreClient? proxyClient = null,
@@ -132,9 +130,9 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             _localization.LanguageChanged += OnLanguageChanged;
         }
         ToggleSystemProxyCommand = new RelayCommand(ToggleSystemProxy);
-        SetRuleOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Rule));
-        SetGlobalOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Global));
-        SetDirectOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Direct));
+        SetRuleOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(OutboundMode.Rule));
+        SetGlobalOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(OutboundMode.Global));
+        SetDirectOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(OutboundMode.Direct));
         SelectTakeoverProxyTabCommand = new RelayCommand(() => SetTakeoverTab(false));
         SelectTakeoverTunTabCommand = new RelayCommand(() => SetTakeoverTab(true));
         ResetTrafficCommand = new RelayCommand(ResetTraffic);
@@ -174,14 +172,14 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         RaiseHomeStateChanged();
     }
 
-    public void ApplyOutboundMode(CoreOutboundMode mode)
+    public void ApplyOutboundMode(OutboundMode mode)
     {
-        if (_outboundMode == FromCoreMode(mode))
+        if (_outboundMode == mode)
         {
             return;
         }
 
-        _outboundMode = FromCoreMode(mode);
+        _outboundMode = mode;
         RaiseHomeStateChanged();
     }
 
@@ -263,7 +261,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             ? Localize("Home.ServiceMode.Uninstall")
             : Localize("Home.ServiceMode.Install");
 
-    public bool CanToggleServiceMode => !_isServiceModeBusy && _serviceModeManager is not null && _serviceModeStatus.IsSupported;
+    public bool CanToggleServiceMode => !_isServiceModeBusy && _serviceModeManager is not null;
 
     public bool IsTakeoverProxyTabSelected => !_isTakeoverTunTab;
 
@@ -299,20 +297,18 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         ? (string.IsNullOrWhiteSpace(_networkName) ? Localize("Home.Network.Unknown") : _networkName)
         : Localize("Home.Network.Disconnected");
 
-    public HomeOutboundMode OutboundMode => _outboundMode;
+    public OutboundMode OutboundMode => _outboundMode;
 
-    public CoreOutboundMode CoreOutboundMode => ToCoreMode(_outboundMode);
+    public bool IsRuleOutboundSelected => _outboundMode == OutboundMode.Rule;
 
-    public bool IsRuleOutboundSelected => _outboundMode == HomeOutboundMode.Rule;
+    public bool IsGlobalOutboundSelected => _outboundMode == OutboundMode.Global;
 
-    public bool IsGlobalOutboundSelected => _outboundMode == HomeOutboundMode.Global;
-
-    public bool IsDirectOutboundSelected => _outboundMode == HomeOutboundMode.Direct;
+    public bool IsDirectOutboundSelected => _outboundMode == OutboundMode.Direct;
 
     public string OutboundModeDescriptionText => _outboundMode switch
     {
-        HomeOutboundMode.Global => Localize("Home.Outbound.Description.Global"),
-        HomeOutboundMode.Direct => Localize("Home.Outbound.Description.Direct"),
+        OutboundMode.Global => Localize("Home.Outbound.Description.Global"),
+        OutboundMode.Direct => Localize("Home.Outbound.Description.Direct"),
         _ => Localize("Home.Outbound.Description.Rule")
     };
 
@@ -356,9 +352,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     // 核心仅在运行且未重启/更新时可用。
     public bool IsCoreInteractive => _isCoreRunning && !_isCoreRestarting && !_isCoreUpdating;
-
-    // 系统代理写入平台网络设置，不依赖核心状态。
-    public bool IsSystemProxyToggleEnabled => true;
 
     // TUN 只能在有权限且核心稳定时切换。
     public bool IsTunToggleEnabled => CanToggleTun && IsCoreInteractive;
@@ -504,7 +497,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         return status;
     }
 
-    private void ApplyRuntime(CoreRuntimeStats? stats, CoreOutboundMode? mode, string? version, int? connectionCount)
+    private void ApplyRuntime(CoreRuntimeStats? stats, OutboundMode? mode, string? version, int? connectionCount)
     {
         if (stats is not null)
         {
@@ -523,7 +516,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
         if (mode is { } coreMode)
         {
-            _outboundMode = FromCoreMode(coreMode);
+            _outboundMode = coreMode;
         }
 
         if (!string.IsNullOrWhiteSpace(version))
@@ -665,7 +658,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            SystemProxyOperationResult? result;
+            SystemProxyOperationResult result;
             await _systemProxyApplyLock.WaitAsync().ConfigureAwait(false);
             try
             {
@@ -681,7 +674,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                 _systemProxyApplyLock.Release();
             }
 
-            if (result is null || result.IsSuccess)
+            if (result.IsSuccess)
             {
                 if (!_isDisposed && version == Volatile.Read(ref _systemProxyApplyVersion))
                 {
@@ -708,11 +701,11 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private SystemProxyOperationResult? ApplySystemProxyCore(bool shouldEnable)
+    private SystemProxyOperationResult ApplySystemProxyCore(bool shouldEnable)
     {
         return shouldEnable
-            ? _systemProxyRequestFactory is null ? null : _systemProxyService?.Enable(_systemProxyRequestFactory.Invoke())
-            : _systemProxyService?.Disable();
+            ? _systemProxyService.Enable(_systemProxyRequestFactory.Invoke())
+            : _systemProxyService.Disable();
     }
 
     private void ApplySystemProxyFailure(bool attemptedState, int version)
@@ -985,7 +978,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     private void RaiseToast(string message, ToastType type)
     {
-        if (string.IsNullOrWhiteSpace(message))
+        if (string.IsNullOrWhiteSpace(message) || _isDisposed)
         {
             return;
         }
@@ -993,7 +986,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         ToastRequested?.Invoke(this, (message, type));
     }
 
-    private async Task SetOutboundModeAsync(HomeOutboundMode mode)
+    private async Task SetOutboundModeAsync(OutboundMode mode)
     {
         if (_outboundMode == mode)
         {
@@ -1016,7 +1009,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var applied = await _proxyClient.SetOutboundModeAsync(ToCoreMode(mode));
+        var applied = await _proxyClient.SetOutboundModeAsync(mode);
         if (!applied)
         {
             _outboundMode = previous;
@@ -1062,20 +1055,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             action();
         }
     }
-
-    private static CoreOutboundMode ToCoreMode(HomeOutboundMode mode) => mode switch
-    {
-        HomeOutboundMode.Global => CoreOutboundMode.Global,
-        HomeOutboundMode.Direct => CoreOutboundMode.Direct,
-        _ => CoreOutboundMode.Rule
-    };
-
-    private static HomeOutboundMode FromCoreMode(CoreOutboundMode mode) => mode switch
-    {
-        CoreOutboundMode.Global => HomeOutboundMode.Global,
-        CoreOutboundMode.Direct => HomeOutboundMode.Direct,
-        _ => HomeOutboundMode.Rule
-    };
 
     // 生成并复制 shell 代理导出；核心或地址无效时静默忽略。
     public void CopyTerminalProxyCommand(TerminalShell shell)
@@ -1158,7 +1137,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsServiceModeBusy));
         OnPropertyChanged(nameof(CanUpdateCore));
         OnPropertyChanged(nameof(IsCoreInteractive));
-        OnPropertyChanged(nameof(IsSystemProxyToggleEnabled));
         OnPropertyChanged(nameof(IsTunToggleEnabled));
         OnPropertyChanged(nameof(CoreSignalTag));
         OnPropertyChanged(nameof(IsNetworkConnected));
@@ -1230,6 +1208,16 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         var cancellation = _refreshCancellation;
         _refreshCancellation = null;
         cancellation?.Cancel();
+        // 短暂等待后台操作响应取消，避免销毁过程中触发 toast
+        if (_isServiceModeBusy || _isCoreUpdating || _isCoreRestarting)
+        {
+            // 超时未取得信号量时不得 Release，否则持有者释放时抛 SemaphoreFullException
+            if (_systemProxyApplyLock.Wait(200))
+            {
+                _systemProxyApplyLock.Release();
+            }
+            Thread.Sleep(50);
+        }
         cancellation?.Dispose();
     }
 }

@@ -9,8 +9,6 @@ public sealed record ServiceModeStatus(
     int? CorePid = null,
     string? CoreLastError = null)
 {
-    public bool IsSupported => State != ServiceModeState.Unsupported;
-
     public bool IsInstalled => State is ServiceModeState.Running or ServiceModeState.Stopped;
 
     public bool NeedsRepair => State == ServiceModeState.NeedsRepair;

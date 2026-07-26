@@ -400,9 +400,9 @@ public sealed class ProxySelectionBusinessTests
         public int CloseConnectionCount { get; private set; }
         public ConnectionCloseRequest? LastCloseRequest { get; private set; }
 
-        public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<IReadOnlyList<ConnectionInfo>>([]);
+            return Task.FromResult<IReadOnlyList<ConnectionInfo>?>([]);
         }
 
         public Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)

@@ -33,8 +33,8 @@ public sealed partial class ToastNotification : UserControl
     private IDisposable? _boundsSubscription;
     private int _animationRevision;
 
-    private static readonly TimeSpan OpenDuration = TimeSpan.FromMilliseconds(900);
-    private static readonly TimeSpan CloseDuration = TimeSpan.FromMilliseconds(750);
+    private static readonly TimeSpan OpenDuration = TimeSpan.FromMilliseconds(500);
+    private static readonly TimeSpan CloseDuration = TimeSpan.FromMilliseconds(500);
     private static readonly ITransform ClosedTransform = TransformOperations.Parse("translate(0px,16px) scale(0.98)");
     private static readonly ITransform OpenTransform = TransformOperations.Parse("translate(0px,0px) scale(1)");
 

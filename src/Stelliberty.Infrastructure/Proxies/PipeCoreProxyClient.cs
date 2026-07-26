@@ -95,24 +95,27 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
         return pipePath.StartsWith(prefix, StringComparison.Ordinal) ? pipePath[prefix.Length..] : pipePath;
     }
 
-    public async Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
     {
+        // 短超时防止核心变慢时每秒轮询长期堆积在途请求
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(3));
         try
         {
-            using var response = await _client.GetAsync("connections", cancellationToken);
+            using var response = await _client.GetAsync("connections", timeout.Token);
             if (!response.IsSuccessStatusCode)
             {
                 AppLogger.Warning($"Core connection list read failed: HTTP {(int)response.StatusCode}");
-                return [];
+                return null;
             }
 
-            var content = await response.Content.ReadAsStringAsync(cancellationToken);
+            var content = await response.Content.ReadAsStringAsync(timeout.Token);
             return new ConnectionParser().Parse(content);
         }
         catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException)
         {
             AppLogger.Warning($"Core connection list read failed: {exception.Message}");
-            return [];
+            return null;
         }
     }
 

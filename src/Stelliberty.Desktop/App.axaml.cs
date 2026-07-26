@@ -167,6 +167,7 @@ public sealed partial class App : Avalonia.Application
             var clipboardWriter = new DesktopClipboardWriter(desktop);
             var chainProxyContextLoader = new SubscriptionChainProxyContextLoader(subscriptionStore, new HubOverrideEngine(), overrideStore);
             var subscriptionPage = new SubscriptionPageViewModel(
+                subscriptionDeleter,
                 localSubscriptionImporter,
                 remoteSubscriptionImporter,
                 subscriptionUpdater,
@@ -177,16 +178,15 @@ public sealed partial class App : Avalonia.Application
                 subscriptionFileOpener,
                 subscriptionProviderUploader,
                 providerCatalogLoader,
-                subscriptionDeleter,
                 subscriptionSelectionStore,
                 runtimeStore,
                 localization,
                 chainProxyContextLoader.Load);
             var overridePage = new OverridePageViewModel(
+                overrideDeleter,
                 overrideStore,
                 overrideImporter,
                 overrideUpdater,
-                overrideDeleter,
                 new FileLocalOverrideFileReader(),
                 overrideFileOpener,
                 localization);
@@ -226,8 +226,7 @@ public sealed partial class App : Avalonia.Application
             var proxyConfigParser = new ProxyConfigParser();
             var proxyConfigLoader = new ProxyConfigLoader(
                 proxyConfigSource,
-                proxyConfigParser,
-                () => true);
+                proxyConfigParser);
             var proxySelectionSyncState = new ProxySelectionSyncState();
             var mihomoApiProxyConfigProvider = new MihomoApiProxyConfigProvider(
                 proxyCoreClient,
@@ -256,7 +255,6 @@ public sealed partial class App : Avalonia.Application
                 ? parsedProxyNodeSortMode
                 : ProxyNodeSortMode.Default;
             var proxyPage = new ProxyPageViewModel(
-                proxyConfigLoader,
                 new ProxyDelayService(proxyDelayTester),
                 proxyCoreClient,
                 primaryProxyConfigProvider,
@@ -279,8 +277,7 @@ public sealed partial class App : Avalonia.Application
                 isPresentationActive: false);
             var rulePage = new RulePageViewModel(new RuleListLoader(
                 new FileRuntimeRuleConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore),
-                new RuleParser(),
-                () => true),
+                new RuleParser()),
                 localization);
             var coreLogPage = new CoreLogPageViewModel(localization: localization);
             var dataBackupService = new FileDataBackupService(platformDirectories.AppDataDirectory);
@@ -289,6 +286,9 @@ public sealed partial class App : Avalonia.Application
             var viewModel = new MainWindowViewModel(
                 settingsStore,
                 localization,
+                systemProxyService,
+                appBehaviorService,
+                globalHotkeyService,
                 proxyPage,
                 connectionPage,
                 coreLogPage,
@@ -300,12 +300,9 @@ public sealed partial class App : Avalonia.Application
                 updateChecker: updateChecker,
                 uwpLoopbackService: uwpLoopbackService,
                 systemProxyHostDetector: systemProxyHostDetector,
-                systemProxyService: systemProxyService,
                 serviceModeManager: serviceModeManager,
                 isServiceModeCoreHostActive: () => _isServiceModeCoreHostActive,
                 systemProxyRequestFactory: () => SystemProxyApplicationRequest.Build(settingsStore.Load(), systemProxyPlatform),
-                appBehaviorService: appBehaviorService,
-                globalHotkeyService: globalHotkeyService,
                 runtimeFallbackGenerator: new SelectedRuntimeFallbackGenerator(
                     subscriptionStore,
                     overrideSelectionUpdater,

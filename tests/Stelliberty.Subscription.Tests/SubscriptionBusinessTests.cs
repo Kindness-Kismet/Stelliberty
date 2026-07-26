@@ -1,19 +1,17 @@
 using System.Text;
 using Stelliberty.Application.Localization;
 using Stelliberty.Application.Overrides;
+using Stelliberty.Application.Platform;
 using Stelliberty.Application.Proxies;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Application.Subscriptions;
 using Stelliberty.Domain.Overrides;
 using Stelliberty.Domain.Proxies;
 using Stelliberty.Domain.Subscriptions;
+using Stelliberty.Infrastructure.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
 using DomainSubscription = Stelliberty.Domain.Subscriptions.Subscription;
-using DomainSubscriptionAutoUpdateMode = Stelliberty.Domain.Subscriptions.SubscriptionAutoUpdateMode;
-using DomainSubscriptionUpdateProxyMode = Stelliberty.Domain.Subscriptions.SubscriptionUpdateProxyMode;
-using PresentationSubscriptionAutoUpdateMode = Stelliberty.Presentation.ViewModels.SubscriptionAutoUpdateMode;
-using PresentationSubscriptionUpdateProxyMode = Stelliberty.Presentation.ViewModels.SubscriptionUpdateProxyMode;
 
 namespace Stelliberty.Subscription.Tests;
 
@@ -23,7 +21,9 @@ public sealed class SubscriptionBusinessTests
     public void PageSelectsFirstSubscriptionWhenAdded()
     {
         var selectionStore = new FakeSubscriptionSelectionStore();
-        var page = new SubscriptionPageViewModel(subscriptionSelectionStore: selectionStore);
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()), subscriptionSelectionStore: selectionStore);
         string? selected = null;
         page.SubscriptionSelected += (_, id) => selected = id;
 
@@ -38,7 +38,9 @@ public sealed class SubscriptionBusinessTests
     [Fact(DisplayName = "Page does not raise selection event when selecting current subscription again")]
     public void PageDoesNotRaiseSelectionEventWhenSelectingCurrentSubscriptionAgain()
     {
-        var page = new SubscriptionPageViewModel();
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()));
         var eventCount = 0;
         page.AddSubscription(Item("sub-1", "Remote", false));
         page.SubscriptionSelected += (_, _) => eventCount++;
@@ -52,7 +54,9 @@ public sealed class SubscriptionBusinessTests
     public void PageLoadSubscriptionsClearsMissingPersistedSelectionWithoutRaisingSelectionEvent()
     {
         var selectionStore = new FakeSubscriptionSelectionStore("missing");
-        var page = new SubscriptionPageViewModel(subscriptionSelectionStore: selectionStore);
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()), subscriptionSelectionStore: selectionStore);
         var eventCount = 0;
         page.SubscriptionSelected += (_, _) => eventCount++;
 
@@ -109,7 +113,9 @@ public sealed class SubscriptionBusinessTests
     [Fact(DisplayName = "Page delete dialog rejects missing subscription target")]
     public void PageDeleteDialogRejectsMissingSubscriptionTarget()
     {
-        var page = new SubscriptionPageViewModel();
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()));
         page.LoadSubscriptions([Subscription("sub-1")]);
 
         page.ShowDeleteDialogCommand.Execute("missing");
@@ -125,7 +131,11 @@ public sealed class SubscriptionBusinessTests
     public void PageExternalEditorOpensOnlyExistingSubscriptions()
     {
         var opener = new FakeSubscriptionFileOpener();
-        var page = new SubscriptionPageViewModel(subscriptionFileOpener: opener);
+        var page = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionFileOpener: opener);
         page.LoadSubscriptions([Subscription("remote"), Subscription("local", isLocal: true)]);
         var localExternalEditor = page.Subscriptions
             .Single(subscription => subscription.Id == "local")
@@ -141,11 +151,37 @@ public sealed class SubscriptionBusinessTests
         Assert.Null(page.SelectedRowMenuAction);
     }
 
+    [Fact(DisplayName = "Page copy link reports success only for remote subscriptions")]
+    public void PageCopyLinkReportsSuccessOnlyForRemoteSubscriptions()
+    {
+        var clipboard = new FakeClipboardWriter();
+        var page = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
+            clipboardWriter: clipboard,
+            localization: new FakeLocalizationService());
+        page.LoadSubscriptions([Subscription("remote"), Subscription("local", isLocal: true)]);
+        var toasts = new List<(string Message, ToastType Type)>();
+        page.ToastRequested += (_, toast) => toasts.Add(toast);
+
+        page.CopyLinkCommand.Execute("remote");
+        page.CopyLinkCommand.Execute("local");
+        page.CopyLinkCommand.Execute("missing");
+
+        Assert.Equal(["https://sub.example/config.yaml"], clipboard.Texts);
+        Assert.Equal([("订阅链接已复制", ToastType.Success)], toasts);
+    }
+
     [Fact(DisplayName = "Page move subscription with transient item updates view but skips persisting order")]
     public void PageMoveSubscriptionWithTransientItemUpdatesViewButSkipsPersistingOrder()
     {
         var store = new FakeSubscriptionStore([Subscription("sub-1"), Subscription("sub-2")]);
-        var page = new SubscriptionPageViewModel(subscriptionStore: store);
+        var page = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionStore: store);
         page.LoadSubscriptions(store.LoadSubscriptions());
         page.AddSubscription(Item("transient", "Transient", false));
 
@@ -159,7 +195,9 @@ public sealed class SubscriptionBusinessTests
     [Fact(DisplayName = "Page applies subscription update result")]
     public void PageAppliesSubscriptionUpdateResult()
     {
-        var page = new SubscriptionPageViewModel();
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()));
         page.AddSubscription(Item("remote", "Remote", false));
         page.AddSubscription(Item("local", "Local", true));
         SubscriptionUpdateResult? raised = null;
@@ -178,6 +216,9 @@ public sealed class SubscriptionBusinessTests
         var store = new FakeSubscriptionStore([]);
         var downloader = new FakeRemoteSubscriptionDownloader();
         var page = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             remoteSubscriptionImporter: new RemoteSubscriptionImporter(store, downloader),
             localization: new FakeLocalizationService());
         var toasts = new List<(string Message, ToastType Type)>();
@@ -188,13 +229,16 @@ public sealed class SubscriptionBusinessTests
             "https://sub.example/config.yaml",
             SubscriptionDefaults.UserAgent,
             0,
-            PresentationSubscriptionAutoUpdateMode.Disabled,
+            SubscriptionAutoUpdateMode.Disabled,
             0,
-            PresentationSubscriptionUpdateProxyMode.Direct));
+            SubscriptionUpdateProxyMode.Direct));
 
         Assert.Contains(toasts, toast => toast is { Message: "远程订阅导入成功：Remote", Type: ToastType.Success });
 
         var failingPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             remoteSubscriptionImporter: new RemoteSubscriptionImporter(
                 new FakeSubscriptionStore([]),
                 new FakeRemoteSubscriptionDownloader { NextException = new InvalidOperationException("download failed") }),
@@ -207,9 +251,9 @@ public sealed class SubscriptionBusinessTests
             "https://sub.example/config.yaml",
             SubscriptionDefaults.UserAgent,
             0,
-            PresentationSubscriptionAutoUpdateMode.Disabled,
+            SubscriptionAutoUpdateMode.Disabled,
             0,
-            PresentationSubscriptionUpdateProxyMode.Direct)));
+            SubscriptionUpdateProxyMode.Direct)));
 
         Assert.Equal(ToastType.Error, failureToast?.Type);
         Assert.Equal("远程订阅导入失败，请稍后重试", failureToast?.Message);
@@ -241,6 +285,9 @@ public sealed class SubscriptionBusinessTests
     public void PageLocalSubscriptionImportReportsSuccessAndFailureToasts()
     {
         var page = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             localFileImporter: new LocalSubscriptionFileImporter(
                 new LocalSubscriptionImporter(new FakeSubscriptionStore([])),
                 new FakeLocalSubscriptionFileReader("proxies: []\nproxy-groups: []\nrules: []")),
@@ -253,6 +300,9 @@ public sealed class SubscriptionBusinessTests
         Assert.Contains(toasts, toast => toast is { Message: "本地订阅导入成功：Local", Type: ToastType.Success });
 
         var failingPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             localFileImporter: new LocalSubscriptionFileImporter(
                 new LocalSubscriptionImporter(new FakeSubscriptionStore([])),
                 new FakeLocalSubscriptionFileReader(string.Empty, new InvalidOperationException("read failed"))),
@@ -285,7 +335,7 @@ public sealed class SubscriptionBusinessTests
         Assert.Null(requested);
 
         dialog.Url = "https://sub.example/config.yaml";
-        dialog.SelectedAutoUpdateMode = PresentationSubscriptionAutoUpdateMode.Interval;
+        dialog.SelectedAutoUpdateMode = SubscriptionAutoUpdateMode.Interval;
         dialog.AutoUpdateIntervalMinutesText = "abc";
         dialog.ConfirmCommand.Execute(null);
 
@@ -338,7 +388,7 @@ public sealed class SubscriptionBusinessTests
         dialog.UserAgent = " ";
         dialog.AgeSecretKey = " <age-secret-key> ";
         dialog.AutoTestDelayIntervalMinutes = 15;
-        dialog.SelectedAutoUpdateMode = PresentationSubscriptionAutoUpdateMode.Interval;
+        dialog.SelectedAutoUpdateMode = SubscriptionAutoUpdateMode.Interval;
         dialog.AutoUpdateIntervalMinutes = 60;
         dialog.SelectCoreProxyModeCommand.Execute(null);
         dialog.ConfirmCommand.Execute(null);
@@ -349,9 +399,9 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal(SubscriptionDefaults.UserAgent, requested.UserAgent);
         Assert.Equal("<age-secret-key>", requested.AgeSecretKey);
         Assert.Equal(15, requested.AutoTestDelayIntervalMinutes);
-        Assert.Equal(PresentationSubscriptionAutoUpdateMode.Interval, requested.AutoUpdateMode);
+        Assert.Equal(SubscriptionAutoUpdateMode.Interval, requested.AutoUpdateMode);
         Assert.Equal(60, requested.AutoUpdateIntervalMinutes);
-        Assert.Equal(PresentationSubscriptionUpdateProxyMode.Core, requested.UpdateProxyMode);
+        Assert.Equal(SubscriptionUpdateProxyMode.Core, requested.UpdateProxyMode);
     }
 
     [Fact(DisplayName = "Add dialog user agent edit restores default when blank")]
@@ -414,7 +464,7 @@ public sealed class SubscriptionBusinessTests
         SubscriptionAddLocalRequestedEventArgs? requested = null;
         dialog.LocalRequested += (_, args) => requested = args;
         dialog.Open();
-        dialog.SelectedAutoUpdateMode = PresentationSubscriptionAutoUpdateMode.Interval;
+        dialog.SelectedAutoUpdateMode = SubscriptionAutoUpdateMode.Interval;
         dialog.AutoUpdateIntervalMinutes = 30;
         dialog.SelectCoreProxyModeCommand.Execute(null);
         dialog.AgeSecretKey = "<age-secret-key>";
@@ -427,9 +477,9 @@ public sealed class SubscriptionBusinessTests
 
         Assert.True(dialog.IsLocalImportSelected);
         Assert.False(dialog.IsRemoteOptionsVisible);
-        Assert.Equal(PresentationSubscriptionAutoUpdateMode.Disabled, dialog.SelectedAutoUpdateMode);
+        Assert.Equal(SubscriptionAutoUpdateMode.Disabled, dialog.SelectedAutoUpdateMode);
         Assert.Equal(0, dialog.AutoUpdateIntervalMinutes);
-        Assert.Equal(PresentationSubscriptionUpdateProxyMode.Direct, dialog.SelectedUpdateProxyMode);
+        Assert.Equal(SubscriptionUpdateProxyMode.Direct, dialog.SelectedUpdateProxyMode);
         Assert.Equal("", dialog.AgeSecretKey);
         Assert.NotNull(requested);
         Assert.Equal("Local", requested.Name);
@@ -451,14 +501,14 @@ public sealed class SubscriptionBusinessTests
             userAgent: "custom",
             ageSecretKey: "<age-secret-key-local>",
             autoTestDelayIntervalMinutes: 10,
-            autoUpdateMode: PresentationSubscriptionAutoUpdateMode.Interval,
+            autoUpdateMode: SubscriptionAutoUpdateMode.Interval,
             autoUpdateIntervalMinutes: 60,
-            updateProxyMode: PresentationSubscriptionUpdateProxyMode.Core));
+            updateProxyMode: SubscriptionUpdateProxyMode.Core));
 
         dialog.Name = " Local New ";
         dialog.Url = " test-data/subscriptions/new.yaml ";
         dialog.UserAgent = "another";
-        dialog.SelectedAutoUpdateMode = PresentationSubscriptionAutoUpdateMode.Interval;
+        dialog.SelectedAutoUpdateMode = SubscriptionAutoUpdateMode.Interval;
         dialog.AutoUpdateIntervalMinutes = 90;
         dialog.SelectSystemProxyModeCommand.Execute(null);
         dialog.ConfirmCommand.Execute(null);
@@ -470,9 +520,9 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal("", completed.UserAgent);
         Assert.Equal("", completed.AgeSecretKey);
         Assert.Equal(10, completed.AutoTestDelayIntervalMinutes);
-        Assert.Equal(PresentationSubscriptionAutoUpdateMode.Disabled, completed.AutoUpdateMode);
+        Assert.Equal(SubscriptionAutoUpdateMode.Disabled, completed.AutoUpdateMode);
         Assert.Equal(0, completed.AutoUpdateIntervalMinutes);
-        Assert.Equal(PresentationSubscriptionUpdateProxyMode.Direct, completed.UpdateProxyMode);
+        Assert.Equal(SubscriptionUpdateProxyMode.Direct, completed.UpdateProxyMode);
     }
 
     [Fact(DisplayName = "Edit dialog remote subscription trims and keeps remote options")]
@@ -489,16 +539,16 @@ public sealed class SubscriptionBusinessTests
             userAgent: SubscriptionDefaults.UserAgent,
             ageSecretKey: "<age-secret-key-old>",
             autoTestDelayIntervalMinutes: 5,
-            autoUpdateMode: PresentationSubscriptionAutoUpdateMode.Startup,
+            autoUpdateMode: SubscriptionAutoUpdateMode.Startup,
             autoUpdateIntervalMinutes: 0,
-            updateProxyMode: PresentationSubscriptionUpdateProxyMode.Direct));
+            updateProxyMode: SubscriptionUpdateProxyMode.Direct));
 
         dialog.Name = " Remote New ";
         dialog.Url = " https://sub.example/new.yaml ";
         dialog.UserAgent = " CustomUA ";
         dialog.AgeSecretKey = " <age-secret-key-new> ";
         dialog.AutoTestDelayIntervalMinutes = 12;
-        dialog.SelectedAutoUpdateMode = PresentationSubscriptionAutoUpdateMode.Interval;
+        dialog.SelectedAutoUpdateMode = SubscriptionAutoUpdateMode.Interval;
         dialog.AutoUpdateIntervalMinutes = 45;
         dialog.SelectCoreProxyModeCommand.Execute(null);
         dialog.ConfirmCommand.Execute(null);
@@ -511,9 +561,9 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal("CustomUA", completed.UserAgent);
         Assert.Equal("<age-secret-key-new>", completed.AgeSecretKey);
         Assert.Equal(12, completed.AutoTestDelayIntervalMinutes);
-        Assert.Equal(PresentationSubscriptionAutoUpdateMode.Interval, completed.AutoUpdateMode);
+        Assert.Equal(SubscriptionAutoUpdateMode.Interval, completed.AutoUpdateMode);
         Assert.Equal(45, completed.AutoUpdateIntervalMinutes);
-        Assert.Equal(PresentationSubscriptionUpdateProxyMode.Core, completed.UpdateProxyMode);
+        Assert.Equal(SubscriptionUpdateProxyMode.Core, completed.UpdateProxyMode);
         Assert.False(dialog.IsDialogVisible);
     }
 
@@ -789,9 +839,9 @@ public sealed class SubscriptionBusinessTests
         [
             Subscription("remote") with
             {
-                AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval,
+                AutoUpdateMode = SubscriptionAutoUpdateMode.Interval,
                 AutoUpdateIntervalMinutes = 30,
-                UpdateProxyMode = DomainSubscriptionUpdateProxyMode.Core
+                UpdateProxyMode = SubscriptionUpdateProxyMode.Core
             }
         ]);
         var downloader = new FakeRemoteSubscriptionDownloader { Content = "not: clash" };
@@ -802,10 +852,10 @@ public sealed class SubscriptionBusinessTests
         Assert.Empty(result.UpdatedSubscriptionIds);
         Assert.Equal(["remote", "missing"], result.SkippedSubscriptionIds);
         var updated = store.LoadSubscriptions().Single(item => item.Id == "remote");
-        Assert.Equal(DomainSubscriptionAutoUpdateMode.Disabled, updated.AutoUpdateMode);
+        Assert.Equal(SubscriptionAutoUpdateMode.Disabled, updated.AutoUpdateMode);
         Assert.NotNull(updated.LastErrorAt);
         Assert.Contains("Configuration file", updated.LastError, StringComparison.Ordinal);
-        Assert.Equal(DomainSubscriptionUpdateProxyMode.Core, downloader.LastRequest?.ProxyMode);
+        Assert.Equal(SubscriptionUpdateProxyMode.Core, downloader.LastRequest?.ProxyMode);
     }
 
     [Fact(DisplayName = "Subscription updater disables auto update on permanent age decrypt failure")]
@@ -816,7 +866,7 @@ public sealed class SubscriptionBusinessTests
             Subscription("remote") with
             {
                 AgeSecretKey = "<age-secret-key>",
-                AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval,
+                AutoUpdateMode = SubscriptionAutoUpdateMode.Interval,
                 AutoUpdateIntervalMinutes = 30
             }
         ]);
@@ -832,7 +882,7 @@ public sealed class SubscriptionBusinessTests
         Assert.Empty(result.UpdatedSubscriptionIds);
         Assert.Equal(["remote"], result.SkippedSubscriptionIds);
         var updated = store.LoadSubscriptions().Single(item => item.Id == "remote");
-        Assert.Equal(DomainSubscriptionAutoUpdateMode.Disabled, updated.AutoUpdateMode);
+        Assert.Equal(SubscriptionAutoUpdateMode.Disabled, updated.AutoUpdateMode);
         Assert.Contains("Age decryption failed", updated.LastError, StringComparison.Ordinal);
     }
 
@@ -864,10 +914,10 @@ public sealed class SubscriptionBusinessTests
         var now = DateTimeOffset.UnixEpoch.AddHours(2);
         var subscriptions = new[]
         {
-            Subscription("startup") with { AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Startup },
-            Subscription("local", isLocal: true) with { AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Startup },
-            Subscription("due") with { AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval, AutoUpdateIntervalMinutes = 30, LastUpdatedAt = now.AddHours(-1) },
-            Subscription("fresh") with { AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval, AutoUpdateIntervalMinutes = 30, LastUpdatedAt = now.AddMinutes(-5) }
+            Subscription("startup") with { AutoUpdateMode = SubscriptionAutoUpdateMode.Startup },
+            Subscription("local", isLocal: true) with { AutoUpdateMode = SubscriptionAutoUpdateMode.Startup },
+            Subscription("due") with { AutoUpdateMode = SubscriptionAutoUpdateMode.Interval, AutoUpdateIntervalMinutes = 30, LastUpdatedAt = now.AddHours(-1) },
+            Subscription("fresh") with { AutoUpdateMode = SubscriptionAutoUpdateMode.Interval, AutoUpdateIntervalMinutes = 30, LastUpdatedAt = now.AddMinutes(-5) }
         };
         var planner = new SubscriptionAutoUpdatePlanner();
 
@@ -876,7 +926,7 @@ public sealed class SubscriptionBusinessTests
 
         Assert.Equal(["startup"], startup.UpdateSubscriptionIds);
         Assert.Equal(["due"], interval.UpdateSubscriptionIds);
-        Assert.Contains("fresh", interval.SkippedSubscriptionIds);
+        Assert.DoesNotContain("fresh", interval.UpdateSubscriptionIds);
     }
 
     [Fact(DisplayName = "Auto update planner waits one interval after failed attempt")]
@@ -885,7 +935,7 @@ public sealed class SubscriptionBusinessTests
         var now = DateTimeOffset.UnixEpoch.AddHours(2);
         var subscription = Subscription("failed") with
         {
-            AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval,
+            AutoUpdateMode = SubscriptionAutoUpdateMode.Interval,
             AutoUpdateIntervalMinutes = 30,
             LastUpdatedAt = now.AddHours(-1),
             LastErrorAt = now.AddMinutes(-5)
@@ -904,13 +954,13 @@ public sealed class SubscriptionBusinessTests
         [
             Subscription("due") with
             {
-                AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval,
+                AutoUpdateMode = SubscriptionAutoUpdateMode.Interval,
                 AutoUpdateIntervalMinutes = 30,
                 LastUpdatedAt = now.AddHours(-1)
             },
             Subscription("fresh") with
             {
-                AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval,
+                AutoUpdateMode = SubscriptionAutoUpdateMode.Interval,
                 AutoUpdateIntervalMinutes = 30,
                 LastUpdatedAt = now.AddMinutes(-5)
             }
@@ -933,10 +983,10 @@ public sealed class SubscriptionBusinessTests
     {
         var store = new FakeSubscriptionStore(
         [
-            Subscription("startup") with { AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Startup },
+            Subscription("startup") with { AutoUpdateMode = SubscriptionAutoUpdateMode.Startup },
             Subscription("interval") with
             {
-                AutoUpdateMode = DomainSubscriptionAutoUpdateMode.Interval,
+                AutoUpdateMode = SubscriptionAutoUpdateMode.Interval,
                 AutoUpdateIntervalMinutes = 10
             }
         ]);
@@ -983,7 +1033,9 @@ public sealed class SubscriptionBusinessTests
     public async Task AutoDelayCoordinatorIgnoresOverlappingDueTicks()
     {
         var now = DateTimeOffset.UnixEpoch;
-        var subscriptionPage = new SubscriptionPageViewModel();
+        var subscriptionPage = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()));
         subscriptionPage.AddSubscription(new SubscriptionItemViewModel(
             "sub-1",
             "Remote",
@@ -1010,6 +1062,38 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal(1, delayTester.CallCount);
         delayTester.Release.TrySetResult();
         await firstTick;
+    }
+
+    [Fact(DisplayName = "Auto delay coordinator swallows failures and keeps next cycle")]
+    public async Task AutoDelayCoordinatorSwallowsFailuresAndKeepsNextCycle()
+    {
+        var now = DateTimeOffset.UnixEpoch;
+        var subscriptionPage = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()));
+        subscriptionPage.AddSubscription(new SubscriptionItemViewModel(
+            "sub-1",
+            "Remote",
+            "https://sub.example/config.yaml",
+            isLocalFile: false,
+            autoTestDelayIntervalMinutes: 1));
+        var delayTester = new ThrowingProxyDelayTester();
+        var proxyPage = new ProxyPageViewModel(delayService: new ProxyDelayService(delayTester));
+        proxyPage.LoadConfig(new ProxyConfig(
+            [new ProxyGroup("Select", ProxyGroupTypes.Select, "Node", ["Node"])],
+            new Dictionary<string, ProxyNode>(StringComparer.Ordinal)
+            {
+                ["Node"] = new("Node", "ss", Server: "node.example", Port: 443),
+            }));
+        var coordinator = new SubscriptionAutoDelayCoordinator(subscriptionPage, proxyPage, () => now);
+
+        await coordinator.RunDueAsync();
+        now = now.AddMinutes(1);
+        await coordinator.RunDueAsync();
+        now = now.AddMinutes(1);
+        await coordinator.RunDueAsync();
+
+        Assert.Equal(2, delayTester.CallCount);
     }
 
     [Fact(DisplayName = "Provider parser handles YAML merge and counts")]
@@ -1565,6 +1649,16 @@ public sealed class SubscriptionBusinessTests
         }
     }
 
+    private sealed class FakeClipboardWriter : IClipboardWriter
+    {
+        public List<string> Texts { get; } = [];
+
+        public void WriteText(string text)
+        {
+            Texts.Add(text);
+        }
+    }
+
     private sealed class FakeLocalizationService : ILocalizationService
     {
         public AppLanguage CurrentLanguage { get; private set; } = AppLanguage.ZhHans;
@@ -1587,6 +1681,7 @@ public sealed class SubscriptionBusinessTests
                 "Subscriptions.Toast.ImportLocalSucceeded" => "本地订阅导入成功：{0}",
                 "Subscriptions.Toast.ImportRemoteFailed" => "远程订阅导入失败，请稍后重试",
                 "Subscriptions.Toast.ImportLocalFailed" => "本地订阅导入失败，请稍后重试",
+                "Subscriptions.Toast.LinkCopied" => "订阅链接已复制",
                 _ => key,
             };
         }
@@ -1686,6 +1781,17 @@ public sealed class SubscriptionBusinessTests
             var current = states[Math.Min(_index, states.Count - 1)];
             _index++;
             return Task.FromResult(current);
+        }
+    }
+
+    private sealed class ThrowingProxyDelayTester : IProxyDelayTester
+    {
+        public int CallCount { get; private set; }
+
+        public Task<int> TestDelayAsync(string proxyName, CancellationToken cancellationToken = default)
+        {
+            CallCount++;
+            throw new InvalidOperationException("delay backend offline");
         }
     }
 

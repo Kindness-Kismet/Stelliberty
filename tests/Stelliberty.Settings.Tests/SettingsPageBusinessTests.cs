@@ -53,7 +53,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings();
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService();
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.IsLazyModeEnabled = true;
         viewModel.SetAutoStartEnabled(true);
@@ -69,7 +69,7 @@ public sealed class SettingsPageBusinessTests
     {
         var settings = new AppSettings();
         var store = new FakeSettingsStore(settings);
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), null);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), new FakeAppBehaviorService(), new FakeGlobalHotkeyService());
 
         Assert.True(viewModel.IsTitleBarFpsVisible);
 
@@ -85,7 +85,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings();
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService { ShouldFail = true };
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.SetAutoStartEnabled(true);
 
@@ -101,7 +101,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings { IsAutoStartEnabled = true };
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService { ShouldFail = true };
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.SetAutoStartEnabled(false);
 
@@ -117,7 +117,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings { IsAutoStartEnabled = true };
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService();
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.RefreshFromSettings();
 
@@ -139,7 +139,7 @@ public sealed class SettingsPageBusinessTests
             settings,
             store,
             new FakeLocalizationService(),
-            null,
+            new FakeAppBehaviorService(),
             hotkeys);
 
         viewModel.SetSystemProxyToggleHotkey("Ctrl+F1");
@@ -187,7 +187,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings { IsAutoStartEnabled = true };
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService();
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.IsSilentStartEnabled = true;
 
@@ -1090,7 +1090,8 @@ public sealed class SettingsPageBusinessTests
 
         Assert.Equal("network unavailable", viewModel.StatusText);
         Assert.Equal([("Settings.Update.Toast.CheckFailed", ToastType.Error)], toasts);
-        Assert.Equal(1, store.SaveCount);
+        Assert.Equal(0, store.SaveCount);
+        Assert.Null(settings.LastAppUpdateCheckTime);
     }
 
     [Fact(DisplayName = "Update settings manual check keeps spinner visible for minimum duration")]
@@ -1140,6 +1141,32 @@ public sealed class SettingsPageBusinessTests
         Assert.Equal(1, store.SaveCount);
         Assert.False(due.WasChecked);
         Assert.Equal("The current setting only checks at startup", due.Message);
+    }
+
+    [Fact(DisplayName = "Auto update scheduler retries after a failed check")]
+    public async Task AutoUpdateSchedulerRetriesAfterFailedCheck()
+    {
+        var now = DateTimeOffset.UnixEpoch.AddDays(10);
+        var lastChecked = now.AddDays(-8);
+        var settings = new AppSettings
+        {
+            IsAutoCheckUpdateEnabled = true,
+            AppUpdateCheckInterval = "7days",
+            LastAppUpdateCheckTime = lastChecked
+        };
+        var store = new FakeSettingsStore(settings);
+        var checker = new FakeAppUpdateChecker(new AppUpdateCheckResult(false, null, "Network unreachable", IsFailure: true));
+        var scheduler = new AppUpdateAutoCheckScheduler(checker, () => settings, store.Save, () => now);
+
+        var failed = await scheduler.CheckWhenDueAsync();
+        var retried = await scheduler.CheckWhenDueAsync();
+
+        Assert.True(failed.WasChecked);
+        Assert.True(failed.IsFailure);
+        Assert.True(retried.WasChecked);
+        Assert.Equal(lastChecked, settings.LastAppUpdateCheckTime);
+        Assert.Equal(2, checker.CheckCount);
+        Assert.Equal(0, store.SaveCount);
     }
 
     private static async Task WaitForUwpPackagesAsync(SettingsSystemIntegrationViewModel viewModel, int expectedCount)

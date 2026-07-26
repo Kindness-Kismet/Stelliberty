@@ -25,7 +25,6 @@ public sealed class HomePageStateTests
         viewModel.IsSystemProxyEnabled = true;
 
         Assert.True(viewModel.IsSystemProxyEnabled);
-        Assert.True(viewModel.IsSystemProxyToggleEnabled);
         await WaitUntilAsync(() => service.EnableCount == 1);
         Assert.Equal(1, service.EnableCount);
     }
@@ -162,13 +161,13 @@ public sealed class HomePageStateTests
     [Fact(DisplayName = "TUN toggle requires privilege and interactive core")]
     public async Task TunToggleRequiresPrivilegeAndInteractiveCore()
     {
-        var normal = new HomePageViewModel(privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Normal), tunStateChanged: _ => throw new InvalidOperationException());
+        var normal = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Normal), tunStateChanged: _ => throw new InvalidOperationException());
         normal.ApplyCoreRunning(true);
         normal.IsTunEnabled = true;
         Assert.False(normal.IsTunEnabled);
 
         var changes = new List<bool>();
-        var admin = new HomePageViewModel(privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Administrator), tunStateChanged: changes.Add);
+        var admin = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Administrator), tunStateChanged: changes.Add);
         admin.IsTunEnabled = true;
         Assert.False(admin.IsTunEnabled);
 
@@ -186,6 +185,8 @@ public sealed class HomePageStateTests
         var release = new ManualResetEventSlim(false);
         var changes = new List<bool>();
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Administrator),
             tunStateChanged: state =>
             {
@@ -211,6 +212,8 @@ public sealed class HomePageStateTests
         using var started = new ManualResetEventSlim(false);
         using var release = new ManualResetEventSlim(false);
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Administrator),
             tunStateChanged: _ =>
             {
@@ -236,6 +239,8 @@ public sealed class HomePageStateTests
         var firstFinished = new ManualResetEventSlim(false);
         var trueCalls = 0;
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Administrator),
             tunStateChanged: state =>
             {
@@ -265,6 +270,8 @@ public sealed class HomePageStateTests
     {
         var changes = new List<bool>();
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Normal),
             tunStateChanged: changes.Add);
 
@@ -283,7 +290,7 @@ public sealed class HomePageStateTests
     [Fact(DisplayName = "Network connection display maps unknown Wi-Fi and disconnected state")]
     public void NetworkConnectionDisplayMapsUnknownWifiAndDisconnectedState()
     {
-        var viewModel = new HomePageViewModel();
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request);
 
         viewModel.ApplyNetworkConnection(new NetworkConnectionInfo(NetworkConnectionType.Wifi, " "));
 
@@ -308,12 +315,12 @@ public sealed class HomePageStateTests
     public void OutboundModeRollsBackWhenCoreRejectsChange()
     {
         var client = new FakeProxyCoreClient { SetOutboundModeResult = false };
-        var viewModel = new HomePageViewModel(proxyClient: client);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, proxyClient: client);
         viewModel.ApplyCoreRunning(true);
 
         viewModel.SetGlobalOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Rule, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Rule, viewModel.OutboundMode);
         Assert.Equal(OutboundMode.Global, client.LastOutboundMode);
     }
 
@@ -321,12 +328,12 @@ public sealed class HomePageStateTests
     public void OutboundModeStaysChangedWhenCoreAcceptsChange()
     {
         var client = new FakeProxyCoreClient { SetOutboundModeResult = true };
-        var viewModel = new HomePageViewModel(proxyClient: client);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, proxyClient: client);
         viewModel.ApplyCoreRunning(true);
 
         viewModel.SetGlobalOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Global, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Global, viewModel.OutboundMode);
         Assert.Equal(OutboundMode.Global, client.LastOutboundMode);
     }
 
@@ -334,23 +341,23 @@ public sealed class HomePageStateTests
     public void OutboundModeDoesNotChangeWhenCoreIsNotInteractive()
     {
         var client = new FakeProxyCoreClient();
-        var viewModel = new HomePageViewModel(proxyClient: client);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, proxyClient: client);
 
         viewModel.SetGlobalOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Rule, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Rule, viewModel.OutboundMode);
         Assert.Null(client.LastOutboundMode);
     }
 
     [Fact(DisplayName = "Outbound mode stays changed without proxy client when core is interactive")]
     public void OutboundModeStaysChangedWithoutProxyClientWhenCoreIsInteractive()
     {
-        var viewModel = new HomePageViewModel();
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request);
         viewModel.ApplyCoreRunning(true);
 
         viewModel.SetDirectOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Direct, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Direct, viewModel.OutboundMode);
         Assert.True(viewModel.IsDirectOutboundSelected);
     }
 
@@ -366,6 +373,8 @@ public sealed class HomePageStateTests
             Version = "mihomo-1"
         };
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             proxyClient: client,
             proxyEndpointProvider: () => "127.0.0.1:7890",
             coreVersionChanged: versionChanges.Add,
@@ -375,7 +384,7 @@ public sealed class HomePageStateTests
         viewModel.RefreshRuntime();
         await WaitUntilAsync(() => viewModel.ActiveConnectionsValueText == "3");
 
-        Assert.Equal(HomeOutboundMode.Global, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Global, viewModel.OutboundMode);
         Assert.Equal("mihomo-1", viewModel.CoreVersionValueText);
         Assert.Equal(["mihomo-1"], versionChanges);
         Assert.Equal("1.0 KB", viewModel.MemoryValueText);
@@ -409,7 +418,7 @@ public sealed class HomePageStateTests
             OutboundModeResult = OutboundMode.Rule,
             Version = "mihomo-1"
         };
-        var viewModel = new HomePageViewModel(proxyClient: client, coreUpdater: updater);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, proxyClient: client, coreUpdater: updater);
         viewModel.ApplyCoreRunning(true);
         viewModel.RefreshRuntime();
         await WaitUntilAsync(() => viewModel.CoreVersionValueText == "mihomo-1");
@@ -440,7 +449,7 @@ public sealed class HomePageStateTests
     {
         var restart = new BlockingCoreRestart();
         var toasts = new List<(string Message, ToastType Type)>();
-        var viewModel = new HomePageViewModel(coreRestart: restart.RestartAsync);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, coreRestart: restart.RestartAsync);
         viewModel.ToastRequested += (_, toast) => toasts.Add(toast);
         viewModel.ApplyCoreRunning(true);
 
@@ -489,6 +498,8 @@ public sealed class HomePageStateTests
     {
         var clipboard = new FakeClipboardWriter();
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             proxyEndpointProvider: () => "127.0.0.1:7890",
             clipboardWriter: clipboard);
 
@@ -507,7 +518,7 @@ public sealed class HomePageStateTests
     public void TerminalProxyCommandDoesNotUseUnavailableDisplayTextAsAddress()
     {
         var clipboard = new FakeClipboardWriter();
-        var viewModel = new HomePageViewModel(clipboardWriter: clipboard);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, clipboardWriter: clipboard);
 
         viewModel.ApplyCoreRunning(true);
         viewModel.CopyTerminalProxyCommand(TerminalShell.Bash);
@@ -525,7 +536,7 @@ public sealed class HomePageStateTests
             RuntimeStats = new CoreRuntimeStats(UploadSpeed: 10, DownloadSpeed: 20, UploadTotal: 100, DownloadTotal: 200, ConnectionCount: 2, Memory: 1024, HasTrafficRate: true),
             OutboundModeResult = OutboundMode.Rule
         };
-        var viewModel = new HomePageViewModel(proxyClient: client, now: () => now);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, proxyClient: client, now: () => now);
         viewModel.ApplyCoreRunning(true);
         viewModel.RefreshRuntime();
         await WaitUntilAsync(() => viewModel.ActiveConnectionsValueText == "2");
@@ -551,6 +562,8 @@ public sealed class HomePageStateTests
             Status = new ServiceModeStatus(ServiceModeState.Running, "running")
         };
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             serviceModeManager: manager,
             isServiceModeCoreHostActive: () => true,
             privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Normal));
@@ -571,6 +584,8 @@ public sealed class HomePageStateTests
             Status = new ServiceModeStatus(ServiceModeState.Running, "running")
         };
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             serviceModeManager: manager,
             isServiceModeCoreHostActive: () => false,
             privilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Normal));
@@ -591,7 +606,7 @@ public sealed class HomePageStateTests
             BlockInstall = true
         };
         var toasts = new List<(string Message, ToastType Type)>();
-        var viewModel = new HomePageViewModel(serviceModeManager: manager);
+        var viewModel = new HomePageViewModel(systemProxyService: new FakeSystemProxyService(), systemProxyRequestFactory: Request, serviceModeManager: manager);
         viewModel.ToastRequested += (_, toast) => toasts.Add(toast);
         await viewModel.RefreshServiceModeAsync();
 
@@ -627,6 +642,8 @@ public sealed class HomePageStateTests
         var activationCount = 0;
         var toasts = new List<(string Message, ToastType Type)>();
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             serviceModeManager: manager,
             serviceModeSessionActivator: _ =>
             {
@@ -652,6 +669,8 @@ public sealed class HomePageStateTests
         };
         var toasts = new List<(string Message, ToastType Type)>();
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             serviceModeManager: manager,
             serviceModeSessionActivator: _ => Task.FromResult(ServiceModeOperationResult.Failed("switch failed")));
         viewModel.ToastRequested += (_, toast) => toasts.Add(toast);
@@ -673,6 +692,8 @@ public sealed class HomePageStateTests
         };
         var activationCount = 0;
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             serviceModeManager: manager,
             initialServiceModeStatus: manager.Status,
             serviceModeSessionActivator: _ =>
@@ -698,6 +719,8 @@ public sealed class HomePageStateTests
         var deactivationCount = 0;
         var toasts = new List<(string Message, ToastType Type)>();
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             serviceModeManager: manager,
             isServiceModeCoreHostActive: () => true,
             serviceModeSessionDeactivator: _ =>
@@ -725,6 +748,8 @@ public sealed class HomePageStateTests
         };
         var toasts = new List<(string Message, ToastType Type)>();
         var viewModel = new HomePageViewModel(
+            systemProxyService: new FakeSystemProxyService(),
+            systemProxyRequestFactory: Request,
             serviceModeManager: manager,
             isServiceModeCoreHostActive: () => true,
             serviceModeSessionDeactivator: _ => Task.FromResult(ServiceModeOperationResult.Failed("resume failed")));
@@ -834,9 +859,9 @@ public sealed class HomePageStateTests
         public string? Version { get; set; }
         public int VersionRequestCount { get; private set; }
 
-        public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
         {
-            return Task.FromResult<IReadOnlyList<ConnectionInfo>>([]);
+            return Task.FromResult<IReadOnlyList<ConnectionInfo>?>([]);
         }
 
         public Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)

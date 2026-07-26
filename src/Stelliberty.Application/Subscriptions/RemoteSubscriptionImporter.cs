@@ -6,16 +6,13 @@ namespace Stelliberty.Application.Subscriptions;
 public sealed class RemoteSubscriptionImporter(
     ISubscriptionStore store,
     IRemoteSubscriptionDownloader downloader,
-    SubscriptionConfigValidator? validator = null,
     Func<DateTimeOffset>? now = null,
-    SubscriptionChainProxyAnalyzer? chainProxyAnalyzer = null,
-    SubscriptionContentNormalizer? contentNormalizer = null,
     ISubscriptionContentDecryptor? contentDecryptor = null)
 {
-    private readonly SubscriptionConfigValidator _validator = validator ?? new SubscriptionConfigValidator();
+    private readonly SubscriptionConfigValidator _validator = new();
     private readonly Func<DateTimeOffset> _now = now ?? (() => DateTimeOffset.UtcNow);
-    private readonly SubscriptionChainProxyAnalyzer _chainProxyAnalyzer = chainProxyAnalyzer ?? new SubscriptionChainProxyAnalyzer();
-    private readonly SubscriptionContentNormalizer _contentNormalizer = contentNormalizer ?? new SubscriptionContentNormalizer();
+    private readonly SubscriptionChainProxyAnalyzer _chainProxyAnalyzer = new();
+    private readonly SubscriptionContentNormalizer _contentNormalizer = new();
     private readonly ISubscriptionContentDecryptor _contentDecryptor = contentDecryptor ?? new SubscriptionContentDecryptor();
 
     public async Task<Subscription> ImportAsync(RemoteSubscriptionImportRequest request, CancellationToken cancellationToken = default)

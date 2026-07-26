@@ -33,7 +33,7 @@ public sealed partial class SubscriptionPageViewModel
         }
 
         var isDeletingCurrentSubscription = string.Equals(_currentSubscriptionId, subscriptionId, StringComparison.Ordinal);
-        _subscriptionDeleter?.Delete(subscriptionId);
+        _subscriptionDeleter.Delete(subscriptionId);
         _subscriptions.RemoveAt(index);
         ClearSubscriptionReferences(subscriptionId);
         if (_subscriptionSelectionStore is not null)

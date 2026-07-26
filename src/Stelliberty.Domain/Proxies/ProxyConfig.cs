@@ -22,9 +22,6 @@ public sealed record ProxyConfig(
     private static bool IsGlobal(ProxyGroup group) =>
         string.Equals(group.Name, "GLOBAL", StringComparison.OrdinalIgnoreCase);
 
-    public ProxyConfig WithNodeDelay(string proxyName, int delay)
-        => WithEntryDelay(proxyName, delay);
-
     public ProxyConfig WithEntryDelay(string proxyName, int delay)
         => WithEntryDelays(new Dictionary<string, int>(StringComparer.Ordinal)
         {

@@ -831,8 +831,8 @@ public sealed class ProxyPageViewModelTests
         public TaskCompletionSource ChangeStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReleaseChange { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<ConnectionInfo>>([]);
+        public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<ConnectionInfo>?>([]);
 
         public async Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)
         {

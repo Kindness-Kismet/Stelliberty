@@ -71,9 +71,10 @@ public sealed partial class SubscriptionPageViewModel
     {
         var subscription = _subscriptions.FirstOrDefault(item => item.Id == subscriptionId && !item.IsLocalFile);
         _copiedLink = subscription?.SourceLocation;
-        if (!string.IsNullOrWhiteSpace(_copiedLink))
+        if (!string.IsNullOrWhiteSpace(_copiedLink) && _clipboardWriter is not null)
         {
-            _clipboardWriter?.WriteText(_copiedLink);
+            _clipboardWriter.WriteText(_copiedLink);
+            ShowToast(Localize("Subscriptions.Toast.LinkCopied"), ToastType.Success);
         }
 
         RaiseMenuStateChanged();
@@ -264,9 +265,9 @@ public sealed partial class SubscriptionPageViewModel
             subscription.UserAgent,
             subscription.AgeSecretKey,
             subscription.AutoTestDelayIntervalMinutes,
-            ToApplicationAutoUpdateMode(subscription.AutoUpdateMode),
+            subscription.AutoUpdateMode,
             subscription.AutoUpdateIntervalMinutes,
-            ToApplicationUpdateProxyMode(subscription.UpdateProxyMode)));
+            subscription.UpdateProxyMode));
         if (updated is null)
         {
             return;

@@ -18,7 +18,7 @@ public sealed class ServiceModeSessionSwitcherTests
     public void StartupRuleRefreshContainsSourceFailure()
     {
         var page = new Stelliberty.Presentation.ViewModels.RulePageViewModel(
-            new RuleListLoader(new ThrowingRuleConfigSource(), new RuleParser(), () => true));
+            new RuleListLoader(new ThrowingRuleConfigSource(), new RuleParser()));
 
         App.RefreshRulesForStartup(page);
 

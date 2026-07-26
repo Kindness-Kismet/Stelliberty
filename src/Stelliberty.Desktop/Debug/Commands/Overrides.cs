@@ -2,6 +2,7 @@
 using Avalonia.Input.Platform;
 using Stelliberty.Presentation.ViewModels;
 using OverrideFormat = Stelliberty.Domain.Overrides.OverrideFormat;
+using OverrideUpdateProxyMode = Stelliberty.Domain.Overrides.OverrideUpdateProxyMode;
 
 namespace Stelliberty.Desktop.Debug;
 

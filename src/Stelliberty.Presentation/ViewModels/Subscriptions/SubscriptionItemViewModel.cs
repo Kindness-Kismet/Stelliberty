@@ -128,8 +128,6 @@ public sealed class SubscriptionItemViewModel : ViewModelBase
 
     public string IconTag => HasError ? "error" : TypePillTag;
 
-    public string LastErrorText => LastError ?? string.Empty;
-
     public string AutoUpdateText => AutoUpdateMode switch
     {
         SubscriptionAutoUpdateMode.Startup => Localize("Subscriptions.AutoUpdate.Startup"),
@@ -153,8 +151,6 @@ public sealed class SubscriptionItemViewModel : ViewModelBase
     };
 
     public string LastUpdatedText => LastUpdatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? Localize("Common.NotUpdated");
-
-    public string CreatedText => CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? string.Empty;
 
     public string OverrideSummaryText => OverrideCount > 0
         ? string.Format(Localize("Subscriptions.Override.Count"), OverrideCount)

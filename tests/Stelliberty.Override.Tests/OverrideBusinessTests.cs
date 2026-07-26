@@ -3,10 +3,10 @@ using Stelliberty.Application.Overrides;
 using Stelliberty.Application.Subscriptions;
 using Stelliberty.Domain.Overrides;
 using Stelliberty.Domain.Subscriptions;
+using Stelliberty.Infrastructure.Overrides;
+using Stelliberty.Infrastructure.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
-using DomainOverrideUpdateProxyMode = Stelliberty.Domain.Overrides.OverrideUpdateProxyMode;
-using PresentationOverrideUpdateProxyMode = Stelliberty.Presentation.ViewModels.OverrideUpdateProxyMode;
 
 namespace Stelliberty.Override.Tests;
 
@@ -15,7 +15,9 @@ public sealed class OverrideBusinessTests
     [Fact(DisplayName = "Page applies override update result")]
     public void PageAppliesOverrideUpdateResult()
     {
-        var page = new OverridePageViewModel();
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()));
         page.AddOverride(Item("remote", isLocal: false));
         page.AddOverride(Item("local", isLocal: true));
         OverrideUpdateResult? raised = null;
@@ -60,7 +62,9 @@ public sealed class OverrideBusinessTests
     public void MoveOverridePersistsVisibleOrder()
     {
         var store = new FakeOverrideStore([Override("a"), Override("b"), Override("c")]);
-        var page = new OverridePageViewModel(overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
 
         page.MoveOverrideDownCommand.Execute("a");
@@ -72,7 +76,9 @@ public sealed class OverrideBusinessTests
     public void MoveOverrideClampsTargetAndPersistsOnlyStoredItems()
     {
         var store = new FakeOverrideStore([Override("a"), Override("b"), Override("c")]);
-        var page = new OverridePageViewModel(overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
         page.AddOverride(Item("draft", isLocal: true));
 
@@ -91,7 +97,9 @@ public sealed class OverrideBusinessTests
     [Fact(DisplayName = "Load overrides clears missing current selection and delete dialog target")]
     public void LoadOverridesClearsMissingCurrentSelectionAndDeleteDialogTarget()
     {
-        var page = new OverridePageViewModel();
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()));
         page.LoadOverrides([Override("a"), Override("b")]);
         page.SelectOverrideCommand.Execute("a");
         page.ShowDeleteDialogCommand.Execute("b");
@@ -135,7 +143,9 @@ public sealed class OverrideBusinessTests
     [Fact(DisplayName = "Delete dialog rejects missing override target")]
     public void DeleteDialogRejectsMissingOverrideTarget()
     {
-        var page = new OverridePageViewModel();
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()));
         page.LoadOverrides([Override("a")]);
 
         page.ShowDeleteDialogCommand.Execute("missing");
@@ -174,7 +184,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("Remote", requested.Name);
         Assert.Equal("https://override.example/a.js", requested.SourceLocation);
         Assert.Equal(OverrideFormat.JavaScript, requested.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, requested.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, requested.UpdateProxyMode);
         Assert.True(dialog.IsSubmitting);
     }
 
@@ -244,10 +254,10 @@ public sealed class OverrideBusinessTests
         store.Save(Override("a"), "original");
         var updater = new OverrideMetadataUpdater(store);
 
-        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.JavaScript, DomainOverrideUpdateProxyMode.Core));
+        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.JavaScript, OverrideUpdateProxyMode.Core));
         Assert.Equal("original", store.ReadContent("a"));
 
-        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.Yaml, DomainOverrideUpdateProxyMode.Direct), "changed");
+        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.Yaml, OverrideUpdateProxyMode.Direct), "changed");
         Assert.Equal("changed", store.ReadContent("a"));
         Assert.Equal("Renamed", store.LoadOverrides().Single(item => item.Id == "a").Name);
     }
@@ -300,7 +310,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("a", completed.OverrideId);
         Assert.Equal("Renamed", completed.Name);
         Assert.Equal(OverrideFormat.JavaScript, completed.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
         await WaitUntilAsync(() => !editor.IsDialogVisible && editor.OverrideId is null);
     }
 
@@ -326,14 +336,16 @@ public sealed class OverrideBusinessTests
         Assert.Equal("B Changed", completed.Name);
         Assert.Equal("https://override.example/b.yaml", completed.SourceLocation);
         Assert.Equal(OverrideFormat.JavaScript, completed.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
     }
 
     [Fact(DisplayName = "Page edit dialog persists metadata and raises edited event")]
     public void PageEditDialogPersistsMetadataAndRaisesEditedEvent()
     {
         var store = new FakeOverrideStore([Override("a", sourceType: OverrideSourceType.Remote)]);
-        var page = new OverridePageViewModel(overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
         IReadOnlyList<string>? editedIds = null;
         page.OverridesEdited += (_, ids) => editedIds = ids;
@@ -349,11 +361,11 @@ public sealed class OverrideBusinessTests
         Assert.Equal("Remote Changed", row.Name);
         Assert.Equal("https://override.example/changed.js", row.SourceLocation);
         Assert.Equal(OverrideFormat.JavaScript, row.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, row.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, row.UpdateProxyMode);
         var persisted = store.LoadOverrides().Single();
         Assert.Equal("Remote Changed", persisted.Name);
         Assert.Equal("https://override.example/changed.js", persisted.SourceLocation);
-        Assert.Equal(DomainOverrideUpdateProxyMode.Core, persisted.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, persisted.UpdateProxyMode);
         Assert.Equal("content-a", store.ReadContent("a"));
         Assert.Equal(["a"], editedIds);
     }
@@ -362,7 +374,9 @@ public sealed class OverrideBusinessTests
     public void PageFileEditPersistsContentWithoutChangingMetadata()
     {
         var store = new FakeOverrideStore([Override("a", sourceType: OverrideSourceType.Remote)]);
-        var page = new OverridePageViewModel(overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
         IReadOnlyList<string>? editedIds = null;
         page.OverridesEdited += (_, ids) => editedIds = ids;
@@ -390,6 +404,9 @@ public sealed class OverrideBusinessTests
         ]);
         var downloader = new FakeRemoteOverrideDownloader();
         var page = new OverridePageViewModel(
+            overrideDeleter: new OverrideDeleter(
+                overrideStore: new InMemoryOverrideStore(),
+                subscriptionStore: new InMemorySubscriptionStore()),
             overrideStore: store,
             overrideUpdater: new OverrideUpdater(store, downloader, () => DateTimeOffset.UnixEpoch.AddDays(1)));
         page.LoadOverrides(store.LoadOverrides());
@@ -415,7 +432,9 @@ public sealed class OverrideBusinessTests
     public void PageOpenExternalEditorIgnoresMissingOverride()
     {
         var opener = new FakeOverrideFileOpener();
-        var page = new OverridePageViewModel(overrideFileOpener: opener);
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()), overrideFileOpener: opener);
         page.LoadOverrides([Override("a")]);
 
         page.OpenExternalEditorCommand.Execute("missing");
@@ -424,10 +443,27 @@ public sealed class OverrideBusinessTests
         Assert.Equal(["a"], opener.OpenedOverrideIds);
     }
 
+    [Fact(DisplayName = "Page dispose releases every language subscription")]
+    public void PageDisposeReleasesEveryLanguageSubscription()
+    {
+        var localization = new FakeLocalizationService();
+        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()), localization: localization);
+        Assert.True(localization.LanguageChangedSubscriberCount > 0);
+
+        page.Dispose();
+
+        Assert.Equal(0, localization.LanguageChangedSubscriberCount);
+    }
+
     [Fact(DisplayName = "Page remote override import reports success and failure toasts")]
     public async Task PageRemoteOverrideImportReportsSuccessAndFailureToasts()
     {
         var page = new OverridePageViewModel(
+            overrideDeleter: new OverrideDeleter(
+                overrideStore: new InMemoryOverrideStore(),
+                subscriptionStore: new InMemorySubscriptionStore()),
             overrideImporter: new OverrideImporter(new FakeOverrideStore([]), new FakeRemoteOverrideDownloader()),
             localization: new FakeLocalizationService());
         var toasts = new List<(string Message, ToastType Type)>();
@@ -437,11 +473,14 @@ public sealed class OverrideBusinessTests
             "Remote",
             "https://override.example/a.yaml",
             OverrideFormat.Yaml,
-            PresentationOverrideUpdateProxyMode.Direct));
+            OverrideUpdateProxyMode.Direct));
 
         Assert.Contains(toasts, toast => toast is { Message: "远程覆写导入成功：Remote", Type: ToastType.Success });
 
         var failingPage = new OverridePageViewModel(
+            overrideDeleter: new OverrideDeleter(
+                overrideStore: new InMemoryOverrideStore(),
+                subscriptionStore: new InMemorySubscriptionStore()),
             overrideImporter: new OverrideImporter(
                 new FakeOverrideStore([]),
                 new FakeRemoteOverrideDownloader { NextException = new InvalidOperationException("download failed") }),
@@ -453,7 +492,7 @@ public sealed class OverrideBusinessTests
             "Remote",
             "https://override.example/a.yaml",
             OverrideFormat.Yaml,
-            PresentationOverrideUpdateProxyMode.Direct));
+            OverrideUpdateProxyMode.Direct));
 
         Assert.Null(item);
         Assert.Equal(ToastType.Error, failureToast?.Type);
@@ -465,6 +504,9 @@ public sealed class OverrideBusinessTests
     {
         var importer = new OverrideImporter(new FakeOverrideStore([]), new FakeRemoteOverrideDownloader());
         var page = new OverridePageViewModel(
+            overrideDeleter: new OverrideDeleter(
+                overrideStore: new InMemoryOverrideStore(),
+                subscriptionStore: new InMemorySubscriptionStore()),
             overrideImporter: importer,
             localFileReader: new FakeLocalOverrideFileReader("mixed-port: 7890"),
             localization: new FakeLocalizationService());
@@ -481,6 +523,9 @@ public sealed class OverrideBusinessTests
         Assert.Contains(toasts, toast => toast is { Message: "空白覆写创建成功：Blank", Type: ToastType.Success });
 
         var failingLocalPage = new OverridePageViewModel(
+            overrideDeleter: new OverrideDeleter(
+                overrideStore: new InMemoryOverrideStore(),
+                subscriptionStore: new InMemorySubscriptionStore()),
             overrideImporter: importer,
             localFileReader: new FakeLocalOverrideFileReader(string.Empty, new InvalidOperationException("read failed")),
             localization: new FakeLocalizationService());
@@ -497,6 +542,9 @@ public sealed class OverrideBusinessTests
         Assert.Equal("本地覆写导入失败，请稍后重试", localFailureToast?.Message);
 
         var failingBlankPage = new OverridePageViewModel(
+            overrideDeleter: new OverrideDeleter(
+                overrideStore: new InMemoryOverrideStore(),
+                subscriptionStore: new InMemorySubscriptionStore()),
             overrideImporter: new OverrideImporter(
                 new FakeOverrideStore([], new InvalidOperationException("save failed")),
                 new FakeRemoteOverrideDownloader()),
@@ -518,7 +566,7 @@ public sealed class OverrideBusinessTests
         var downloader = new FakeRemoteOverrideDownloader();
         var importer = new OverrideImporter(store, downloader, () => DateTimeOffset.UnixEpoch.AddHours(1));
 
-        var remote = await importer.ImportRemoteAsync("Remote", "https://override.example/a.yaml", OverrideFormat.Yaml, DomainOverrideUpdateProxyMode.SystemProxy);
+        var remote = await importer.ImportRemoteAsync("Remote", "https://override.example/a.yaml", OverrideFormat.Yaml, OverrideUpdateProxyMode.SystemProxy);
         var local = importer.ImportLocal("Local", "test-data/overrides/local.yaml", OverrideFormat.JavaScript, "console.log('x')");
         var blank = importer.CreateBlankLocal("Blank", OverrideFormat.Yaml);
 
@@ -527,7 +575,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("console.log('x')", store.ReadContent(local.Id));
         Assert.Equal("", store.ReadContent(blank.Id));
         Assert.Equal(OverrideSourceType.Remote, remote.SourceType);
-        Assert.Equal(DomainOverrideUpdateProxyMode.SystemProxy, remote.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.SystemProxy, remote.UpdateProxyMode);
         Assert.Equal(OverrideSourceType.Local, blank.SourceType);
         Assert.Equal(1, downloader.DownloadCount);
     }
@@ -600,12 +648,28 @@ public sealed class OverrideBusinessTests
 
         public AppLanguage EffectiveLanguage => CurrentLanguage;
 
-        public event EventHandler? LanguageChanged;
+        private EventHandler? _languageChanged;
+
+        public int LanguageChangedSubscriberCount { get; private set; }
+
+        public event EventHandler? LanguageChanged
+        {
+            add
+            {
+                _languageChanged += value;
+                LanguageChangedSubscriberCount++;
+            }
+            remove
+            {
+                _languageChanged -= value;
+                LanguageChangedSubscriberCount--;
+            }
+        }
 
         public void SetLanguage(AppLanguage language)
         {
             CurrentLanguage = language;
-            LanguageChanged?.Invoke(this, EventArgs.Empty);
+            _languageChanged?.Invoke(this, EventArgs.Empty);
         }
 
         public string GetString(string key)

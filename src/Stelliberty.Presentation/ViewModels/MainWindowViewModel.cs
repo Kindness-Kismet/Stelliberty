@@ -52,12 +52,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private const long NavThrottleMs = 150;
     private const int CoreLogFlushBatchSize = 4;
     private const int ToastMessageMaxLength = 72;
+    private static readonly TimeSpan ToastDisplayDuration = TimeSpan.FromMilliseconds(1500);
+    // 与 ToastNotification.CloseDuration 联动，退场完成后再进下一条
+    private static readonly TimeSpan ToastCloseDuration = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan CoreLogFlushDelay = TimeSpan.FromMilliseconds(700);
     private static readonly TimeSpan ProxySelectionSyncInterval = TimeSpan.FromSeconds(2);
 
     public MainWindowViewModel(
         IAppSettingsStore settingsStore,
         ILocalizationService localization,
+        ISystemProxyService systemProxyService,
+        IAppBehaviorService appBehaviorService,
+        IGlobalHotkeyService globalHotkeyService,
         ProxyPageViewModel? proxyPage = null,
         ConnectionPageViewModel? connectionPage = null,
         CoreLogPageViewModel? coreLogPage = null,
@@ -70,12 +76,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Func<DateTimeOffset>? now = null,
         IUwpLoopbackService? uwpLoopbackService = null,
         ISystemProxyHostDetector? systemProxyHostDetector = null,
-        ISystemProxyService? systemProxyService = null,
         IServiceModeManager? serviceModeManager = null,
         Func<bool>? isServiceModeCoreHostActive = null,
         Func<SystemProxyApplicationRequest>? systemProxyRequestFactory = null,
-        IAppBehaviorService? appBehaviorService = null,
-        IGlobalHotkeyService? globalHotkeyService = null,
         SelectedRuntimeFallbackGenerator? runtimeFallbackGenerator = null,
         RuntimeConfigGenerator? runtimeConfigGenerator = null,
         ISelectedSubscriptionRuntimeStore? runtimeStore = null,
@@ -141,9 +144,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         var resolvedSystemProxyRequestFactory = systemProxyRequestFactory ?? (() => SystemProxyApplicationRequest.Build(_settings, systemPlatform));
         HomePage = new HomePageViewModel(
             systemProxyService,
+            resolvedSystemProxyRequestFactory,
             serviceModeManager,
             isServiceModeCoreHostActive,
-            resolvedSystemProxyRequestFactory,
             CoreConfig.ApplyTunFromHome,
             networkConnectionProbe,
             homeProxyClient,
@@ -189,17 +192,17 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ProxyPage = proxyPage ?? new ProxyPageViewModel(localization: localization);
         HomePage.PropertyChanged += OnHomePagePropertyChanged;
         // 初始化代理页出站模式和核心运行状态。
-        ProxyPage.SetOutboundMode(HomePage.CoreOutboundMode);
+        ProxyPage.SetOutboundMode(HomePage.OutboundMode);
         ProxyPage.SetCoreRunning(HomePage.IsCoreRunning);
         // 节点切换会关闭核心连接；无需耦合连接页即可清空本地连接行。
         ProxyPage.NodeSelectionClosedConnections += OnProxyNodeSelectionClosedConnections;
         CoreLogPage = coreLogPage ?? new CoreLogPageViewModel(localization: localization);
         CoreLogPage.LogsCleared += OnCoreLogsCleared;
         RulePage = rulePage ?? new RulePageViewModel(localization: localization);
-        SubscriptionPage = subscriptionPage ?? new SubscriptionPageViewModel(localization: localization);
+        SubscriptionPage = subscriptionPage ?? new SubscriptionPageViewModel(subscriptionDeleter: null!, localization: localization);
         ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
         SyncHomeSubscriptionRuntimeStats();
-        OverridePage = overridePage ?? new OverridePageViewModel(localization: localization);
+        OverridePage = overridePage ?? new OverridePageViewModel(overrideDeleter: null!, localization: localization);
         if (CoreManager is not null)
         {
             CoreManager.StateChanged += OnCoreStateChanged;
@@ -343,24 +346,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private static T ParseEnum<T>(string value, T fallback) where T : struct, Enum
     {
         return Enum.TryParse<T>(value, out var result) ? result : fallback;
-    }
-
-    private async Task SyncCoreStateAsync()
-    {
-        if (CoreManager is null)
-        {
-            return;
-        }
-
-        try
-        {
-            ApplyCoreSnapshot(await CoreManager.GetSnapshotAsync());
-        }
-        catch (Exception exception)
-        {
-            AppLogger.Warning($"Core state sync failed: {exception.Message}");
-            ApplyCoreSnapshot(new CoreSnapshot(CoreState.Unavailable, null, string.Empty, exception.Message));
-        }
     }
 
     private void OnCoreStateChanged(object? sender, CoreSnapshot snapshot)
@@ -976,8 +961,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         if (e.PropertyName == nameof(HomePage.OutboundMode))
         {
-            ProxyPage.SetOutboundMode(HomePage.CoreOutboundMode);
-            PersistOutboundMode(HomePage.CoreOutboundMode);
+            ProxyPage.SetOutboundMode(HomePage.OutboundMode);
+            PersistOutboundMode(HomePage.OutboundMode);
         }
         else if (e.PropertyName == nameof(HomePage.IsCoreRunning))
         {
@@ -1114,8 +1099,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                     OnPropertyChanged(nameof(IsToastVisible));
                 });
 
-                // 每条 toast 显示 3 秒，保证可读性。
-                await Task.Delay(3000);
+                await Task.Delay(ToastDisplayDuration);
                 if (_isDisposed)
                 {
                     return;
@@ -1134,8 +1118,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 }
                 if (hasMore)
                 {
-                    // toast 之间留 300 ms，避免退出和进入动画重叠。
-                    await Task.Delay(300);
+                    await Task.Delay(ToastCloseDuration);
                 }
             }
             catch (Exception ex)

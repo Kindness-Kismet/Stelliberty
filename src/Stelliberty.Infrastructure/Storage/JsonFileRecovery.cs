@@ -13,13 +13,25 @@ internal static class JsonFileRecovery
             return default;
         }
 
+        string json;
         try
         {
-            return JsonSerializer.Deserialize<T>(File.ReadAllText(path));
+            json = File.ReadAllText(path);
         }
         catch (Exception exception)
         {
-            AppLogger.Warning($"Read failed for {Path.GetFileName(path)}; backing up corrupt file and rebuilding: {exception.Message}");
+            // 瞬时 IO 失败不算损坏：保留原文件，等下次读取重试
+            AppLogger.Warning($"Read failed for {Path.GetFileName(path)}; keeping file: {exception.Message}");
+            return default;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json);
+        }
+        catch (JsonException exception)
+        {
+            AppLogger.Warning($"Parse failed for {Path.GetFileName(path)}; backing up corrupt file and rebuilding: {exception.Message}");
             BackupCorrupted(path);
             return default;
         }

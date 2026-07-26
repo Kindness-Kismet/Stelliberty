@@ -12,6 +12,8 @@ using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Domain.Connections;
 using Stelliberty.Domain.Proxies;
 using Stelliberty.Domain.Subscriptions;
+using Stelliberty.Infrastructure.Overrides;
+using Stelliberty.Infrastructure.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
 
@@ -24,7 +26,9 @@ public sealed class MainWindowShellTests
     [Fact(DisplayName = "Home subscription statistics ignore another subscription runtime")]
     public void HomeSubscriptionStatisticsIgnoreAnotherSubscriptionRuntime()
     {
-        var subscriptions = new SubscriptionPageViewModel();
+        var subscriptions = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
+            subscriptionStore: new InMemorySubscriptionStore(),
+            selectionStore: new InMemorySubscriptionSelectionStore()));
         subscriptions.AddSubscription(new SubscriptionItemViewModel("sub-1", "One", "one.yaml", true));
         using var viewModel = CreateViewModel(subscriptionPage: subscriptions);
 
@@ -158,7 +162,7 @@ public sealed class MainWindowShellTests
         viewModel.ProxyPage.LoadConfig(SampleProxyConfig());
 
         viewModel.OnHomeRuntimeTick();
-        await WaitUntilAsync(() => core.OutboundModeReadCount == 1 && viewModel.HomePage.OutboundMode == HomeOutboundMode.Global);
+        await WaitUntilAsync(() => core.OutboundModeReadCount == 1 && viewModel.HomePage.OutboundMode == OutboundMode.Global);
 
         Assert.Equal("Global", settings.OutboundMode);
         Assert.Equal(1, settingsStore.SaveCount);
@@ -437,6 +441,9 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("current");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -466,6 +473,9 @@ public sealed class MainWindowShellTests
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var coreManager = new FakeCoreManager();
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -512,6 +522,9 @@ public sealed class MainWindowShellTests
             }
         };
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -568,10 +581,15 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("current");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
-        var overridePage = new OverridePageViewModel();
+        var overridePage = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
+            overrideStore: new InMemoryOverrideStore(),
+            subscriptionStore: new InMemorySubscriptionStore()));
         using var viewModel = CreateViewModel(
             subscriptionPage: subscriptionPage,
             overridePage: overridePage,
@@ -595,6 +613,9 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("broken");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -622,6 +643,9 @@ public sealed class MainWindowShellTests
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var coreManager = new FakeCoreManager { ApplyMode = CoreApplyMode.Restart };
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             overrideSelectionUpdater: new SubscriptionOverrideSelectionUpdater(subscriptionStore),
             subscriptionSelectionStore: selectionStore);
@@ -654,6 +678,9 @@ public sealed class MainWindowShellTests
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var coreManager = new FakeCoreManager { ApplyMode = CoreApplyMode.Restart };
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -711,6 +738,9 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("current");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -752,6 +782,9 @@ public sealed class MainWindowShellTests
             new SubscriptionProviderParser(),
             new FakeSubscriptionProviderSyncer());
         var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: new SubscriptionDeleter(
+                subscriptionStore: new InMemorySubscriptionStore(),
+                selectionStore: new InMemorySubscriptionSelectionStore()),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore,
             providerCatalogLoader: providerLoader);
@@ -763,7 +796,7 @@ public sealed class MainWindowShellTests
             rules:
               - DOMAIN-SUFFIX,example.com,PROXY
             """);
-        var rulePage = new RulePageViewModel(new RuleListLoader(ruleSource, new RuleParser(), () => true));
+        var rulePage = new RulePageViewModel(new RuleListLoader(ruleSource, new RuleParser()));
         using var viewModel = CreateViewModel(
             proxyPage: proxyPage,
             rulePage: rulePage,
@@ -803,6 +836,9 @@ public sealed class MainWindowShellTests
         return new MainWindowViewModel(
             settingsStore ?? new FakeSettingsStore(settings),
             localization ?? new FakeLocalizationService(),
+            systemProxyService ?? new FakeSystemProxyService(),
+            new FakeAppBehaviorService(),
+            new FakeGlobalHotkeyService(),
             proxyPage: proxyPage,
             connectionPage: connectionPage,
             rulePage: rulePage,
@@ -810,7 +846,6 @@ public sealed class MainWindowShellTests
             overridePage: overridePage,
             homeProxyClient: homeProxyClient,
             coreManager: coreManager,
-            systemProxyService: systemProxyService,
             updateChecker: updateChecker,
             runtimeFallbackGenerator: runtimeFallbackGenerator,
             runtimeStore: runtimeStore,
@@ -988,6 +1023,36 @@ public sealed class MainWindowShellTests
         }
     }
 
+    private sealed class FakeAppBehaviorService : IAppBehaviorService
+    {
+        public void Apply(AppBehaviorApplicationRequest request)
+        {
+        }
+    }
+
+    private sealed class FakeGlobalHotkeyService : IGlobalHotkeyService
+    {
+        public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
+        {
+            return GlobalHotkeyApplyResult.Success();
+        }
+
+        public void SetActivationSuppressed(bool isSuppressed)
+        {
+        }
+
+#if DEBUG
+        public bool SimulateActivation(GlobalHotkeyAction action)
+        {
+            return false;
+        }
+#endif
+
+        public void Dispose()
+        {
+        }
+    }
+
     private sealed class FakeSubscriptionProviderSyncer : ISubscriptionProviderSyncer
     {
         public List<string> SyncRequests { get; } = [];
@@ -1033,10 +1098,10 @@ public sealed class MainWindowShellTests
         public int OutboundModeReadCount { get; private set; }
         public int VersionReadCount { get; private set; }
 
-        public Task<IReadOnlyList<ConnectionInfo>> GetConnectionsAsync(CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
         {
             ConnectionReadCount++;
-            return Task.FromResult(Connections);
+            return Task.FromResult<IReadOnlyList<ConnectionInfo>?>(Connections);
         }
 
         public Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)

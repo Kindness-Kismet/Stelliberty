@@ -15,7 +15,7 @@ public sealed class FileSubscriptionStore(string rootDirectory) : ISubscriptionS
     public void Save(Subscription subscription, string originalContent)
     {
         Directory.CreateDirectory(_subscriptionsDirectory);
-        File.WriteAllText(GetContentPath(subscription.Id), originalContent);
+        AtomicFile.WriteAllText(GetContentPath(subscription.Id), originalContent);
 
         var subscriptions = LoadSubscriptions().ToList();
         var index = subscriptions.FindIndex(item => item.Id == subscription.Id);
@@ -55,7 +55,7 @@ public sealed class FileSubscriptionStore(string rootDirectory) : ISubscriptionS
     public void SaveContent(string subscriptionId, string originalContent)
     {
         Directory.CreateDirectory(_subscriptionsDirectory);
-        File.WriteAllText(GetContentPath(subscriptionId), originalContent);
+        AtomicFile.WriteAllText(GetContentPath(subscriptionId), originalContent);
         AppLogger.Info($"Subscription content saved: {subscriptionId}");
     }
 
@@ -90,7 +90,7 @@ public sealed class FileSubscriptionStore(string rootDirectory) : ISubscriptionS
         {
             WriteIndented = true
         });
-        File.WriteAllText(_listPath, json);
+        AtomicFile.WriteAllText(_listPath, json);
     }
 
     public string GetContentPath(string subscriptionId)

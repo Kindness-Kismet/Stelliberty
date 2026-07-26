@@ -38,6 +38,12 @@ internal static partial class DebugCommands
             return Task.FromResult<string?>(HomeState(page));
         }
 
+        if (spec.StartsWith("copy_terminal_proxy ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.CopyTerminalProxyCommand(ParseTerminalShell(spec["copy_terminal_proxy ".Length..].Trim()));
+            return Task.FromResult<string?>(HomeState(page));
+        }
+
         if (string.Equals(spec, "toggle_system_proxy", StringComparison.OrdinalIgnoreCase))
         {
             page.ToggleSystemProxyCommand.Execute(null);
@@ -124,6 +130,17 @@ internal static partial class DebugCommands
             default:
                 throw new InvalidOperationException($"Unknown takeover tab: {value}");
         }
+    }
+
+    private static TerminalShell ParseTerminalShell(string value)
+    {
+        return value.ToLowerInvariant() switch
+        {
+            "powershell" => TerminalShell.PowerShell,
+            "cmd" => TerminalShell.Cmd,
+            "bash" => TerminalShell.Bash,
+            _ => throw new InvalidOperationException($"Unknown terminal shell: {value}"),
+        };
     }
 }
 #endif

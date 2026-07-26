@@ -29,15 +29,11 @@ public sealed class ConnectionRowViewModel : ViewModelBase
 
     public string RowAutomationId => $"Connections.Row.{Id}";
 
-    public string DetailAutomationId => $"Connections.Row.{Id}.DetailButton";
-
     public string CloseAutomationId => $"Connections.Row.{Id}.CloseButton";
 
     public string NetworkAutomationId => $"Connections.Row.{Id}.NetworkText";
 
     public string DurationAutomationId => $"Connections.Row.{Id}.DurationText";
-
-    public string TrafficAutomationId => $"Connections.Row.{Id}.TrafficText";
 
     public string ChainAutomationId => $"Connections.Row.{Id}.ChainText";
 
@@ -79,8 +75,6 @@ public sealed class ConnectionRowViewModel : ViewModelBase
     public string DownloadSpeedText => $"↓ {ByteSize.Format(_connection.DownloadSpeed)}/s";
 
     public string TrafficText => $"{ByteSize.Format(_connection.Upload)} / {ByteSize.Format(_connection.Download)}";
-
-    public string TotalTrafficText => $"↑ {ByteSize.Format(_connection.Upload)} / ↓ {ByteSize.Format(_connection.Download)}";
 
     public string ChainSummaryText => string.Join(" / ", _connection.Chains);
 

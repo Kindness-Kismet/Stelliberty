@@ -41,7 +41,6 @@
 
       <SolidColorBrush x:Key="AppSubtleFillBrush" Color="#1A000000" />
       <SolidColorBrush x:Key="ToastSurfaceBrush" Color="#FFFFFF" />
-      <SolidColorBrush x:Key="ToastBorderBrush" Color="#E2E8F0" />
       <SolidColorBrush x:Key="ToastForegroundBrush" Color="#0F172A" />
       <BoxShadows x:Key="AppNavItemSelectedShadow">0 4 12 0 #141A2438</BoxShadows>
       <BoxShadows x:Key="AppSidebarShadow">12 0 28 -18 #24000000, 2 0 8 -4 #22000000</BoxShadows>
@@ -90,7 +89,6 @@
 
       <SolidColorBrush x:Key="AppSubtleFillBrush" Color="#1AFFFFFF" />
       <SolidColorBrush x:Key="ToastSurfaceBrush" Color="#FF212121" />
-      <SolidColorBrush x:Key="ToastBorderBrush" Color="#334155" />
       <SolidColorBrush x:Key="ToastForegroundBrush" Color="#F8FAFC" />
       <BoxShadows x:Key="AppNavItemSelectedShadow">0 4 12 0 #2E000000</BoxShadows>
       <BoxShadows x:Key="AppSidebarShadow">12 0 28 -18 #32FFFFFF, 2 0 8 -4 #26FFFFFF</BoxShadows>
