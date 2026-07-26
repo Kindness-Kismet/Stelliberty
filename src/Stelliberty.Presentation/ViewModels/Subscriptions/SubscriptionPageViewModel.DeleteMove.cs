@@ -32,12 +32,6 @@ public sealed partial class SubscriptionPageViewModel
             return;
         }
 
-        // 删除器缺失时整个删除不执行，禁止界面先行移除造成假删除。
-        if (_subscriptionDeleter is null)
-        {
-            return;
-        }
-
         var isDeletingCurrentSubscription = string.Equals(_currentSubscriptionId, subscriptionId, StringComparison.Ordinal);
         _subscriptionDeleter.Delete(subscriptionId);
         _subscriptions.RemoveAt(index);

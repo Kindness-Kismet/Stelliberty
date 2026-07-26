@@ -14,7 +14,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
     private readonly IOverrideStore? _overrideStore;
     private readonly OverrideImporter? _overrideImporter;
     private readonly OverrideUpdater? _overrideUpdater;
-    private readonly OverrideDeleter? _overrideDeleter;
+    private readonly OverrideDeleter _overrideDeleter;
     private readonly OverrideReorderer? _reorderer;
     private readonly OverrideMetadataUpdater? _metadataUpdater;
     private readonly ILocalOverrideFileReader? _localFileReader;
@@ -27,10 +27,10 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
     private string? _deleteDialogOverrideId;
 
     public OverridePageViewModel(
+        OverrideDeleter overrideDeleter,
         IOverrideStore? overrideStore = null,
         OverrideImporter? overrideImporter = null,
         OverrideUpdater? overrideUpdater = null,
-        OverrideDeleter? overrideDeleter = null,
         ILocalOverrideFileReader? localFileReader = null,
         IOverrideFileOpener? overrideFileOpener = null,
         ILocalizationService? localization = null)
@@ -586,12 +586,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
                 RaiseMenuStateChanged();
             }
 
-            return;
-        }
-
-        // 删除器缺失时整个删除不执行，禁止伪造删除结果并移除界面行。
-        if (_overrideDeleter is null)
-        {
             return;
         }
 

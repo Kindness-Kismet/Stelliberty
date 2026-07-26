@@ -33,7 +33,7 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
     private readonly ILocalizationService? _localization;
     private readonly QrCodeGenerator _qrCodeGenerator = new();
     private readonly DialogCloseResetScheduler _qrCodeCloseReset = new();
-    private readonly SubscriptionDeleter? _subscriptionDeleter;
+    private readonly SubscriptionDeleter _subscriptionDeleter;
     private readonly ISubscriptionSelectionStore? _subscriptionSelectionStore;
     private readonly ISelectedSubscriptionRuntimeStore? _runtimeStore;
     private readonly ObservableCollection<SubscriptionItemViewModel> _subscriptions = [];
@@ -47,6 +47,7 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
     private string? _deleteDialogSubscriptionId;
 
     public SubscriptionPageViewModel(
+        SubscriptionDeleter subscriptionDeleter,
         LocalSubscriptionFileImporter? localFileImporter = null,
         RemoteSubscriptionImporter? remoteSubscriptionImporter = null,
         SubscriptionUpdater? subscriptionUpdater = null,
@@ -57,7 +58,6 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
         ISubscriptionFileOpener? subscriptionFileOpener = null,
         ISubscriptionProviderUploader? providerUploader = null,
         SelectedSubscriptionProviderCatalogLoader? providerCatalogLoader = null,
-        SubscriptionDeleter? subscriptionDeleter = null,
         ISubscriptionSelectionStore? subscriptionSelectionStore = null,
         ISelectedSubscriptionRuntimeStore? runtimeStore = null,
         ILocalizationService? localization = null,

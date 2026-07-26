@@ -199,10 +199,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CoreLogPage = coreLogPage ?? new CoreLogPageViewModel(localization: localization);
         CoreLogPage.LogsCleared += OnCoreLogsCleared;
         RulePage = rulePage ?? new RulePageViewModel(localization: localization);
-        SubscriptionPage = subscriptionPage ?? new SubscriptionPageViewModel(localization: localization);
+        SubscriptionPage = subscriptionPage ?? new SubscriptionPageViewModel(subscriptionDeleter: null!, localization: localization);
         ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
         SyncHomeSubscriptionRuntimeStats();
-        OverridePage = overridePage ?? new OverridePageViewModel(localization: localization);
+        OverridePage = overridePage ?? new OverridePageViewModel(overrideDeleter: null!, localization: localization);
         if (CoreManager is not null)
         {
             CoreManager.StateChanged += OnCoreStateChanged;

@@ -167,6 +167,7 @@ public sealed partial class App : Avalonia.Application
             var clipboardWriter = new DesktopClipboardWriter(desktop);
             var chainProxyContextLoader = new SubscriptionChainProxyContextLoader(subscriptionStore, new HubOverrideEngine(), overrideStore);
             var subscriptionPage = new SubscriptionPageViewModel(
+                subscriptionDeleter,
                 localSubscriptionImporter,
                 remoteSubscriptionImporter,
                 subscriptionUpdater,
@@ -177,16 +178,15 @@ public sealed partial class App : Avalonia.Application
                 subscriptionFileOpener,
                 subscriptionProviderUploader,
                 providerCatalogLoader,
-                subscriptionDeleter,
                 subscriptionSelectionStore,
                 runtimeStore,
                 localization,
                 chainProxyContextLoader.Load);
             var overridePage = new OverridePageViewModel(
+                overrideDeleter,
                 overrideStore,
                 overrideImporter,
                 overrideUpdater,
-                overrideDeleter,
                 new FileLocalOverrideFileReader(),
                 overrideFileOpener,
                 localization);
