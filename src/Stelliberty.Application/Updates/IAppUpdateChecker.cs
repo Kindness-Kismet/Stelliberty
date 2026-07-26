@@ -2,5 +2,5 @@ namespace Stelliberty.Application.Updates;
 
 public interface IAppUpdateChecker
 {
-    AppUpdateCheckResult CheckForUpdates();
+    Task<AppUpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default);
 }

@@ -906,7 +906,8 @@ public sealed class MainWindowShellTests
 
     private sealed class FakeAppUpdateChecker(AppUpdateCheckResult result) : IAppUpdateChecker
     {
-        public AppUpdateCheckResult CheckForUpdates() => result;
+        public Task<AppUpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(result);
     }
 
     private sealed class FakeLocalizationService : ILocalizationService

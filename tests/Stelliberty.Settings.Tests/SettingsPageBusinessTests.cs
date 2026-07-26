@@ -1117,7 +1117,7 @@ public sealed class SettingsPageBusinessTests
     }
 
     [Fact(DisplayName = "Auto update scheduler treats unknown interval as startup only")]
-    public void AutoUpdateSchedulerTreatsUnknownIntervalAsStartupOnly()
+    public async Task AutoUpdateSchedulerTreatsUnknownIntervalAsStartupOnly()
     {
         var now = DateTimeOffset.UnixEpoch.AddDays(10);
         var settings = new AppSettings
@@ -1130,8 +1130,8 @@ public sealed class SettingsPageBusinessTests
         var checker = new FakeAppUpdateChecker(new AppUpdateCheckResult(true, "v9.9.9", "New version found"));
         var scheduler = new AppUpdateAutoCheckScheduler(checker, () => settings, store.Save, () => now);
 
-        var startup = scheduler.CheckOnStartup();
-        var due = scheduler.CheckWhenDue();
+        var startup = await scheduler.CheckOnStartupAsync();
+        var due = await scheduler.CheckWhenDueAsync();
 
         Assert.True(startup.WasChecked);
         Assert.True(startup.HasUpdate);
@@ -1486,10 +1486,10 @@ public sealed class SettingsPageBusinessTests
     {
         public int CheckCount { get; private set; }
 
-        public AppUpdateCheckResult CheckForUpdates()
+        public Task<AppUpdateCheckResult> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
         {
             CheckCount++;
-            return result;
+            return Task.FromResult(result);
         }
     }
 }

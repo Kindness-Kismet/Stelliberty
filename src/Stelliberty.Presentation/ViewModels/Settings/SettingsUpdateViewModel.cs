@@ -164,11 +164,17 @@ public sealed class SettingsUpdateViewModel : ViewModelBase, IDisposable
 
     public void ApplyAutoCheckResult(AppUpdateAutoCheckResult result)
     {
-        if (result.WasChecked)
+        if (!result.WasChecked)
         {
-            LastOperation = "AutoCheck";
-            StatusText = result.Message;
+            return;
         }
+
+        LastOperation = "AutoCheck";
+        ApplyCheckResult(new AppUpdateCheckResult(
+            result.HasUpdate,
+            result.LatestVersion,
+            result.Message,
+            result.ReleaseUrl));
     }
 
     public void RefreshFromSettings()
@@ -222,11 +228,14 @@ public sealed class SettingsUpdateViewModel : ViewModelBase, IDisposable
     {
         var checkTask = _scheduler is null
             ? Task.FromResult<AppUpdateCheckResult?>(null)
-            : Task.Run<AppUpdateCheckResult?>(_scheduler.CheckManually);
+            : CheckManuallyAsync();
         var durationTask = Task.Delay(_manualCheckMinimumDuration);
         await Task.WhenAll(checkTask, durationTask);
         return await checkTask;
     }
+
+    private async Task<AppUpdateCheckResult?> CheckManuallyAsync()
+        => await _scheduler!.CheckManuallyAsync();
 
     private void RaiseManualCheckToast(AppUpdateCheckResult? result)
     {

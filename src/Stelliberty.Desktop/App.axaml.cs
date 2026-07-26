@@ -76,7 +76,13 @@ public sealed partial class App : Avalonia.Application
 #if DEBUG
             LogStartupTrace($"Settings loaded silent={settings.IsSilentStartEnabled} tun={settings.IsTunEnabled}", startupStartedAt);
 #endif
-            var updateChecker = new GitHubAppUpdateChecker(() => settingsStore.Load().AppUpdateChannel);
+            var updateChecker = new GitHubAppUpdateChecker(
+                () => settingsStore.Load().AppUpdateChannel,
+                () =>
+                {
+                    var currentSettings = settingsStore.Load();
+                    return (currentSettings.ProxyHost, currentSettings.MixedPort);
+                });
             var systemProxyPlatform = CurrentSystemProxyPlatform();
             IUwpLoopbackService uwpLoopbackService = OperatingSystem.IsWindows()
                 ? new WindowsUwpLoopbackService()
