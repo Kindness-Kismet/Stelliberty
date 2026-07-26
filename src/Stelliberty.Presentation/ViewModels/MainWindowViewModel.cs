@@ -64,11 +64,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ISystemProxyService systemProxyService,
         IAppBehaviorService appBehaviorService,
         IGlobalHotkeyService globalHotkeyService,
+        SubscriptionPageViewModel subscriptionPage,
+        OverridePageViewModel overridePage,
         ProxyPageViewModel? proxyPage = null,
         ConnectionPageViewModel? connectionPage = null,
         CoreLogPageViewModel? coreLogPage = null,
-        SubscriptionPageViewModel? subscriptionPage = null,
-        OverridePageViewModel? overridePage = null,
         RulePageViewModel? rulePage = null,
         IDataManagementService? dataManagementService = null,
         IWebDavDataBackupService? webDavDataBackupService = null,
@@ -199,10 +199,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CoreLogPage = coreLogPage ?? new CoreLogPageViewModel(localization: localization);
         CoreLogPage.LogsCleared += OnCoreLogsCleared;
         RulePage = rulePage ?? new RulePageViewModel(localization: localization);
-        SubscriptionPage = subscriptionPage ?? new SubscriptionPageViewModel(subscriptionDeleter: null!, localization: localization);
+        SubscriptionPage = subscriptionPage;
         ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
         SyncHomeSubscriptionRuntimeStats();
-        OverridePage = overridePage ?? new OverridePageViewModel(overrideDeleter: null!, localization: localization);
+        OverridePage = overridePage;
         if (CoreManager is not null)
         {
             CoreManager.StateChanged += OnCoreStateChanged;

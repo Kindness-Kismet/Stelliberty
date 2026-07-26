@@ -11,9 +11,8 @@ using Stelliberty.Application.Updates;
 using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Domain.Connections;
 using Stelliberty.Domain.Proxies;
+using Stelliberty.Domain.Overrides;
 using Stelliberty.Domain.Subscriptions;
-using Stelliberty.Infrastructure.Overrides;
-using Stelliberty.Infrastructure.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
 
@@ -26,9 +25,7 @@ public sealed class MainWindowShellTests
     [Fact(DisplayName = "Home subscription statistics ignore another subscription runtime")]
     public void HomeSubscriptionStatisticsIgnoreAnotherSubscriptionRuntime()
     {
-        var subscriptions = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()));
+        var subscriptions = new SubscriptionPageViewModel(subscriptionDeleter: CreateSubscriptionDeleter());
         subscriptions.AddSubscription(new SubscriptionItemViewModel("sub-1", "One", "one.yaml", true));
         using var viewModel = CreateViewModel(subscriptionPage: subscriptions);
 
@@ -441,9 +438,7 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("current");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -473,9 +468,7 @@ public sealed class MainWindowShellTests
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var coreManager = new FakeCoreManager();
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -522,9 +515,7 @@ public sealed class MainWindowShellTests
             }
         };
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -581,15 +572,11 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("current");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
-        var overridePage = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()));
+        var overridePage = new OverridePageViewModel(overrideDeleter: CreateOverrideDeleter());
         using var viewModel = CreateViewModel(
             subscriptionPage: subscriptionPage,
             overridePage: overridePage,
@@ -613,9 +600,7 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("broken");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -643,9 +628,7 @@ public sealed class MainWindowShellTests
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var coreManager = new FakeCoreManager { ApplyMode = CoreApplyMode.Restart };
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             overrideSelectionUpdater: new SubscriptionOverrideSelectionUpdater(subscriptionStore),
             subscriptionSelectionStore: selectionStore);
@@ -678,9 +661,7 @@ public sealed class MainWindowShellTests
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var coreManager = new FakeCoreManager { ApplyMode = CoreApplyMode.Restart };
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -738,9 +719,7 @@ public sealed class MainWindowShellTests
         var selectionStore = new FakeSubscriptionSelectionStore("current");
         var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore);
         subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
@@ -782,9 +761,7 @@ public sealed class MainWindowShellTests
             new SubscriptionProviderParser(),
             new FakeSubscriptionProviderSyncer());
         var subscriptionPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateSubscriptionDeleter(),
             subscriptionStore: subscriptionStore,
             subscriptionSelectionStore: selectionStore,
             providerCatalogLoader: providerLoader);
@@ -833,17 +810,20 @@ public sealed class MainWindowShellTests
         IAppUpdateChecker? updateChecker = null)
     {
         var settings = settingsStore?.Load() ?? new AppSettings();
+        var resolvedLocalization = localization ?? new FakeLocalizationService();
         return new MainWindowViewModel(
             settingsStore ?? new FakeSettingsStore(settings),
-            localization ?? new FakeLocalizationService(),
+            resolvedLocalization,
             systemProxyService ?? new FakeSystemProxyService(),
             new FakeAppBehaviorService(),
             new FakeGlobalHotkeyService(),
             proxyPage: proxyPage,
             connectionPage: connectionPage,
             rulePage: rulePage,
-            subscriptionPage: subscriptionPage,
-            overridePage: overridePage,
+            subscriptionPage: subscriptionPage ?? new SubscriptionPageViewModel(
+                subscriptionDeleter: CreateSubscriptionDeleter(), localization: resolvedLocalization),
+            overridePage: overridePage ?? new OverridePageViewModel(
+                overrideDeleter: CreateOverrideDeleter(), localization: resolvedLocalization),
             homeProxyClient: homeProxyClient,
             coreManager: coreManager,
             updateChecker: updateChecker,
@@ -852,6 +832,16 @@ public sealed class MainWindowShellTests
             initialSettings: settings,
             processPrivilegeProbe: processPrivilegeProbe,
             initialServiceModeStatus: initialServiceModeStatus);
+    }
+
+    private static SubscriptionDeleter CreateSubscriptionDeleter()
+    {
+        return new SubscriptionDeleter(new FakeSubscriptionStore([]), new FakeSubscriptionSelectionStore());
+    }
+
+    private static OverrideDeleter CreateOverrideDeleter()
+    {
+        return new OverrideDeleter(new FakeOverrideStore(), new FakeSubscriptionStore([]));
     }
 
     private static SelectedRuntimeFallbackGenerator CreateRuntimeFallbackGenerator(
@@ -1204,6 +1194,45 @@ public sealed class MainWindowShellTests
         public void RaiseState(CoreSnapshot snapshot)
         {
             StateChanged?.Invoke(this, snapshot);
+        }
+    }
+
+    private sealed class FakeOverrideStore : IOverrideStore
+    {
+        private readonly List<OverrideProfile> _overrides = [];
+        private readonly Dictionary<string, string> _contents = new(StringComparer.Ordinal);
+
+        public void Save(OverrideProfile overrideProfile, string content)
+        {
+            _overrides.Add(overrideProfile);
+            _contents[overrideProfile.Id] = content;
+        }
+
+        public IReadOnlyList<OverrideProfile> LoadOverrides()
+        {
+            return _overrides.ToList();
+        }
+
+        public string ReadContent(string overrideId)
+        {
+            return _contents.TryGetValue(overrideId, out var content) ? content : string.Empty;
+        }
+
+        public string GetContentPath(string overrideId)
+        {
+            return $"{overrideId}.yaml";
+        }
+
+        public void SaveOverrides(IReadOnlyList<OverrideProfile> overrides)
+        {
+            _overrides.Clear();
+            _overrides.AddRange(overrides);
+        }
+
+        public void Delete(string overrideId)
+        {
+            _overrides.RemoveAll(item => item.Id == overrideId);
+            _contents.Remove(overrideId);
         }
     }
 

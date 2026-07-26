@@ -8,7 +8,6 @@ using Stelliberty.Application.Subscriptions;
 using Stelliberty.Domain.Overrides;
 using Stelliberty.Domain.Proxies;
 using Stelliberty.Domain.Subscriptions;
-using Stelliberty.Infrastructure.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
 using DomainSubscription = Stelliberty.Domain.Subscriptions.Subscription;
@@ -21,9 +20,7 @@ public sealed class SubscriptionBusinessTests
     public void PageSelectsFirstSubscriptionWhenAdded()
     {
         var selectionStore = new FakeSubscriptionSelectionStore();
-        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()), subscriptionSelectionStore: selectionStore);
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: CreateDeleter(), subscriptionSelectionStore: selectionStore);
         string? selected = null;
         page.SubscriptionSelected += (_, id) => selected = id;
 
@@ -38,9 +35,7 @@ public sealed class SubscriptionBusinessTests
     [Fact(DisplayName = "Page does not raise selection event when selecting current subscription again")]
     public void PageDoesNotRaiseSelectionEventWhenSelectingCurrentSubscriptionAgain()
     {
-        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()));
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: CreateDeleter());
         var eventCount = 0;
         page.AddSubscription(Item("sub-1", "Remote", false));
         page.SubscriptionSelected += (_, _) => eventCount++;
@@ -54,9 +49,7 @@ public sealed class SubscriptionBusinessTests
     public void PageLoadSubscriptionsClearsMissingPersistedSelectionWithoutRaisingSelectionEvent()
     {
         var selectionStore = new FakeSubscriptionSelectionStore("missing");
-        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()), subscriptionSelectionStore: selectionStore);
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: CreateDeleter(), subscriptionSelectionStore: selectionStore);
         var eventCount = 0;
         page.SubscriptionSelected += (_, _) => eventCount++;
 
@@ -113,9 +106,7 @@ public sealed class SubscriptionBusinessTests
     [Fact(DisplayName = "Page delete dialog rejects missing subscription target")]
     public void PageDeleteDialogRejectsMissingSubscriptionTarget()
     {
-        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()));
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: CreateDeleter());
         page.LoadSubscriptions([Subscription("sub-1")]);
 
         page.ShowDeleteDialogCommand.Execute("missing");
@@ -132,9 +123,7 @@ public sealed class SubscriptionBusinessTests
     {
         var opener = new FakeSubscriptionFileOpener();
         var page = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateDeleter(),
             subscriptionFileOpener: opener);
         page.LoadSubscriptions([Subscription("remote"), Subscription("local", isLocal: true)]);
         var localExternalEditor = page.Subscriptions
@@ -156,9 +145,7 @@ public sealed class SubscriptionBusinessTests
     {
         var clipboard = new FakeClipboardWriter();
         var page = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateDeleter(),
             clipboardWriter: clipboard,
             localization: new FakeLocalizationService());
         page.LoadSubscriptions([Subscription("remote"), Subscription("local", isLocal: true)]);
@@ -178,9 +165,7 @@ public sealed class SubscriptionBusinessTests
     {
         var store = new FakeSubscriptionStore([Subscription("sub-1"), Subscription("sub-2")]);
         var page = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateDeleter(),
             subscriptionStore: store);
         page.LoadSubscriptions(store.LoadSubscriptions());
         page.AddSubscription(Item("transient", "Transient", false));
@@ -195,9 +180,7 @@ public sealed class SubscriptionBusinessTests
     [Fact(DisplayName = "Page applies subscription update result")]
     public void PageAppliesSubscriptionUpdateResult()
     {
-        var page = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()));
+        var page = new SubscriptionPageViewModel(subscriptionDeleter: CreateDeleter());
         page.AddSubscription(Item("remote", "Remote", false));
         page.AddSubscription(Item("local", "Local", true));
         SubscriptionUpdateResult? raised = null;
@@ -216,9 +199,7 @@ public sealed class SubscriptionBusinessTests
         var store = new FakeSubscriptionStore([]);
         var downloader = new FakeRemoteSubscriptionDownloader();
         var page = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateDeleter(),
             remoteSubscriptionImporter: new RemoteSubscriptionImporter(store, downloader),
             localization: new FakeLocalizationService());
         var toasts = new List<(string Message, ToastType Type)>();
@@ -236,9 +217,7 @@ public sealed class SubscriptionBusinessTests
         Assert.Contains(toasts, toast => toast is { Message: "远程订阅导入成功：Remote", Type: ToastType.Success });
 
         var failingPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateDeleter(),
             remoteSubscriptionImporter: new RemoteSubscriptionImporter(
                 new FakeSubscriptionStore([]),
                 new FakeRemoteSubscriptionDownloader { NextException = new InvalidOperationException("download failed") }),
@@ -285,9 +264,7 @@ public sealed class SubscriptionBusinessTests
     public void PageLocalSubscriptionImportReportsSuccessAndFailureToasts()
     {
         var page = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateDeleter(),
             localFileImporter: new LocalSubscriptionFileImporter(
                 new LocalSubscriptionImporter(new FakeSubscriptionStore([])),
                 new FakeLocalSubscriptionFileReader("proxies: []\nproxy-groups: []\nrules: []")),
@@ -300,9 +277,7 @@ public sealed class SubscriptionBusinessTests
         Assert.Contains(toasts, toast => toast is { Message: "本地订阅导入成功：Local", Type: ToastType.Success });
 
         var failingPage = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(
-                subscriptionStore: new InMemorySubscriptionStore(),
-                selectionStore: new InMemorySubscriptionSelectionStore()),
+            subscriptionDeleter: CreateDeleter(),
             localFileImporter: new LocalSubscriptionFileImporter(
                 new LocalSubscriptionImporter(new FakeSubscriptionStore([])),
                 new FakeLocalSubscriptionFileReader(string.Empty, new InvalidOperationException("read failed"))),
@@ -1033,9 +1008,7 @@ public sealed class SubscriptionBusinessTests
     public async Task AutoDelayCoordinatorIgnoresOverlappingDueTicks()
     {
         var now = DateTimeOffset.UnixEpoch;
-        var subscriptionPage = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()));
+        var subscriptionPage = new SubscriptionPageViewModel(subscriptionDeleter: CreateDeleter());
         subscriptionPage.AddSubscription(new SubscriptionItemViewModel(
             "sub-1",
             "Remote",
@@ -1068,9 +1041,7 @@ public sealed class SubscriptionBusinessTests
     public async Task AutoDelayCoordinatorSwallowsFailuresAndKeepsNextCycle()
     {
         var now = DateTimeOffset.UnixEpoch;
-        var subscriptionPage = new SubscriptionPageViewModel(subscriptionDeleter: new SubscriptionDeleter(
-            subscriptionStore: new InMemorySubscriptionStore(),
-            selectionStore: new InMemorySubscriptionSelectionStore()));
+        var subscriptionPage = new SubscriptionPageViewModel(subscriptionDeleter: CreateDeleter());
         subscriptionPage.AddSubscription(new SubscriptionItemViewModel(
             "sub-1",
             "Remote",
@@ -1525,6 +1496,11 @@ public sealed class SubscriptionBusinessTests
         }
 
         Assert.True(predicate());
+    }
+
+    private static SubscriptionDeleter CreateDeleter()
+    {
+        return new SubscriptionDeleter(new FakeSubscriptionStore([]), new FakeSubscriptionSelectionStore());
     }
 
     private sealed class FakeSubscriptionSelectionStore(string? initial = null) : ISubscriptionSelectionStore
