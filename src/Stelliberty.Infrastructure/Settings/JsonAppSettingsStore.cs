@@ -25,16 +25,8 @@ public sealed class JsonAppSettingsStore : IAppSettingsStore
             return settings;
         }
 
-        try
-        {
-            var json = File.ReadAllText(_settingsPath);
-            return Normalize(JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings());
-        }
-        catch (Exception exception)
-        {
-            AppLogger.Warning($"Settings read failed; using defaults: {exception.Message}");
-            return new AppSettings();
-        }
+        // 损坏文件先备份成 .corrupt 再回默认，原配置可救回
+        return Normalize(JsonFileRecovery.ReadOrRecover<AppSettings>(_settingsPath) ?? new AppSettings());
     }
 
     public void Save(AppSettings settings)
