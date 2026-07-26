@@ -48,13 +48,17 @@ public sealed class AppUpdateAutoCheckScheduler(
         return RunCheckAsync(settings, currentTime, cancellationToken);
     }
 
-    // 手动检查忽略开关和到期时间，但仍刷新上次检查时间。
+    // 手动检查忽略开关和到期时间；成功才刷新上次检查时间，失败不推迟自动重试
     public async Task<AppUpdateCheckResult> CheckManuallyAsync(CancellationToken cancellationToken = default)
     {
         var settings = loadSettings();
         var result = await updateChecker.CheckForUpdatesAsync(cancellationToken);
-        settings.LastAppUpdateCheckTime = now();
-        saveSettings(settings);
+        if (!result.IsFailure)
+        {
+            settings.LastAppUpdateCheckTime = now();
+            saveSettings(settings);
+        }
+
         return result;
     }
 
@@ -64,8 +68,13 @@ public sealed class AppUpdateAutoCheckScheduler(
         CancellationToken cancellationToken)
     {
         var result = await updateChecker.CheckForUpdatesAsync(cancellationToken);
-        settings.LastAppUpdateCheckTime = currentTime;
-        saveSettings(settings);
+        // 失败不写检查时间，等下个轮询周期重试；成功才按用户间隔推迟
+        if (!result.IsFailure)
+        {
+            settings.LastAppUpdateCheckTime = currentTime;
+            saveSettings(settings);
+        }
+
         AppLogger.Info($"Automatic app update check: {result.Message}");
 
         if (result.HasUpdate && string.Equals(result.LatestVersion, settings.IgnoredUpdateVersion, StringComparison.Ordinal))
@@ -78,7 +87,8 @@ public sealed class AppUpdateAutoCheckScheduler(
             result.HasUpdate,
             result.Message,
             result.LatestVersion,
-            result.ReleaseUrl);
+            result.ReleaseUrl,
+            result.IsFailure);
     }
 
     private static bool ShouldCheck(AppSettings settings, DateTimeOffset currentTime)

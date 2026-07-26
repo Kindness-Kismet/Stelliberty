@@ -174,7 +174,8 @@ public sealed class SettingsUpdateViewModel : ViewModelBase, IDisposable
             result.HasUpdate,
             result.LatestVersion,
             result.Message,
-            result.ReleaseUrl));
+            result.ReleaseUrl,
+            result.IsFailure));
     }
 
     public void RefreshFromSettings()

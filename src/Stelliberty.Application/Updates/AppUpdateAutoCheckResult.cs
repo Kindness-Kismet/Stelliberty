@@ -5,4 +5,5 @@ public sealed record AppUpdateAutoCheckResult(
     bool HasUpdate,
     string Message,
     string? LatestVersion = null,
-    string? ReleaseUrl = null);
+    string? ReleaseUrl = null,
+    bool IsFailure = false);
