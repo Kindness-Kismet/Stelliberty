@@ -17,9 +17,9 @@ public sealed partial class SubscriptionPageViewModel
             subscription.IsLocalFile,
             subscription.UserAgent,
             subscription.AutoTestDelayIntervalMinutes,
-            ToPresentationAutoUpdateMode(subscription.AutoUpdateMode),
+            subscription.AutoUpdateMode,
             subscription.AutoUpdateIntervalMinutes,
-            ToPresentationUpdateProxyMode(subscription.UpdateProxyMode),
+            subscription.UpdateProxyMode,
             ageSecretKey: subscription.AgeSecretKey,
             isCurrent: isCurrent,
             createdAt: subscription.CreatedAt,
@@ -41,45 +41,5 @@ public sealed partial class SubscriptionPageViewModel
             overrideProfile.Id,
             overrideProfile.Name,
             overrideProfile.Format == OverrideFormat.Yaml ? "YAML" : "JavaScript");
-    }
-
-    private static SubscriptionAutoUpdateMode ToPresentationAutoUpdateMode(Domain.Subscriptions.SubscriptionAutoUpdateMode mode)
-    {
-        return mode switch
-        {
-            Domain.Subscriptions.SubscriptionAutoUpdateMode.Startup => SubscriptionAutoUpdateMode.Startup,
-            Domain.Subscriptions.SubscriptionAutoUpdateMode.Interval => SubscriptionAutoUpdateMode.Interval,
-            _ => SubscriptionAutoUpdateMode.Disabled
-        };
-    }
-
-    private static SubscriptionUpdateProxyMode ToPresentationUpdateProxyMode(Domain.Subscriptions.SubscriptionUpdateProxyMode mode)
-    {
-        return mode switch
-        {
-            Domain.Subscriptions.SubscriptionUpdateProxyMode.SystemProxy => SubscriptionUpdateProxyMode.SystemProxy,
-            Domain.Subscriptions.SubscriptionUpdateProxyMode.Core => SubscriptionUpdateProxyMode.Core,
-            _ => SubscriptionUpdateProxyMode.Direct
-        };
-    }
-
-    private static Domain.Subscriptions.SubscriptionAutoUpdateMode ToApplicationAutoUpdateMode(SubscriptionAutoUpdateMode mode)
-    {
-        return mode switch
-        {
-            SubscriptionAutoUpdateMode.Startup => Domain.Subscriptions.SubscriptionAutoUpdateMode.Startup,
-            SubscriptionAutoUpdateMode.Interval => Domain.Subscriptions.SubscriptionAutoUpdateMode.Interval,
-            _ => Domain.Subscriptions.SubscriptionAutoUpdateMode.Disabled
-        };
-    }
-
-    private static Domain.Subscriptions.SubscriptionUpdateProxyMode ToApplicationUpdateProxyMode(SubscriptionUpdateProxyMode mode)
-    {
-        return mode switch
-        {
-            SubscriptionUpdateProxyMode.SystemProxy => Domain.Subscriptions.SubscriptionUpdateProxyMode.SystemProxy,
-            SubscriptionUpdateProxyMode.Core => Domain.Subscriptions.SubscriptionUpdateProxyMode.Core,
-            _ => Domain.Subscriptions.SubscriptionUpdateProxyMode.Direct
-        };
     }
 }

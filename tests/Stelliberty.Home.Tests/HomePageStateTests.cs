@@ -320,7 +320,7 @@ public sealed class HomePageStateTests
 
         viewModel.SetGlobalOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Rule, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Rule, viewModel.OutboundMode);
         Assert.Equal(OutboundMode.Global, client.LastOutboundMode);
     }
 
@@ -333,7 +333,7 @@ public sealed class HomePageStateTests
 
         viewModel.SetGlobalOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Global, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Global, viewModel.OutboundMode);
         Assert.Equal(OutboundMode.Global, client.LastOutboundMode);
     }
 
@@ -345,7 +345,7 @@ public sealed class HomePageStateTests
 
         viewModel.SetGlobalOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Rule, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Rule, viewModel.OutboundMode);
         Assert.Null(client.LastOutboundMode);
     }
 
@@ -357,7 +357,7 @@ public sealed class HomePageStateTests
 
         viewModel.SetDirectOutboundCommand.Execute(null);
 
-        Assert.Equal(HomeOutboundMode.Direct, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Direct, viewModel.OutboundMode);
         Assert.True(viewModel.IsDirectOutboundSelected);
     }
 
@@ -384,7 +384,7 @@ public sealed class HomePageStateTests
         viewModel.RefreshRuntime();
         await WaitUntilAsync(() => viewModel.ActiveConnectionsValueText == "3");
 
-        Assert.Equal(HomeOutboundMode.Global, viewModel.OutboundMode);
+        Assert.Equal(OutboundMode.Global, viewModel.OutboundMode);
         Assert.Equal("mihomo-1", viewModel.CoreVersionValueText);
         Assert.Equal(["mihomo-1"], versionChanges);
         Assert.Equal("1.0 KB", viewModel.MemoryValueText);

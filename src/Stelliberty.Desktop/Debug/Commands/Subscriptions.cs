@@ -2,6 +2,7 @@
 using System.Globalization;
 using Avalonia.Input.Platform;
 using Stelliberty.Application.Subscriptions;
+using Stelliberty.Domain.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 
 namespace Stelliberty.Desktop.Debug;

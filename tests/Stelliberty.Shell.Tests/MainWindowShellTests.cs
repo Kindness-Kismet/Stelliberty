@@ -158,7 +158,7 @@ public sealed class MainWindowShellTests
         viewModel.ProxyPage.LoadConfig(SampleProxyConfig());
 
         viewModel.OnHomeRuntimeTick();
-        await WaitUntilAsync(() => core.OutboundModeReadCount == 1 && viewModel.HomePage.OutboundMode == HomeOutboundMode.Global);
+        await WaitUntilAsync(() => core.OutboundModeReadCount == 1 && viewModel.HomePage.OutboundMode == OutboundMode.Global);
 
         Assert.Equal("Global", settings.OutboundMode);
         Assert.Equal(1, settingsStore.SaveCount);

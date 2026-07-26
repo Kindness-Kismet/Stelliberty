@@ -11,8 +11,6 @@ using Stelliberty.Application.Runtime;
 using Stelliberty.Presentation.Commands;
 using Stelliberty.Presentation.Formatting;
 
-using CoreOutboundMode = Stelliberty.Domain.Proxies.OutboundMode;
-
 namespace Stelliberty.Presentation.ViewModels;
 
 public sealed class HomePageViewModel : ViewModelBase, IDisposable
@@ -49,7 +47,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     private bool _isTakeoverTunTab;
     private bool _isCoreRunning;
-    private HomeOutboundMode _outboundMode = HomeOutboundMode.Rule;
+    private OutboundMode _outboundMode = OutboundMode.Rule;
     private DateTimeOffset? _coreRunningSince;
     private TimeSpan _uptime = TimeSpan.Zero;
     private string? _memoryValueText;
@@ -132,9 +130,9 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             _localization.LanguageChanged += OnLanguageChanged;
         }
         ToggleSystemProxyCommand = new RelayCommand(ToggleSystemProxy);
-        SetRuleOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Rule));
-        SetGlobalOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Global));
-        SetDirectOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(HomeOutboundMode.Direct));
+        SetRuleOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(OutboundMode.Rule));
+        SetGlobalOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(OutboundMode.Global));
+        SetDirectOutboundCommand = new RelayCommand(() => _ = SetOutboundModeAsync(OutboundMode.Direct));
         SelectTakeoverProxyTabCommand = new RelayCommand(() => SetTakeoverTab(false));
         SelectTakeoverTunTabCommand = new RelayCommand(() => SetTakeoverTab(true));
         ResetTrafficCommand = new RelayCommand(ResetTraffic);
@@ -174,14 +172,14 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         RaiseHomeStateChanged();
     }
 
-    public void ApplyOutboundMode(CoreOutboundMode mode)
+    public void ApplyOutboundMode(OutboundMode mode)
     {
-        if (_outboundMode == FromCoreMode(mode))
+        if (_outboundMode == mode)
         {
             return;
         }
 
-        _outboundMode = FromCoreMode(mode);
+        _outboundMode = mode;
         RaiseHomeStateChanged();
     }
 
@@ -299,20 +297,18 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         ? (string.IsNullOrWhiteSpace(_networkName) ? Localize("Home.Network.Unknown") : _networkName)
         : Localize("Home.Network.Disconnected");
 
-    public HomeOutboundMode OutboundMode => _outboundMode;
+    public OutboundMode OutboundMode => _outboundMode;
 
-    public CoreOutboundMode CoreOutboundMode => ToCoreMode(_outboundMode);
+    public bool IsRuleOutboundSelected => _outboundMode == OutboundMode.Rule;
 
-    public bool IsRuleOutboundSelected => _outboundMode == HomeOutboundMode.Rule;
+    public bool IsGlobalOutboundSelected => _outboundMode == OutboundMode.Global;
 
-    public bool IsGlobalOutboundSelected => _outboundMode == HomeOutboundMode.Global;
-
-    public bool IsDirectOutboundSelected => _outboundMode == HomeOutboundMode.Direct;
+    public bool IsDirectOutboundSelected => _outboundMode == OutboundMode.Direct;
 
     public string OutboundModeDescriptionText => _outboundMode switch
     {
-        HomeOutboundMode.Global => Localize("Home.Outbound.Description.Global"),
-        HomeOutboundMode.Direct => Localize("Home.Outbound.Description.Direct"),
+        OutboundMode.Global => Localize("Home.Outbound.Description.Global"),
+        OutboundMode.Direct => Localize("Home.Outbound.Description.Direct"),
         _ => Localize("Home.Outbound.Description.Rule")
     };
 
@@ -501,7 +497,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         return status;
     }
 
-    private void ApplyRuntime(CoreRuntimeStats? stats, CoreOutboundMode? mode, string? version, int? connectionCount)
+    private void ApplyRuntime(CoreRuntimeStats? stats, OutboundMode? mode, string? version, int? connectionCount)
     {
         if (stats is not null)
         {
@@ -520,7 +516,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
         if (mode is { } coreMode)
         {
-            _outboundMode = FromCoreMode(coreMode);
+            _outboundMode = coreMode;
         }
 
         if (!string.IsNullOrWhiteSpace(version))
@@ -990,7 +986,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         ToastRequested?.Invoke(this, (message, type));
     }
 
-    private async Task SetOutboundModeAsync(HomeOutboundMode mode)
+    private async Task SetOutboundModeAsync(OutboundMode mode)
     {
         if (_outboundMode == mode)
         {
@@ -1013,7 +1009,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var applied = await _proxyClient.SetOutboundModeAsync(ToCoreMode(mode));
+        var applied = await _proxyClient.SetOutboundModeAsync(mode);
         if (!applied)
         {
             _outboundMode = previous;
@@ -1059,20 +1055,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             action();
         }
     }
-
-    private static CoreOutboundMode ToCoreMode(HomeOutboundMode mode) => mode switch
-    {
-        HomeOutboundMode.Global => CoreOutboundMode.Global,
-        HomeOutboundMode.Direct => CoreOutboundMode.Direct,
-        _ => CoreOutboundMode.Rule
-    };
-
-    private static HomeOutboundMode FromCoreMode(CoreOutboundMode mode) => mode switch
-    {
-        CoreOutboundMode.Global => HomeOutboundMode.Global,
-        CoreOutboundMode.Direct => HomeOutboundMode.Direct,
-        _ => HomeOutboundMode.Rule
-    };
 
     // 生成并复制 shell 代理导出；核心或地址无效时静默忽略。
     public void CopyTerminalProxyCommand(TerminalShell shell)

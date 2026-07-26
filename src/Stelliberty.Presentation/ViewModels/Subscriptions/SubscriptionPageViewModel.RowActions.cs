@@ -265,9 +265,9 @@ public sealed partial class SubscriptionPageViewModel
             subscription.UserAgent,
             subscription.AgeSecretKey,
             subscription.AutoTestDelayIntervalMinutes,
-            ToApplicationAutoUpdateMode(subscription.AutoUpdateMode),
+            subscription.AutoUpdateMode,
             subscription.AutoUpdateIntervalMinutes,
-            ToApplicationUpdateProxyMode(subscription.UpdateProxyMode)));
+            subscription.UpdateProxyMode));
         if (updated is null)
         {
             return;

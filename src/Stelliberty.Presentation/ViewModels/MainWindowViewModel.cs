@@ -192,7 +192,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         ProxyPage = proxyPage ?? new ProxyPageViewModel(localization: localization);
         HomePage.PropertyChanged += OnHomePagePropertyChanged;
         // 初始化代理页出站模式和核心运行状态。
-        ProxyPage.SetOutboundMode(HomePage.CoreOutboundMode);
+        ProxyPage.SetOutboundMode(HomePage.OutboundMode);
         ProxyPage.SetCoreRunning(HomePage.IsCoreRunning);
         // 节点切换会关闭核心连接；无需耦合连接页即可清空本地连接行。
         ProxyPage.NodeSelectionClosedConnections += OnProxyNodeSelectionClosedConnections;
@@ -961,8 +961,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     {
         if (e.PropertyName == nameof(HomePage.OutboundMode))
         {
-            ProxyPage.SetOutboundMode(HomePage.CoreOutboundMode);
-            PersistOutboundMode(HomePage.CoreOutboundMode);
+            ProxyPage.SetOutboundMode(HomePage.OutboundMode);
+            PersistOutboundMode(HomePage.OutboundMode);
         }
         else if (e.PropertyName == nameof(HomePage.IsCoreRunning))
         {

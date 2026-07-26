@@ -5,8 +5,6 @@ using Stelliberty.Domain.Overrides;
 using Stelliberty.Domain.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
-using DomainOverrideUpdateProxyMode = Stelliberty.Domain.Overrides.OverrideUpdateProxyMode;
-using PresentationOverrideUpdateProxyMode = Stelliberty.Presentation.ViewModels.OverrideUpdateProxyMode;
 
 namespace Stelliberty.Override.Tests;
 
@@ -174,7 +172,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("Remote", requested.Name);
         Assert.Equal("https://override.example/a.js", requested.SourceLocation);
         Assert.Equal(OverrideFormat.JavaScript, requested.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, requested.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, requested.UpdateProxyMode);
         Assert.True(dialog.IsSubmitting);
     }
 
@@ -244,10 +242,10 @@ public sealed class OverrideBusinessTests
         store.Save(Override("a"), "original");
         var updater = new OverrideMetadataUpdater(store);
 
-        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.JavaScript, DomainOverrideUpdateProxyMode.Core));
+        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.JavaScript, OverrideUpdateProxyMode.Core));
         Assert.Equal("original", store.ReadContent("a"));
 
-        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.Yaml, DomainOverrideUpdateProxyMode.Direct), "changed");
+        updater.Save("a", new OverrideMetadataEdit("Renamed", "new.yaml", OverrideFormat.Yaml, OverrideUpdateProxyMode.Direct), "changed");
         Assert.Equal("changed", store.ReadContent("a"));
         Assert.Equal("Renamed", store.LoadOverrides().Single(item => item.Id == "a").Name);
     }
@@ -300,7 +298,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("a", completed.OverrideId);
         Assert.Equal("Renamed", completed.Name);
         Assert.Equal(OverrideFormat.JavaScript, completed.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
         await WaitUntilAsync(() => !editor.IsDialogVisible && editor.OverrideId is null);
     }
 
@@ -326,7 +324,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("B Changed", completed.Name);
         Assert.Equal("https://override.example/b.yaml", completed.SourceLocation);
         Assert.Equal(OverrideFormat.JavaScript, completed.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, completed.UpdateProxyMode);
     }
 
     [Fact(DisplayName = "Page edit dialog persists metadata and raises edited event")]
@@ -349,11 +347,11 @@ public sealed class OverrideBusinessTests
         Assert.Equal("Remote Changed", row.Name);
         Assert.Equal("https://override.example/changed.js", row.SourceLocation);
         Assert.Equal(OverrideFormat.JavaScript, row.Format);
-        Assert.Equal(PresentationOverrideUpdateProxyMode.Core, row.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, row.UpdateProxyMode);
         var persisted = store.LoadOverrides().Single();
         Assert.Equal("Remote Changed", persisted.Name);
         Assert.Equal("https://override.example/changed.js", persisted.SourceLocation);
-        Assert.Equal(DomainOverrideUpdateProxyMode.Core, persisted.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.Core, persisted.UpdateProxyMode);
         Assert.Equal("content-a", store.ReadContent("a"));
         Assert.Equal(["a"], editedIds);
     }
@@ -449,7 +447,7 @@ public sealed class OverrideBusinessTests
             "Remote",
             "https://override.example/a.yaml",
             OverrideFormat.Yaml,
-            PresentationOverrideUpdateProxyMode.Direct));
+            OverrideUpdateProxyMode.Direct));
 
         Assert.Contains(toasts, toast => toast is { Message: "远程覆写导入成功：Remote", Type: ToastType.Success });
 
@@ -465,7 +463,7 @@ public sealed class OverrideBusinessTests
             "Remote",
             "https://override.example/a.yaml",
             OverrideFormat.Yaml,
-            PresentationOverrideUpdateProxyMode.Direct));
+            OverrideUpdateProxyMode.Direct));
 
         Assert.Null(item);
         Assert.Equal(ToastType.Error, failureToast?.Type);
@@ -530,7 +528,7 @@ public sealed class OverrideBusinessTests
         var downloader = new FakeRemoteOverrideDownloader();
         var importer = new OverrideImporter(store, downloader, () => DateTimeOffset.UnixEpoch.AddHours(1));
 
-        var remote = await importer.ImportRemoteAsync("Remote", "https://override.example/a.yaml", OverrideFormat.Yaml, DomainOverrideUpdateProxyMode.SystemProxy);
+        var remote = await importer.ImportRemoteAsync("Remote", "https://override.example/a.yaml", OverrideFormat.Yaml, OverrideUpdateProxyMode.SystemProxy);
         var local = importer.ImportLocal("Local", "test-data/overrides/local.yaml", OverrideFormat.JavaScript, "console.log('x')");
         var blank = importer.CreateBlankLocal("Blank", OverrideFormat.Yaml);
 
@@ -539,7 +537,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("console.log('x')", store.ReadContent(local.Id));
         Assert.Equal("", store.ReadContent(blank.Id));
         Assert.Equal(OverrideSourceType.Remote, remote.SourceType);
-        Assert.Equal(DomainOverrideUpdateProxyMode.SystemProxy, remote.UpdateProxyMode);
+        Assert.Equal(OverrideUpdateProxyMode.SystemProxy, remote.UpdateProxyMode);
         Assert.Equal(OverrideSourceType.Local, blank.SourceType);
         Assert.Equal(1, downloader.DownloadCount);
     }

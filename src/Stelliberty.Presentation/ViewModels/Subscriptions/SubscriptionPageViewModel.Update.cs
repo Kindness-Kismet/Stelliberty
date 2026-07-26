@@ -84,9 +84,9 @@ public sealed partial class SubscriptionPageViewModel
                 args.Url,
                 args.UserAgent,
                 args.AutoTestDelayIntervalMinutes,
-                ToApplicationAutoUpdateMode(args.AutoUpdateMode),
+                args.AutoUpdateMode,
                 args.AutoUpdateIntervalMinutes,
-                ToApplicationUpdateProxyMode(args.UpdateProxyMode),
+                args.UpdateProxyMode,
                 args.AgeSecretKey),
                 cancellationToken);
             var item = ToSubscriptionItem(subscription);

@@ -259,7 +259,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         {
             if (_overrideImporter is not null)
             {
-                var imported = await _overrideImporter.ImportRemoteAsync(args.Name, args.SourceLocation, args.Format, ToApplicationProxyMode(args.UpdateProxyMode));
+                var imported = await _overrideImporter.ImportRemoteAsync(args.Name, args.SourceLocation, args.Format, args.UpdateProxyMode);
                 await minDisplayTask;
                 var importedItem = ApplyImportedOverride(imported);
                 ShowSuccessToast("Overrides.Toast.ImportRemoteSucceeded", importedItem.Name);
@@ -627,7 +627,7 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
             item.Name,
             item.SourceLocation,
             item.Format,
-            ToApplicationProxyMode(item.UpdateProxyMode)), content);
+            item.UpdateProxyMode), content);
     }
 
     public void MoveOverrideUp(string? overrideId)
