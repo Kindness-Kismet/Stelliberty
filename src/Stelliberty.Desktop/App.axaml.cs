@@ -226,8 +226,7 @@ public sealed partial class App : Avalonia.Application
             var proxyConfigParser = new ProxyConfigParser();
             var proxyConfigLoader = new ProxyConfigLoader(
                 proxyConfigSource,
-                proxyConfigParser,
-                () => true);
+                proxyConfigParser);
             var proxySelectionSyncState = new ProxySelectionSyncState();
             var mihomoApiProxyConfigProvider = new MihomoApiProxyConfigProvider(
                 proxyCoreClient,
@@ -279,8 +278,7 @@ public sealed partial class App : Avalonia.Application
                 isPresentationActive: false);
             var rulePage = new RulePageViewModel(new RuleListLoader(
                 new FileRuntimeRuleConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore),
-                new RuleParser(),
-                () => true),
+                new RuleParser()),
                 localization);
             var coreLogPage = new CoreLogPageViewModel(localization: localization);
             var dataBackupService = new FileDataBackupService(platformDirectories.AppDataDirectory);

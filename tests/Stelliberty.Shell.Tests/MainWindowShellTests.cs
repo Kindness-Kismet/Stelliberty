@@ -763,7 +763,7 @@ public sealed class MainWindowShellTests
             rules:
               - DOMAIN-SUFFIX,example.com,PROXY
             """);
-        var rulePage = new RulePageViewModel(new RuleListLoader(ruleSource, new RuleParser(), () => true));
+        var rulePage = new RulePageViewModel(new RuleListLoader(ruleSource, new RuleParser()));
         using var viewModel = CreateViewModel(
             proxyPage: proxyPage,
             rulePage: rulePage,

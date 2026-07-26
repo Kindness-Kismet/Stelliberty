@@ -456,7 +456,7 @@ public sealed class MonitoringPageBusinessTests
               - DOMAIN-SUFFIX,example.com,PROXY
               - IP-CIDR,1.1.1.0/24,DIRECT
             """);
-        var page = new RulePageViewModel(new RuleListLoader(source, new RuleParser(), () => true));
+        var page = new RulePageViewModel(new RuleListLoader(source, new RuleParser()));
         var refreshCount = 0;
         page.RefreshRequested += (_, _) => refreshCount++;
 
