@@ -803,6 +803,9 @@ public sealed class MainWindowShellTests
         return new MainWindowViewModel(
             settingsStore ?? new FakeSettingsStore(settings),
             localization ?? new FakeLocalizationService(),
+            systemProxyService ?? new FakeSystemProxyService(),
+            new FakeAppBehaviorService(),
+            new FakeGlobalHotkeyService(),
             proxyPage: proxyPage,
             connectionPage: connectionPage,
             rulePage: rulePage,
@@ -810,7 +813,6 @@ public sealed class MainWindowShellTests
             overridePage: overridePage,
             homeProxyClient: homeProxyClient,
             coreManager: coreManager,
-            systemProxyService: systemProxyService,
             updateChecker: updateChecker,
             runtimeFallbackGenerator: runtimeFallbackGenerator,
             runtimeStore: runtimeStore,
@@ -985,6 +987,36 @@ public sealed class MainWindowShellTests
         public SystemProxyOperationResult Disable()
         {
             return new SystemProxyOperationResult(true, "disabled");
+        }
+    }
+
+    private sealed class FakeAppBehaviorService : IAppBehaviorService
+    {
+        public void Apply(AppBehaviorApplicationRequest request)
+        {
+        }
+    }
+
+    private sealed class FakeGlobalHotkeyService : IGlobalHotkeyService
+    {
+        public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
+        {
+            return GlobalHotkeyApplyResult.Success();
+        }
+
+        public void SetActivationSuppressed(bool isSuppressed)
+        {
+        }
+
+#if DEBUG
+        public bool SimulateActivation(GlobalHotkeyAction action)
+        {
+            return false;
+        }
+#endif
+
+        public void Dispose()
+        {
         }
     }
 

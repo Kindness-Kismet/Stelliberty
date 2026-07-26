@@ -20,12 +20,12 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private readonly ILocalizationService? _localization;
     private readonly SystemProxyPlatform _systemPlatform;
     private readonly IClipboardWriter? _clipboardWriter;
-    private readonly ISystemProxyService? _systemProxyService;
+    private readonly ISystemProxyService _systemProxyService;
     private readonly IServiceModeManager? _serviceModeManager;
     private readonly Func<bool> _isServiceModeCoreHostActive;
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionActivator;
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionDeactivator;
-    private readonly Func<SystemProxyApplicationRequest>? _systemProxyRequestFactory;
+    private readonly Func<SystemProxyApplicationRequest> _systemProxyRequestFactory;
     private readonly Action<bool>? _tunStateChanged;
 
     private readonly Func<Task>? _coreRestart;
@@ -82,10 +82,10 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource? _refreshCancellation;
 
     public HomePageViewModel(
-        ISystemProxyService? systemProxyService = null,
+        ISystemProxyService systemProxyService,
+        Func<SystemProxyApplicationRequest> systemProxyRequestFactory,
         IServiceModeManager? serviceModeManager = null,
         Func<bool>? isServiceModeCoreHostActive = null,
-        Func<SystemProxyApplicationRequest>? systemProxyRequestFactory = null,
         Action<bool>? tunStateChanged = null,
         INetworkConnectionProbe? networkProbe = null,
         IProxyCoreClient? proxyClient = null,
@@ -665,7 +665,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     {
         try
         {
-            SystemProxyOperationResult? result;
+            SystemProxyOperationResult result;
             await _systemProxyApplyLock.WaitAsync().ConfigureAwait(false);
             try
             {
@@ -681,7 +681,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                 _systemProxyApplyLock.Release();
             }
 
-            if (result is null || result.IsSuccess)
+            if (result.IsSuccess)
             {
                 if (!_isDisposed && version == Volatile.Read(ref _systemProxyApplyVersion))
                 {
@@ -708,11 +708,11 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private SystemProxyOperationResult? ApplySystemProxyCore(bool shouldEnable)
+    private SystemProxyOperationResult ApplySystemProxyCore(bool shouldEnable)
     {
         return shouldEnable
-            ? _systemProxyRequestFactory is null ? null : _systemProxyService?.Enable(_systemProxyRequestFactory.Invoke())
-            : _systemProxyService?.Disable();
+            ? _systemProxyService.Enable(_systemProxyRequestFactory.Invoke())
+            : _systemProxyService.Disable();
     }
 
     private void ApplySystemProxyFailure(bool attemptedState, int version)

@@ -61,6 +61,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public MainWindowViewModel(
         IAppSettingsStore settingsStore,
         ILocalizationService localization,
+        ISystemProxyService systemProxyService,
+        IAppBehaviorService appBehaviorService,
+        IGlobalHotkeyService globalHotkeyService,
         ProxyPageViewModel? proxyPage = null,
         ConnectionPageViewModel? connectionPage = null,
         CoreLogPageViewModel? coreLogPage = null,
@@ -73,12 +76,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Func<DateTimeOffset>? now = null,
         IUwpLoopbackService? uwpLoopbackService = null,
         ISystemProxyHostDetector? systemProxyHostDetector = null,
-        ISystemProxyService? systemProxyService = null,
         IServiceModeManager? serviceModeManager = null,
         Func<bool>? isServiceModeCoreHostActive = null,
         Func<SystemProxyApplicationRequest>? systemProxyRequestFactory = null,
-        IAppBehaviorService? appBehaviorService = null,
-        IGlobalHotkeyService? globalHotkeyService = null,
         SelectedRuntimeFallbackGenerator? runtimeFallbackGenerator = null,
         RuntimeConfigGenerator? runtimeConfigGenerator = null,
         ISelectedSubscriptionRuntimeStore? runtimeStore = null,
@@ -144,9 +144,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         var resolvedSystemProxyRequestFactory = systemProxyRequestFactory ?? (() => SystemProxyApplicationRequest.Build(_settings, systemPlatform));
         HomePage = new HomePageViewModel(
             systemProxyService,
+            resolvedSystemProxyRequestFactory,
             serviceModeManager,
             isServiceModeCoreHostActive,
-            resolvedSystemProxyRequestFactory,
             CoreConfig.ApplyTunFromHome,
             networkConnectionProbe,
             homeProxyClient,

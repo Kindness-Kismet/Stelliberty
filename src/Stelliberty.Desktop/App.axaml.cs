@@ -289,6 +289,9 @@ public sealed partial class App : Avalonia.Application
             var viewModel = new MainWindowViewModel(
                 settingsStore,
                 localization,
+                systemProxyService,
+                appBehaviorService,
+                globalHotkeyService,
                 proxyPage,
                 connectionPage,
                 coreLogPage,
@@ -300,12 +303,9 @@ public sealed partial class App : Avalonia.Application
                 updateChecker: updateChecker,
                 uwpLoopbackService: uwpLoopbackService,
                 systemProxyHostDetector: systemProxyHostDetector,
-                systemProxyService: systemProxyService,
                 serviceModeManager: serviceModeManager,
                 isServiceModeCoreHostActive: () => _isServiceModeCoreHostActive,
                 systemProxyRequestFactory: () => SystemProxyApplicationRequest.Build(settingsStore.Load(), systemProxyPlatform),
-                appBehaviorService: appBehaviorService,
-                globalHotkeyService: globalHotkeyService,
                 runtimeFallbackGenerator: new SelectedRuntimeFallbackGenerator(
                     subscriptionStore,
                     overrideSelectionUpdater,

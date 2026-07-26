@@ -53,7 +53,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings();
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService();
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.IsLazyModeEnabled = true;
         viewModel.SetAutoStartEnabled(true);
@@ -69,7 +69,7 @@ public sealed class SettingsPageBusinessTests
     {
         var settings = new AppSettings();
         var store = new FakeSettingsStore(settings);
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), null);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), new FakeAppBehaviorService(), new FakeGlobalHotkeyService());
 
         Assert.True(viewModel.IsTitleBarFpsVisible);
 
@@ -85,7 +85,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings();
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService { ShouldFail = true };
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.SetAutoStartEnabled(true);
 
@@ -101,7 +101,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings { IsAutoStartEnabled = true };
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService { ShouldFail = true };
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.SetAutoStartEnabled(false);
 
@@ -117,7 +117,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings { IsAutoStartEnabled = true };
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService();
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.RefreshFromSettings();
 
@@ -139,7 +139,7 @@ public sealed class SettingsPageBusinessTests
             settings,
             store,
             new FakeLocalizationService(),
-            null,
+            new FakeAppBehaviorService(),
             hotkeys);
 
         viewModel.SetSystemProxyToggleHotkey("Ctrl+F1");
@@ -187,7 +187,7 @@ public sealed class SettingsPageBusinessTests
         var settings = new AppSettings { IsAutoStartEnabled = true };
         var store = new FakeSettingsStore(settings);
         var service = new FakeAppBehaviorService();
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service);
+        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
         viewModel.IsSilentStartEnabled = true;
 

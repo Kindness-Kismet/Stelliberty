@@ -589,7 +589,13 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var result = _overrideDeleter?.Delete(overrideId) ?? new OverrideDeleteResult(overrideId, []);
+        // 删除器缺失时整个删除不执行，禁止伪造删除结果并移除界面行。
+        if (_overrideDeleter is null)
+        {
+            return;
+        }
+
+        var result = _overrideDeleter.Delete(overrideId);
         _overrides.RemoveAt(index);
         _deletedOverrideIds.Add(overrideId);
         OverrideDeleted?.Invoke(this, result);

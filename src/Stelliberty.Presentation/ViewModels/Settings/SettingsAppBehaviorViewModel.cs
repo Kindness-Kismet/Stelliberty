@@ -13,15 +13,15 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
     private readonly AppSettings _settings;
     private readonly IAppSettingsStore _settingsStore;
     private readonly ILocalizationService _localization;
-    private readonly IAppBehaviorService? _service;
-    private readonly IGlobalHotkeyService? _globalHotkeyService;
+    private readonly IAppBehaviorService _service;
+    private readonly IGlobalHotkeyService _globalHotkeyService;
 
     public SettingsAppBehaviorViewModel(
         AppSettings settings,
         IAppSettingsStore settingsStore,
         ILocalizationService localization,
-        IAppBehaviorService? service,
-        IGlobalHotkeyService? globalHotkeyService = null)
+        IAppBehaviorService service,
+        IGlobalHotkeyService globalHotkeyService)
     {
         _settings = settings;
         _settingsStore = settingsStore;
@@ -135,7 +135,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
 
         try
         {
-            _service?.Apply(BuildRequest(isEnabled));
+            _service.Apply(BuildRequest(isEnabled));
             _settings.IsAutoStartEnabled = isEnabled;
             _settingsStore.Save(_settings);
         }
@@ -184,13 +184,13 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
 
     public void SetHotkeyCaptureActive(bool isActive)
     {
-        _globalHotkeyService?.SetActivationSuppressed(isActive);
+        _globalHotkeyService.SetActivationSuppressed(isActive);
     }
 
 #if DEBUG
     public bool SimulateHotkeyActivation(GlobalHotkeyAction action)
     {
-        return _globalHotkeyService?.SimulateActivation(action) == true;
+        return _globalHotkeyService.SimulateActivation(action);
     }
 #endif
 
@@ -202,7 +202,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         string propertyName)
     {
         var nextValue = gesture.Trim();
-        var result = _globalHotkeyService?.Apply(action, nextValue) ?? GlobalHotkeyApplyResult.Success();
+        var result = _globalHotkeyService.Apply(action, nextValue);
         if (!result.IsSuccess)
         {
             AppLogger.Warning($"Global hotkey apply failed: action={action} error={result.Error}");
@@ -223,7 +223,7 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
         }
         catch (Exception exception)
         {
-            var restoreResult = _globalHotkeyService?.Apply(action, currentValue) ?? GlobalHotkeyApplyResult.Success();
+            var restoreResult = _globalHotkeyService.Apply(action, currentValue);
             assign(currentValue);
             AppLogger.Warning($"Global hotkey save failed: action={action} error={exception.Message}");
             if (!restoreResult.IsSuccess)
