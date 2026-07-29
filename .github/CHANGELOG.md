@@ -1,21 +1,5 @@
-- Fixed error notifications appearing when closing the app while service mode is active.
-- Corrupt settings files are now automatically backed up before being reset to defaults.
-- Data files are now saved using atomic operations to prevent corruption during writes.
-- Update checks now retry automatically after network failures.
-- Fixed connection list occasionally becoming empty or unresponsive during refresh.
-- Subscription delay tests that fail no longer interfere with other operations.
-- Copying subscription links now shows a confirmation message.
-- Notification display timing has been refined for better visibility.
-- The app now responds more quickly when loading.
+- During batch proxy delay tests, each proxy now shows its testing state only when its test actually begins.
 
 ---
 
-- 修复了在服务模式运行时关闭应用弹出错误提示的问题。
-- 损坏的设置文件现在会在重置为默认值之前自动备份。
-- 数据文件现在使用原子操作保存，防止写入过程中损坏。
-- 更新检查在网络失败后会自动重试。
-- 修复了连接列表在刷新时偶尔变空或无响应的问题。
-- 订阅延迟测试失败不再影响其他操作。
-- 复制订阅链接时现在会显示确认消息。
-- 优化了通知显示时长，提升可见性。
-- 应用加载时响应更快。
+- 批量代理测速时，每个代理会在实际开始测速后才显示测速状态。
