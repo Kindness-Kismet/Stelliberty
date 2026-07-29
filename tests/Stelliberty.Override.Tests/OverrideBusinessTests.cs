@@ -3,8 +3,6 @@ using Stelliberty.Application.Overrides;
 using Stelliberty.Application.Subscriptions;
 using Stelliberty.Domain.Overrides;
 using Stelliberty.Domain.Subscriptions;
-using Stelliberty.Infrastructure.Overrides;
-using Stelliberty.Infrastructure.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
 
@@ -15,9 +13,7 @@ public sealed class OverrideBusinessTests
     [Fact(DisplayName = "Page applies override update result")]
     public void PageAppliesOverrideUpdateResult()
     {
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()));
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter());
         page.AddOverride(Item("remote", isLocal: false));
         page.AddOverride(Item("local", isLocal: true));
         OverrideUpdateResult? raised = null;
@@ -62,9 +58,7 @@ public sealed class OverrideBusinessTests
     public void MoveOverridePersistsVisibleOrder()
     {
         var store = new FakeOverrideStore([Override("a"), Override("b"), Override("c")]);
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
 
         page.MoveOverrideDownCommand.Execute("a");
@@ -76,9 +70,7 @@ public sealed class OverrideBusinessTests
     public void MoveOverrideClampsTargetAndPersistsOnlyStoredItems()
     {
         var store = new FakeOverrideStore([Override("a"), Override("b"), Override("c")]);
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
         page.AddOverride(Item("draft", isLocal: true));
 
@@ -97,9 +89,7 @@ public sealed class OverrideBusinessTests
     [Fact(DisplayName = "Load overrides clears missing current selection and delete dialog target")]
     public void LoadOverridesClearsMissingCurrentSelectionAndDeleteDialogTarget()
     {
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()));
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter());
         page.LoadOverrides([Override("a"), Override("b")]);
         page.SelectOverrideCommand.Execute("a");
         page.ShowDeleteDialogCommand.Execute("b");
@@ -143,9 +133,7 @@ public sealed class OverrideBusinessTests
     [Fact(DisplayName = "Delete dialog rejects missing override target")]
     public void DeleteDialogRejectsMissingOverrideTarget()
     {
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()));
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter());
         page.LoadOverrides([Override("a")]);
 
         page.ShowDeleteDialogCommand.Execute("missing");
@@ -343,9 +331,7 @@ public sealed class OverrideBusinessTests
     public void PageEditDialogPersistsMetadataAndRaisesEditedEvent()
     {
         var store = new FakeOverrideStore([Override("a", sourceType: OverrideSourceType.Remote)]);
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
         IReadOnlyList<string>? editedIds = null;
         page.OverridesEdited += (_, ids) => editedIds = ids;
@@ -374,9 +360,7 @@ public sealed class OverrideBusinessTests
     public void PageFileEditPersistsContentWithoutChangingMetadata()
     {
         var store = new FakeOverrideStore([Override("a", sourceType: OverrideSourceType.Remote)]);
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()), overrideStore: store);
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), overrideStore: store);
         page.LoadOverrides(store.LoadOverrides());
         IReadOnlyList<string>? editedIds = null;
         page.OverridesEdited += (_, ids) => editedIds = ids;
@@ -404,9 +388,7 @@ public sealed class OverrideBusinessTests
         ]);
         var downloader = new FakeRemoteOverrideDownloader();
         var page = new OverridePageViewModel(
-            overrideDeleter: new OverrideDeleter(
-                overrideStore: new InMemoryOverrideStore(),
-                subscriptionStore: new InMemorySubscriptionStore()),
+            overrideDeleter: CreateDeleter(),
             overrideStore: store,
             overrideUpdater: new OverrideUpdater(store, downloader, () => DateTimeOffset.UnixEpoch.AddDays(1)));
         page.LoadOverrides(store.LoadOverrides());
@@ -432,9 +414,7 @@ public sealed class OverrideBusinessTests
     public void PageOpenExternalEditorIgnoresMissingOverride()
     {
         var opener = new FakeOverrideFileOpener();
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()), overrideFileOpener: opener);
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), overrideFileOpener: opener);
         page.LoadOverrides([Override("a")]);
 
         page.OpenExternalEditorCommand.Execute("missing");
@@ -447,9 +427,7 @@ public sealed class OverrideBusinessTests
     public void PageDisposeReleasesEveryLanguageSubscription()
     {
         var localization = new FakeLocalizationService();
-        var page = new OverridePageViewModel(overrideDeleter: new OverrideDeleter(
-            overrideStore: new InMemoryOverrideStore(),
-            subscriptionStore: new InMemorySubscriptionStore()), localization: localization);
+        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), localization: localization);
         Assert.True(localization.LanguageChangedSubscriberCount > 0);
 
         page.Dispose();
@@ -461,9 +439,7 @@ public sealed class OverrideBusinessTests
     public async Task PageRemoteOverrideImportReportsSuccessAndFailureToasts()
     {
         var page = new OverridePageViewModel(
-            overrideDeleter: new OverrideDeleter(
-                overrideStore: new InMemoryOverrideStore(),
-                subscriptionStore: new InMemorySubscriptionStore()),
+            overrideDeleter: CreateDeleter(),
             overrideImporter: new OverrideImporter(new FakeOverrideStore([]), new FakeRemoteOverrideDownloader()),
             localization: new FakeLocalizationService());
         var toasts = new List<(string Message, ToastType Type)>();
@@ -478,9 +454,7 @@ public sealed class OverrideBusinessTests
         Assert.Contains(toasts, toast => toast is { Message: "远程覆写导入成功：Remote", Type: ToastType.Success });
 
         var failingPage = new OverridePageViewModel(
-            overrideDeleter: new OverrideDeleter(
-                overrideStore: new InMemoryOverrideStore(),
-                subscriptionStore: new InMemorySubscriptionStore()),
+            overrideDeleter: CreateDeleter(),
             overrideImporter: new OverrideImporter(
                 new FakeOverrideStore([]),
                 new FakeRemoteOverrideDownloader { NextException = new InvalidOperationException("download failed") }),
@@ -504,9 +478,7 @@ public sealed class OverrideBusinessTests
     {
         var importer = new OverrideImporter(new FakeOverrideStore([]), new FakeRemoteOverrideDownloader());
         var page = new OverridePageViewModel(
-            overrideDeleter: new OverrideDeleter(
-                overrideStore: new InMemoryOverrideStore(),
-                subscriptionStore: new InMemorySubscriptionStore()),
+            overrideDeleter: CreateDeleter(),
             overrideImporter: importer,
             localFileReader: new FakeLocalOverrideFileReader("mixed-port: 7890"),
             localization: new FakeLocalizationService());
@@ -523,9 +495,7 @@ public sealed class OverrideBusinessTests
         Assert.Contains(toasts, toast => toast is { Message: "空白覆写创建成功：Blank", Type: ToastType.Success });
 
         var failingLocalPage = new OverridePageViewModel(
-            overrideDeleter: new OverrideDeleter(
-                overrideStore: new InMemoryOverrideStore(),
-                subscriptionStore: new InMemorySubscriptionStore()),
+            overrideDeleter: CreateDeleter(),
             overrideImporter: importer,
             localFileReader: new FakeLocalOverrideFileReader(string.Empty, new InvalidOperationException("read failed")),
             localization: new FakeLocalizationService());
@@ -542,9 +512,7 @@ public sealed class OverrideBusinessTests
         Assert.Equal("本地覆写导入失败，请稍后重试", localFailureToast?.Message);
 
         var failingBlankPage = new OverridePageViewModel(
-            overrideDeleter: new OverrideDeleter(
-                overrideStore: new InMemoryOverrideStore(),
-                subscriptionStore: new InMemorySubscriptionStore()),
+            overrideDeleter: CreateDeleter(),
             overrideImporter: new OverrideImporter(
                 new FakeOverrideStore([], new InvalidOperationException("save failed")),
                 new FakeRemoteOverrideDownloader()),
@@ -685,6 +653,11 @@ public sealed class OverrideBusinessTests
                 _ => key,
             };
         }
+    }
+
+    private static OverrideDeleter CreateDeleter()
+    {
+        return new OverrideDeleter(new FakeOverrideStore([]), new FakeSubscriptionStore([]));
     }
 
     private sealed class FakeOverrideStore(IReadOnlyList<OverrideProfile> overrides, Exception? saveException = null) : IOverrideStore

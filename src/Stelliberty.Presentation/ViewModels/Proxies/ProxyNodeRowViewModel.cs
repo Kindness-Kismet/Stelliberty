@@ -117,4 +117,6 @@ public sealed class ProxyNodeRowViewModel : ViewModelBase
         OnPropertyChanged(nameof(DelayLevel));
         IsDelayTesting = false;
     }
+
+    internal void SetDelayTesting(bool isDelayTesting) => IsDelayTesting = isDelayTesting;
 }
