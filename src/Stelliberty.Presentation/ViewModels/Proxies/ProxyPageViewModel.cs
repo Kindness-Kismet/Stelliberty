@@ -728,7 +728,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         }
 
         var batchNodeNames = nodeNames.Except(excludedNodeNames, StringComparer.Ordinal).ToList();
-        var cancellation = BeginBatchDelayTest(nodeNames, batchNodeNames);
+        var cancellation = BeginBatchDelayTest(nodeNames);
         var configVersion = _configVersion;
         var progress = new Progress<ProxyDelayProgress>(item => OnDelayProgress(item, cancellation, configVersion));
         try
@@ -783,6 +783,19 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     {
         if (IsStaleBatchDelayResult(cancellation, configVersion))
         {
+            return;
+        }
+
+        if (!progress.IsCompleted)
+        {
+            _batchDelayTestingNodeNames.Add(progress.ProxyName);
+            _delayTestingNodeNames.Add(progress.ProxyName);
+            if (_visibleNodeIndexes.TryGetValue(progress.ProxyName, out var testingIndex)
+                && _visibleNodeRows.GetRealizedRow(testingIndex) is { } testingRow)
+            {
+                testingRow.SetDelayTesting(true);
+            }
+
             return;
         }
 
@@ -1217,9 +1230,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         return cancellation;
     }
 
-    private CancellationTokenSource BeginBatchDelayTest(
-        IReadOnlyList<string> targetNodeNames,
-        IReadOnlyList<string> testingNodeNames)
+    private CancellationTokenSource BeginBatchDelayTest(IReadOnlyList<string> targetNodeNames)
     {
         _batchDelayTestCancellation?.Cancel();
         var cancellation = new CancellationTokenSource();
@@ -1228,7 +1239,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         _batchDelayTargetNodeNames.UnionWith(targetNodeNames);
         _batchDelayTestingNodeNames.Clear();
         _batchDelayResults.Clear();
-        _batchDelayTestingNodeNames.UnionWith(testingNodeNames);
         RefreshDelayTestingState();
         RaiseProxyStateChanged();
         return cancellation;

@@ -118,7 +118,11 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         var delays = new ConcurrentDictionary<string, int>(StringComparer.Ordinal);
         var tasks = targets.Select(async proxyName =>
         {
-            var delay = await TestDelayAsync(config, proxyName, cancellationToken);
+            var delay = await TestDelayAsync(
+                config,
+                proxyName,
+                cancellationToken,
+                () => progress?.Report(new ProxyDelayProgress(proxyName, 0, IsCompleted: false)));
             delays[proxyName] = delay;
             progress?.Report(new ProxyDelayProgress(proxyName, delay));
         });
@@ -144,11 +148,16 @@ public sealed class ProxyDelayService(IProxyDelayTester tester)
         return new ProxyDelayResult(config.WithEntryDelays(testedDelays), tested, skipped, failed);
     }
 
-    private async Task<int> TestDelayAsync(ProxyConfig config, string proxyName, CancellationToken cancellationToken)
+    private async Task<int> TestDelayAsync(
+        ProxyConfig config,
+        string proxyName,
+        CancellationToken cancellationToken,
+        Action? onStarted = null)
     {
         await _delayTestSemaphore.WaitAsync(cancellationToken);
         try
         {
+            onStarted?.Invoke();
             if (tester is IProviderProxyDelayTester providerTester
                 && config.Nodes.TryGetValue(proxyName, out var node)
                 && !string.IsNullOrWhiteSpace(node.ProviderName))
