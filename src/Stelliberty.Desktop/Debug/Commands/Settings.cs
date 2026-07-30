@@ -640,7 +640,7 @@ internal static partial class DebugCommands
             var parts = SplitCommandTokens(spec["uwp_set ".Length..]);
             if (parts.Count < 2)
             {
-                throw new InvalidOperationException("settings.system_integration.uwp_set usage: settings.system_integration.uwp_set <package_family_name> <on|off>");
+                throw new InvalidOperationException("settings.system_integration.uwp_set usage: settings.system_integration.uwp_set <package_family_name> <true|false>");
             }
 
             if (!system.SetUwpItemSelected(parts[0], ParseBool(parts[1])))
