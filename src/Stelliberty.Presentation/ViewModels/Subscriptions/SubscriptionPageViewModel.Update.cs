@@ -53,6 +53,10 @@ public sealed partial class SubscriptionPageViewModel
             ShowSuccessToast("Subscriptions.Toast.ImportRemoteSucceeded", item.Name);
             return item;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch
         {
             ShowErrorToast("Subscriptions.Toast.ImportRemoteFailed");
@@ -77,63 +81,36 @@ public sealed partial class SubscriptionPageViewModel
 
     private async Task<SubscriptionItemViewModel> AddRemoteSubscriptionCoreAsync(SubscriptionAddRemoteRequestedEventArgs args, CancellationToken cancellationToken = default)
     {
-        if (_remoteSubscriptionImporter is not null)
-        {
-            var subscription = await _remoteSubscriptionImporter.ImportAsync(new RemoteSubscriptionImportRequest(
-                args.Name,
-                args.Url,
-                args.UserAgent,
-                args.AutoTestDelayIntervalMinutes,
-                args.AutoUpdateMode,
-                args.AutoUpdateIntervalMinutes,
-                args.UpdateProxyMode,
-                args.AgeSecretKey),
-                cancellationToken);
-            var item = ToSubscriptionItem(subscription);
-            AddSubscription(item);
-            AppLogger.Info($"Subscription page received remote import: {subscription.Name}");
-            return item;
-        }
-
-        var fallback = new SubscriptionItemViewModel(
-            $"remote-{_subscriptions.Count + 1}",
+        var importer = _remoteSubscriptionImporter
+            ?? throw new InvalidOperationException("Remote subscription importer is not initialized");
+        var subscription = await importer.ImportAsync(new RemoteSubscriptionImportRequest(
             args.Name,
             args.Url,
-            false,
             args.UserAgent,
             args.AutoTestDelayIntervalMinutes,
             args.AutoUpdateMode,
             args.AutoUpdateIntervalMinutes,
             args.UpdateProxyMode,
-            ageSecretKey: args.AgeSecretKey,
-            localization: _localization);
-        AddSubscription(fallback);
-        return fallback;
+            args.AgeSecretKey),
+            cancellationToken);
+        var item = ToSubscriptionItem(subscription);
+        AddSubscription(item);
+        AppLogger.Info($"Subscription page received remote import: {subscription.Name}");
+        return item;
     }
 
     private SubscriptionItemViewModel AddLocalSubscriptionCore(SubscriptionAddLocalRequestedEventArgs args)
     {
-        if (_localFileImporter is not null)
-        {
-            var subscription = _localFileImporter.Import(new LocalSubscriptionFileImportRequest(
-                args.Name,
-                args.LocalFilePath,
-                args.AutoTestDelayIntervalMinutes));
-            var item = ToSubscriptionItem(subscription);
-            AddSubscription(item);
-            AppLogger.Info($"Subscription page received local import: {subscription.Name}");
-            return item;
-        }
-
-        var fallback = new SubscriptionItemViewModel(
-            $"local-{_subscriptions.Count + 1}",
+        var importer = _localFileImporter
+            ?? throw new InvalidOperationException("Local subscription importer is not initialized");
+        var subscription = importer.Import(new LocalSubscriptionFileImportRequest(
             args.Name,
             args.LocalFilePath,
-            true,
-            autoTestDelayIntervalMinutes: args.AutoTestDelayIntervalMinutes,
-            localization: _localization);
-        AddSubscription(fallback);
-        return fallback;
+            args.AutoTestDelayIntervalMinutes));
+        var item = ToSubscriptionItem(subscription);
+        AddSubscription(item);
+        AppLogger.Info($"Subscription page received local import: {subscription.Name}");
+        return item;
     }
 
     public async Task UpdateSubscriptionAsync(string? subscriptionId, CancellationToken cancellationToken = default)
@@ -143,6 +120,8 @@ public sealed partial class SubscriptionPageViewModel
         {
             return;
         }
+        var updater = _subscriptionUpdater
+            ?? throw new InvalidOperationException("Subscription updater is not initialized");
 
         if (_updateState.TryStartItemUpdate(new UpdateOperationItem(subscription.Id, CanUpdate: !subscription.IsLocalFile)) == UpdateStartResult.Skipped)
         {
@@ -153,37 +132,40 @@ public sealed partial class SubscriptionPageViewModel
         RaiseSubscriptionStateChanged();
         SubscriptionUpdateStarting?.Invoke(this, [subscription.Id]);
         var minDisplayTask = Task.Delay(600);
-        if (_subscriptionUpdater is not null)
+        try
         {
-            try
-            {
-                var result = await _subscriptionUpdater.UpdateAsync(subscription.Id, cancellationToken);
-                await minDisplayTask;
-                ApplySubscriptionUpdateResult(result);
-                ShowSubscriptionUpdateToast(result.UpdatedSubscriptionIds.Contains(subscription.Id));
-            }
-            catch (Exception exception)
-            {
-                AppLogger.Error(exception, $"Subscription update failed: {subscription.Name}");
-                await minDisplayTask;
-                _updateState.CompleteItemUpdate(subscription.Id);
-                RaiseSubscriptionStateChanged();
-                ShowSubscriptionUpdateToast(false);
-            }
-            return;
+            var result = await updater.UpdateAsync(subscription.Id, cancellationToken);
+            await minDisplayTask;
+            ApplySubscriptionUpdateResult(result);
+            ShowSubscriptionUpdateToast(result.UpdatedSubscriptionIds.Contains(subscription.Id));
         }
-
-        await minDisplayTask;
-        _updateState.CompleteItemUpdate(subscription.Id, isUpdated: true);
-        RaiseSubscriptionStateChanged();
-        ShowSubscriptionUpdateToast(true);
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _updateState.CompleteItemUpdate(subscription.Id);
+            RaiseSubscriptionStateChanged();
+            throw;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, $"Subscription update failed: {subscription.Name}");
+            await minDisplayTask;
+            _updateState.CompleteItemUpdate(subscription.Id);
+            RaiseSubscriptionStateChanged();
+            ShowSubscriptionUpdateToast(false);
+        }
     }
 
     public async Task UpdateAllSubscriptionsAsync(CancellationToken cancellationToken = default)
     {
         var subscriptionIds = GetPendingSubscriptionUpdateIds();
-        if (subscriptionIds.Count == 0
-            || _updateState.TryStartBatchUpdate(subscriptionIds.Select(item => new UpdateOperationItem(item, CanUpdate: true)).ToList()) == UpdateStartResult.Skipped)
+        if (subscriptionIds.Count == 0)
+        {
+            RaiseSubscriptionStateChanged();
+            return;
+        }
+        var updater = _subscriptionUpdater
+            ?? throw new InvalidOperationException("Subscription updater is not initialized");
+        if (_updateState.TryStartBatchUpdate(subscriptionIds.Select(item => new UpdateOperationItem(item, CanUpdate: true)).ToList()) == UpdateStartResult.Skipped)
         {
             RaiseSubscriptionStateChanged();
             return;
@@ -192,30 +174,27 @@ public sealed partial class SubscriptionPageViewModel
         RaiseSubscriptionStateChanged();
         SubscriptionUpdateStarting?.Invoke(this, subscriptionIds);
         var minDisplayTask = Task.Delay(600);
-        if (_subscriptionUpdater is not null)
+        try
         {
-            try
-            {
-                var result = await _subscriptionUpdater.UpdateManyAsync(subscriptionIds, cancellationToken);
-                await minDisplayTask;
-                ApplySubscriptionUpdateResult(result);
-                ShowSubscriptionBatchUpdateToast(result.UpdatedSubscriptionIds.Count, result.SkippedSubscriptionIds.Count);
-            }
-            catch (Exception exception)
-            {
-                AppLogger.Error(exception, "Updating all subscriptions failed");
-                await minDisplayTask;
-                _updateState.CompleteBatchUpdate();
-                RaiseSubscriptionStateChanged();
-                ShowSubscriptionBatchUpdateToast(0, subscriptionIds.Count);
-            }
-            return;
+            var result = await updater.UpdateManyAsync(subscriptionIds, cancellationToken);
+            await minDisplayTask;
+            ApplySubscriptionUpdateResult(result);
+            ShowSubscriptionBatchUpdateToast(result.UpdatedSubscriptionIds.Count, result.SkippedSubscriptionIds.Count);
         }
-
-        await minDisplayTask;
-        _updateState.CompleteBatchUpdate();
-        RaiseSubscriptionStateChanged();
-        ShowSubscriptionBatchUpdateToast(subscriptionIds.Count, 0);
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _updateState.CompleteBatchUpdate();
+            RaiseSubscriptionStateChanged();
+            throw;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "Updating all subscriptions failed");
+            await minDisplayTask;
+            _updateState.CompleteBatchUpdate();
+            RaiseSubscriptionStateChanged();
+            ShowSubscriptionBatchUpdateToast(0, subscriptionIds.Count);
+        }
     }
 
     private void ShowSubscriptionUpdateToast(bool isSuccessful)

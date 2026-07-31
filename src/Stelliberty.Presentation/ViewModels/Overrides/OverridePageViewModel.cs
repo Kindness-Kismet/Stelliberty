@@ -254,24 +254,16 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
 
     public async Task<OverrideItemViewModel?> AddRemoteOverrideAsync(OverrideAddRemoteRequestedEventArgs args)
     {
+        var importer = _overrideImporter
+            ?? throw new InvalidOperationException("Override importer is not initialized");
         var minDisplayTask = Task.Delay(600);
         try
         {
-            if (_overrideImporter is not null)
-            {
-                var imported = await _overrideImporter.ImportRemoteAsync(args.Name, args.SourceLocation, args.Format, args.UpdateProxyMode);
-                await minDisplayTask;
-                var importedItem = ApplyImportedOverride(imported);
-                ShowSuccessToast("Overrides.Toast.ImportRemoteSucceeded", importedItem.Name);
-                return importedItem;
-            }
-
-            var item = new OverrideItemViewModel($"remote-{_overrides.Count + 1}", args.Name, args.SourceLocation, args.Format, false, args.UpdateProxyMode, localization: _localization);
-            AddOverride(item);
+            var imported = await importer.ImportRemoteAsync(args.Name, args.SourceLocation, args.Format, args.UpdateProxyMode);
             await minDisplayTask;
-            AddDialog.Close();
-            ShowSuccessToast("Overrides.Toast.ImportRemoteSucceeded", item.Name);
-            return item;
+            var importedItem = ApplyImportedOverride(imported);
+            ShowSuccessToast("Overrides.Toast.ImportRemoteSucceeded", importedItem.Name);
+            return importedItem;
         }
         catch (Exception exception)
         {
@@ -290,27 +282,21 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
 
     public async Task<OverrideItemViewModel?> AddLocalOverrideAsync(OverrideAddLocalRequestedEventArgs args)
     {
+        var importer = _overrideImporter
+            ?? throw new InvalidOperationException("Override importer is not initialized");
+        var reader = _localFileReader
+            ?? throw new InvalidOperationException("Local override file reader is not initialized");
         var minDisplayTask = Task.Delay(600);
         try
         {
-            if (_overrideImporter is not null && _localFileReader is not null)
-            {
-                await minDisplayTask;
-                var importedItem = ApplyImportedOverride(_overrideImporter.ImportLocal(
-                    args.Name,
-                    args.SourceLocation,
-                    args.Format,
-                    _localFileReader.ReadAllText(args.SourceLocation)));
-                ShowSuccessToast("Overrides.Toast.ImportLocalSucceeded", importedItem.Name);
-                return importedItem;
-            }
-
-            var item = new OverrideItemViewModel($"local-{_overrides.Count + 1}", args.Name, args.SourceLocation, args.Format, true, localization: _localization);
-            AddOverride(item);
             await minDisplayTask;
-            AddDialog.Close();
-            ShowSuccessToast("Overrides.Toast.ImportLocalSucceeded", item.Name);
-            return item;
+            var importedItem = ApplyImportedOverride(importer.ImportLocal(
+                args.Name,
+                args.SourceLocation,
+                args.Format,
+                reader.ReadAllText(args.SourceLocation)));
+            ShowSuccessToast("Overrides.Toast.ImportLocalSucceeded", importedItem.Name);
+            return importedItem;
         }
         catch (Exception exception)
         {
@@ -329,23 +315,15 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
 
     public async Task<OverrideItemViewModel?> CreateBlankOverrideAsync(OverrideAddCreateBlankRequestedEventArgs args)
     {
+        var importer = _overrideImporter
+            ?? throw new InvalidOperationException("Override importer is not initialized");
         var minDisplayTask = Task.Delay(600);
         try
         {
-            if (_overrideImporter is not null)
-            {
-                await minDisplayTask;
-                var importedItem = ApplyImportedOverride(_overrideImporter.CreateBlankLocal(args.Name, args.Format));
-                ShowSuccessToast("Overrides.Toast.CreateBlankSucceeded", importedItem.Name);
-                return importedItem;
-            }
-
-            var item = new OverrideItemViewModel($"local-{_overrides.Count + 1}", args.Name, string.Empty, args.Format, true, isCreatedBlank: true, localization: _localization);
-            AddOverride(item);
             await minDisplayTask;
-            AddDialog.Close();
-            ShowSuccessToast("Overrides.Toast.CreateBlankSucceeded", item.Name);
-            return item;
+            var importedItem = ApplyImportedOverride(importer.CreateBlankLocal(args.Name, args.Format));
+            ShowSuccessToast("Overrides.Toast.CreateBlankSucceeded", importedItem.Name);
+            return importedItem;
         }
         catch (Exception exception)
         {
@@ -375,6 +353,10 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         {
             return;
         }
+        var updater = _overrideUpdater
+            ?? throw new InvalidOperationException("Override updater is not initialized");
+        var store = _overrideStore
+            ?? throw new InvalidOperationException("Override store is not initialized");
 
         if (_updateState.TryStartItemUpdate(new UpdateOperationItem(item.Id, CanUpdate: !item.IsLocalFile)) == UpdateStartResult.Skipped)
         {
@@ -384,38 +366,43 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
 
         RaiseOverrideStateChanged();
         var minDisplayTask = Task.Delay(600);
-        if (_overrideUpdater is not null)
+        try
         {
-            try
-            {
-                var result = await _overrideUpdater.UpdateAsync(item.Id, cancellationToken);
-                await minDisplayTask;
-                ApplyOverrideUpdateResult(result);
-                LoadOverrides(_overrideStore?.LoadOverrides() ?? []);
-                ShowOverrideUpdateToast(result.UpdatedOverrideIds.Contains(item.Id));
-            }
-            catch (Exception exception)
-            {
-                AppLogger.Error(exception, $"Override update failed: {item.Name}");
-                await minDisplayTask;
-                _updateState.CompleteItemUpdate(item.Id);
-                RaiseOverrideStateChanged();
-                ShowOverrideUpdateToast(false);
-            }
-            return;
+            var result = await updater.UpdateAsync(item.Id, cancellationToken);
+            await minDisplayTask;
+            ApplyOverrideUpdateResult(result);
+            LoadOverrides(store.LoadOverrides());
+            ShowOverrideUpdateToast(result.UpdatedOverrideIds.Contains(item.Id));
         }
-
-        await minDisplayTask;
-        _updateState.CompleteItemUpdate(item.Id, isUpdated: true);
-        RaiseOverrideStateChanged();
-        ShowOverrideUpdateToast(true);
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _updateState.CompleteItemUpdate(item.Id);
+            RaiseOverrideStateChanged();
+            throw;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, $"Override update failed: {item.Name}");
+            await minDisplayTask;
+            _updateState.CompleteItemUpdate(item.Id);
+            RaiseOverrideStateChanged();
+            ShowOverrideUpdateToast(false);
+        }
     }
 
     public async Task UpdateAllOverridesAsync(CancellationToken cancellationToken = default)
     {
         var overrideIds = GetPendingOverrideUpdateIds();
-        if (overrideIds.Count == 0
-            || _updateState.TryStartBatchUpdate(overrideIds.Select(item => new UpdateOperationItem(item, CanUpdate: true)).ToList()) == UpdateStartResult.Skipped)
+        if (overrideIds.Count == 0)
+        {
+            RaiseOverrideStateChanged();
+            return;
+        }
+        var updater = _overrideUpdater
+            ?? throw new InvalidOperationException("Override updater is not initialized");
+        var store = _overrideStore
+            ?? throw new InvalidOperationException("Override store is not initialized");
+        if (_updateState.TryStartBatchUpdate(overrideIds.Select(item => new UpdateOperationItem(item, CanUpdate: true)).ToList()) == UpdateStartResult.Skipped)
         {
             RaiseOverrideStateChanged();
             return;
@@ -423,31 +410,28 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
 
         RaiseOverrideStateChanged();
         var minDisplayTask = Task.Delay(600);
-        if (_overrideUpdater is not null)
+        try
         {
-            try
-            {
-                var result = await _overrideUpdater.UpdateManyAsync(overrideIds, cancellationToken);
-                await minDisplayTask;
-                ApplyOverrideUpdateResult(result);
-                LoadOverrides(_overrideStore?.LoadOverrides() ?? []);
-                ShowOverrideBatchUpdateToast(result.UpdatedOverrideIds.Count, result.SkippedOverrideIds.Count);
-            }
-            catch (Exception exception)
-            {
-                AppLogger.Error(exception, "Updating all overrides failed");
-                await minDisplayTask;
-                _updateState.CompleteBatchUpdate();
-                RaiseOverrideStateChanged();
-                ShowOverrideBatchUpdateToast(0, overrideIds.Count);
-            }
-            return;
+            var result = await updater.UpdateManyAsync(overrideIds, cancellationToken);
+            await minDisplayTask;
+            ApplyOverrideUpdateResult(result);
+            LoadOverrides(store.LoadOverrides());
+            ShowOverrideBatchUpdateToast(result.UpdatedOverrideIds.Count, result.SkippedOverrideIds.Count);
         }
-
-        await minDisplayTask;
-        _updateState.CompleteBatchUpdate();
-        RaiseOverrideStateChanged();
-        ShowOverrideBatchUpdateToast(overrideIds.Count, 0);
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _updateState.CompleteBatchUpdate();
+            RaiseOverrideStateChanged();
+            throw;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "Updating all overrides failed");
+            await minDisplayTask;
+            _updateState.CompleteBatchUpdate();
+            RaiseOverrideStateChanged();
+            ShowOverrideBatchUpdateToast(0, overrideIds.Count);
+        }
     }
 
     private void ShowOverrideUpdateToast(bool isSuccessful)

@@ -755,15 +755,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        if (_runtimeFallbackGenerator is null)
-        {
-            return;
-        }
+        var runtimeFallbackGenerator = _runtimeFallbackGenerator
+            ?? throw new InvalidOperationException("Runtime config generator is not initialized");
 
         try
         {
             var shouldClearFailureNow = true;
-            var result = GenerateSelectedSubscriptionRuntimeWithOverrideFallback(subscriptionId);
+            var result = GenerateSelectedSubscriptionRuntimeWithOverrideFallback(subscriptionId, runtimeFallbackGenerator);
             if (CoreManager is not null && !string.IsNullOrWhiteSpace(result.RuntimeConfigPath))
             {
                 // pending 只覆盖重启路径，重载成功后立即清除。
@@ -823,15 +821,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         }
     }
 
-    private SelectedSubscriptionRuntimeResult GenerateSelectedSubscriptionRuntimeWithOverrideFallback(string subscriptionId)
+    private SelectedSubscriptionRuntimeResult GenerateSelectedSubscriptionRuntimeWithOverrideFallback(
+        string subscriptionId,
+        SelectedRuntimeFallbackGenerator runtimeFallbackGenerator)
     {
-        if (_runtimeFallbackGenerator is null)
-        {
-            throw new InvalidOperationException("Runtime config generator is not initialized");
-        }
-
         var request = new SelectedSubscriptionRuntimeRequest([], CurrentRuntimeConfigParams());
-        var result = _runtimeFallbackGenerator.Generate(subscriptionId, request);
+        var result = runtimeFallbackGenerator.Generate(subscriptionId, request);
         if (result.OverridesDisabled)
         {
             SubscriptionPage.RefreshOverrideSelectionFromStore(subscriptionId);
