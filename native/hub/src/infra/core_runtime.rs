@@ -383,7 +383,7 @@ impl CoreRuntime {
                     let _ = self.api.close_all_connections().await;
                     let mut inner = self.state.lock().await;
                     inner.last_active_yaml = Some(new_yaml);
-                    let pid = inner.child.as_ref().map(|c| c.pid).unwrap_or(0);
+                    let pid = current_pid(&inner)?;
                     return Ok(serde_json::json!({ "mode": "reload", "pid": pid }));
                 }
                 Err(e) => {
@@ -420,7 +420,7 @@ impl CoreRuntime {
         }
         let mut inner = self.state.lock().await;
         inner.last_active_yaml = Some(new_yaml);
-        let pid = inner.child.as_ref().map(|c| c.pid).unwrap_or(0);
+        let pid = current_pid(&inner)?;
         Ok(serde_json::json!({ "mode": "restart", "pid": pid }))
     }
 
@@ -464,7 +464,10 @@ impl MethodHandler for CoreRuntime {
             }
             "core.restart" => {
                 let _lifecycle = self.lifecycle.lock().await;
-                let _ = self.stop_mihomo().await;
+                self.stop_mihomo().await.map_err(|e| ErrorBody {
+                    code: "hub.internal".into(),
+                    message: format!("{e:#}"),
+                })?;
                 self.start_initial_locked().await.map_err(|e| ErrorBody {
                     code: "core.spawn_failed".into(),
                     message: format!("{e:#}"),
@@ -493,4 +496,15 @@ impl MethodHandler for CoreRuntime {
             }),
         }
     }
+}
+
+fn current_pid(inner: &CoreInner) -> std::result::Result<u32, ErrorBody> {
+    inner
+        .child
+        .as_ref()
+        .map(|child| child.pid)
+        .ok_or_else(|| ErrorBody {
+            code: "core.exited".into(),
+            message: "Core exited before the operation completed".into(),
+        })
 }
