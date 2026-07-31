@@ -305,8 +305,11 @@ public sealed partial class MainWindow : Window
 
         if (nextHost.Content is not null)
         {
+            // 缓存页已有视觉树，直接启动过渡，避免等待空闲合成器唤醒。
             PrepareNextHostEnterState(nextHost);
-            RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: false);
+            ActivatePageHost(nextHost);
+            PreparePageLayout(page, nextHost);
+            StartPageTransition(previousHost, nextHost, version);
             return;
         }
 
@@ -348,7 +351,7 @@ public sealed partial class MainWindow : Window
 
                                 EnsurePageLoaded(page);
                                 PrepareNextHostEnterState(nextHost);
-                                RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: true);
+                                RequestPagePreparationFrame(previousHost, nextHost, page, version);
                             },
                             DispatcherPriority.Background);
                     });
@@ -370,8 +373,7 @@ public sealed partial class MainWindow : Window
         ContentControl? previousHost,
         ContentControl nextHost,
         AppNavigationPage page,
-        long version,
-        bool enforceMinLoading)
+        long version)
     {
         RequestAnimationFrame(
             _ =>
@@ -383,22 +385,21 @@ public sealed partial class MainWindow : Window
 
                 ActivatePageHost(nextHost);
                 PreparePageLayout(page, nextHost);
-                CompletePageLoadingThenEnter(previousHost, nextHost, version, enforceMinLoading);
+                CompletePageLoadingThenEnter(previousHost, nextHost, version);
             });
     }
 
     private void CompletePageLoadingThenEnter(
         ContentControl? previousHost,
         ContentControl nextHost,
-        long version,
-        bool enforceMinLoading)
+        long version)
     {
         if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
         {
             return;
         }
 
-        if (!enforceMinLoading || _pageLoadingShownAt == 0)
+        if (_pageLoadingShownAt == 0)
         {
             RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
             return;
