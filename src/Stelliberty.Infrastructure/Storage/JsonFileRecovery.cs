@@ -18,11 +18,10 @@ internal static class JsonFileRecovery
         {
             json = File.ReadAllText(path);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            // 瞬时 IO 失败不算损坏：保留原文件，等下次读取重试
             AppLogger.Warning($"Read failed for {Path.GetFileName(path)}; keeping file: {exception.Message}");
-            return default;
+            throw;
         }
 
         try

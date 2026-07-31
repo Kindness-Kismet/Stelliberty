@@ -69,6 +69,43 @@ public sealed class FileSubscriptionStoreTests
         }
     }
 
+    [Fact(DisplayName = "Subscription save preserves the index when the existing file cannot be read")]
+    public void SubscriptionSavePreservesIndexWhenExistingFileCannotBeRead()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var root = Path.Combine(Path.GetTempPath(), $"stelliberty-subscriptions-{Guid.NewGuid():N}");
+        var store = new FileSubscriptionStore(root);
+        var original = new Subscription(
+            "original",
+            "Original",
+            "https://example.test/original",
+            IsLocalFile: false,
+            CreatedAt: DateTimeOffset.UnixEpoch);
+        store.Save(original, "proxies: []");
+        var listPath = Path.Combine(root, "subscriptions", "subscriptions_list.json");
+        var originalList = File.ReadAllText(listPath);
+
+        try
+        {
+            using (new FileStream(listPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                var added = original with { Id = "added", Name = "Added" };
+                Assert.Throws<IOException>(() => store.Save(added, "proxies: []"));
+            }
+
+            Assert.Equal(originalList, File.ReadAllText(listPath));
+            Assert.Equal("original", Assert.Single(store.LoadSubscriptions()).Id);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact(DisplayName = "Subscription store rejects lowercase persisted fields")]
     public void SubscriptionStoreRejectsLowercasePersistedFields()
     {
