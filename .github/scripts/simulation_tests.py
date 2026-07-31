@@ -154,7 +154,10 @@ class SimulationTests:
         self.step("Restore outbound mode to rule", lambda: self.require("home.set_outbound rule", contains=["outbound=Rule"]))
         self.step("Switch takeover tab to system proxy", lambda: self.require("home.select_takeover proxy", contains=["takeover=proxy"]))
         self.step("Switch takeover tab to TUN", lambda: self.require("home.select_takeover tun", contains=["takeover=tun"]))
-        self.step("Verify TUN is disabled", lambda: self.require("home.set_tun off", contains=["tun=false"]))
+        self.step("Verify TUN boolean input", lambda: (
+            self.require_error("home.set_tun off", contains=["Invalid boolean value: off"]),
+            self.require("home.set_tun false", contains=["tun=false"]),
+        ))
         self.step("Reset traffic statistics", lambda: self.require("home.reset_traffic", contains=["upload=", "download="]))
         self.step("Restart core and wait for recovery", lambda: (
             self.require("home.restart_core"),
@@ -268,7 +271,7 @@ class SimulationTests:
         self.open_page("settings/data-management", "Settings.WebDavEnableToggle")
         self.require("settings.data_management.webdav_keys", contains=["enabled", "url", "retention-count"])
         self.require("settings.data_management.webdav_state", contains=["webdavEnabled=", "webdavBusy=false"])
-        self.require("settings.data_management.webdav_set enabled off", contains=["webdavEnabled=false"])
+        self.require("settings.data_management.webdav_set enabled false", contains=["webdavEnabled=false"])
         self.require("settings.data_management.webdav_set url https://webdav.example/dav", contains=["webdavUrlSet=true"])
         self.require("settings.data_management.webdav_set username ci-user", contains=["webdavUserSet=true"])
         self.require("settings.data_management.webdav_set password ci-password", contains=["webdavUserSet=true"])
@@ -330,6 +333,18 @@ class SimulationTests:
             if expected not in response:
                 raise SimulationTestError(f"{command} missing expected fragment {expected!r}, actual {response!r}")
 
+        return response
+
+    def require_error(self, command: str, *, contains: list[str]) -> str:
+        response = self.raw_command(command)
+        if not response.startswith("ERR "):
+            raise SimulationTestError(f"{command} expected an error, actual {response!r}")
+
+        for expected in contains:
+            if expected not in response:
+                raise SimulationTestError(f"{command} missing expected fragment {expected!r}, actual {response!r}")
+
+        self.print_command(command, response)
         return response
 
     def wait_for(self, command: str, *, contains: list[str], timeout: float = 60, interval: float = 1) -> str:

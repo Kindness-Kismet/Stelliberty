@@ -166,11 +166,11 @@ internal static partial class DebugCommands
 
     private static bool ParseBool(string value)
     {
-        return value.ToLowerInvariant() switch
+        return value switch
         {
-            "1" or "true" or "yes" or "on" or "enabled" => true,
-            "0" or "false" or "no" or "off" or "disabled" => false,
-            _ => throw new InvalidOperationException($"Invalid boolean value: {value}")
+            "true" => true,
+            "false" => false,
+            _ => throw new InvalidOperationException($"Invalid boolean value: {value}. Expected true or false.")
         };
     }
 }

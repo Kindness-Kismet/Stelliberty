@@ -17,17 +17,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="12.0.5" />
-    <PackageReference Include="Avalonia.Desktop" Version="12.0.5" />
-    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="12.0.5" PrivateAssets="All" Publish="True" />
-    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.0.5" />
+    <PackageReference Include="Avalonia" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.1" />
+    <PackageReference Include="Avalonia.Markup.Xaml.Loader" Version="12.1.1" PrivateAssets="All" Publish="True" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.1" />
     <PackageReference Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
-    <PackageReference Include="HotAvalonia" Version="3.1.3" PrivateAssets="All" Publish="True" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="HotAvalonia" Version="3.1.4" PrivateAssets="All" Publish="True" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="IconPacks.Avalonia.MingCuteIcons" Version="2.0.0-stelliberty.1" />
-    <PackageReference Include="Semi.Avalonia" Version="12.0.3" />
+    <PackageReference Include="Semi.Avalonia" Version="12.1.0" />
     <PackageReference Include="Semi.Avalonia.AvaloniaEdit" Version="12.0.0" />
-    <PackageReference Include="Semi.Avalonia.DataGrid" Version="12.0.0" />
-    <PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.0.3" />
+    <PackageReference Include="Semi.Avalonia.DataGrid" Version="12.1.0" />
+    <PackageReference Include="Semi.Avalonia.ColorPicker" Version="12.1.0" />
   </ItemGroup>
 
   <ItemGroup>

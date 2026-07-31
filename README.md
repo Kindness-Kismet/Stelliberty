@@ -100,9 +100,9 @@ Config format is fully compatible with Clash Meta — see the [mihomo documentat
 
 <sub>[↑ Back to Navigation](#navigation)</sub>
 
-### Installing .NET 11 Runtime
+### App will not start or appears unresponsive after installation?
 
-Install the .NET 11 Runtime before running Stelliberty:
+Install the .NET 11 Runtime, then start Stelliberty again:
 
 - General: [Microsoft download](https://dotnet.microsoft.com/download/dotnet/11.0)
 - Arch Linux and derivatives: AUR package [`dotnet-core-preview-bin`](https://aur.archlinux.org/packages/dotnet-core-preview-bin)

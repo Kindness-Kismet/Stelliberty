@@ -22,7 +22,7 @@ internal static class WindowScreenshot
 
         using var bitmap = new RenderTargetBitmap(pixelSize, new Vector(96, 96));
         bitmap.Render(window);
-        bitmap.Save(screenshotPath);
+        bitmap.Save(screenshotPath, PngBitmapEncoderOptions.Default);
         AppLogger.Info($"Screenshot saved: {screenshotPath}");
     }
 

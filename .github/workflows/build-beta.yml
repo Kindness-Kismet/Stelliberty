@@ -342,7 +342,7 @@ jobs:
           path: |
             build/*.zip
             build/packages/*
-          if-no-files-found: warn
+          if-no-files-found: error
 
   release:
     name: Publish beta to download repository
@@ -364,7 +364,8 @@ jobs:
           printf '%s' '${{ needs.prepare.outputs.release_notes }}' | base64 --decode > release_notes.md
           cat release_notes.md
 
-      - name: Publish to stelliberty
+      - name: Upload beta release draft
+        id: beta-release
         uses: softprops/action-gh-release@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -382,7 +383,22 @@ jobs:
             artifacts/**/*.AppImage
             artifacts/**/*.dmg
             artifacts/**/*.pkg
-          draft: false
+          draft: true
           prerelease: true
           overwrite_files: true
+          fail_on_unmatched_files: true
           make_latest: false
+
+      - name: Publish beta release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_ID: ${{ steps.beta-release.outputs.id }}
+        run: |
+          set -euo pipefail
+
+          gh api \
+            --method PATCH \
+            "repos/Kindness-Kismet/stelliberty/releases/${RELEASE_ID}" \
+            -F draft=false \
+            -F prerelease=true
