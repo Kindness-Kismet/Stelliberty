@@ -43,6 +43,7 @@
   "Common.Save": "Save",
   "Common.Unknown": "Unknown",
   "Common.Error.OperationFailed": "Operation failed",
+  "Common.Error.FilePickerFailed": "File picker failed",
   "Common.Error.CoreStartupFailed": "Core startup failed",
   "Common.Error.ViewAppLogsHint": "{0}. Check app logs for details",
   "Common.ProxyMode.Title": "Update Proxy",

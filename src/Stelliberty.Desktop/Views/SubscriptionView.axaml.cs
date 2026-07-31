@@ -220,15 +220,22 @@ public sealed partial class SubscriptionView : UserControl
             return;
         }
 
-        var filePath = await LocalFilePicker.PickFileAsync(
-            topLevel,
-            Localize("Subscriptions.FilePicker.Subscription.Title"),
-            Localize("Subscriptions.FilePicker.Subscription.Filter"),
-            ["*.yaml", "*.yml"]);
-
-        if (!string.IsNullOrWhiteSpace(filePath))
+        try
         {
-            viewModel.AddDialog.LocalFilePath = filePath;
+            var filePath = await LocalFilePicker.PickFileAsync(
+                topLevel,
+                Localize("Subscriptions.FilePicker.Subscription.Title"),
+                Localize("Subscriptions.FilePicker.Subscription.Filter"),
+                ["*.yaml", "*.yml"]);
+
+            if (!string.IsNullOrWhiteSpace(filePath))
+            {
+                viewModel.AddDialog.LocalFilePath = filePath;
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "Subscription file picker failed");
         }
     }
 

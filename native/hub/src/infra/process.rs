@@ -55,7 +55,10 @@ mod windows_impl {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
     use std::sync::Mutex;
-    use windows::Win32::Foundation::{CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, HANDLE};
+    use windows::Win32::Foundation::{
+        CloseHandle, DUPLICATE_SAME_ACCESS, DuplicateHandle, HANDLE, WAIT_FAILED, WAIT_OBJECT_0,
+        WAIT_TIMEOUT,
+    };
     use windows::Win32::System::JobObjects::{
         AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
         JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation,
@@ -273,12 +276,37 @@ mod windows_impl {
 
             // 安全前提：整数句柄只来自本模块保存的有效 Win32 句柄。
             unsafe {
+                let mut failure = None;
                 if let Some(j) = job {
-                    let _ = CloseHandle(isize_to_handle(j));
+                    if let Err(error) = CloseHandle(isize_to_handle(j)) {
+                        failure = Some(anyhow!("Failed to close mihomo Job Object: {error}"));
+                    }
                 }
                 if let Some(p) = proc {
-                    let _ = WaitForSingleObject(isize_to_handle(p), timeout.as_millis() as u32);
-                    let _ = CloseHandle(isize_to_handle(p));
+                    let wait = WaitForSingleObject(isize_to_handle(p), timeout.as_millis() as u32);
+                    if wait == WAIT_TIMEOUT {
+                        failure
+                            .get_or_insert_with(|| anyhow!("Timed out waiting for mihomo to exit"));
+                    } else if wait == WAIT_FAILED {
+                        failure.get_or_insert_with(|| {
+                            anyhow!(
+                                "Failed to wait for mihomo to exit: {}",
+                                windows::core::Error::from_thread()
+                            )
+                        });
+                    } else if wait != WAIT_OBJECT_0 {
+                        failure.get_or_insert_with(|| {
+                            anyhow!("Unexpected mihomo wait result: {}", wait.0)
+                        });
+                    }
+                    if let Err(error) = CloseHandle(isize_to_handle(p)) {
+                        failure.get_or_insert_with(|| {
+                            anyhow!("Failed to close mihomo process handle: {error}")
+                        });
+                    }
+                }
+                if let Some(error) = failure {
+                    return Err(error);
                 }
             }
             Ok(())
@@ -301,7 +329,13 @@ mod unix_impl {
     #[derive(Debug)]
     pub(crate) struct UnixChild {
         kill: Arc<Notify>,
-        exited: watch::Receiver<bool>,
+        exited: watch::Receiver<Option<UnixExit>>,
+    }
+
+    #[derive(Debug, Clone)]
+    struct UnixExit {
+        code: u32,
+        error: Option<String>,
     }
 
     pub fn spawn(binary: &Path, yaml_path: &Path, data_core_dir: &Path) -> Result<ChildHandle> {
@@ -318,18 +352,28 @@ mod unix_impl {
             .id()
             .ok_or_else(|| anyhow!("Unable to get mihomo PID"))?;
         let kill = Arc::new(Notify::new());
-        let (exited_tx, exited_rx) = watch::channel(false);
+        let (exited_tx, exited_rx) = watch::channel(None);
         let kill_listener = kill.clone();
         // 回收任务独占 child，确保自然退出和主动终止只广播一次。
         tokio::spawn(async move {
-            tokio::select! {
-                _ = child.wait() => {}
+            let result = tokio::select! {
+                result = child.wait() => result,
                 _ = kill_listener.notified() => {
                     let _ = child.start_kill();
-                    let _ = child.wait().await;
+                    child.wait().await
                 }
-            }
-            let _ = exited_tx.send(true);
+            };
+            let outcome = match result {
+                Ok(status) => UnixExit {
+                    code: status.code().map(|code| code as u32).unwrap_or(u32::MAX),
+                    error: None,
+                },
+                Err(error) => UnixExit {
+                    code: u32::MAX,
+                    error: Some(format!("Failed to wait for mihomo: {error}")),
+                },
+            };
+            let _ = exited_tx.send(Some(outcome));
         });
         Ok(ChildHandle {
             pid,
@@ -343,15 +387,27 @@ mod unix_impl {
     pub fn exit_waiter(child: &ChildHandle) -> Result<Pin<Box<dyn Future<Output = u32> + Send>>> {
         let mut exited = child.inner.exited.clone();
         Ok(Box::pin(async move {
-            let _ = exited.wait_for(|&done| done).await;
-            u32::MAX
+            exited
+                .wait_for(Option::is_some)
+                .await
+                .ok()
+                .and_then(|outcome| outcome.as_ref().map(|value| value.code))
+                .unwrap_or(u32::MAX)
         }))
     }
 
     pub async fn shutdown(child: ChildHandle, timeout: Duration) -> Result<()> {
         child.inner.kill.notify_one();
         let mut exited = child.inner.exited;
-        let _ = tokio::time::timeout(timeout, exited.wait_for(|&done| done)).await;
+        let outcome = tokio::time::timeout(timeout, exited.wait_for(Option::is_some))
+            .await
+            .map_err(|_| anyhow!("Timed out waiting for mihomo to exit"))?
+            .map_err(|_| anyhow!("Mihomo exit monitor stopped unexpectedly"))?
+            .clone()
+            .ok_or_else(|| anyhow!("Mihomo exit monitor returned no result"))?;
+        if let Some(error) = outcome.error {
+            return Err(anyhow!(error));
+        }
         Ok(())
     }
 }

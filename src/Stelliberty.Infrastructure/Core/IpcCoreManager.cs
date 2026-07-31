@@ -74,12 +74,16 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
             subscription_id = request.SubscriptionId,
         });
         var result = await _client.RequestAsync("core.apply_config", paramJson, cancellationToken).ConfigureAwait(false);
-        var mode = result.TryGetProperty("mode", out var modeProp) && modeProp.GetString() == "reload"
-            ? CoreApplyMode.Reload
-            : CoreApplyMode.Restart;
-        var pid = result.TryGetProperty("pid", out var pidProp) && pidProp.ValueKind == JsonValueKind.Number
-            ? pidProp.GetInt32()
-            : 0;
+        var mode = result.TryGetProperty("mode", out var modeProp) && modeProp.ValueKind == JsonValueKind.String
+            ? modeProp.GetString() switch
+            {
+                "reload" => CoreApplyMode.Reload,
+                "restart" => CoreApplyMode.Restart,
+                var value => throw new InvalidOperationException($"Core apply config returned an unknown mode: {value}")
+            }
+            : throw new InvalidOperationException("Core apply config did not return a mode.");
+        var pid = ParsePid(result)
+            ?? throw new InvalidOperationException("Core apply config did not return a valid process pid.");
         return new CoreApplyConfigResult(mode, pid);
     }
 
@@ -258,8 +262,11 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
 
     private static int? ParsePid(JsonElement data)
     {
-        return data.TryGetProperty("pid", out var pidProp) && pidProp.ValueKind == JsonValueKind.Number
-            ? pidProp.GetInt32()
+        return data.TryGetProperty("pid", out var pidProp)
+            && pidProp.ValueKind == JsonValueKind.Number
+            && pidProp.TryGetInt32(out var pid)
+            && pid > 0
+            ? pid
             : null;
     }
 

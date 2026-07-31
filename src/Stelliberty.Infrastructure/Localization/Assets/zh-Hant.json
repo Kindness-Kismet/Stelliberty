@@ -43,6 +43,7 @@
   "Common.Save": "儲存",
   "Common.Unknown": "未知",
   "Common.Error.OperationFailed": "操作失敗",
+  "Common.Error.FilePickerFailed": "檔案選擇器開啟失敗",
   "Common.Error.CoreStartupFailed": "核心啟動失敗",
   "Common.Error.ViewAppLogsHint": "{0}，詳情請查看應用日誌",
   "Common.ProxyMode.Title": "更新代理模式",

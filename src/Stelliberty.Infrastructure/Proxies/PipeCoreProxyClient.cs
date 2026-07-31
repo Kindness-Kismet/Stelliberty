@@ -112,7 +112,8 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
             var content = await response.Content.ReadAsStringAsync(timeout.Token);
             return new ConnectionParser().Parse(content);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        catch (Exception exception) when (exception is HttpRequestException or JsonException or IOException
+            || exception is TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             AppLogger.Warning($"Core connection list read failed: {exception.Message}");
             return null;
@@ -264,7 +265,8 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
             }
             return null;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or IOException
+            || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             AppLogger.Warning($"Core runtime config read failed: {ex.Message}");
             return null;
@@ -296,7 +298,8 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
             using var doc = JsonDocument.Parse(json);
             return doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        catch (Exception ex) when (ex is HttpRequestException or JsonException or IOException
+            || ex is TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             AppLogger.Warning($"Core version read failed: {ex.Message}");
             return null;
@@ -488,7 +491,8 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
                 return false;
             }
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or IOException)
+        catch (Exception exception) when (exception is HttpRequestException or IOException
+            || exception is TaskCanceledException && !cancellationToken.IsCancellationRequested)
         {
             AppLogger.Warning($"Core operation failed: {operationName} {exception.Message}");
             return false;

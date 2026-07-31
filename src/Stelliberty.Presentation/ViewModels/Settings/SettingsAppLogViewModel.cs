@@ -163,6 +163,7 @@ public sealed class SettingsAppLogViewModel : ViewModelBase, IDisposable
 
     public async Task RefreshAsync()
     {
+        var reader = _reader ?? throw new InvalidOperationException("App log reader is not initialized");
         var requestId = ++_refreshRequestId;
         try
         {
@@ -173,7 +174,7 @@ public sealed class SettingsAppLogViewModel : ViewModelBase, IDisposable
             IsLoading = true;
             await Task.Yield();
 
-            var logs = await Task.Run(() => _reader?.ReadEntries(MaxLoadedEntries, cancellation.Token) ?? [], cancellation.Token);
+            var logs = await Task.Run(() => reader.ReadEntries(MaxLoadedEntries, cancellation.Token), cancellation.Token);
             if (IsStaleRefresh(requestId, cancellation))
             {
                 return;
@@ -207,15 +208,20 @@ public sealed class SettingsAppLogViewModel : ViewModelBase, IDisposable
 
     public async Task ExportToFileAsync(string exportPath, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(exportPath) || _exporter is null)
+        if (string.IsNullOrWhiteSpace(exportPath))
         {
             return;
         }
+        var exporter = _exporter ?? throw new InvalidOperationException("App log exporter is not initialized");
 
         try
         {
-            await _exporter.ExportAsync(exportPath, cancellationToken);
+            await exporter.ExportAsync(exportPath, cancellationToken);
             ReportExport(true, exportPath);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {

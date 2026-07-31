@@ -1,6 +1,8 @@
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
 using Stelliberty.Application.Diagnostics;
+using Stelliberty.Desktop.Localization;
+using Stelliberty.Presentation.ViewModels;
 
 namespace Stelliberty.Desktop.Views;
 
@@ -19,8 +21,7 @@ internal static class LocalFilePicker
             AppLogger.Info($"File picker preparing to open: TopLevel={topLevel.GetType().Name}, Provider={provider.GetType().FullName}, CanOpen={provider.CanOpen}");
             if (!provider.CanOpen)
             {
-                AppLogger.Warning("File picker is unavailable");
-                return null;
+                throw new InvalidOperationException("File picker is unavailable");
             }
 
             AppLogger.Info($"File picker call started: Title={title}, Filter={filterName}");
@@ -38,10 +39,10 @@ internal static class LocalFilePicker
             AppLogger.Info($"File picker call completed: Count={files.Count}");
             return files.Count > 0 ? files[0].TryGetLocalPath() : null;
         }
-        catch (Exception exception)
+        catch (Exception)
         {
-            AppLogger.Error(exception, "File picker open failed");
-            return null;
+            ShowFailure(topLevel);
+            throw;
         }
     }
 
@@ -59,8 +60,7 @@ internal static class LocalFilePicker
             AppLogger.Info($"Save file picker preparing to open: TopLevel={topLevel.GetType().Name}, Provider={provider.GetType().FullName}, CanSave={provider.CanSave}");
             if (!provider.CanSave)
             {
-                AppLogger.Warning("Save file picker is unavailable");
-                return null;
+                throw new InvalidOperationException("Save file picker is unavailable");
             }
 
             var file = await provider.SaveFilePickerAsync(new FilePickerSaveOptions
@@ -78,10 +78,18 @@ internal static class LocalFilePicker
 
             return file?.TryGetLocalPath();
         }
-        catch (Exception exception)
+        catch (Exception)
         {
-            AppLogger.Error(exception, "Save file picker open failed");
-            return null;
+            ShowFailure(topLevel);
+            throw;
+        }
+    }
+
+    private static void ShowFailure(TopLevel topLevel)
+    {
+        if (topLevel.DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.ShowErrorToast(LocalizationManager.Translate("Common.Error.FilePickerFailed"));
         }
     }
 }
