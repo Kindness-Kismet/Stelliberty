@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -44,6 +45,7 @@ public sealed partial class MainWindow : Window
     private MainWindowViewModel? _attachedViewModel;
     private AccentColorPickerView? _activeAccentPicker;
     private bool _isShutdownRequested;
+    private bool _isShutdownPreparing;
     private bool _hasOpened;
     private long _pageTransitionVersion;
     private long _pageLoadingShownAt;
@@ -765,23 +767,76 @@ public sealed partial class MainWindow : Window
 
     public void RequestShutdown()
     {
-        _isShutdownRequested = true;
-        Close();
+        if (_isShutdownRequested || _isShutdownPreparing)
+        {
+            return;
+        }
+
+        AppLogger.Info("[Shutdown] Application exit requested");
+        _isShutdownPreparing = true;
+        _ = PrepareAndShutdownAsync();
     }
+
+    internal Func<Task>? PrepareShutdownAsync { private get; set; }
+
+    internal Action? OsShutdownDetected { private get; set; }
+
+    internal bool IsShutdownPreparing => _isShutdownPreparing;
 
     protected override void OnClosing(WindowClosingEventArgs args)
     {
         _windowStateService.SaveNow();
-        if (!_isShutdownRequested && DataContext is MainWindowViewModel { AppBehavior.IsMinimizeToTrayEnabled: true })
+        if (args.CloseReason == WindowCloseReason.OSShutdown)
+        {
+            OsShutdownDetected?.Invoke();
+            AppLogger.Info("[Shutdown] OS window close accepted without cancellation");
+            base.OnClosing(args);
+            return;
+        }
+
+        if (!_isShutdownRequested)
         {
             args.Cancel = true;
-            ClearTitleBarHoverState();
-            // 先取消关闭按钮红色效果，等界面更新两次再隐藏，避免恢复窗口时闪红。
-            RequestAnimationFrame(OnTitleBarStateClearedFrame);
+            if (DataContext is MainWindowViewModel { AppBehavior.IsMinimizeToTrayEnabled: true })
+            {
+                ClearTitleBarHoverState();
+                // 先取消关闭按钮红色效果，等界面更新两次再隐藏，避免恢复窗口时闪红。
+                RequestAnimationFrame(OnTitleBarStateClearedFrame);
+            }
+            else
+            {
+                RequestShutdown();
+            }
             return;
         }
 
         base.OnClosing(args);
+    }
+
+    private async Task PrepareAndShutdownAsync()
+    {
+        AppLogger.Info("[Shutdown] Application exit preparation started");
+        try
+        {
+            if (PrepareShutdownAsync is not null)
+            {
+                await PrepareShutdownAsync();
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"[Shutdown] Application exit preparation failed: {exception.Message}");
+        }
+
+        AppLogger.Info("[Shutdown] Application exit preparation completed");
+        var desktop = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var requiresExplicitShutdown = desktop?.ShutdownMode == ShutdownMode.OnExplicitShutdown;
+        _isShutdownRequested = true;
+        Close();
+        if (requiresExplicitShutdown)
+        {
+            desktop?.TryShutdown(0);
+        }
     }
 
     protected override void OnClosed(EventArgs e)

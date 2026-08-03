@@ -15,6 +15,8 @@ namespace Stelliberty.Presentation.ViewModels;
 
 public sealed class HomePageViewModel : ViewModelBase, IDisposable
 {
+    // 系统关机不能无限等待正在执行的代理设置。
+    private static readonly TimeSpan ShutdownProxyLockTimeout = TimeSpan.FromSeconds(2);
     private readonly ILocalizationService? _localization;
     private readonly SystemProxyPlatform _systemPlatform;
     private readonly IClipboardWriter? _clipboardWriter;
@@ -634,7 +636,11 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     {
         // 只关闭本实例的系统代理，保留外部代理状态。
         Interlocked.Increment(ref _systemProxyApplyVersion);
-        _systemProxyApplyLock.Wait();
+        if (!_systemProxyApplyLock.Wait(ShutdownProxyLockTimeout))
+        {
+            AppLogger.Warning("[Shutdown] System proxy cleanup timed out waiting for the apply lock");
+            return;
+        }
         try
         {
             if (!_hasEnabledSystemProxy)
@@ -646,7 +652,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         }
         catch (Exception exception)
         {
-            AppLogger.Warning($"System proxy shutdown cleanup failed: {exception.Message}");
+            AppLogger.Warning($"[Shutdown] System proxy cleanup failed: {exception.Message}");
         }
         finally
         {

@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input.Platform;
 using Avalonia.VisualTree;
 
@@ -51,10 +50,6 @@ internal static partial class DebugCommands
         if (string.Equals(command, "app.quit", StringComparison.OrdinalIgnoreCase))
         {
             window.RequestShutdown();
-            if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-            {
-                desktop.TryShutdown(0);
-            }
             return null;
         }
 

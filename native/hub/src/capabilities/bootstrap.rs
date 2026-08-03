@@ -182,7 +182,8 @@ pub fn hub_stop_core() -> BootstrapResult {
         let Some(inst) = INSTANCE.get() else {
             return BootstrapResult::err("Hub is not initialized");
         };
-        match run_core_task(inst.core.clone(), CoreTask::Stop, Duration::from_secs(7)) {
+        // 普通模式核心停止总预算固定为 5 秒。
+        match run_core_task(inst.core.clone(), CoreTask::Stop, Duration::from_secs(5)) {
             Ok(()) => BootstrapResult::ok(),
             Err(e) => BootstrapResult::err(format!("Core shutdown failed: {e:#}")),
         }

@@ -49,7 +49,10 @@ public sealed partial class App : Avalonia.Application
     private DispatcherTimer? _subscriptionAutoUpdateTimer;
     private DispatcherTimer? _homeRuntimeTimer;
     private DispatcherTimer? _webDavBackupTimer;
+    private int _isOsShutdownRequested;
     private bool _isServiceModeCoreHostActive;
+    // 主动退出最多等待服务核心 5 秒，普通核心在 Rust 侧使用相同总预算。
+    private static readonly TimeSpan CoreShutdownTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan InitialServiceModeTunWaitTimeout = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan InitialServiceModeStatusPollInterval = TimeSpan.FromMilliseconds(250);
 
@@ -219,7 +222,8 @@ public sealed partial class App : Avalonia.Application
                 HubStartupCoordinator.StopCoreAsync,
                 HubStartupCoordinator.ResumeCoreAsync,
                 (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
-                isActive => _isServiceModeCoreHostActive = isActive);
+                isActive => _isServiceModeCoreHostActive = isActive,
+                isServiceModeActive: initialServiceModeStatus.IsRunning);
             var coreUpdater = new MihomoCoreUpdater(DesktopApplicationLayout.CoreBinaryPath, coreManager);
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
             var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
@@ -341,6 +345,28 @@ public sealed partial class App : Avalonia.Application
             {
                 DataContext = viewModel
             };
+            mainWindow.PrepareShutdownAsync = async () =>
+            {
+                StopBackgroundServices();
+                AppLogger.Info("[Shutdown] Background schedulers stopped");
+                using var timeout = new CancellationTokenSource(CoreShutdownTimeout);
+                var serviceStopStartedAt = Stopwatch.GetTimestamp();
+                var result = await serviceModeSessionSwitcher.PrepareForShutdownAsync(timeout.Token);
+                if (!result.IsSuccess)
+                {
+                    AppLogger.Warning($"[Shutdown] Service-mode core stop failed elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                }
+                else
+                {
+                    AppLogger.Info($"[Shutdown] Service-mode core stop completed elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                }
+
+                var hubStopStartedAt = Stopwatch.GetTimestamp();
+                AppLogger.Info("[Shutdown] Normal-mode hub shutdown started");
+                await Task.Run(HubBootstrap.Shutdown);
+                AppLogger.Info($"[Shutdown] Normal-mode hub shutdown completed elapsed={Stopwatch.GetElapsedTime(hubStopStartedAt).TotalMilliseconds:0}ms");
+            };
+            mainWindow.OsShutdownDetected = () => Interlocked.Exchange(ref _isOsShutdownRequested, 1);
 #if DEBUG
             LogStartupTrace("Main window constructed and bound", startupStartedAt);
 #endif
@@ -360,18 +386,38 @@ public sealed partial class App : Avalonia.Application
 
             desktop.ShutdownRequested += (_, _) =>
             {
+                var isOsShutdown = Volatile.Read(ref _isOsShutdownRequested) != 0;
+                var source = mainWindow.IsShutdownPreparing
+                    ? "application"
+                    : isOsShutdown ? "os" : "external";
+                AppLogger.Info($"[Shutdown] Lifetime cleanup started (origin: {source})");
                 StopBackgroundServices();
+                AppLogger.Info("[Shutdown] System proxy cleanup started");
                 viewModel.HomePage.DisableSystemProxyOnShutdown();
+                AppLogger.Info("[Shutdown] System proxy cleanup completed");
                 _trayService.Dispose();
                 globalHotkeyService.Dispose();
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
                 viewModel.Dispose();
-                DisposeOwnedServices(serviceModeSessionSwitcher, coreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
-                HubBootstrap.Shutdown();
+                var switcherDisposed = serviceModeSessionSwitcher.TryDisposeForShutdown();
+                var coreManagerDisposed = coreManager.TryDisposeForShutdown();
+                AppLogger.Info($"[Shutdown] Core ownership released switcher={switcherDisposed} manager={coreManagerDisposed}");
+                DisposeOwnedServices(proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
+                if (OperatingSystem.IsWindows())
+                {
+                    AppLogger.Info("[Shutdown] Lifetime cleanup skipped synchronous hub wait; Job Object owns remaining normal core termination");
+                }
+                else
+                {
+                    HubBootstrap.Shutdown();
+                }
+                AppLogger.Info($"[Shutdown] Lifetime cleanup completed (origin: {source})");
             };
             // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。
-            _sessionEndCleanup = new SessionEndCleanupService(viewModel.HomePage.DisableSystemProxyOnShutdown);
+            _sessionEndCleanup = new SessionEndCleanupService(
+                viewModel.HomePage.DisableSystemProxyOnShutdown,
+                isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
             _sessionEndCleanup.Start();
             _trayService.Attach(desktop, mainWindow, viewModel, localization);
             foreach (var (action, gesture) in new[]
@@ -548,6 +594,7 @@ public sealed partial class App : Avalonia.Application
                 cancellationToken);
             if (result.IsSuccess)
             {
+                _isServiceModeCoreHostActive = true;
                 AppLogger.Info("Service-mode core started");
                 return BootstrapResult.Success(result.Message);
             }

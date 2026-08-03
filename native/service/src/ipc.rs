@@ -99,10 +99,24 @@ impl ServiceState {
     }
 
     pub async fn stop_core(&self) {
-        if let Err(error) = self.core.stop().await {
-            logging::warn(format!(
-                "Failed to stop core during service shutdown: {error:#}"
-            ));
+        let status = self.core.status().await;
+        let started_at = Instant::now();
+        logging::info(format!(
+            "Service core shutdown started: state={} pid={}",
+            core_state_text(status.state),
+            status
+                .pid
+                .map_or_else(|| "none".to_string(), |pid| pid.to_string())
+        ));
+        match self.core.stop_for_service_shutdown().await {
+            Ok(()) => logging::info(format!(
+                "Service core shutdown completed: elapsed={}ms",
+                started_at.elapsed().as_millis()
+            )),
+            Err(error) => logging::warn(format!(
+                "Service core shutdown failed: elapsed={}ms error={error:#}",
+                started_at.elapsed().as_millis()
+            )),
         }
     }
     async fn status(&self) -> ServiceResponse {
