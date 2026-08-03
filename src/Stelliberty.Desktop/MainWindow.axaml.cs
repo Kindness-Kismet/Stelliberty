@@ -32,6 +32,7 @@ public sealed partial class MainWindow : Window
     private readonly WindowAppearanceService _windowAppearanceService = new();
     private readonly WindowStateService _windowStateService;
     private readonly SystemAccentColorService _systemAccentColorService = new();
+    private readonly BitmapCache _proxyPageBitmapCache = new() { SnapsToDevicePixels = true };
     private readonly Dictionary<AppNavigationPage, ContentControl> _pageHosts = new();
     private readonly Dictionary<AppNavigationPage, Dictionary<string, Vector>> _pageScrollOffsets = new();
     private IReadOnlyDictionary<SettingsSubPage, Vector> _settingsScrollOffsets = new Dictionary<SettingsSubPage, Vector>();
@@ -211,6 +212,8 @@ public sealed partial class MainWindow : Window
             _pageHosts[AppNavigationPage.Subscriptions] = SubscriptionsPageHost;
             _pageHosts[AppNavigationPage.Overrides] = OverridesPageHost;
             _pageHosts[AppNavigationPage.Settings] = SettingsPageHost;
+            // 代理页作为单层纹理参与整页变换，避免动画期间重复绘制大视觉树。
+            ProxyPageHost.CacheMode = _proxyPageBitmapCache;
             _pageHostsReady = true;
         }
 
