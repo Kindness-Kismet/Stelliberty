@@ -170,7 +170,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         var payload = JsonSerializer.Serialize(
             new StartCoreCommand(
                 new StartCorePayload(
-                    request.MihomoPath,
+                    request.CorePath,
                     request.ConfigPath,
                     request.DataCoreDir)));
         return RunServiceCommandAsync("start-core", false, ManageTimeout, cancellationToken, payload);
@@ -619,8 +619,9 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         public string Type => "StartCore";
     }
 
+    // 服务协议字段保留 mihomo_path，兼容已安装的旧服务。
     private sealed record StartCorePayload(
-        [property: JsonPropertyName("mihomo_path")] string MihomoPath,
+        [property: JsonPropertyName("mihomo_path")] string CorePath,
         [property: JsonPropertyName("config_path")] string ConfigPath,
         [property: JsonPropertyName("data_core_dir")] string DataCoreDir);
 }

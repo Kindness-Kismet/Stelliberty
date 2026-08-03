@@ -10,6 +10,7 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private ICoreManager _current;
+    private volatile bool _isDisposalRequested;
     private bool _isDisposed;
 
     public SwitchableCoreManager(ICoreManager initial)
@@ -64,6 +65,7 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
 
     public async ValueTask DisposeAsync()
     {
+        _isDisposalRequested = true;
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -75,6 +77,33 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
             _isDisposed = true;
             Detach(_current);
             DisposeCore(_current);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
+    public bool TryDisposeForShutdown()
+    {
+        _isDisposalRequested = true;
+        // 退出事件不能等待仍在执行的核心操作，Windows 会随 Job 关闭核心。
+        if (!_gate.Wait(0))
+        {
+            return false;
+        }
+
+        try
+        {
+            if (_isDisposed)
+            {
+                return true;
+            }
+
+            _isDisposed = true;
+            Detach(_current);
+            DisposeCore(_current);
+            return true;
         }
         finally
         {
@@ -166,7 +195,7 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
         switch (core)
         {
             case IpcCoreManager ipcCoreManager:
-                await ipcCoreManager.ConnectAsync(cancellationToken).ConfigureAwait(false);
+                await ipcCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
                 break;
             case ServiceModeCoreManager serviceModeCoreManager:
                 await serviceModeCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
@@ -215,7 +244,7 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
 
     private void ThrowIfDisposed()
     {
-        if (_isDisposed)
+        if (_isDisposed || _isDisposalRequested)
         {
             throw new ObjectDisposedException(nameof(SwitchableCoreManager));
         }

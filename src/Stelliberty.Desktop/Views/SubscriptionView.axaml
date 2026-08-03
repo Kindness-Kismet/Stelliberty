@@ -908,11 +908,12 @@
             </controls:DialogPanel>
 
             <controls:DialogPanel PanelWidth="600"
+                                  ContentPadding="0,0,2,0"
                                   AutomationProperties.AutomationId="Subscriptions.ChainProxyDialog"
                                   IsOpen="{Binding ChainProxy.IsDialogVisible}">
               <controls:DialogPanel.DialogContent>
                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
-                  <StackPanel Grid.Row="0" Spacing="10">
+                  <StackPanel Grid.Row="0" Spacing="10" Margin="24,24,24,0">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                       <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.ChainProxy.Title}" VerticalAlignment="Center" />
                       <Button Grid.Column="1"
@@ -934,7 +935,7 @@
                       <TextBlock Classes="dialog-subtitle" HorizontalAlignment="Center" Text="{loc:Loc Subscriptions.ChainProxy.Loading}" />
                     </StackPanel>
 
-                    <StackPanel MinHeight="160" VerticalAlignment="Center" Spacing="8"
+                    <StackPanel MinHeight="160" Margin="24,0,22,0" VerticalAlignment="Center" Spacing="8"
                                 IsVisible="{Binding ChainProxy.IsErrorVisible}">
                       <TextBlock Classes="dialog-error" TextWrapping="Wrap"
                                  AutomationProperties.AutomationId="Subscriptions.ChainProxy.ErrorText"
@@ -944,9 +945,8 @@
                     <ScrollViewer AutomationProperties.AutomationId="Subscriptions.ChainProxy.ListScroll"
                                   MaxHeight="420"
                                   VerticalScrollBarVisibility="Auto"
-                                  Padding="0,0,2,0"
                                   IsVisible="{Binding ChainProxy.IsListVisible}">
-                      <StackPanel Spacing="12">
+                      <StackPanel Margin="24,0,22,0" Spacing="12">
                         <StackPanel Spacing="8" IsVisible="{Binding ChainProxy.HasBuiltins}">
                           <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.ChainProxy.Builtin}" />
                           <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.BuiltinList"
@@ -1020,9 +1020,8 @@
                     <ScrollViewer AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftScroll"
                                   MaxHeight="420"
                                   VerticalScrollBarVisibility="Auto"
-                                  Padding="0,0,2,0"
                                   IsVisible="{Binding ChainProxy.IsDraftVisible}">
-                      <StackPanel Spacing="14">
+                      <StackPanel Margin="24,0,22,0" Spacing="14">
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
                           <TextBox Classes="dialog-input"
@@ -1090,7 +1089,7 @@
                     </ScrollViewer>
                   </Panel>
 
-                  <Panel Grid.Row="2">
+                  <Panel Grid.Row="2" Margin="24,0,24,24">
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
                                 IsVisible="{Binding ChainProxy.IsListVisible}">
                       <Button Classes="dialog-secondary"

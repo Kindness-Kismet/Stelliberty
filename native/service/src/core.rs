@@ -11,6 +11,8 @@ use crate::channel::core_lock_prefix;
 use crate::logging;
 
 const CORE_LOCK_SUFFIX: &str = ".lock";
+// 核心停止固定 5 秒；服务退出时锁等待也计入该预算。
+const CORE_STOP_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -76,7 +78,8 @@ impl CoreManager {
 
     async fn start_locked(&self, request: StartCoreRequest) -> Result<u32> {
         validate_start_request(&request)?;
-        self.stop_with_restore_flag_locked(false).await?;
+        self.stop_with_restore_flag_locked(false, CORE_STOP_TIMEOUT)
+            .await?;
         let killed = self.cleanup_orphan_cores_checked().await?;
         log_cleaned_orphan_cores(&killed);
         let child = spawn_child(
@@ -141,10 +144,24 @@ impl CoreManager {
 
     pub async fn stop(&self) -> Result<()> {
         let _guard = self.lifecycle.lock().await;
-        self.stop_with_restore_flag_locked(false).await
+        self.stop_with_restore_flag_locked(false, CORE_STOP_TIMEOUT)
+            .await
     }
 
-    async fn stop_with_restore_flag_locked(&self, restore_after_heartbeat: bool) -> Result<()> {
+    pub async fn stop_for_service_shutdown(&self) -> Result<()> {
+        let deadline = tokio::time::Instant::now() + CORE_STOP_TIMEOUT;
+        let _guard = tokio::time::timeout_at(deadline, self.lifecycle.lock())
+            .await
+            .map_err(|_| anyhow!("Core stop timed out waiting for another lifecycle operation"))?;
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        self.stop_with_restore_flag_locked(false, remaining).await
+    }
+
+    async fn stop_with_restore_flag_locked(
+        &self,
+        restore_after_heartbeat: bool,
+        timeout: Duration,
+    ) -> Result<()> {
         let (child, task, generation) = {
             let mut inner = self.inner.lock().await;
             inner.generation += 1;
@@ -160,7 +177,7 @@ impl CoreManager {
         }
 
         if let Some(child) = child {
-            shutdown_child(child, Duration::from_secs(5)).await?;
+            shutdown_child(child, timeout).await?;
             logging::info("Core stopped by service");
         }
 
@@ -176,7 +193,10 @@ impl CoreManager {
     pub async fn stop_for_heartbeat_timeout(&self) {
         let _guard = self.lifecycle.lock().await;
         let had_child = self.status().await.pid.is_some();
-        if let Err(error) = self.stop_with_restore_flag_locked(had_child).await {
+        if let Err(error) = self
+            .stop_with_restore_flag_locked(had_child, CORE_STOP_TIMEOUT)
+            .await
+        {
             logging::warn(format!(
                 "Failed to stop core after heartbeat timeout: {error:#}"
             ));

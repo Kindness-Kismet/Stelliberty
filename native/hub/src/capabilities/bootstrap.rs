@@ -24,7 +24,8 @@ struct HubInstance {
 static INSTANCE: OnceCell<HubInstance> = OnceCell::new();
 
 enum CoreTask {
-    Start,
+    StartConfirmed,
+    ActivateConfig(String),
     Stop,
 }
 
@@ -43,7 +44,8 @@ fn run_core_task(core: Arc<CoreRuntime>, task: CoreTask, timeout: Duration) -> a
     let (done_tx, done_rx) = std::sync::mpsc::channel();
     handle.spawn(async move {
         let result = match task {
-            CoreTask::Start => core.start_core().await,
+            CoreTask::StartConfirmed => core.start_core().await,
+            CoreTask::ActivateConfig(config) => core.start_core_with_config(config).await,
             CoreTask::Stop => core.stop_core().await,
         };
         let _ = done_tx.send(result);
@@ -81,10 +83,10 @@ impl BootstrapResult {
 
 fn run_bootstrap(
     pipe_name: String,
-    mihomo_path: PathBuf,
+    core_path: PathBuf,
     data_core_dir: PathBuf,
     user_data_dir: PathBuf,
-    mihomo_pipe: String,
+    core_pipe: String,
     bootstrap_yaml: String,
 ) -> anyhow::Result<HubInstance> {
     init_tracing();
@@ -93,14 +95,14 @@ fn run_bootstrap(
     let handle =
         runtime::handle().ok_or_else(|| anyhow::anyhow!("tokio runtime is not installed"))?;
 
-    let paths = HubPaths::new(user_data_dir, mihomo_path, data_core_dir);
+    let paths = HubPaths::new(user_data_dir, core_path, data_core_dir);
     paths.ensure_dirs()?;
 
     handle.block_on(async {
         let (events_tx, _) = broadcast::channel(128);
         let core = Arc::new(CoreRuntime::new(
             paths,
-            mihomo_pipe,
+            core_pipe,
             bootstrap_yaml,
             events_tx.clone(),
         )?);
@@ -129,24 +131,31 @@ fn run_bootstrap(
 #[ffi]
 pub fn hub_bootstrap(
     pipe_name: ffi::String,
-    mihomo_path: ffi::String,
+    core_path: ffi::String,
     data_core_dir: ffi::String,
     user_data_dir: ffi::String,
-    mihomo_pipe: ffi::String,
+    core_pipe: ffi::String,
     bootstrap_yaml: ffi::String,
 ) -> BootstrapResult {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        if INSTANCE.get().is_some() {
-            // 首次 bootstrap 固定路径，后续调用只恢复核心运行。
-            return hub_start_core();
-        }
         let pipe = pipe_name.as_str().to_owned();
-        let mihomo = PathBuf::from(mihomo_path.as_str());
+        let core = PathBuf::from(core_path.as_str());
         let data_core = PathBuf::from(data_core_dir.as_str());
         let user_data = PathBuf::from(user_data_dir.as_str());
-        let mihomo_pipe_str = mihomo_pipe.as_str().to_owned();
+        let core_pipe = core_pipe.as_str().to_owned();
         let boot = bootstrap_yaml.as_str().to_owned();
-        match run_bootstrap(pipe, mihomo, data_core, user_data, mihomo_pipe_str, boot) {
+        if let Some(inst) = INSTANCE.get() {
+            // Hub 路径和 IPC 生命周期固定，恢复核心时刷新当前启动配置。
+            return match run_core_task(
+                inst.core.clone(),
+                CoreTask::ActivateConfig(boot),
+                Duration::from_secs(10),
+            ) {
+                Ok(()) => BootstrapResult::ok(),
+                Err(e) => BootstrapResult::err(format!("Core startup failed: {e:#}")),
+            };
+        }
+        match run_bootstrap(pipe, core, data_core, user_data, core_pipe, boot) {
             Ok(inst) => {
                 let _ = INSTANCE.set(inst);
                 BootstrapResult::ok()
@@ -166,7 +175,11 @@ pub fn hub_start_core() -> BootstrapResult {
         let Some(inst) = INSTANCE.get() else {
             return BootstrapResult::err("Hub is not initialized");
         };
-        match run_core_task(inst.core.clone(), CoreTask::Start, Duration::from_secs(10)) {
+        match run_core_task(
+            inst.core.clone(),
+            CoreTask::StartConfirmed,
+            Duration::from_secs(10),
+        ) {
             Ok(()) => BootstrapResult::ok(),
             Err(e) => BootstrapResult::err(format!("Core startup failed: {e:#}")),
         }
@@ -182,7 +195,8 @@ pub fn hub_stop_core() -> BootstrapResult {
         let Some(inst) = INSTANCE.get() else {
             return BootstrapResult::err("Hub is not initialized");
         };
-        match run_core_task(inst.core.clone(), CoreTask::Stop, Duration::from_secs(7)) {
+        // 普通模式核心停止总预算固定为 5 秒。
+        match run_core_task(inst.core.clone(), CoreTask::Stop, Duration::from_secs(5)) {
             Ok(()) => BootstrapResult::ok(),
             Err(e) => BootstrapResult::err(format!("Core shutdown failed: {e:#}")),
         }

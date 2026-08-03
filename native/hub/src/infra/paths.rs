@@ -5,12 +5,12 @@ pub struct HubPaths {
     pub runtime_dir: PathBuf,
     pub bootstrap_yaml: PathBuf,
     pub active_yaml: PathBuf,
-    pub mihomo_path: PathBuf,
+    pub core_path: PathBuf,
     pub data_core_dir: PathBuf,
 }
 
 impl HubPaths {
-    pub fn new(user_data_dir: PathBuf, mihomo_path: PathBuf, data_core_dir: PathBuf) -> Self {
+    pub fn new(user_data_dir: PathBuf, core_path: PathBuf, data_core_dir: PathBuf) -> Self {
         let runtime_dir = user_data_dir.join("runtime");
 
         let bootstrap_yaml = data_core_dir.join("_bootstrap.yaml");
@@ -19,7 +19,7 @@ impl HubPaths {
             runtime_dir,
             bootstrap_yaml,
             active_yaml,
-            mihomo_path,
+            core_path,
             data_core_dir,
         }
     }

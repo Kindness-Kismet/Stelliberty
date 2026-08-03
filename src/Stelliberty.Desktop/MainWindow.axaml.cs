@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -32,6 +33,7 @@ public sealed partial class MainWindow : Window
     private readonly WindowAppearanceService _windowAppearanceService = new();
     private readonly WindowStateService _windowStateService;
     private readonly SystemAccentColorService _systemAccentColorService = new();
+    private readonly BitmapCache _proxyPageBitmapCache = new() { SnapsToDevicePixels = true };
     private readonly Dictionary<AppNavigationPage, ContentControl> _pageHosts = new();
     private readonly Dictionary<AppNavigationPage, Dictionary<string, Vector>> _pageScrollOffsets = new();
     private IReadOnlyDictionary<SettingsSubPage, Vector> _settingsScrollOffsets = new Dictionary<SettingsSubPage, Vector>();
@@ -43,6 +45,7 @@ public sealed partial class MainWindow : Window
     private MainWindowViewModel? _attachedViewModel;
     private AccentColorPickerView? _activeAccentPicker;
     private bool _isShutdownRequested;
+    private bool _isShutdownPreparing;
     private bool _hasOpened;
     private long _pageTransitionVersion;
     private long _pageLoadingShownAt;
@@ -211,6 +214,8 @@ public sealed partial class MainWindow : Window
             _pageHosts[AppNavigationPage.Subscriptions] = SubscriptionsPageHost;
             _pageHosts[AppNavigationPage.Overrides] = OverridesPageHost;
             _pageHosts[AppNavigationPage.Settings] = SettingsPageHost;
+            // 代理页作为单层纹理参与整页变换，避免动画期间重复绘制大视觉树。
+            ProxyPageHost.CacheMode = _proxyPageBitmapCache;
             _pageHostsReady = true;
         }
 
@@ -305,8 +310,11 @@ public sealed partial class MainWindow : Window
 
         if (nextHost.Content is not null)
         {
+            // 缓存页已有视觉树，直接启动过渡，避免等待空闲合成器唤醒。
             PrepareNextHostEnterState(nextHost);
-            RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: false);
+            ActivatePageHost(nextHost);
+            PreparePageLayout(page, nextHost);
+            StartPageTransition(previousHost, nextHost, version);
             return;
         }
 
@@ -348,7 +356,7 @@ public sealed partial class MainWindow : Window
 
                                 EnsurePageLoaded(page);
                                 PrepareNextHostEnterState(nextHost);
-                                RequestPagePreparationFrame(previousHost, nextHost, page, version, enforceMinLoading: true);
+                                RequestPagePreparationFrame(previousHost, nextHost, page, version);
                             },
                             DispatcherPriority.Background);
                     });
@@ -370,8 +378,7 @@ public sealed partial class MainWindow : Window
         ContentControl? previousHost,
         ContentControl nextHost,
         AppNavigationPage page,
-        long version,
-        bool enforceMinLoading)
+        long version)
     {
         RequestAnimationFrame(
             _ =>
@@ -383,22 +390,21 @@ public sealed partial class MainWindow : Window
 
                 ActivatePageHost(nextHost);
                 PreparePageLayout(page, nextHost);
-                CompletePageLoadingThenEnter(previousHost, nextHost, version, enforceMinLoading);
+                CompletePageLoadingThenEnter(previousHost, nextHost, version);
             });
     }
 
     private void CompletePageLoadingThenEnter(
         ContentControl? previousHost,
         ContentControl nextHost,
-        long version,
-        bool enforceMinLoading)
+        long version)
     {
         if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
         {
             return;
         }
 
-        if (!enforceMinLoading || _pageLoadingShownAt == 0)
+        if (_pageLoadingShownAt == 0)
         {
             RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
             return;
@@ -761,23 +767,76 @@ public sealed partial class MainWindow : Window
 
     public void RequestShutdown()
     {
-        _isShutdownRequested = true;
-        Close();
+        if (_isShutdownRequested || _isShutdownPreparing)
+        {
+            return;
+        }
+
+        AppLogger.Info("Application exit requested");
+        _isShutdownPreparing = true;
+        _ = PrepareAndShutdownAsync();
     }
+
+    internal Func<Task>? PrepareShutdownAsync { private get; set; }
+
+    internal Action? OsShutdownDetected { private get; set; }
+
+    internal bool IsShutdownPreparing => _isShutdownPreparing;
 
     protected override void OnClosing(WindowClosingEventArgs args)
     {
         _windowStateService.SaveNow();
-        if (!_isShutdownRequested && DataContext is MainWindowViewModel { AppBehavior.IsMinimizeToTrayEnabled: true })
+        if (args.CloseReason == WindowCloseReason.OSShutdown)
+        {
+            OsShutdownDetected?.Invoke();
+            AppLogger.Info("OS window close accepted without cancellation");
+            base.OnClosing(args);
+            return;
+        }
+
+        if (!_isShutdownRequested)
         {
             args.Cancel = true;
-            ClearTitleBarHoverState();
-            // 先取消关闭按钮红色效果，等界面更新两次再隐藏，避免恢复窗口时闪红。
-            RequestAnimationFrame(OnTitleBarStateClearedFrame);
+            if (DataContext is MainWindowViewModel { AppBehavior.IsMinimizeToTrayEnabled: true })
+            {
+                ClearTitleBarHoverState();
+                // 先取消关闭按钮红色效果，等界面更新两次再隐藏，避免恢复窗口时闪红。
+                RequestAnimationFrame(OnTitleBarStateClearedFrame);
+            }
+            else
+            {
+                RequestShutdown();
+            }
             return;
         }
 
         base.OnClosing(args);
+    }
+
+    private async Task PrepareAndShutdownAsync()
+    {
+        AppLogger.Info("Application exit preparation started");
+        try
+        {
+            if (PrepareShutdownAsync is not null)
+            {
+                await PrepareShutdownAsync();
+            }
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Application exit preparation failed: {exception.Message}");
+        }
+
+        AppLogger.Info("Application exit preparation completed");
+        var desktop = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
+        var requiresExplicitShutdown = desktop?.ShutdownMode == ShutdownMode.OnExplicitShutdown;
+        _isShutdownRequested = true;
+        Close();
+        if (requiresExplicitShutdown)
+        {
+            desktop?.TryShutdown(0);
+        }
     }
 
     protected override void OnClosed(EventArgs e)

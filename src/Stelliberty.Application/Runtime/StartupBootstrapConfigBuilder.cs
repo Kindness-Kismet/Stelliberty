@@ -17,13 +17,13 @@ mixed-port: {MixedPort}
 allow-lan: false
 mode: rule
 log-level: {LogLevel}
-{ControllerKey}: {MihomoPipe}
+{ControllerKey}: {CorePipe}
 proxies: []
 proxy-groups: []
 rules: []
 """;
 
-    public string Build(string mihomoPipe, bool isTunRuntimeAvailable = true)
+    public string Build(string corePipe, bool isTunRuntimeAvailable = true)
     {
         try
         {
@@ -36,7 +36,7 @@ rules: []
             if (string.IsNullOrWhiteSpace(selectedSubscriptionId))
             {
                 AppLogger.Info("No subscription selected; starting the core with an empty config");
-                return BuildEmptyYaml(runtimeParams.MixedPort, runtimeParams.ClashCoreLogLevel, mihomoPipe);
+                return BuildEmptyYaml(runtimeParams.MixedPort, runtimeParams.ClashCoreLogLevel, corePipe);
             }
 
             try
@@ -51,29 +51,29 @@ rules: []
                 selectionStore.SetCurrentSubscriptionId(null);
                 failureRecorder.MarkFailed(selectedSubscriptionId, exception.Message);
                 AppLogger.Warning($"Startup config generation failed; using an empty config: {exception.Message}");
-                return BuildEmptyYaml(runtimeParams.MixedPort, runtimeParams.ClashCoreLogLevel, mihomoPipe);
+                return BuildEmptyYaml(runtimeParams.MixedPort, runtimeParams.ClashCoreLogLevel, corePipe);
             }
         }
         catch (Exception exception)
         {
             AppLogger.Warning($"Startup config generation failed; using an empty config: {exception.Message}");
-            return BuildDefaultEmptyYaml(mihomoPipe);
+            return BuildDefaultEmptyYaml(corePipe);
         }
     }
 
     // 宿主在设置存储或构造不可用时复用这个降级配置。
-    public static string BuildDefaultEmptyYaml(string mihomoPipe)
+    public static string BuildDefaultEmptyYaml(string corePipe)
     {
-        return BuildEmptyYaml(AppSettings.DefaultMixedPort, "info", mihomoPipe);
+        return BuildEmptyYaml(AppSettings.DefaultMixedPort, "info", corePipe);
     }
 
-    private static string BuildEmptyYaml(int mixedPort, string logLevel, string mihomoPipe)
+    private static string BuildEmptyYaml(int mixedPort, string logLevel, string corePipe)
     {
         return EmptyBootstrapYamlTemplate
             .Replace("{MixedPort}", mixedPort.ToString(), StringComparison.Ordinal)
             .Replace("{LogLevel}", logLevel, StringComparison.Ordinal)
             .Replace("{ControllerKey}", ControllerKey(), StringComparison.Ordinal)
-            .Replace("{MihomoPipe}", mihomoPipe, StringComparison.Ordinal);
+            .Replace("{CorePipe}", corePipe, StringComparison.Ordinal);
     }
 
     private static string ControllerKey()

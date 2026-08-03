@@ -352,7 +352,6 @@ internal sealed class DesktopTrayService : IDisposable
     private void OnExitClicked(object? sender, EventArgs args)
     {
         _window?.RequestShutdown();
-        _desktop?.TryShutdown(0);
     }
 
     private void OnLanguageChanged(object? sender, EventArgs args) => UpdateText();

@@ -1,6 +1,9 @@
 using Stelliberty.Application.Connections;
+using Stelliberty.Application.CoreLogs;
 using Stelliberty.Application.Proxies;
+using Stelliberty.Application.Runtime;
 using Stelliberty.Application.Subscriptions;
+using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Domain.Connections;
 using Stelliberty.Domain.Proxies;
 using Xunit;
@@ -237,6 +240,133 @@ public sealed class ProxySelectionBusinessTests
         Assert.Equal(ConnectionCloseMode.All, core.LastCloseRequest?.Mode);
     }
 
+    [Fact(DisplayName = "Core config apply restores the saved selection before core import resumes")]
+    public async Task CoreConfigApplyRestoresSavedSelectionBeforeCoreImportResumes()
+    {
+        var configProvider = new FakeProxyConfigProvider(TestConfig(
+        [
+            new ProxyGroup("Main", ProxyGroupTypes.Select, "NodeA", ["NodeA", "NodeB"])
+        ]));
+        var coreClient = new FakeProxyCoreClient();
+        var selections = new FakeProxySelectionStore();
+        var subscriptions = new FakeSubscriptionSelectionStore("sub-1");
+        var syncState = new ProxySelectionSyncState();
+        syncState.EnableCoreSelectionImport();
+        selections.SetSelection("sub-1", "Main", "NodeB");
+        var storedProvider = new StoredProxySelectionConfigProvider(
+            configProvider,
+            selections,
+            subscriptions,
+            syncState,
+            importCoreSelections: true);
+        var restorer = new ProxySelectionRestorer(
+            coreClient: coreClient,
+            coreConfigProvider: configProvider,
+            selectedRuntimeConfigProvider: configProvider,
+            selectionProvider: storedProvider,
+            syncState: syncState,
+            subscriptionSelectionStore: subscriptions);
+        var coreManager = new FakeCoreManager
+        {
+            ApplyHandler = request =>
+            {
+                Assert.False(syncState.CanImportCoreSelections);
+                return Task.FromResult(new CoreApplyConfigResult(CoreApplyMode.Restart, 42));
+            }
+        };
+        using var manager = new ProxySelectionRestoringCoreManager(coreManager, restorer);
+
+        await manager.ApplyConfigAsync(new CoreApplyConfigRequest("runtime.yaml", "sub-1"));
+
+        Assert.Contains(coreClient.ChangeRequests, request => request == new ProxyChangeRequest("Main", "NodeB"));
+        Assert.Equal("NodeB", selections.GetSelections("sub-1")["Main"]);
+        Assert.True(syncState.CanImportCoreSelections);
+    }
+
+    [Fact(DisplayName = "Core config apply does not restore another subscription after selection changes")]
+    public async Task CoreConfigApplyDoesNotRestoreAnotherSubscriptionAfterSelectionChanges()
+    {
+        var configProvider = new FakeProxyConfigProvider(TestConfig(
+        [
+            new ProxyGroup("Main", ProxyGroupTypes.Select, "NodeA", ["NodeA", "NodeB"])
+        ]));
+        var coreClient = new FakeProxyCoreClient();
+        var selections = new FakeProxySelectionStore();
+        var subscriptions = new FakeSubscriptionSelectionStore("sub-1");
+        var syncState = new ProxySelectionSyncState();
+        syncState.EnableCoreSelectionImport();
+        selections.SetSelection("sub-1", "Main", "NodeB");
+        var storedProvider = new StoredProxySelectionConfigProvider(
+            configProvider,
+            selections,
+            subscriptions,
+            syncState,
+            importCoreSelections: true);
+        var restorer = new ProxySelectionRestorer(
+            coreClient: coreClient,
+            coreConfigProvider: configProvider,
+            selectedRuntimeConfigProvider: configProvider,
+            selectionProvider: storedProvider,
+            syncState: syncState,
+            subscriptionSelectionStore: subscriptions);
+        var coreManager = new FakeCoreManager
+        {
+            ApplyHandler = request =>
+            {
+                subscriptions.SetCurrentSubscriptionId("sub-2");
+                return Task.FromResult(new CoreApplyConfigResult(CoreApplyMode.Restart, 42));
+            }
+        };
+        using var manager = new ProxySelectionRestoringCoreManager(coreManager, restorer);
+
+        await manager.ApplyConfigAsync(new CoreApplyConfigRequest("runtime.yaml", "sub-1"));
+
+        Assert.Empty(coreClient.ChangeRequests);
+        Assert.Equal("NodeB", selections.GetSelections("sub-1")["Main"]);
+        Assert.False(syncState.CanImportCoreSelections);
+    }
+
+    [Fact(DisplayName = "Failed core config apply keeps saved selections protected while core is unavailable")]
+    public async Task FailedCoreConfigApplyKeepsSavedSelectionsProtectedWhileCoreIsUnavailable()
+    {
+        var configProvider = new FakeProxyConfigProvider(TestConfig(
+        [
+            new ProxyGroup("Main", ProxyGroupTypes.Select, "NodeA", ["NodeA", "NodeB"])
+        ]));
+        var coreClient = new FakeProxyCoreClient();
+        var selections = new FakeProxySelectionStore();
+        var subscriptions = new FakeSubscriptionSelectionStore("sub-1");
+        var syncState = new ProxySelectionSyncState();
+        syncState.EnableCoreSelectionImport();
+        selections.SetSelection("sub-1", "Main", "NodeB");
+        var storedProvider = new StoredProxySelectionConfigProvider(
+            configProvider,
+            selections,
+            subscriptions,
+            syncState,
+            importCoreSelections: true);
+        var restorer = new ProxySelectionRestorer(
+            coreClient: coreClient,
+            coreConfigProvider: configProvider,
+            selectedRuntimeConfigProvider: configProvider,
+            selectionProvider: storedProvider,
+            syncState: syncState,
+            subscriptionSelectionStore: subscriptions);
+        var coreManager = new FakeCoreManager
+        {
+            Snapshot = new CoreSnapshot(CoreState.Crashed, null, string.Empty, "apply failed"),
+            ApplyHandler = _ => throw new InvalidOperationException("apply failed")
+        };
+        using var manager = new ProxySelectionRestoringCoreManager(coreManager, restorer);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            manager.ApplyConfigAsync(new CoreApplyConfigRequest("runtime.yaml", "sub-1")));
+
+        Assert.Empty(coreClient.ChangeRequests);
+        Assert.Equal("NodeB", selections.GetSelections("sub-1")["Main"]);
+        Assert.False(syncState.CanImportCoreSelections);
+    }
+
     [Fact(DisplayName = "Stored provider keeps API-expanded include-all selection")]
     public async Task StoredProviderKeepsApiExpandedIncludeAllSelection()
     {
@@ -399,6 +529,7 @@ public sealed class ProxySelectionBusinessTests
         public bool ChangeResult { get; init; } = true;
         public int CloseConnectionCount { get; private set; }
         public ConnectionCloseRequest? LastCloseRequest { get; private set; }
+        public List<ProxyChangeRequest> ChangeRequests { get; } = [];
 
         public Task<IReadOnlyList<ConnectionInfo>?> GetConnectionsAsync(CancellationToken cancellationToken = default)
         {
@@ -407,6 +538,7 @@ public sealed class ProxySelectionBusinessTests
 
         public Task<bool> ChangeProxyAsync(ProxyChangeRequest request, CancellationToken cancellationToken = default)
         {
+            ChangeRequests.Add(request);
             return Task.FromResult(ChangeResult);
         }
 
@@ -450,6 +582,42 @@ public sealed class ProxySelectionBusinessTests
         public Task<CoreTrafficRate?> GetTrafficAsync(CancellationToken cancellationToken = default)
         {
             return Task.FromResult<CoreTrafficRate?>(null);
+        }
+    }
+
+    private sealed class FakeCoreManager : ICoreManager
+    {
+        public event EventHandler<CoreSnapshot>? StateChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public event EventHandler<CoreLogMessage>? CoreLogReceived
+        {
+            add { }
+            remove { }
+        }
+
+        public CoreSnapshot Snapshot { get; init; } = new(CoreState.Running, 42, string.Empty, null);
+        public Func<CoreApplyConfigRequest, Task<CoreApplyConfigResult>>? ApplyHandler { get; init; }
+
+        public Task<CoreSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Snapshot);
+        }
+
+        public Task<CoreApplyConfigResult> ApplyConfigAsync(
+            CoreApplyConfigRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            return ApplyHandler?.Invoke(request)
+                ?? Task.FromResult(new CoreApplyConfigResult(CoreApplyMode.Reload, Snapshot.Pid ?? 0));
+        }
+
+        public Task RestartAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
         }
     }
 }

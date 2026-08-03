@@ -13,11 +13,13 @@ internal sealed class ServiceModeSessionSwitcher(
     Func<CancellationToken, Task<BootstrapResult>> stopNormalCore,
     Func<CancellationToken, Task<BootstrapResult>> resumeNormalCore,
     Func<ServiceModeStatus, CancellationToken, Task<BootstrapResult>> startServiceCore,
-    Action<bool> setServiceModeCoreHostActive) : IDisposable
+    Action<bool> setServiceModeCoreHostActive,
+    bool isServiceModeActive = false) : IDisposable
 {
     private readonly object _lifetimeGate = new();
     private readonly SemaphoreSlim _operationGate = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
+    private bool _isServiceModeActive = isServiceModeActive;
     private bool _isDisposed;
 
     public Task<ServiceModeOperationResult> ActivateAsync(CancellationToken cancellationToken)
@@ -28,6 +30,63 @@ internal sealed class ServiceModeSessionSwitcher(
     public Task<ServiceModeOperationResult> DeactivateAsync(CancellationToken cancellationToken)
     {
         return RunOperationAsync(DeactivateCoreAsync, cancellationToken);
+    }
+
+    public async Task<ServiceModeOperationResult> PrepareForShutdownAsync(CancellationToken cancellationToken)
+    {
+        lock (_lifetimeGate)
+        {
+            if (_isDisposed)
+            {
+                return ServiceModeOperationResult.Canceled("Service mode session is already shut down.");
+            }
+
+            // 退出后不再接受模式切换，避免停止核心后又被并发操作拉起。
+            _lifetimeCancellation.Cancel();
+        }
+
+        try
+        {
+            await _operationGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return ServiceModeOperationResult.Canceled("Service mode shutdown timed out.");
+        }
+
+        try
+        {
+            if (!_isServiceModeActive)
+            {
+                return ServiceModeOperationResult.Success("Normal mode does not require service-core shutdown.");
+            }
+
+            ServiceModeOperationResult result;
+            try
+            {
+                result = await serviceModeManager.StopCoreHostAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return ServiceModeOperationResult.Canceled("Service-mode core shutdown timed out.");
+            }
+            catch (Exception exception)
+            {
+                return ServiceModeOperationResult.Failed(exception.Message);
+            }
+
+            if (result.IsSuccess)
+            {
+                _isServiceModeActive = false;
+                setServiceModeCoreHostActive(false);
+            }
+
+            return result;
+        }
+        finally
+        {
+            _operationGate.Release();
+        }
     }
 
     public void Dispose()
@@ -45,6 +104,29 @@ internal sealed class ServiceModeSessionSwitcher(
 
         _operationGate.Wait();
         _lifetimeCancellation.Dispose();
+    }
+
+    public bool TryDisposeForShutdown()
+    {
+        lock (_lifetimeGate)
+        {
+            if (_isDisposed)
+            {
+                return true;
+            }
+
+            _isDisposed = true;
+            _lifetimeCancellation.Cancel();
+        }
+
+        // 退出事件不得再次等待已经超时的模式切换，未完成资源随进程回收。
+        if (!_operationGate.Wait(0))
+        {
+            return false;
+        }
+
+        _lifetimeCancellation.Dispose();
+        return true;
     }
 
     private async Task<ServiceModeOperationResult> RunOperationAsync(
@@ -128,7 +210,7 @@ internal sealed class ServiceModeSessionSwitcher(
         }
 
         using var ownedTransition = transition;
-        // 两种核心共用 Mihomo 管道，整段切换期间不允许其它核心操作进入。
+        // 两种核心共用控制管道，整段切换期间不允许其它核心操作进入。
         BootstrapResult stopped;
         try
         {
@@ -165,6 +247,7 @@ internal sealed class ServiceModeSessionSwitcher(
                     ServiceModeOperationResult.Failed(started.Message)).ConfigureAwait(false);
             }
 
+            _isServiceModeActive = true;
             setServiceModeCoreHostActive(true);
             await transition.SwitchAsync(createServiceCoreManager(status), cancellationToken).ConfigureAwait(false);
             return ServiceModeOperationResult.Success("Service mode is active.");
@@ -212,6 +295,7 @@ internal sealed class ServiceModeSessionSwitcher(
             var readinessFailure = await transition.SwitchEvenIfUnavailableAsync(
                 createNormalCoreManager(),
                 CancellationToken.None).ConfigureAwait(false);
+            _isServiceModeActive = false;
             setServiceModeCoreHostActive(false);
             return readinessFailure is null
                 ? ServiceModeOperationResult.Success("Normal mode is active.")
@@ -246,6 +330,7 @@ internal sealed class ServiceModeSessionSwitcher(
             return ServiceModeOperationResult.Failed($"{result.Message} Normal-mode recovery was skipped: {exception.Message}");
         }
 
+        _isServiceModeActive = false;
         setServiceModeCoreHostActive(false);
         try
         {

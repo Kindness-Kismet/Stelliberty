@@ -9,6 +9,8 @@ internal static partial class DebugCommands
     {
         var viewModel = RequireViewModel(window);
         var page = viewModel.ProxyPage;
+        // 非当前页会释放行缓存，调试命令读取前按现有展示生命周期重建。
+        page.WarmupPresentation();
         var spec = command["proxies.".Length..].Trim();
         if (string.Equals(spec, "list_groups", StringComparison.OrdinalIgnoreCase))
         {

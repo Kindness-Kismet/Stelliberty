@@ -19,18 +19,15 @@ public static class HubBootstrap
                 return BootstrapResult.Failure("Hub shutdown has started.");
             }
 
-            if (_started)
-            {
-                return StartCoreLocked();
-            }
+            var isResume = _started;
             try
             {
                 using FfiBootstrapResult ffi = Interop.hub_bootstrap(
                     options.PipeName.Utf8(),
-                    options.MihomoPath.Utf8(),
+                    options.CorePath.Utf8(),
                     options.DataCoreDir.Utf8(),
                     options.UserDataDir.Utf8(),
-                    options.MihomoPipe.Utf8(),
+                    options.CorePipe.Utf8(),
                     options.BootstrapYaml.Utf8());
                 var message = ffi.message.String;
                 if (!ffi.ok.Is)
@@ -39,7 +36,9 @@ public static class HubBootstrap
                     return BootstrapResult.Failure(message);
                 }
                 _started = true;
-                AppLogger.Info($"hub started: {message}");
+                AppLogger.Info(isResume
+                    ? $"Normal-mode core resumed: {message}"
+                    : $"Hub started: {message}");
                 return BootstrapResult.Success(message);
             }
             catch (Exception ex)

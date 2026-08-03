@@ -94,6 +94,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         IClipboardWriter? clipboardWriter = null,
         Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionActivator = null,
         Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionDeactivator = null,
+        Action? serviceModeCoreTransitionStarting = null,
+        Func<CancellationToken, Task>? serviceModeCoreTransitionCompleted = null,
         IAppLogReader? appLogReader = null,
         IAppLogExporter? appLogExporter = null)
     {
@@ -162,7 +164,9 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             systemPlatform,
             clipboardWriter,
             serviceModeSessionActivator,
-            serviceModeSessionDeactivator);
+            serviceModeSessionDeactivator,
+            serviceModeCoreTransitionStarting,
+            serviceModeCoreTransitionCompleted);
         SystemIntegration = new SettingsSystemIntegrationViewModel(
             _settings,
             settingsStore,

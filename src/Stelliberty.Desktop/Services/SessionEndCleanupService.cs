@@ -6,7 +6,7 @@ namespace Stelliberty.Desktop.Services;
 
 // 系统关机/注销时同步清理系统代理，兜底用户未主动退出（如托盘常驻）的场景。
 // 关机会强杀进程，异步回调来不及，故清理必须在会话结束消息/信号里同步完成。
-public sealed class SessionEndCleanupService(Action cleanup) : IDisposable
+public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutdownStateChanged = null) : IDisposable
 {
     private readonly List<IDisposable> _signalRegistrations = [];
     private WindowsSessionWatcher? _windowsWatcher;
@@ -16,7 +16,7 @@ public sealed class SessionEndCleanupService(Action cleanup) : IDisposable
     {
         if (OperatingSystem.IsWindows())
         {
-            _windowsWatcher = WindowsSessionWatcher.Create(RunCleanup);
+            _windowsWatcher = WindowsSessionWatcher.Create(RunCleanup, SetShutdownDetected);
             return;
         }
 
@@ -40,14 +40,22 @@ public sealed class SessionEndCleanupService(Action cleanup) : IDisposable
 
     private void RunCleanup()
     {
+        SetShutdownDetected(true);
+        AppLogger.Info("Session-end cleanup started");
         try
         {
             cleanup();
+            AppLogger.Info("Session-end cleanup completed");
         }
         catch (Exception exception)
         {
             AppLogger.Warning($"Session-end cleanup failed: {exception.Message}");
         }
+    }
+
+    private void SetShutdownDetected(bool isDetected)
+    {
+        shutdownStateChanged?.Invoke(isDetected);
     }
 
     public void Dispose()
@@ -80,23 +88,25 @@ public sealed class SessionEndCleanupService(Action cleanup) : IDisposable
         private const uint WmEndSession = 0x0016;
 
         private readonly Action _cleanup;
+        private readonly Action<bool> _shutdownStateChanged;
         private readonly WndProc _wndProc; // 保持委托引用，防 GC 回收后回调悬空
         private readonly string _className;
         private readonly IntPtr _instance;
         private IntPtr _hwnd;
         private ushort _classAtom;
 
-        private WindowsSessionWatcher(Action cleanup)
+        private WindowsSessionWatcher(Action cleanup, Action<bool> shutdownStateChanged)
         {
             _cleanup = cleanup;
+            _shutdownStateChanged = shutdownStateChanged;
             _wndProc = HandleMessage;
             _className = $"StellibertySessionWatcher_{Environment.ProcessId}";
             _instance = GetModuleHandle(null);
         }
 
-        public static WindowsSessionWatcher? Create(Action cleanup)
+        public static WindowsSessionWatcher? Create(Action cleanup, Action<bool> shutdownStateChanged)
         {
-            var watcher = new WindowsSessionWatcher(cleanup);
+            var watcher = new WindowsSessionWatcher(cleanup, shutdownStateChanged);
             return watcher.Initialize() ? watcher : null;
         }
 
@@ -131,15 +141,25 @@ public sealed class SessionEndCleanupService(Action cleanup) : IDisposable
 
         private IntPtr HandleMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
         {
-            // wParam 非零才是会话确实结束，被其他应用取消的关机不清理。
-            if (msg == WmEndSession && wParam != IntPtr.Zero)
+            if (msg == WmEndSession)
             {
-                _cleanup();
+                if (wParam != IntPtr.Zero)
+                {
+                    AppLogger.Info("WM_ENDSESSION confirmed");
+                    _cleanup();
+                }
+                else
+                {
+                    _shutdownStateChanged(false);
+                    AppLogger.Info("WM_ENDSESSION canceled");
+                }
                 return IntPtr.Zero;
             }
 
             if (msg == WmQueryEndSession)
             {
+                _shutdownStateChanged(true);
+                AppLogger.Info("WM_QUERYENDSESSION accepted");
                 return 1; // 允许会话结束
             }
 

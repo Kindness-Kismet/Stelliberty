@@ -77,12 +77,15 @@ fn run_windows_service() -> Result<()> {
 
     const SERVICE_TYPE: ServiceType = ServiceType::OWN_PROCESS;
 
-    let (control_tx, control_rx) = mpsc::channel::<()>();
+    let (control_tx, control_rx) = mpsc::channel::<&'static str>();
     let event_handler = move |control_event| -> ServiceControlHandlerResult {
         match control_event {
             ServiceControl::Stop => {
-                logging::info("Windows service stop control received");
-                let _ = control_tx.send(());
+                let _ = control_tx.send("stop");
+                ServiceControlHandlerResult::NoError
+            }
+            ServiceControl::Shutdown => {
+                let _ = control_tx.send("os-shutdown");
                 ServiceControlHandlerResult::NoError
             }
             ServiceControl::Interrogate => ServiceControlHandlerResult::NoError,
@@ -127,7 +130,7 @@ fn run_windows_service() -> Result<()> {
             .set_service_status(ServiceStatus {
                 service_type: SERVICE_TYPE,
                 current_state: WinServiceState::Running,
-                controls_accepted: ServiceControlAccept::STOP,
+                controls_accepted: ServiceControlAccept::STOP | ServiceControlAccept::SHUTDOWN,
                 exit_code: ServiceExitCode::Win32(0),
                 checkpoint: 0,
                 wait_hint: Duration::default(),
@@ -135,17 +138,45 @@ fn run_windows_service() -> Result<()> {
             })
             .context("Failed to set the service running status")?;
 
-        tokio::select! {
+        let (shutdown_source, service_result) = tokio::select! {
             result = server => {
-                result.context("Service IPC task failed")??;
+                let result = result
+                    .context("Service IPC task failed")
+                    .and_then(|server_result| server_result);
+                ("ipc", result)
             }
-            _ = control => {
-                logging::info("Windows service control task ended");
+            result = control => {
+                let source = result.map_or("control-task-failed", |control_result| {
+                    control_result.unwrap_or("control-channel-closed")
+                });
+                (source, Ok(()))
             }
-        }
+        };
+        logging::info(format!(
+            "Windows service shutdown started (origin: {shutdown_source})"
+        ));
+        // 核心退出最多等待 5 秒，向 SCM 申报 8 秒停止预算。
+        let stop_pending_result = status_handle
+            .set_service_status(ServiceStatus {
+                service_type: SERVICE_TYPE,
+                current_state: WinServiceState::StopPending,
+                controls_accepted: ServiceControlAccept::empty(),
+                exit_code: ServiceExitCode::Win32(0),
+                checkpoint: 1,
+                wait_hint: Duration::from_secs(8),
+                process_id: None,
+            })
+            .context("Failed to set the service stop-pending status");
         heartbeat.abort();
         state.stop_core().await;
-        logging::info("Windows service stopped");
+        logging::info(format!(
+            "Windows service shutdown completed (origin: {shutdown_source})"
+        ));
+        if let Err(error) = stop_pending_result {
+            logging::warn(format!(
+                "Failed to report Windows service stop-pending status: {error:#}"
+            ));
+        }
 
         status_handle
             .set_service_status(ServiceStatus {
@@ -159,6 +190,6 @@ fn run_windows_service() -> Result<()> {
             })
             .context("Failed to set the service stopped status")?;
 
-        Ok::<(), anyhow::Error>(())
+        service_result
     })
 }
