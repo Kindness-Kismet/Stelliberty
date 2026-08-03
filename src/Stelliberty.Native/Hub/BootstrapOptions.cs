@@ -2,8 +2,8 @@ namespace Stelliberty.Native.Hub;
 
 public sealed record BootstrapOptions(
     string PipeName,
-    string MihomoPath,
+    string CorePath,
     string DataCoreDir,
     string UserDataDir,
-    string MihomoPipe,
+    string CorePipe,
     string BootstrapYaml);

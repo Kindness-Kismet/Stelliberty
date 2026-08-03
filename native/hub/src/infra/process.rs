@@ -122,7 +122,7 @@ mod windows_impl {
 
     pub fn spawn(binary: &Path, yaml_path: &Path, data_core_dir: &Path) -> Result<ChildHandle> {
         // 先挂起进程并加入 Job，再恢复运行。
-        // 任一步失败都能清理句柄，避免留下孤儿 mihomo。
+        // 任一步失败都能清理句柄，避免留下孤儿核心进程。
         let binary_str = binary.to_string_lossy();
         let yaml_str = yaml_path.to_string_lossy();
         let data_str = data_core_dir.to_string_lossy();
@@ -279,29 +279,29 @@ mod windows_impl {
                 let mut failure = None;
                 if let Some(j) = job {
                     if let Err(error) = CloseHandle(isize_to_handle(j)) {
-                        failure = Some(anyhow!("Failed to close mihomo Job Object: {error}"));
+                        failure = Some(anyhow!("Failed to close core Job Object: {error}"));
                     }
                 }
                 if let Some(p) = proc {
                     let wait = WaitForSingleObject(isize_to_handle(p), timeout.as_millis() as u32);
                     if wait == WAIT_TIMEOUT {
                         failure
-                            .get_or_insert_with(|| anyhow!("Timed out waiting for mihomo to exit"));
+                            .get_or_insert_with(|| anyhow!("Timed out waiting for core to exit"));
                     } else if wait == WAIT_FAILED {
                         failure.get_or_insert_with(|| {
                             anyhow!(
-                                "Failed to wait for mihomo to exit: {}",
+                                "Failed to wait for core to exit: {}",
                                 windows::core::Error::from_thread()
                             )
                         });
                     } else if wait != WAIT_OBJECT_0 {
                         failure.get_or_insert_with(|| {
-                            anyhow!("Unexpected mihomo wait result: {}", wait.0)
+                            anyhow!("Unexpected core wait result: {}", wait.0)
                         });
                     }
                     if let Err(error) = CloseHandle(isize_to_handle(p)) {
                         failure.get_or_insert_with(|| {
-                            anyhow!("Failed to close mihomo process handle: {error}")
+                            anyhow!("Failed to close core process handle: {error}")
                         });
                     }
                 }
@@ -347,10 +347,10 @@ mod unix_impl {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .context("Failed to start mihomo")?;
+            .context("Failed to start core")?;
         let pid = child
             .id()
-            .ok_or_else(|| anyhow!("Unable to get mihomo PID"))?;
+            .ok_or_else(|| anyhow!("Unable to get core PID"))?;
         let kill = Arc::new(Notify::new());
         let (exited_tx, exited_rx) = watch::channel(None);
         let kill_listener = kill.clone();
@@ -370,7 +370,7 @@ mod unix_impl {
                 },
                 Err(error) => UnixExit {
                     code: u32::MAX,
-                    error: Some(format!("Failed to wait for mihomo: {error}")),
+                    error: Some(format!("Failed to wait for core: {error}")),
                 },
             };
             let _ = exited_tx.send(Some(outcome));
@@ -401,10 +401,10 @@ mod unix_impl {
         let mut exited = child.inner.exited;
         let outcome = tokio::time::timeout(timeout, exited.wait_for(Option::is_some))
             .await
-            .map_err(|_| anyhow!("Timed out waiting for mihomo to exit"))?
-            .map_err(|_| anyhow!("Mihomo exit monitor stopped unexpectedly"))?
+            .map_err(|_| anyhow!("Timed out waiting for core to exit"))?
+            .map_err(|_| anyhow!("Core exit monitor stopped unexpectedly"))?
             .clone()
-            .ok_or_else(|| anyhow!("Mihomo exit monitor returned no result"))?;
+            .ok_or_else(|| anyhow!("Core exit monitor returned no result"))?;
         if let Some(error) = outcome.error {
             return Err(anyhow!(error));
         }

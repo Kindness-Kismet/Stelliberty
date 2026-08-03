@@ -25,6 +25,8 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private readonly Func<bool> _isServiceModeCoreHostActive;
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionActivator;
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionDeactivator;
+    private readonly Action? _serviceModeCoreTransitionStarting;
+    private readonly Func<CancellationToken, Task>? _serviceModeCoreTransitionCompleted;
     private readonly Func<SystemProxyApplicationRequest> _systemProxyRequestFactory;
     private readonly Action<bool>? _tunStateChanged;
 
@@ -101,7 +103,9 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         SystemProxyPlatform systemPlatform = SystemProxyPlatform.Other,
         IClipboardWriter? clipboardWriter = null,
         Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionActivator = null,
-        Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionDeactivator = null)
+        Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionDeactivator = null,
+        Action? serviceModeCoreTransitionStarting = null,
+        Func<CancellationToken, Task>? serviceModeCoreTransitionCompleted = null)
     {
         _localization = localization;
         _systemPlatform = systemPlatform;
@@ -111,6 +115,8 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _isServiceModeCoreHostActive = isServiceModeCoreHostActive ?? (() => serviceModeManager is not null);
         _serviceModeSessionActivator = serviceModeSessionActivator;
         _serviceModeSessionDeactivator = serviceModeSessionDeactivator;
+        _serviceModeCoreTransitionStarting = serviceModeCoreTransitionStarting;
+        _serviceModeCoreTransitionCompleted = serviceModeCoreTransitionCompleted;
         _systemProxyRequestFactory = systemProxyRequestFactory;
         _tunStateChanged = tunStateChanged;
         _coreRestart = coreRestart;
@@ -638,7 +644,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         Interlocked.Increment(ref _systemProxyApplyVersion);
         if (!_systemProxyApplyLock.Wait(ShutdownProxyLockTimeout))
         {
-            AppLogger.Warning("[Shutdown] System proxy cleanup timed out waiting for the apply lock");
+            AppLogger.Warning("System proxy shutdown cleanup timed out waiting for the apply lock");
             return;
         }
         try
@@ -652,7 +658,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         }
         catch (Exception exception)
         {
-            AppLogger.Warning($"[Shutdown] System proxy cleanup failed: {exception.Message}");
+            AppLogger.Warning($"System proxy shutdown cleanup failed: {exception.Message}");
         }
         finally
         {
@@ -825,8 +831,10 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         ServiceModeOperationResult result;
         var sessionActivationFailed = false;
         var sessionDeactivationFailed = false;
+        var sessionTransitionHandled = false;
         try
         {
+            _serviceModeCoreTransitionStarting?.Invoke();
             result = installOrUpdate
                 ? await _serviceModeManager.InstallOrUpdateAsync(token)
                 : await _serviceModeManager.UninstallAsync(token);
@@ -836,6 +844,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                 try
                 {
                     var activation = await _serviceModeSessionActivator(token);
+                    sessionTransitionHandled = true;
                     if (activation.IsSuccess)
                     {
                         result = activation;
@@ -865,6 +874,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                 try
                 {
                     var deactivation = await _serviceModeSessionDeactivator(token);
+                    sessionTransitionHandled = true;
                     sessionDeactivationFailed = !deactivation.IsSuccess;
                     result = deactivation;
                     if (sessionDeactivationFailed)
@@ -929,6 +939,18 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         {
             _isServiceModeBusy = false;
             _lastServiceModeProbe = null;
+            if (!sessionTransitionHandled && _serviceModeCoreTransitionCompleted is not null)
+            {
+                try
+                {
+                    await _serviceModeCoreTransitionCompleted(CancellationToken.None);
+                }
+                catch (Exception exception)
+                {
+                    AppLogger.Warning($"Service mode core transition completion failed: {exception.Message}");
+                }
+            }
+
             try
             {
                 await RefreshServiceModeAsync(token);

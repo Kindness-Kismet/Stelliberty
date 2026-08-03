@@ -1,6 +1,6 @@
 namespace Stelliberty.Application.Platform;
 
 public sealed record ServiceModeCoreHostRequest(
-    string MihomoPath,
+    string CorePath,
     string DataCoreDir,
     string ConfigPath);

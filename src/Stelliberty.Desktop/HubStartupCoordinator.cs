@@ -16,13 +16,14 @@ namespace Stelliberty.Desktop;
 // 只编排普通模式启动；启动配置策略归 Application。
 internal static class HubStartupCoordinator
 {
+    // 端点标识沿用 mihomo，确保升级后仍能连接旧服务托管的核心。
 #if DEBUG
 
     public static readonly string PipeName = BuildHubEndpoint(AppMetadata.PipePrefix + "_core_dev");
-    public static readonly string MihomoPipe = BuildMihomoEndpoint(AppMetadata.PipePrefix + "_mihomo_dev");
+    public static readonly string CorePipe = BuildCoreEndpoint(AppMetadata.PipePrefix + "_mihomo_dev");
 #else
     public static readonly string PipeName = BuildHubEndpoint(AppMetadata.PipePrefix + "_core_prod");
-    public static readonly string MihomoPipe = BuildMihomoEndpoint(AppMetadata.PipePrefix + "_mihomo_prod");
+    public static readonly string CorePipe = BuildCoreEndpoint(AppMetadata.PipePrefix + "_mihomo_prod");
 #endif
 
     private static readonly object StartGate = new();
@@ -61,10 +62,10 @@ internal static class HubStartupCoordinator
     {
         return new BootstrapOptions(
             PipeName: PipeName,
-            MihomoPath: DesktopApplicationLayout.CoreBinaryPath,
+            CorePath: DesktopApplicationLayout.CoreBinaryPath,
             DataCoreDir: DesktopApplicationLayout.CoreDirectory,
             UserDataDir: DesktopApplicationLayout.AppDataDirectory,
-            MihomoPipe: MihomoPipe,
+            CorePipe: CorePipe,
             BootstrapYaml: BuildInitialBootstrapYaml(CanNormalModeUseTun()));
     }
 
@@ -86,7 +87,7 @@ internal static class HubStartupCoordinator
     {
         Directory.CreateDirectory(DesktopApplicationLayout.RuntimeDirectory);
         var path = Path.Combine(DesktopApplicationLayout.RuntimeDirectory, "_service_active.yaml");
-        File.WriteAllText(path, InjectMihomoPipe(content));
+        File.WriteAllText(path, InjectCorePipe(content));
         return path;
     }
 
@@ -113,18 +114,18 @@ internal static class HubStartupCoordinator
                         overrideStore,
                         runtimeStore)),
                 new SubscriptionFailureRecorder(subscriptionStore));
-            return builder.Build(MihomoPipe, canUseTun);
+            return builder.Build(CorePipe, canUseTun);
         }
         catch (Exception exception)
         {
             AppLogger.Warning($"Startup config generation failed; starting core with an empty config: {exception.Message}");
-            return StartupBootstrapConfigBuilder.BuildDefaultEmptyYaml(MihomoPipe);
+            return StartupBootstrapConfigBuilder.BuildDefaultEmptyYaml(CorePipe);
         }
     }
 
-    private static string InjectMihomoPipe(string content)
+    private static string InjectCorePipe(string content)
     {
-        return ServiceModeRuntimeConfigWriter.Write(content, MihomoPipe);
+        return ServiceModeRuntimeConfigWriter.Write(content, CorePipe);
     }
 
     private static bool CanNormalModeUseTun()
@@ -132,7 +133,7 @@ internal static class HubStartupCoordinator
         return AppSettingsNormalizer.CanUseTun(new SystemProcessPrivilegeProbe().Detect(), hasServiceTunHost: false);
     }
 
-    private static string BuildMihomoEndpoint(string name)
+    private static string BuildCoreEndpoint(string name)
     {
         return OperatingSystem.IsWindows()
             ? $@"\\.\pipe\{name}"

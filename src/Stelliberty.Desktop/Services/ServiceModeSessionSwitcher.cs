@@ -210,7 +210,7 @@ internal sealed class ServiceModeSessionSwitcher(
         }
 
         using var ownedTransition = transition;
-        // 两种核心共用 Mihomo 管道，整段切换期间不允许其它核心操作进入。
+        // 两种核心共用控制管道，整段切换期间不允许其它核心操作进入。
         BootstrapResult stopped;
         try
         {

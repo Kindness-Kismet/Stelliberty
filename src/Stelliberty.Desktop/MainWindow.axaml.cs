@@ -772,7 +772,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        AppLogger.Info("[Shutdown] Application exit requested");
+        AppLogger.Info("Application exit requested");
         _isShutdownPreparing = true;
         _ = PrepareAndShutdownAsync();
     }
@@ -789,7 +789,7 @@ public sealed partial class MainWindow : Window
         if (args.CloseReason == WindowCloseReason.OSShutdown)
         {
             OsShutdownDetected?.Invoke();
-            AppLogger.Info("[Shutdown] OS window close accepted without cancellation");
+            AppLogger.Info("OS window close accepted without cancellation");
             base.OnClosing(args);
             return;
         }
@@ -815,7 +815,7 @@ public sealed partial class MainWindow : Window
 
     private async Task PrepareAndShutdownAsync()
     {
-        AppLogger.Info("[Shutdown] Application exit preparation started");
+        AppLogger.Info("Application exit preparation started");
         try
         {
             if (PrepareShutdownAsync is not null)
@@ -825,10 +825,10 @@ public sealed partial class MainWindow : Window
         }
         catch (Exception exception)
         {
-            AppLogger.Warning($"[Shutdown] Application exit preparation failed: {exception.Message}");
+            AppLogger.Warning($"Application exit preparation failed: {exception.Message}");
         }
 
-        AppLogger.Info("[Shutdown] Application exit preparation completed");
+        AppLogger.Info("Application exit preparation completed");
         var desktop = Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
         var requiresExplicitShutdown = desktop?.ShutdownMode == ShutdownMode.OnExplicitShutdown;
         _isShutdownRequested = true;

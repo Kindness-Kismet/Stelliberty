@@ -12,9 +12,9 @@ public sealed class PipeCoreProviderClient : ISubscriptionProviderSyncer, ISubsc
 {
     private readonly HttpClient _client;
 
-    public PipeCoreProviderClient(string mihomoPipe)
+    public PipeCoreProviderClient(string corePipe)
     {
-        _client = PipeCoreProxyClient.CreatePipeHttpClient(mihomoPipe);
+        _client = PipeCoreProxyClient.CreatePipeHttpClient(corePipe);
         // 同步会让核心重新拉取远程 providers，慢源需要预留余量。
         _client.Timeout = TimeSpan.FromSeconds(30);
     }

@@ -22,13 +22,13 @@ public sealed class PipeCoreProxyDelayTester : IProviderProxyDelayTester, IDispo
         _timeoutMilliseconds = timeoutMilliseconds;
     }
 
-    public PipeCoreProxyDelayTester(string mihomoPipe, string testUrl, int timeoutMilliseconds)
-        : this(PipeCoreProxyClient.CreatePipeHttpClient(mihomoPipe), testUrl, timeoutMilliseconds)
+    public PipeCoreProxyDelayTester(string corePipe, string testUrl, int timeoutMilliseconds)
+        : this(PipeCoreProxyClient.CreatePipeHttpClient(corePipe), testUrl, timeoutMilliseconds)
     {
     }
 
-    public PipeCoreProxyDelayTester(string mihomoPipe, Func<string> testUrlFactory, int timeoutMilliseconds)
-        : this(PipeCoreProxyClient.CreatePipeHttpClient(mihomoPipe), testUrlFactory, timeoutMilliseconds)
+    public PipeCoreProxyDelayTester(string corePipe, Func<string> testUrlFactory, int timeoutMilliseconds)
+        : this(PipeCoreProxyClient.CreatePipeHttpClient(corePipe), testUrlFactory, timeoutMilliseconds)
     {
     }
 

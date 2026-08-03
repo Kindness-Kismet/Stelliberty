@@ -44,6 +44,11 @@ public sealed class StoredProxySelectionConfigProvider(
             return config;
         }
 
+        return ApplyStoredSelections(config, subscriptionId);
+    }
+
+    public ProxyConfig ApplyStoredSelections(ProxyConfig config, string subscriptionId)
+    {
         return ApplyStoredSelections(
             config,
             selectionStore.GetSelections(subscriptionId));
@@ -53,6 +58,16 @@ public sealed class StoredProxySelectionConfigProvider(
     {
         var subscriptionId = subscriptionSelectionStore.GetCurrentSubscriptionId();
         if (string.IsNullOrWhiteSpace(subscriptionId) || config.Groups.Count == 0)
+        {
+            return;
+        }
+
+        PruneInvalidStoredSelections(config, subscriptionId);
+    }
+
+    public void PruneInvalidStoredSelections(ProxyConfig config, string subscriptionId)
+    {
+        if (config.Groups.Count == 0)
         {
             return;
         }

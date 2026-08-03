@@ -195,7 +195,7 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
         switch (core)
         {
             case IpcCoreManager ipcCoreManager:
-                await ipcCoreManager.ConnectAsync(cancellationToken).ConfigureAwait(false);
+                await ipcCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
                 break;
             case ServiceModeCoreManager serviceModeCoreManager:
                 await serviceModeCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);

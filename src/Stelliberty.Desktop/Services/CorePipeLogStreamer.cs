@@ -9,7 +9,7 @@ using Stelliberty.Domain.CoreLogs;
 
 namespace Stelliberty.Desktop.Services;
 
-internal sealed class MihomoPipeLogStreamer : IDisposable
+internal sealed class CorePipeLogStreamer : IDisposable
 {
     private const int MaxFrameBytes = 1024 * 1024;
     private static readonly TimeSpan ReconnectDelay = TimeSpan.FromSeconds(2);
@@ -21,9 +21,9 @@ internal sealed class MihomoPipeLogStreamer : IDisposable
     private Task? _streamTask;
     private bool _isDisposed;
 
-    public MihomoPipeLogStreamer(string mihomoPipe)
+    public CorePipeLogStreamer(string corePipe)
     {
-        _pipeName = NormalizeEndpoint(mihomoPipe);
+        _pipeName = NormalizeEndpoint(corePipe);
     }
 
     public event EventHandler<CoreLogMessage>? MessageReceived;
@@ -326,7 +326,7 @@ internal sealed class MihomoPipeLogStreamer : IDisposable
         {
             if (!Path.IsPathRooted(pipeName))
             {
-                throw new InvalidOperationException("mihomo Unix socket path must be absolute.");
+                throw new InvalidOperationException("Core Unix socket path must be absolute.");
             }
 
             await socket.ConnectAsync(new UnixDomainSocketEndPoint(pipeName), cancellationToken).ConfigureAwait(false);

@@ -157,7 +157,7 @@ public sealed partial class App : Avalonia.Application
                 runtimeStore);
             var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore);
             // Provider 同步和状态读取始终走核心管道，保持 Debug 和 Release 路径一致。
-            var coreProviderClient = new PipeCoreProviderClient(HubStartupCoordinator.MihomoPipe);
+            var coreProviderClient = new PipeCoreProviderClient(HubStartupCoordinator.CorePipe);
             var providerCatalogLoader = new SelectedSubscriptionProviderCatalogLoader(
                 subscriptionStore,
                 subscriptionSelectionStore,
@@ -194,17 +194,17 @@ public sealed partial class App : Avalonia.Application
                 overrideFileOpener,
                 localization);
 #if DEBUG
-            var pipeProxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.MihomoPipe);
+            var pipeProxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.CorePipe);
             IProxyCoreClient proxyCoreClient = new ProxyCoreClient(pipeProxyCoreClient);
             IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
-                HubStartupCoordinator.MihomoPipe,
+                HubStartupCoordinator.CorePipe,
                 () => settings.DelayTestUrl,
                 5000);
 #else
 
-            IProxyCoreClient proxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.MihomoPipe);
+            IProxyCoreClient proxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.CorePipe);
             IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
-                HubStartupCoordinator.MihomoPipe,
+                HubStartupCoordinator.CorePipe,
                 () => settings.DelayTestUrl,
                 5000);
 #endif
@@ -224,13 +224,13 @@ public sealed partial class App : Avalonia.Application
                 (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
                 isActive => _isServiceModeCoreHostActive = isActive,
                 isServiceModeActive: initialServiceModeStatus.IsRunning);
-            var coreUpdater = new MihomoCoreUpdater(DesktopApplicationLayout.CoreBinaryPath, coreManager);
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
             var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
             var proxyConfigParser = new ProxyConfigParser();
             var proxyConfigLoader = new ProxyConfigLoader(
                 proxyConfigSource,
                 proxyConfigParser);
+            var fileRuntimeProxyConfigProvider = new FileRuntimeProxyConfigProvider(proxyConfigLoader);
             var proxySelectionSyncState = new ProxySelectionSyncState();
             var mihomoApiProxyConfigProvider = new MihomoApiProxyConfigProvider(
                 proxyCoreClient,
@@ -243,15 +243,23 @@ public sealed partial class App : Avalonia.Application
                 importCoreSelections: true,
                 pruneInvalidSelections: false);
             var fallbackProxyConfigProvider = new StoredProxySelectionConfigProvider(
-                new FileRuntimeProxyConfigProvider(proxyConfigLoader),
+                fileRuntimeProxyConfigProvider,
                 proxySelectionStore,
                 subscriptionSelectionStore,
                 pruneInvalidSelections: false);
             var proxySelectionRestorer = new ProxySelectionRestorer(
-                proxyCoreClient,
-                mihomoApiProxyConfigProvider,
-                primaryProxyConfigProvider,
-                proxySelectionSyncState);
+                coreClient: proxyCoreClient,
+                coreConfigProvider: mihomoApiProxyConfigProvider,
+                selectedRuntimeConfigProvider: fileRuntimeProxyConfigProvider,
+                selectionProvider: primaryProxyConfigProvider,
+                syncState: proxySelectionSyncState,
+                subscriptionSelectionStore: subscriptionSelectionStore);
+            var selectionRestoringCoreManager = new ProxySelectionRestoringCoreManager(
+                coreManager,
+                proxySelectionRestorer);
+            var coreUpdater = new MihomoCoreUpdater(
+                DesktopApplicationLayout.CoreBinaryPath,
+                selectionRestoringCoreManager);
             var proxyPageLayout = Enum.TryParse<ProxyPageLayout>(settings.ProxyPageLayout, ignoreCase: true, out var parsedProxyLayout)
                 ? parsedProxyLayout
                 : ProxyPageLayout.Horizontal;
@@ -312,7 +320,7 @@ public sealed partial class App : Avalonia.Application
                     overrideSelectionUpdater,
                     selectedSubscriptionRuntimeGenerator),
                 runtimeStore: runtimeStore,
-                coreManager: coreManager,
+                coreManager: selectionRestoringCoreManager,
                 initialSettings: settings,
                 windowEffectCapability: new WindowEffectCapability(),
                 networkConnectionProbe: networkConnectionProbe,
@@ -322,8 +330,20 @@ public sealed partial class App : Avalonia.Application
                 initialServiceModeStatus: initialServiceModeStatus,
                 systemPlatform: systemProxyPlatform,
                 clipboardWriter: clipboardWriter,
-                serviceModeSessionActivator: serviceModeSessionSwitcher.ActivateAsync,
-                serviceModeSessionDeactivator: serviceModeSessionSwitcher.DeactivateAsync,
+                serviceModeSessionActivator: token => selectionRestoringCoreManager.RunCoreResetAsync(
+                    "service-mode-activation",
+                    serviceModeSessionSwitcher.ActivateAsync,
+                    token),
+                serviceModeSessionDeactivator: token => selectionRestoringCoreManager.RunCoreResetAsync(
+                    "service-mode-deactivation",
+                    serviceModeSessionSwitcher.DeactivateAsync,
+                    token),
+                serviceModeCoreTransitionStarting: () =>
+                    selectionRestoringCoreManager.NotifyCoreResetStarting("service-mode-operation"),
+                serviceModeCoreTransitionCompleted: _ =>
+                    selectionRestoringCoreManager.RestoreCurrentCoreSelectionsAsync(
+                        "service-mode-operation-completion",
+                        CancellationToken.None),
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
             hotkeyViewModel = viewModel;
@@ -348,23 +368,23 @@ public sealed partial class App : Avalonia.Application
             mainWindow.PrepareShutdownAsync = async () =>
             {
                 StopBackgroundServices();
-                AppLogger.Info("[Shutdown] Background schedulers stopped");
+                AppLogger.Info("Background schedulers stopped for shutdown");
                 using var timeout = new CancellationTokenSource(CoreShutdownTimeout);
                 var serviceStopStartedAt = Stopwatch.GetTimestamp();
                 var result = await serviceModeSessionSwitcher.PrepareForShutdownAsync(timeout.Token);
                 if (!result.IsSuccess)
                 {
-                    AppLogger.Warning($"[Shutdown] Service-mode core stop failed elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    AppLogger.Warning($"Service-mode core stop failed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
                 }
                 else
                 {
-                    AppLogger.Info($"[Shutdown] Service-mode core stop completed elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    AppLogger.Info($"Service-mode core stop completed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
                 }
 
                 var hubStopStartedAt = Stopwatch.GetTimestamp();
-                AppLogger.Info("[Shutdown] Normal-mode hub shutdown started");
+                AppLogger.Info("Normal-mode hub shutdown started");
                 await Task.Run(HubBootstrap.Shutdown);
-                AppLogger.Info($"[Shutdown] Normal-mode hub shutdown completed elapsed={Stopwatch.GetElapsedTime(hubStopStartedAt).TotalMilliseconds:0}ms");
+                AppLogger.Info($"Normal-mode hub shutdown completed: elapsed={Stopwatch.GetElapsedTime(hubStopStartedAt).TotalMilliseconds:0}ms");
             };
             mainWindow.OsShutdownDetected = () => Interlocked.Exchange(ref _isOsShutdownRequested, 1);
 #if DEBUG
@@ -390,11 +410,11 @@ public sealed partial class App : Avalonia.Application
                 var source = mainWindow.IsShutdownPreparing
                     ? "application"
                     : isOsShutdown ? "os" : "external";
-                AppLogger.Info($"[Shutdown] Lifetime cleanup started (origin: {source})");
+                AppLogger.Info($"Lifetime cleanup started: origin={source}");
                 StopBackgroundServices();
-                AppLogger.Info("[Shutdown] System proxy cleanup started");
+                AppLogger.Info("System proxy shutdown cleanup started");
                 viewModel.HomePage.DisableSystemProxyOnShutdown();
-                AppLogger.Info("[Shutdown] System proxy cleanup completed");
+                AppLogger.Info("System proxy shutdown cleanup completed");
                 _trayService.Dispose();
                 globalHotkeyService.Dispose();
                 _sessionEndCleanup?.Dispose();
@@ -402,17 +422,17 @@ public sealed partial class App : Avalonia.Application
                 viewModel.Dispose();
                 var switcherDisposed = serviceModeSessionSwitcher.TryDisposeForShutdown();
                 var coreManagerDisposed = coreManager.TryDisposeForShutdown();
-                AppLogger.Info($"[Shutdown] Core ownership released switcher={switcherDisposed} manager={coreManagerDisposed}");
-                DisposeOwnedServices(proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
+                AppLogger.Info($"Core ownership released for shutdown: switcher={switcherDisposed} manager={coreManagerDisposed}");
+                DisposeOwnedServices(selectionRestoringCoreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
                 if (OperatingSystem.IsWindows())
                 {
-                    AppLogger.Info("[Shutdown] Lifetime cleanup skipped synchronous hub wait; Job Object owns remaining normal core termination");
+                    AppLogger.Info("Lifetime cleanup skipped synchronous hub wait; Job Object owns remaining normal core termination");
                 }
                 else
                 {
                     HubBootstrap.Shutdown();
                 }
-                AppLogger.Info($"[Shutdown] Lifetime cleanup completed (origin: {source})");
+                AppLogger.Info($"Lifetime cleanup completed: origin={source}");
             };
             // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。
             _sessionEndCleanup = new SessionEndCleanupService(
@@ -695,7 +715,7 @@ public sealed partial class App : Avalonia.Application
         {
             return new ServiceModeCoreManager(
                 serviceModeManager,
-                HubStartupCoordinator.MihomoPipe,
+                HubStartupCoordinator.CorePipe,
                 HubStartupCoordinator.WriteServiceModeActiveConfig,
                 isActive => _isServiceModeCoreHostActive = isActive);
         }

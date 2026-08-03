@@ -41,15 +41,15 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
     private void RunCleanup()
     {
         SetShutdownDetected(true);
-        AppLogger.Info("[Shutdown] Session-end cleanup started");
+        AppLogger.Info("Session-end cleanup started");
         try
         {
             cleanup();
-            AppLogger.Info("[Shutdown] Session-end cleanup completed");
+            AppLogger.Info("Session-end cleanup completed");
         }
         catch (Exception exception)
         {
-            AppLogger.Warning($"[Shutdown] Session-end cleanup failed: {exception.Message}");
+            AppLogger.Warning($"Session-end cleanup failed: {exception.Message}");
         }
     }
 
@@ -145,13 +145,13 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
             {
                 if (wParam != IntPtr.Zero)
                 {
-                    AppLogger.Info("[Shutdown] WM_ENDSESSION confirmed");
+                    AppLogger.Info("WM_ENDSESSION confirmed");
                     _cleanup();
                 }
                 else
                 {
                     _shutdownStateChanged(false);
-                    AppLogger.Info("[Shutdown] WM_ENDSESSION canceled");
+                    AppLogger.Info("WM_ENDSESSION canceled");
                 }
                 return IntPtr.Zero;
             }
@@ -159,7 +159,7 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
             if (msg == WmQueryEndSession)
             {
                 _shutdownStateChanged(true);
-                AppLogger.Info("[Shutdown] WM_QUERYENDSESSION accepted");
+                AppLogger.Info("WM_QUERYENDSESSION accepted");
                 return 1; // 允许会话结束
             }
 

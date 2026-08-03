@@ -5,7 +5,7 @@ namespace Stelliberty.Desktop;
 
 internal static class ServiceModeRuntimeConfigWriter
 {
-    public static string Write(string content, string mihomoPipe)
+    public static string Write(string content, string corePipe)
     {
         var stream = new YamlStream();
         using var reader = new StringReader(content);
@@ -16,7 +16,7 @@ internal static class ServiceModeRuntimeConfigWriter
 
         var controllerKey = OperatingSystem.IsWindows() ? "external-controller-pipe" : "external-controller-unix";
         var staleControllerKey = OperatingSystem.IsWindows() ? "external-controller-unix" : "external-controller-pipe";
-        Set(root, controllerKey, mihomoPipe);
+        Set(root, controllerKey, corePipe);
         Remove(root, staleControllerKey);
 
         var output = new StringBuilder();

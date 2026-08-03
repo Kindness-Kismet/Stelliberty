@@ -26,8 +26,7 @@ pub enum CoreState {
 
 pub struct CoreRuntime {
     paths: HubPaths,
-    mihomo_pipe: String,
-    bootstrap_yaml: String,
+    core_pipe: String,
     api: CoreApiClient,
 
     state: Arc<Mutex<CoreInner>>,
@@ -39,10 +38,16 @@ struct CoreInner {
     state: CoreState,
     child: Option<ChildHandle>,
     log_task: Option<JoinHandle<()>>,
+    desired_yaml: String,
     last_active_yaml: Option<serde_yaml_ng::Value>,
     last_error: Option<String>,
     // 世代号隔离过期后台任务，防止旧启动流程回写新状态。
     generation: u64,
+}
+
+struct PendingCoreConfig {
+    desired_yaml: String,
+    active_yaml: serde_yaml_ng::Value,
 }
 
 fn broadcast_state(events: &broadcast::Sender<Outgoing>, inner: &CoreInner) {
@@ -114,20 +119,20 @@ fn replace_log_stream(
 impl CoreRuntime {
     pub fn new(
         paths: HubPaths,
-        mihomo_pipe: String,
+        core_pipe: String,
         bootstrap_yaml: String,
         events: broadcast::Sender<Outgoing>,
     ) -> Result<Self> {
-        let api = CoreApiClient::new(&mihomo_pipe);
+        let api = CoreApiClient::new(&core_pipe);
         Ok(Self {
             paths,
-            mihomo_pipe,
-            bootstrap_yaml,
+            core_pipe,
             api,
             state: Arc::new(Mutex::new(CoreInner {
                 state: CoreState::Unavailable,
                 child: None,
                 log_task: None,
+                desired_yaml: bootstrap_yaml,
                 last_active_yaml: None,
                 last_error: None,
                 generation: 0,
@@ -149,7 +154,7 @@ impl CoreRuntime {
             return Ok(());
         }
         if has_child {
-            self.stop_mihomo().await?;
+            self.stop_core_process().await?;
         }
 
         self.start_initial_locked().await
@@ -157,20 +162,30 @@ impl CoreRuntime {
 
     async fn start_initial_locked(&self) -> Result<()> {
         self.paths.ensure_dirs()?;
-        // 先写 bootstrap，让活动 YAML 差异基线匹配 mihomo 实际配置。
-        std::fs::write(&self.paths.bootstrap_yaml, &self.bootstrap_yaml)
+        let desired_yaml = {
+            let inner = self.state.lock().await;
+            inner.desired_yaml.clone()
+        };
+        // 先写 bootstrap，让活动 YAML 差异基线匹配核心实际配置。
+        std::fs::write(&self.paths.bootstrap_yaml, desired_yaml)
             .context("Failed to write bootstrap yaml")?;
-        let initial_yaml = self.rewrite_active_yaml(&self.paths.bootstrap_yaml).await?;
+        let (initial_yaml, _) = self.rewrite_active_yaml(&self.paths.bootstrap_yaml).await?;
         let log_level = read_log_level(&initial_yaml);
         {
             let mut inner = self.state.lock().await;
 
             inner.last_active_yaml = Some(initial_yaml);
         }
-        self.start_mihomo(&self.paths.active_yaml, log_level).await
+        self.start_core_process(&self.paths.active_yaml, log_level, None)
+            .await
     }
 
-    async fn start_mihomo(&self, yaml_path: &Path, log_level: String) -> Result<()> {
+    async fn start_core_process(
+        &self,
+        yaml_path: &Path,
+        log_level: String,
+        pending_config: Option<PendingCoreConfig>,
+    ) -> Result<()> {
         let generation = {
             let mut inner = self.state.lock().await;
             inner.generation += 1;
@@ -179,20 +194,17 @@ impl CoreRuntime {
             broadcast_state(&self.events, &inner);
             inner.generation
         };
-        let child = match process::spawn(
-            &self.paths.mihomo_path,
-            yaml_path,
-            &self.paths.data_core_dir,
-        ) {
-            Ok(c) => c,
-            Err(e) => {
-                let mut inner = self.state.lock().await;
-                inner.state = CoreState::Crashed;
-                inner.last_error = Some(format!("spawn failed: {e}"));
-                broadcast_state(&self.events, &inner);
-                return Err(e.context("Failed to spawn mihomo"));
-            }
-        };
+        let child =
+            match process::spawn(&self.paths.core_path, yaml_path, &self.paths.data_core_dir) {
+                Ok(c) => c,
+                Err(e) => {
+                    let mut inner = self.state.lock().await;
+                    inner.state = CoreState::Crashed;
+                    inner.last_error = Some(format!("spawn failed: {e}"));
+                    broadcast_state(&self.events, &inner);
+                    return Err(e.context("Failed to spawn core"));
+                }
+            };
         let pid = child.pid;
         // 等待器在 child 转移前创建，后续 future 不再借用句柄。
         let waiter = process::exit_waiter(&child);
@@ -248,6 +260,10 @@ impl CoreRuntime {
 
             match ready {
                 Ok(_) => {
+                    if let Some(config) = pending_config {
+                        inner.desired_yaml = config.desired_yaml;
+                        inner.last_active_yaml = Some(config.active_yaml);
+                    }
                     replace_log_stream(&mut inner, api.clone(), events.clone(), &log_level);
                     inner.state = CoreState::Running;
                     broadcast_state(&events, &inner);
@@ -260,11 +276,11 @@ impl CoreRuntime {
             }
         });
 
-        tracing::info!("mihomo started pid={pid}");
+        tracing::info!("core started pid={pid}");
         Ok(())
     }
 
-    async fn stop_mihomo(&self) -> Result<()> {
+    async fn stop_core_process(&self) -> Result<()> {
         let (child_opt, log_task) = {
             let mut inner = self.state.lock().await;
             // 主动停止推进世代，旧退出监视器不会把它记成崩溃。
@@ -281,7 +297,7 @@ impl CoreRuntime {
         if let Some(child) = child_opt {
             process::shutdown(child, Duration::from_secs(5))
                 .await
-                .context("Failed to shut down mihomo")?;
+                .context("Failed to shut down core")?;
         }
         let mut inner = self.state.lock().await;
         inner.state = CoreState::Stopped;
@@ -291,7 +307,7 @@ impl CoreRuntime {
 
     pub async fn stop_core(&self) -> Result<()> {
         let _lifecycle = self.lifecycle.lock().await;
-        self.stop_mihomo().await
+        self.stop_core_process().await
     }
 
     pub async fn start_core(&self) -> Result<()> {
@@ -299,7 +315,32 @@ impl CoreRuntime {
         self.start_if_needed_locked().await
     }
 
-    async fn rewrite_active_yaml(&self, source_path: &Path) -> Result<serde_yaml_ng::Value> {
+    pub async fn start_core_with_config(&self, desired_yaml: String) -> Result<()> {
+        let _lifecycle = self.lifecycle.lock().await;
+        let has_child = self.state.lock().await.child.is_some();
+        if has_child {
+            self.stop_core_process().await?;
+        }
+        self.paths.ensure_dirs()?;
+        std::fs::write(&self.paths.bootstrap_yaml, &desired_yaml)
+            .context("Failed to write bootstrap yaml")?;
+        let (active_yaml, _) = self.rewrite_active_yaml(&self.paths.bootstrap_yaml).await?;
+        let log_level = read_log_level(&active_yaml);
+        self.start_core_process(
+            &self.paths.active_yaml,
+            log_level,
+            Some(PendingCoreConfig {
+                desired_yaml,
+                active_yaml,
+            }),
+        )
+        .await
+    }
+
+    async fn rewrite_active_yaml(
+        &self,
+        source_path: &Path,
+    ) -> Result<(serde_yaml_ng::Value, String)> {
         let text = std::fs::read_to_string(source_path)
             .with_context(|| format!("Failed to read runtime yaml: {}", source_path.display()))?;
         let mut yaml: serde_yaml_ng::Value =
@@ -312,14 +353,14 @@ impl CoreRuntime {
             let (insert_key, remove_key) = ("external-controller-pipe", "external-controller-unix");
             map.insert(
                 serde_yaml_ng::Value::String(insert_key.into()),
-                serde_yaml_ng::Value::String(self.mihomo_pipe.clone()),
+                serde_yaml_ng::Value::String(self.core_pipe.clone()),
             );
             map.remove(serde_yaml_ng::Value::String(remove_key.into()));
         }
         let serialized = serde_yaml_ng::to_string(&yaml).context("Failed to serialize yaml")?;
-        std::fs::write(&self.paths.active_yaml, serialized)
+        std::fs::write(&self.paths.active_yaml, &serialized)
             .context("Failed to write _active.yaml")?;
-        Ok(yaml)
+        Ok((yaml, serialized))
     }
 
     pub async fn apply_config(
@@ -338,7 +379,7 @@ impl CoreRuntime {
             }
         }
 
-        let new_yaml = match self.rewrite_active_yaml(&runtime_yaml_path).await {
+        let (new_yaml, desired_yaml) = match self.rewrite_active_yaml(&runtime_yaml_path).await {
             Ok(v) => v,
             Err(e) => {
                 return Err(ErrorBody {
@@ -382,6 +423,7 @@ impl CoreRuntime {
                 Ok(()) => {
                     let _ = self.api.close_all_connections().await;
                     let mut inner = self.state.lock().await;
+                    inner.desired_yaml = desired_yaml;
                     inner.last_active_yaml = Some(new_yaml);
                     let pid = current_pid(&inner)?;
                     return Ok(serde_json::json!({ "mode": "reload", "pid": pid }));
@@ -406,20 +448,29 @@ impl CoreRuntime {
             }
         }
 
-        if let Err(e) = self.stop_mihomo().await {
+        if let Err(e) = self.stop_core_process().await {
             return Err(ErrorBody {
                 code: "hub.internal".into(),
                 message: format!("{e:#}"),
             });
         }
-        if let Err(e) = self.start_mihomo(&self.paths.active_yaml, log_level).await {
+        if let Err(e) = self
+            .start_core_process(
+                &self.paths.active_yaml,
+                log_level,
+                Some(PendingCoreConfig {
+                    desired_yaml,
+                    active_yaml: new_yaml,
+                }),
+            )
+            .await
+        {
             return Err(ErrorBody {
                 code: "core.spawn_failed".into(),
                 message: format!("{e:#}"),
             });
         }
-        let mut inner = self.state.lock().await;
-        inner.last_active_yaml = Some(new_yaml);
+        let inner = self.state.lock().await;
         let pid = current_pid(&inner)?;
         Ok(serde_json::json!({ "mode": "restart", "pid": pid }))
     }
@@ -429,8 +480,7 @@ impl CoreRuntime {
         serde_json::json!({
             "state": inner.state,
             "pid": inner.child.as_ref().map(|c| c.pid),
-            "external_controller": self.mihomo_pipe,
-            "mihomo_pipe": self.mihomo_pipe,
+            "external_controller": self.core_pipe,
             "last_error": inner.last_error,
         })
     }
@@ -456,7 +506,7 @@ impl MethodHandler for CoreRuntime {
             }
             "core.stop" => {
                 let _lifecycle = self.lifecycle.lock().await;
-                self.stop_mihomo().await.map_err(|e| ErrorBody {
+                self.stop_core_process().await.map_err(|e| ErrorBody {
                     code: "hub.internal".into(),
                     message: format!("{e:#}"),
                 })?;
@@ -464,7 +514,7 @@ impl MethodHandler for CoreRuntime {
             }
             "core.restart" => {
                 let _lifecycle = self.lifecycle.lock().await;
-                self.stop_mihomo().await.map_err(|e| ErrorBody {
+                self.stop_core_process().await.map_err(|e| ErrorBody {
                     code: "hub.internal".into(),
                     message: format!("{e:#}"),
                 })?;

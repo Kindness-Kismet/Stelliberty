@@ -15,11 +15,11 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
     private CoreSnapshot _last = new(CoreState.Unavailable, null, string.Empty, null);
     private bool _isConnected;
     private bool _isDisposed;
-    // mihomo 重启后会短暂繁忙；重试覆盖连续应用配置。
+    // 核心重启后会短暂繁忙；重试覆盖连续应用配置。
     private const int ApplyConfigMaxAttempts = 20;
     private static readonly TimeSpan ApplyConfigBusyDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan ConnectTimeout = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan RestartReadyTimeout = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan CoreReadyTimeout = TimeSpan.FromSeconds(12);
 
     public event EventHandler<CoreSnapshot>? StateChanged;
 
@@ -40,6 +40,12 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
         StateChanged?.Invoke(this, snapshot);
     }
 
+    public async Task EnsureReadyAsync(CancellationToken cancellationToken)
+    {
+        await ConnectAsync(cancellationToken).ConfigureAwait(false);
+        await WaitForReadyAsync(expectedPid: null, "startup", cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<CoreSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
@@ -57,7 +63,13 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
         {
             try
             {
-                return await ApplyConfigOnceAsync(request, cancellationToken).ConfigureAwait(false);
+                var result = await ApplyConfigOnceAsync(request, cancellationToken).ConfigureAwait(false);
+                if (result.Mode == CoreApplyMode.Restart)
+                {
+                    await WaitForReadyAsync(result.Pid, "config apply", cancellationToken).ConfigureAwait(false);
+                }
+
+                return result;
             }
             catch (IpcRemoteException exception) when (exception.Code == "core.busy" && attempt < ApplyConfigMaxAttempts)
             {
@@ -98,7 +110,7 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
             ?? throw new InvalidOperationException("Core restart did not return a new process pid.");
         try
         {
-            await WaitForRestartReadyAsync(pid, cancellationToken).ConfigureAwait(false);
+            await WaitForReadyAsync(pid, "restart", cancellationToken).ConfigureAwait(false);
             AppLogger.Info($"Core restart ready: pid={pid} elapsed={stopwatch.Elapsed.TotalMilliseconds:0}ms");
         }
         catch (Exception exception)
@@ -108,20 +120,23 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
         }
     }
 
-    private async Task WaitForRestartReadyAsync(int expectedPid, CancellationToken cancellationToken)
+    private async Task WaitForReadyAsync(
+        int? expectedPid,
+        string operation,
+        CancellationToken cancellationToken)
     {
         var snapshot = await GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
-        if (IsRestartReady(snapshot, expectedPid))
+        if (IsReady(snapshot, expectedPid))
         {
             return;
         }
 
-        ThrowIfRestartFailed(snapshot);
+        ThrowIfReadyFailed(snapshot, operation);
 
         var completion = new TaskCompletionSource<CoreSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStateChanged(object? sender, CoreSnapshot state)
         {
-            if (IsRestartReady(state, expectedPid) || state.State == CoreState.Crashed)
+            if (IsReady(state, expectedPid) || state.State == CoreState.Crashed)
             {
                 completion.TrySetResult(state);
             }
@@ -132,28 +147,29 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
         {
             // 订阅后立即检查一次，覆盖事件早于响应的竞态。
             snapshot = await GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
-            if (IsRestartReady(snapshot, expectedPid))
+            if (IsReady(snapshot, expectedPid))
             {
                 return;
             }
 
-            ThrowIfRestartFailed(snapshot);
+            ThrowIfReadyFailed(snapshot, operation);
 
-            var timeoutTask = Task.Delay(RestartReadyTimeout, cancellationToken);
+            var timeoutTask = Task.Delay(CoreReadyTimeout, cancellationToken);
             var completed = await Task.WhenAny(completion.Task, timeoutTask).ConfigureAwait(false);
             if (completed == timeoutTask)
             {
                 await timeoutTask.ConfigureAwait(false);
-                throw new TimeoutException($"Core restart timed out: process {expectedPid} did not become running within {RestartReadyTimeout.TotalSeconds:N0} seconds.");
+                var target = expectedPid is null ? "core" : $"process {expectedPid}";
+                throw new TimeoutException($"Core {operation} timed out: {target} did not become running within {CoreReadyTimeout.TotalSeconds:N0} seconds.");
             }
 
             snapshot = await completion.Task.ConfigureAwait(false);
-            if (IsRestartReady(snapshot, expectedPid))
+            if (IsReady(snapshot, expectedPid))
             {
                 return;
             }
 
-            ThrowIfRestartFailed(snapshot);
+            ThrowIfReadyFailed(snapshot, operation);
         }
         finally
         {
@@ -161,12 +177,14 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
         }
     }
 
-    private static bool IsRestartReady(CoreSnapshot snapshot, int expectedPid)
+    private static bool IsReady(CoreSnapshot snapshot, int? expectedPid)
     {
-        return snapshot.State == CoreState.Running && snapshot.Pid == expectedPid;
+        return snapshot.State == CoreState.Running
+            && snapshot.Pid is not null
+            && (expectedPid is null || snapshot.Pid == expectedPid);
     }
 
-    private static void ThrowIfRestartFailed(CoreSnapshot snapshot)
+    private static void ThrowIfReadyFailed(CoreSnapshot snapshot, string operation)
     {
         if (snapshot.State != CoreState.Crashed)
         {
@@ -174,8 +192,8 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
         }
 
         var message = string.IsNullOrWhiteSpace(snapshot.LastError)
-            ? "Core entered crashed state after restart."
-            : $"Core entered crashed state after restart: {snapshot.LastError}";
+            ? $"Core entered crashed state during {operation}."
+            : $"Core entered crashed state during {operation}: {snapshot.LastError}";
         throw new InvalidOperationException(message);
     }
 

@@ -29,8 +29,8 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
         _client = client;
     }
 
-    public PipeCoreProxyClient(string mihomoPipe)
-        : this(CreatePipeHttpClient(mihomoPipe))
+    public PipeCoreProxyClient(string corePipe)
+        : this(CreatePipeHttpClient(corePipe))
     {
     }
 
@@ -39,9 +39,9 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
         _client.Dispose();
     }
 
-    public static HttpClient CreatePipeHttpClient(string mihomoPipe)
+    public static HttpClient CreatePipeHttpClient(string corePipe)
     {
-        var pipeName = NormalizeEndpoint(mihomoPipe);
+        var pipeName = NormalizeEndpoint(corePipe);
         var handler = new SocketsHttpHandler
         {
             UseProxy = false,
@@ -71,7 +71,7 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
         {
             if (!Path.IsPathRooted(pipeName))
             {
-                throw new InvalidOperationException("mihomo Unix socket path must be absolute.");
+                throw new InvalidOperationException("Core Unix socket path must be absolute.");
             }
 
             await socket.ConnectAsync(new UnixDomainSocketEndPoint(pipeName), cancellationToken);

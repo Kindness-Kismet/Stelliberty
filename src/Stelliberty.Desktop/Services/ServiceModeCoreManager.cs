@@ -15,8 +15,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private static readonly TimeSpan StatePollInterval = TimeSpan.FromSeconds(2);
 
     private readonly IServiceModeManager _serviceModeManager;
-    private readonly HttpClient _mihomoClient;
-    private readonly MihomoPipeLogStreamer _logStreamer;
+    private readonly HttpClient _coreClient;
+    private readonly CorePipeLogStreamer _logStreamer;
     private readonly Func<string, string> _writeActiveConfig;
     private readonly Action<bool> _setCoreHostActive;
     private readonly object _monitorGate = new();
@@ -27,13 +27,13 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
 
     public ServiceModeCoreManager(
         IServiceModeManager serviceModeManager,
-        string mihomoPipe,
+        string corePipe,
         Func<string, string> writeActiveConfig,
         Action<bool> setCoreHostActive)
     {
         _serviceModeManager = serviceModeManager;
-        _mihomoClient = PipeCoreProxyClient.CreatePipeHttpClient(mihomoPipe);
-        _logStreamer = new MihomoPipeLogStreamer(mihomoPipe);
+        _coreClient = PipeCoreProxyClient.CreatePipeHttpClient(corePipe);
+        _logStreamer = new CorePipeLogStreamer(corePipe);
         _logStreamer.MessageReceived += OnLogMessageReceived;
         _writeActiveConfig = writeActiveConfig;
         _setCoreHostActive = setCoreHostActive;
@@ -54,7 +54,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         StopStatusMonitor();
         _logStreamer.MessageReceived -= OnLogMessageReceived;
         _logStreamer.Dispose();
-        _mihomoClient.Dispose();
+        _coreClient.Dispose();
     }
 
     public async Task<CoreSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
@@ -194,7 +194,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             }
             catch (Exception exception)
             {
-                PublishSnapshot(new CoreSnapshot(CoreState.Unavailable, null, HubStartupCoordinator.MihomoPipe, exception.Message));
+                PublishSnapshot(new CoreSnapshot(CoreState.Unavailable, null, HubStartupCoordinator.CorePipe, exception.Message));
             }
         }
     }
@@ -223,7 +223,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
 
     private void PublishState(CoreState state, int? pid, string? lastError)
     {
-        PublishSnapshot(new CoreSnapshot(state, pid, HubStartupCoordinator.MihomoPipe, lastError));
+        PublishSnapshot(new CoreSnapshot(state, pid, HubStartupCoordinator.CorePipe, lastError));
     }
 
     private void PublishSnapshot(CoreSnapshot snapshot)
@@ -251,7 +251,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     {
         try
         {
-            using var response = await _mihomoClient.GetAsync("version", cancellationToken).ConfigureAwait(false);
+            using var response = await _coreClient.GetAsync("version", cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 return null;
@@ -291,7 +291,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         return new CoreSnapshot(
             ParseCoreState(status.CoreState),
             status.CorePid,
-            HubStartupCoordinator.MihomoPipe,
+            HubStartupCoordinator.CorePipe,
             status.CoreLastError);
     }
 }
