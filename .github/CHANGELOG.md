@@ -1,11 +1,11 @@
-- Saved subscriptions and overrides are no longer cleared when a state file is temporarily locked or inaccessible.
-- Core restarts now stop when the previous core process cannot be confirmed closed.
-- Subscription and override operations no longer report false success, and canceled updates stay silent.
-- File picker failures now show a clear message while normal cancellation remains silent.
+- Excessive frame-rate drops when switching to the proxy page have been eliminated.
+- Service mode now stops the core correctly when the app exits.
+- The selected subscription and proxy choices now survive app restarts, core restarts, and service mode installation or removal.
+- The chain proxy dialog scrollbar is now aligned correctly.
 
 ---
 
-- 状态文件暂时被占用或无法访问时，已保存的订阅和覆写不再被清空。
-- 无法确认旧核心进程已关闭时，核心重启会立即停止。
-- 订阅和覆写操作不再虚假提示成功，主动取消更新时也不会提示失败。
-- 文件选择器异常时会显示明确提示，正常取消仍保持静默。
+- 彻底消除切换到代理页时的帧数过度下降。
+- 服务模式会在应用退出时正确停止核心。
+- 选中的订阅和代理节点现在会在应用重启、核心重启以及服务模式安装或卸载后保持不变。
+- 链式代理对话框的滚动条现已正确对齐。
