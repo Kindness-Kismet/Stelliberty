@@ -569,11 +569,12 @@ fn windows_print_status() -> Result<()> {
         Err(error) => return Err(error).context("Failed to open the Windows service"),
     };
 
-    if service.query_status()?.current_state == ServiceState::Running {
-        println!("running");
+    let state = if service.query_status()?.current_state == ServiceState::Running {
+        "running"
     } else {
-        println!("stopped");
-    }
+        "stopped"
+    };
+    println!("{state} version={}", crate::service_version());
     Ok(())
 }
 
@@ -589,11 +590,12 @@ fn linux_print_status() -> Result<()> {
         .args(["is-active", service_name()])
         .output()
         .context("Failed to query systemd service status")?;
-    if String::from_utf8_lossy(&output.stdout).trim() == "active" {
-        println!("running");
+    let state = if String::from_utf8_lossy(&output.stdout).trim() == "active" {
+        "running"
     } else {
-        println!("stopped");
-    }
+        "stopped"
+    };
+    println!("{state} version={}", crate::service_version());
     Ok(())
 }
 
@@ -609,10 +611,11 @@ fn macos_print_status() -> Result<()> {
         .args(["print", &format!("system/{}", launchd_label())])
         .output()
         .context("Failed to query launchd service status")?;
-    if output.status.success() {
-        println!("running");
+    let state = if output.status.success() {
+        "running"
     } else {
-        println!("stopped");
-    }
+        "stopped"
+    };
+    println!("{state} version={}", crate::service_version());
     Ok(())
 }

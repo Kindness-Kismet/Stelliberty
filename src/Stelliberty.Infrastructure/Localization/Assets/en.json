@@ -67,6 +67,7 @@
   "Home.VirtualNic.NeedsPrivilege": "Requires administrator or service mode",
   "Home.ServiceMode.Install": "Install Service",
   "Home.ServiceMode.Repair": "Repair Service",
+  "Home.ServiceMode.Update": "Update Service",
   "Home.ServiceMode.Uninstall": "Uninstall Service",
   "Home.ServiceMode.Running": "Service mode running",
   "Home.ServiceMode.Stopped": "Service installed, stopped",

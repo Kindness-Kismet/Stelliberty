@@ -45,9 +45,9 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         }
 
         var message = result.Message.Trim();
+        var parts = ParseServiceStatus(message);
         if (message.StartsWith("running", StringComparison.OrdinalIgnoreCase))
         {
-            var parts = ParseRunningStatus(message);
             if (parts.ServiceName is not null
                 && !string.Equals(parts.ServiceName, AppRuntimeNames.ServiceName, StringComparison.Ordinal))
             {
@@ -61,12 +61,16 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
                 parts.LastHeartbeatAge,
                 parts.CoreState,
                 parts.CorePid,
-                parts.CoreLastError);
+                parts.CoreLastError,
+                parts.Version);
         }
 
         if (message.StartsWith("stopped", StringComparison.OrdinalIgnoreCase))
         {
-            return new ServiceModeStatus(ServiceModeState.Stopped, "Service is installed but not running.");
+            return new ServiceModeStatus(
+                ServiceModeState.Stopped,
+                "Service is installed but not running.",
+                InstalledVersion: parts.Version);
         }
 
         if (message.StartsWith("not-installed", StringComparison.OrdinalIgnoreCase))
@@ -462,9 +466,10 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
     }
 #endif
 
-    private static (string? ServiceName, TimeSpan? Uptime, TimeSpan? LastHeartbeatAge, string? CoreState, int? CorePid, string? CoreLastError) ParseRunningStatus(string message)
+    private static (string? ServiceName, string? Version, TimeSpan? Uptime, TimeSpan? LastHeartbeatAge, string? CoreState, int? CorePid, string? CoreLastError) ParseServiceStatus(string message)
     {
         string? serviceName = null;
+        string? version = null;
         TimeSpan? uptime = null;
         TimeSpan? lastHeartbeatAge = null;
         string? coreState = null;
@@ -488,6 +493,12 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             if (part.StartsWith("uptime=", StringComparison.OrdinalIgnoreCase))
             {
                 uptime = ParseSeconds(part["uptime=".Length..]);
+                continue;
+            }
+
+            if (part.StartsWith("version=", StringComparison.OrdinalIgnoreCase))
+            {
+                version = part["version=".Length..];
                 continue;
             }
 
@@ -515,7 +526,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
 
         }
 
-        return (serviceName, uptime, lastHeartbeatAge, coreState, corePid, coreLastError);
+        return (serviceName, version, uptime, lastHeartbeatAge, coreState, corePid, coreLastError);
     }
 
     private static TimeSpan? ParseSeconds(string value)
