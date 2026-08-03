@@ -67,6 +67,7 @@
   "Home.VirtualNic.NeedsPrivilege": "需要管理員或服務模式",
   "Home.ServiceMode.Install": "安裝服務模式",
   "Home.ServiceMode.Repair": "修復服務模式",
+  "Home.ServiceMode.Update": "升級服務模式",
   "Home.ServiceMode.Uninstall": "解除安裝服務模式",
   "Home.ServiceMode.Running": "服務模式執行中",
   "Home.ServiceMode.Stopped": "服務已安裝，未執行",

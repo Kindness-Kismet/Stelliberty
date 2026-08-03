@@ -7,7 +7,8 @@ public sealed record ServiceModeStatus(
     TimeSpan? LastHeartbeatAge = null,
     string? CoreState = null,
     int? CorePid = null,
-    string? CoreLastError = null)
+    string? CoreLastError = null,
+    string? InstalledVersion = null)
 {
     public bool IsInstalled => State is ServiceModeState.Running or ServiceModeState.Stopped;
 

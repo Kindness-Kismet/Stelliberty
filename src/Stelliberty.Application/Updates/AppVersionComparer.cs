@@ -35,6 +35,14 @@ public static class AppVersionComparer
 
     public static string Normalize(string? value) => (value ?? string.Empty).Trim().TrimStart('v', 'V');
 
+    public static bool IsValid(string? value)
+    {
+        var normalized = Normalize(value);
+        var dash = normalized.IndexOf('-', StringComparison.Ordinal);
+        var coreText = dash >= 0 ? normalized[..dash] : normalized;
+        return Version.TryParse(coreText, out _) && (dash < 0 || dash < normalized.Length - 1);
+    }
+
     public static bool IsPreRelease(string? value) => !Parse(value).IsRelease;
 
     private static int ComparePreRelease(string left, string right)
