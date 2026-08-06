@@ -28,6 +28,23 @@ internal static class TrayApplicationLayout
 
     public static string RuntimeDirectory => Path.Combine(AppDataDirectory, PathConventions.RuntimeSubdirectory);
 
+    public static string ServiceDirectory => Path.Combine(AppDataDirectory, PathConventions.ServiceSubdirectory);
+
+    public static string ServiceUpdateDirectory => Path.Combine(
+        InstallDataDirectory,
+        PathConventions.ServiceSubdirectory,
+        PathConventions.ServiceUpdateSubdirectory);
+
+    public static string ServiceUpdateBinaryPath => Path.Combine(
+        ServiceUpdateDirectory,
+        AppRuntimeNames.ServiceBinaryName);
+
+    public static string ServiceInstalledBinaryPath => Path.Combine(
+        ServiceDirectory,
+        OperatingSystem.IsWindows()
+            ? $"{PathConventions.ServiceInstalledBinaryStem}.exe"
+            : PathConventions.ServiceInstalledBinaryStem);
+
     public static string SettingsFilePath => Path.Combine(AppDataDirectory, PathConventions.SettingsFileName);
 
     public static string RunningLogFilePath => Path.Combine(

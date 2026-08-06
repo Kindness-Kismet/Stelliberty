@@ -90,6 +90,12 @@ internal sealed class TrayRequestRouter : IDisposable
                 TrayProtocol.SystemProxySetEnabledMethod => await HandleSystemProxySetAsync(
                     request,
                     cancellationToken).ConfigureAwait(false),
+                TrayProtocol.ServiceModeStatusMethod => TrayIpcResult.Success(
+                    await RequireCoreRuntime().GetServiceModeStatusAsync(cancellationToken).ConfigureAwait(false)),
+                TrayProtocol.ServiceModeInstallMethod => TrayIpcResult.Success(
+                    await RequireCoreRuntime().InstallOrUpdateServiceModeAsync(cancellationToken).ConfigureAwait(false)),
+                TrayProtocol.ServiceModeUninstallMethod => TrayIpcResult.Success(
+                    await RequireCoreRuntime().UninstallServiceModeAsync(cancellationToken).ConfigureAwait(false)),
                 TrayProtocol.UiActivateMethod => TrayIpcResult.Success(
                     await _uiSessions.ActivateAsync(cancellationToken).ConfigureAwait(false)),
                 TrayProtocol.UiRegisterMethod => TrayIpcResult.Success(
@@ -116,6 +122,11 @@ internal sealed class TrayRequestRouter : IDisposable
             request.Method.StartsWith("system_proxy.", StringComparison.Ordinal))
         {
             return TrayIpcResult.Error("system_proxy.operation_failed", exception.Message);
+        }
+        catch (InvalidOperationException exception) when (
+            request.Method.StartsWith("service_mode.", StringComparison.Ordinal))
+        {
+            return TrayIpcResult.Error("service_mode.operation_failed", exception.Message);
         }
         catch (InvalidOperationException exception) when (
             request.Method.StartsWith("core.", StringComparison.Ordinal)
@@ -242,7 +253,7 @@ internal sealed class TrayRequestRouter : IDisposable
             ? ["ui_session"]
             : _systemProxy is null
                 ? ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic"]
-                : ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic", "system_proxy"],
+                : ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic", "system_proxy", "service_mode"],
         _coreRuntime?.CurrentStatus.CoreGeneration ?? 0);
 
     private async Task<TrayIpcResult> HandleCoreRestartAsync(CancellationToken cancellationToken)

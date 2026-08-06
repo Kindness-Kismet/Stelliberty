@@ -7,7 +7,7 @@ using Stelliberty.Domain.CoreLogs;
 
 namespace Stelliberty.Infrastructure.Tray;
 
-public sealed class TrayCoreManager : ICoreManager, IDisposable, IAsyncDisposable
+public sealed class TrayCoreManager : IReadyCoreManager, IDisposable, IAsyncDisposable
 {
     private readonly string? _endpoint;
     private TrayIpcClient _client;
@@ -43,6 +43,11 @@ public sealed class TrayCoreManager : ICoreManager, IDisposable, IAsyncDisposabl
         }
 
         return result;
+    }
+
+    async Task IReadyCoreManager.EnsureReadyAsync(CancellationToken cancellationToken)
+    {
+        await EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<TrayCoreOperationResult> StopCoreAsync(CancellationToken cancellationToken = default)

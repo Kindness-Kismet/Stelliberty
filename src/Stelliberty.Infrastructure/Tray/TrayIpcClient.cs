@@ -87,6 +87,15 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
             new TraySystemProxySetRequest(isEnabled, request),
             cancellationToken);
 
+    public Task<ServiceModeStatus> GetServiceModeStatusAsync(CancellationToken cancellationToken) =>
+        RequestAsync<ServiceModeStatus>(TrayProtocol.ServiceModeStatusMethod, new { }, cancellationToken);
+
+    public Task<ServiceModeOperationResult> InstallOrUpdateServiceModeAsync(CancellationToken cancellationToken) =>
+        RequestAsync<ServiceModeOperationResult>(TrayProtocol.ServiceModeInstallMethod, new { }, cancellationToken);
+
+    public Task<ServiceModeOperationResult> UninstallServiceModeAsync(CancellationToken cancellationToken) =>
+        RequestAsync<ServiceModeOperationResult>(TrayProtocol.ServiceModeUninstallMethod, new { }, cancellationToken);
+
     public Task<UiActivateResult> ActivateUiAsync(int launcherPid, CancellationToken cancellationToken) =>
         RequestAsync<UiActivateResult>(
             TrayProtocol.UiActivateMethod,

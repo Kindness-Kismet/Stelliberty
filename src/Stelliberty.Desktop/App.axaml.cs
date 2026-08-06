@@ -100,8 +100,13 @@ public sealed partial class App : Avalonia.Application
                     platformDirectories.AppDataDirectory));
             ISystemProxyController systemProxyService = (ISystemProxyController?)localSystemProxyController
                 ?? new TraySystemProxyController();
-            IServiceModeManager serviceModeManager = new DesktopServiceModeManager();
-            var coreProcessCleaner = new CoreProcessCleaner();
+            IServiceModeManager serviceModeManager = UsesTrayRuntime
+                ? new TrayServiceModeManager()
+                : new ServiceModeManager(new ServiceModePaths(
+                    DesktopApplicationLayout.ServiceDirectory,
+                    DesktopApplicationLayout.ServiceCommandBinaryPath,
+                    DesktopApplicationLayout.ServiceInstalledBinaryPath));
+            var coreProcessCleaner = new CoreProcessCleaner(DesktopApplicationLayout.ServiceDirectory);
             var networkConnectionProbe = new SystemNetworkConnectionProbe();
             var processPrivilegeProbe = new SystemProcessPrivilegeProbe();
             IAppBehaviorService appBehaviorService = CreateAppBehaviorService();
@@ -225,17 +230,29 @@ public sealed partial class App : Avalonia.Application
 #if DEBUG
             LogStartupTrace($"Initial service status ready state={initialServiceModeStatus.State}", startupStartedAt);
 #endif
-            var coreManager = new SwitchableCoreManager(CreateCoreManager(initialServiceModeStatus, serviceModeManager));
-            var serviceModeSessionSwitcher = new ServiceModeSessionSwitcher(
-                serviceModeManager,
-                coreManager,
-                status => CreateCoreManager(status, serviceModeManager),
-                CreateNormalCoreManager,
-                StopNormalCoreAsync,
-                ResumeNormalCoreAsync,
-                (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
-                isActive => _isServiceModeCoreHostActive = isActive,
-                isServiceModeActive: initialServiceModeStatus.IsRunning);
+            var coreManager = new SwitchableCoreManager(
+                UsesTrayRuntime
+                    ? new TrayCoreManager()
+                    : CreateCoreManager(initialServiceModeStatus, serviceModeManager));
+            ServiceModeSessionSwitcher? serviceModeSessionSwitcher = null;
+            if (!UsesTrayRuntime)
+            {
+                serviceModeSessionSwitcher = new ServiceModeSessionSwitcher(
+                    serviceModeManager,
+                    coreManager,
+                    status => CreateCoreManager(status, serviceModeManager),
+                    CreateNormalCoreManager,
+                    async token => ToCoreHostResult(await StopNormalCoreAsync(token)),
+                    async token => ToCoreHostResult(await ResumeNormalCoreAsync(token)),
+                    async (status, token) => ToCoreHostResult(
+                        await StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token)),
+                    isActive => _isServiceModeCoreHostActive = isActive,
+                    isServiceModeActive: initialServiceModeStatus.IsRunning);
+            }
+            else
+            {
+                _isServiceModeCoreHostActive = initialServiceModeStatus.IsRunning;
+            }
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
             var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
             var proxyConfigParser = new ProxyConfigParser();
@@ -342,18 +359,24 @@ public sealed partial class App : Avalonia.Application
                 initialServiceModeStatus: initialServiceModeStatus,
                 systemPlatform: systemProxyPlatform,
                 clipboardWriter: clipboardWriter,
-                serviceModeSessionActivator: token => selectionRestoringCoreManager.RunCoreResetAsync(
-                    "service-mode-activation",
-                    serviceModeSessionSwitcher.ActivateAsync,
-                    token),
-                serviceModeSessionDeactivator: token => selectionRestoringCoreManager.RunCoreResetAsync(
-                    "service-mode-deactivation",
-                    serviceModeSessionSwitcher.DeactivateAsync,
-                    token),
-                serviceModeCoreTransitionStarting: () =>
-                    selectionRestoringCoreManager.NotifyCoreResetStarting("service-mode-operation"),
-                serviceModeCoreTransitionCompleted: _ =>
-                    selectionRestoringCoreManager.RestoreCurrentCoreSelectionsAsync(
+                serviceModeSessionActivator: serviceModeSessionSwitcher is null
+                    ? null
+                    : token => selectionRestoringCoreManager.RunCoreResetAsync(
+                        "service-mode-activation",
+                        serviceModeSessionSwitcher.ActivateAsync,
+                        token),
+                serviceModeSessionDeactivator: serviceModeSessionSwitcher is null
+                    ? null
+                    : token => selectionRestoringCoreManager.RunCoreResetAsync(
+                        "service-mode-deactivation",
+                        serviceModeSessionSwitcher.DeactivateAsync,
+                        token),
+                serviceModeCoreTransitionStarting: serviceModeSessionSwitcher is null
+                    ? null
+                    : () => selectionRestoringCoreManager.NotifyCoreResetStarting("service-mode-operation"),
+                serviceModeCoreTransitionCompleted: serviceModeSessionSwitcher is null
+                    ? null
+                    : _ => selectionRestoringCoreManager.RestoreCurrentCoreSelectionsAsync(
                         "service-mode-operation-completion",
                         CancellationToken.None),
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
@@ -382,15 +405,18 @@ public sealed partial class App : Avalonia.Application
                     await Task.Run(() => localSystemProxyController.Shutdown());
                 }
                 using var timeout = new CancellationTokenSource(CoreShutdownTimeout);
-                var serviceStopStartedAt = Stopwatch.GetTimestamp();
-                var result = await serviceModeSessionSwitcher.PrepareForShutdownAsync(timeout.Token);
-                if (!result.IsSuccess)
+                if (serviceModeSessionSwitcher is not null)
                 {
-                    AppLogger.Warning($"Service-mode core stop failed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
-                }
-                else
-                {
-                    AppLogger.Info($"Service-mode core stop completed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    var serviceStopStartedAt = Stopwatch.GetTimestamp();
+                    var result = await serviceModeSessionSwitcher.PrepareForShutdownAsync(timeout.Token);
+                    if (!result.IsSuccess)
+                    {
+                        AppLogger.Warning($"Service-mode core stop failed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    }
+                    else
+                    {
+                        AppLogger.Info($"Service-mode core stop completed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    }
                 }
 
                 if (UsesTrayRuntime)
@@ -435,7 +461,7 @@ public sealed partial class App : Avalonia.Application
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
                 viewModel.Dispose();
-                var switcherDisposed = serviceModeSessionSwitcher.TryDisposeForShutdown();
+                var switcherDisposed = serviceModeSessionSwitcher?.TryDisposeForShutdown() ?? true;
                 var coreManagerDisposed = coreManager.TryDisposeForShutdown();
                 AppLogger.Info($"Core ownership released for shutdown: switcher={switcherDisposed} manager={coreManagerDisposed}");
                 DisposeOwnedServices(
@@ -444,7 +470,8 @@ public sealed partial class App : Avalonia.Application
                     proxyDelayTester,
                     coreProviderClient,
                     webDavBackupStore,
-                    systemProxyService);
+                    systemProxyService,
+                    serviceModeManager);
                 if (UsesTrayRuntime)
                 {
                     AppLogger.Info("Desktop core client released; Tray retains runtime ownership");
@@ -701,6 +728,11 @@ public sealed partial class App : Avalonia.Application
         CoreProcessCleaner coreProcessCleaner,
         CancellationToken cancellationToken)
     {
+        if (UsesTrayRuntime)
+        {
+            return await ResumeNormalCoreAsync(cancellationToken);
+        }
+
         if (initialServiceModeStatus.IsRunning)
         {
             var serviceCleanup = coreProcessCleaner.CleanupForServiceMode(initialServiceModeStatus);
@@ -817,6 +849,8 @@ public sealed partial class App : Avalonia.Application
             return new ServiceModeCoreManager(
                 serviceModeManager,
                 HubStartupCoordinator.CorePipe,
+                DesktopApplicationLayout.CoreBinaryPath,
+                DesktopApplicationLayout.CoreDirectory,
                 HubStartupCoordinator.WriteServiceModeActiveConfig,
                 isActive => _isServiceModeCoreHostActive = isActive);
         }
@@ -864,6 +898,13 @@ public sealed partial class App : Avalonia.Application
         {
             return BootstrapResult.Failure(exception.Message);
         }
+    }
+
+    private static CoreHostOperationResult ToCoreHostResult(BootstrapResult result)
+    {
+        return result.Ok
+            ? CoreHostOperationResult.Success(result.Message)
+            : CoreHostOperationResult.Failure(result.Message);
     }
 
     private void StartAppUpdateAutoCheckTimer(AppUpdateAutoCheckRunner runner)

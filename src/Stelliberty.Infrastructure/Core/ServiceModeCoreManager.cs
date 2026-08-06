@@ -6,9 +6,9 @@ using Stelliberty.Application.Runtime;
 using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Infrastructure.Proxies;
 
-namespace Stelliberty.Desktop.Services;
+namespace Stelliberty.Infrastructure.Core;
 
-internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
+public sealed class ServiceModeCoreManager : IReadyCoreManager, IDisposable
 {
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan ReadyPollInterval = TimeSpan.FromMilliseconds(250);
@@ -18,7 +18,10 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private readonly HttpClient _coreClient;
     private readonly CorePipeLogStreamer _logStreamer;
     private readonly Func<string, string> _writeActiveConfig;
-    private readonly Action<bool> _setCoreHostActive;
+    private readonly Action<bool>? _setCoreHostActive;
+    private readonly string _corePipe;
+    private readonly string _coreBinaryPath;
+    private readonly string _coreDirectory;
     private readonly object _monitorGate = new();
     private CancellationTokenSource? _monitorCancellation;
     private Task? _monitorTask;
@@ -28,13 +31,18 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     public ServiceModeCoreManager(
         IServiceModeManager serviceModeManager,
         string corePipe,
+        string coreBinaryPath,
+        string coreDirectory,
         Func<string, string> writeActiveConfig,
-        Action<bool> setCoreHostActive)
+        Action<bool>? setCoreHostActive = null)
     {
         _serviceModeManager = serviceModeManager;
         _coreClient = PipeCoreProxyClient.CreatePipeHttpClient(corePipe);
         _logStreamer = new CorePipeLogStreamer(corePipe);
         _logStreamer.MessageReceived += OnLogMessageReceived;
+        _corePipe = corePipe;
+        _coreBinaryPath = coreBinaryPath;
+        _coreDirectory = coreDirectory;
         _writeActiveConfig = writeActiveConfig;
         _setCoreHostActive = setCoreHostActive;
     }
@@ -80,8 +88,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         ThrowIfDisposed();
         var activePath = _writeActiveConfig(await File.ReadAllTextAsync(request.RuntimeYamlPath, cancellationToken).ConfigureAwait(false));
         var serviceRequest = new ServiceModeCoreHostRequest(
-            DesktopApplicationLayout.CoreBinaryPath,
-            DesktopApplicationLayout.CoreDirectory,
+            _coreBinaryPath,
+            _coreDirectory,
             activePath);
         var result = await _serviceModeManager.StartCoreHostAsync(serviceRequest, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
@@ -194,7 +202,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             }
             catch (Exception exception)
             {
-                PublishSnapshot(new CoreSnapshot(CoreState.Unavailable, null, HubStartupCoordinator.CorePipe, exception.Message));
+                PublishSnapshot(new CoreSnapshot(CoreState.Unavailable, null, _corePipe, exception.Message));
             }
         }
     }
@@ -223,7 +231,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
 
     private void PublishState(CoreState state, int? pid, string? lastError)
     {
-        PublishSnapshot(new CoreSnapshot(state, pid, HubStartupCoordinator.CorePipe, lastError));
+        PublishSnapshot(new CoreSnapshot(state, pid, _corePipe, lastError));
     }
 
     private void PublishSnapshot(CoreSnapshot snapshot)
@@ -237,7 +245,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         {
             _logStreamer.Stop();
         }
-        _setCoreHostActive(snapshot.State == CoreState.Running);
+        _setCoreHostActive?.Invoke(snapshot.State == CoreState.Running);
         if (_lastSnapshot == snapshot)
         {
             return;
@@ -286,12 +294,12 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         };
     }
 
-    private static CoreSnapshot ToSnapshot(ServiceModeStatus status)
+    private CoreSnapshot ToSnapshot(ServiceModeStatus status)
     {
         return new CoreSnapshot(
             ParseCoreState(status.CoreState),
             status.CorePid,
-            HubStartupCoordinator.CorePipe,
+            _corePipe,
             status.CoreLastError);
     }
 }

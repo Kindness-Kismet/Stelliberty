@@ -8,7 +8,7 @@ namespace Stelliberty.Application.Tray;
 
 public static class TrayProtocol
 {
-    public const int Version = 3;
+    public const int Version = 4;
 
     public const string HelloMethod = "tray.hello";
     public const string HealthMethod = "tray.get_health";
@@ -23,6 +23,9 @@ public static class TrayProtocol
     public const string RuntimeResetTrafficMethod = "runtime.reset_traffic";
     public const string SystemProxyStatusMethod = "system_proxy.get_status";
     public const string SystemProxySetEnabledMethod = "system_proxy.set_enabled";
+    public const string ServiceModeStatusMethod = "service_mode.get_status";
+    public const string ServiceModeInstallMethod = "service_mode.install_or_update";
+    public const string ServiceModeUninstallMethod = "service_mode.uninstall";
     public const string UiActivateMethod = "ui.activate";
     public const string UiRegisterMethod = "ui.register";
     public const string UiUnregisterMethod = "ui.unregister";
