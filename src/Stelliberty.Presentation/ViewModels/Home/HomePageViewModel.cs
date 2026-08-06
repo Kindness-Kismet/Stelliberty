@@ -668,7 +668,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         var version = Interlocked.Increment(ref _systemProxyApplyVersion);
         _isSystemProxyEnabled = shouldEnable;
         RaiseHomeStateChanged();
-        _ = ApplySystemProxyAsync(shouldEnable, version);
+        _ = Task.Run(() => ApplySystemProxyAsync(shouldEnable, version));
     }
 
     private async Task ApplySystemProxyAsync(bool shouldEnable, int version)
