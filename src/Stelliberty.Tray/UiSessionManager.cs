@@ -7,13 +7,15 @@ internal interface IUiSessionConnection
     Guid Id { get; }
 
     Task RequestActivationAsync(CancellationToken cancellationToken);
+
+    Task RequestToggleAsync(CancellationToken cancellationToken);
 }
 
 internal sealed class UiSessionManager(
     IDesktopUiLauncher launcher,
     TimeProvider? timeProvider = null)
 {
-    private static readonly TimeSpan LaunchReservationDuration = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan LaunchReservationDuration = TimeSpan.FromSeconds(30);
     private readonly IDesktopUiLauncher _launcher = launcher;
     private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -69,6 +71,36 @@ internal sealed class UiSessionManager(
         {
             await ClearPendingLaunchAsync(launchToken!).ConfigureAwait(false);
             throw;
+        }
+    }
+
+    public async Task<UiActivateResult> ToggleAsync(CancellationToken cancellationToken)
+    {
+        IUiSessionConnection? activeConnection;
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            activeConnection = _activeSession?.Connection;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        if (activeConnection is null)
+        {
+            return await ActivateAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        try
+        {
+            await activeConnection.RequestToggleAsync(cancellationToken).ConfigureAwait(false);
+            return new UiActivateResult(false, true, false);
+        }
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException)
+        {
+            await OnConnectionClosedAsync(activeConnection.Id).ConfigureAwait(false);
+            return await ActivateAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 

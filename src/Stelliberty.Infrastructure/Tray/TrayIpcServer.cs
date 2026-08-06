@@ -178,6 +178,10 @@ public sealed class TrayIpcServer : IAsyncDisposable
             {
                 AppLogger.Warning($"Tray IPC rejected invalid JSON: {exception.Message}");
             }
+            catch (Exception exception)
+            {
+                AppLogger.Error(exception, "Tray IPC connection failed");
+            }
             finally
             {
                 await _connectionClosed(connection.Id).ConfigureAwait(false);

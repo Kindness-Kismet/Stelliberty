@@ -19,6 +19,8 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
 
     public event EventHandler? ActivationRequested;
 
+    public event EventHandler? ToggleRequested;
+
     public event EventHandler<TrayCoreStatus>? CoreStateChanged;
 
     public event EventHandler<TrayCoreLogEntry>? CoreLogReceived;
@@ -96,6 +98,33 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
     public Task<ServiceModeOperationResult> UninstallServiceModeAsync(CancellationToken cancellationToken) =>
         RequestAsync<ServiceModeOperationResult>(TrayProtocol.ServiceModeUninstallMethod, new { }, cancellationToken);
 
+    public Task<GlobalHotkeyApplyResult> ApplyGlobalHotkeyAsync(
+        GlobalHotkeyAction action,
+        string gesture,
+        CancellationToken cancellationToken) =>
+        RequestAsync<GlobalHotkeyApplyResult>(
+            TrayProtocol.HotkeyApplyMethod,
+            new TrayHotkeyApplyRequest(action, gesture),
+            cancellationToken);
+
+    public Task SetGlobalHotkeysSuppressedAsync(
+        bool isSuppressed,
+        CancellationToken cancellationToken) =>
+        RequestAsync<JsonElement>(
+            TrayProtocol.HotkeySetSuppressedMethod,
+            new TrayHotkeySuppressionRequest(isSuppressed),
+            cancellationToken);
+
+#if DEBUG
+    public Task<bool> SimulateGlobalHotkeyAsync(
+        GlobalHotkeyAction action,
+        CancellationToken cancellationToken) =>
+        RequestAsync<bool>(
+            TrayProtocol.HotkeySimulateMethod,
+            new TrayHotkeySimulationRequest(action),
+            cancellationToken);
+#endif
+
     public Task<UiActivateResult> ActivateUiAsync(int launcherPid, CancellationToken cancellationToken) =>
         RequestAsync<UiActivateResult>(
             TrayProtocol.UiActivateMethod,
@@ -132,6 +161,9 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
             case TrayProtocol.UiActivationEvent:
                 ActivationRequested?.Invoke(this, EventArgs.Empty);
                 break;
+            case TrayProtocol.UiToggleEvent:
+                ToggleRequested?.Invoke(this, EventArgs.Empty);
+                break;
             case TrayProtocol.CoreStateChangedEvent:
                 CoreStateChanged?.Invoke(this, DeserializeEvent<TrayCoreStatus>(notification));
                 break;
@@ -167,6 +199,87 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
         _client.EventReceived -= OnEventReceived;
         _client.Disconnected -= OnDisconnected;
         await _client.DisposeAsync().ConfigureAwait(false);
+    }
+}
+
+public sealed class TrayGlobalHotkeyService : IGlobalHotkeyService
+{
+    private readonly SemaphoreSlim _connectGate = new(1, 1);
+    private readonly TrayIpcClient _client = new();
+    private volatile bool _isConnected;
+    private bool _isDisposed;
+
+    public TrayGlobalHotkeyService()
+    {
+        _client.Disconnected += OnDisconnected;
+    }
+
+    public async Task<GlobalHotkeyApplyResult> ApplyAsync(
+        GlobalHotkeyAction action,
+        string gesture,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.ApplyGlobalHotkeyAsync(action, gesture, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task SetActivationSuppressedAsync(
+        bool isSuppressed,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
+        await _client.SetGlobalHotkeysSuppressedAsync(isSuppressed, cancellationToken).ConfigureAwait(false);
+    }
+
+#if DEBUG
+    public async Task<bool> SimulateActivationAsync(
+        GlobalHotkeyAction action,
+        CancellationToken cancellationToken = default)
+    {
+        await EnsureConnectedAsync(cancellationToken).ConfigureAwait(false);
+        return await _client.SimulateGlobalHotkeyAsync(action, cancellationToken).ConfigureAwait(false);
+    }
+#endif
+
+    private async Task EnsureConnectedAsync(CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_isDisposed, this);
+        if (_isConnected)
+        {
+            return;
+        }
+
+        await _connectGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            if (_isConnected)
+            {
+                return;
+            }
+
+            await _client.ConnectAsync(cancellationToken).ConfigureAwait(false);
+            await _client.HelloAsync(Environment.ProcessId, cancellationToken).ConfigureAwait(false);
+            _isConnected = true;
+        }
+        finally
+        {
+            _connectGate.Release();
+        }
+    }
+
+    private void OnDisconnected(object? sender, EventArgs args) => _isConnected = false;
+
+    public void Dispose()
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isDisposed = true;
+        _client.Disconnected -= OnDisconnected;
+        _client.Dispose();
+        _connectGate.Dispose();
     }
 }
 

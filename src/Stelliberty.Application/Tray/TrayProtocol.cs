@@ -8,7 +8,7 @@ namespace Stelliberty.Application.Tray;
 
 public static class TrayProtocol
 {
-    public const int Version = 4;
+    public const int Version = 6;
 
     public const string HelloMethod = "tray.hello";
     public const string HealthMethod = "tray.get_health";
@@ -26,10 +26,16 @@ public static class TrayProtocol
     public const string ServiceModeStatusMethod = "service_mode.get_status";
     public const string ServiceModeInstallMethod = "service_mode.install_or_update";
     public const string ServiceModeUninstallMethod = "service_mode.uninstall";
+    public const string HotkeyApplyMethod = "hotkey.apply";
+    public const string HotkeySetSuppressedMethod = "hotkey.set_suppressed";
+#if DEBUG
+    public const string HotkeySimulateMethod = "hotkey.simulate";
+#endif
     public const string UiActivateMethod = "ui.activate";
     public const string UiRegisterMethod = "ui.register";
     public const string UiUnregisterMethod = "ui.unregister";
     public const string UiActivationEvent = "ui.activate";
+    public const string UiToggleEvent = "ui.toggle";
     public const string CoreStateChangedEvent = "core.state_changed";
     public const string CoreLogEntryEvent = "core.log_entry";
     public const string RuntimeSampledEvent = "runtime.sampled";
@@ -100,6 +106,14 @@ public sealed record TrayRuntimeSnapshot(
 public sealed record TraySystemProxySetRequest(
     bool IsEnabled,
     SystemProxyApplicationRequest? Request);
+
+public sealed record TrayHotkeyApplyRequest(GlobalHotkeyAction Action, string Gesture);
+
+public sealed record TrayHotkeySuppressionRequest(bool IsSuppressed);
+
+#if DEBUG
+public sealed record TrayHotkeySimulationRequest(GlobalHotkeyAction Action);
+#endif
 
 public sealed record UiActivateRequest(int LauncherPid);
 

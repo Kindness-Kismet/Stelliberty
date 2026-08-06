@@ -43,8 +43,8 @@ namespace Stelliberty.Desktop;
 
 public sealed partial class App : Avalonia.Application
 {
-    private readonly DesktopTrayService _trayService = new();
     private DesktopTraySession? _traySession;
+    private MainWindow? _mainWindow;
     private SessionEndCleanupService? _sessionEndCleanup;
     private DispatcherTimer? _appUpdateAutoCheckTimer;
     private DispatcherTimer? _subscriptionAutoDelayTimer;
@@ -111,12 +111,12 @@ public sealed partial class App : Avalonia.Application
             var processPrivilegeProbe = new SystemProcessPrivilegeProbe();
             IAppBehaviorService appBehaviorService = CreateAppBehaviorService();
             MainWindowViewModel? hotkeyViewModel = null;
-            IGlobalHotkeyService globalHotkeyService = CreateGlobalHotkeyService(action =>
+            Action<GlobalHotkeyAction> hotkeyActivated = action =>
             {
                 switch (action)
                 {
                     case GlobalHotkeyAction.ToggleWindow:
-                        _trayService.ToggleMainWindowVisibility();
+                        Dispatcher.UIThread.Post(ToggleMainWindow);
                         break;
                     case GlobalHotkeyAction.ToggleSystemProxy:
                         hotkeyViewModel?.HomePage.ToggleSystemProxyFromHotkey();
@@ -125,7 +125,10 @@ public sealed partial class App : Avalonia.Application
                         hotkeyViewModel?.HomePage.ToggleTunFromHotkey();
                         break;
                 }
-            });
+            };
+            IGlobalHotkeyService globalHotkeyService = UsesTrayRuntime
+                ? new TrayGlobalHotkeyService()
+                : GlobalHotkeyServiceFactory.Create(hotkeyActivated);
             var initialLanguage = AppLanguageParser.Parse(settings.Language);
             var localization = new JsonLocalizationService(initialLanguage);
             LocalizationManager.Initialize(localization);
@@ -226,7 +229,9 @@ public sealed partial class App : Avalonia.Application
                 5000);
 #endif
 
-            var initialServiceModeStatus = GetInitialServiceModeStatus(serviceModeManager, settings.IsTunEnabled);
+            var initialServiceModeStatus = UsesTrayRuntime
+                ? ServiceModeStatus.Unavailable(string.Empty)
+                : GetInitialServiceModeStatus(serviceModeManager, settings.IsTunEnabled);
 #if DEBUG
             LogStartupTrace($"Initial service status ready state={initialServiceModeStatus.State}", startupStartedAt);
 #endif
@@ -395,11 +400,17 @@ public sealed partial class App : Avalonia.Application
             {
                 DataContext = viewModel
             };
+            _mainWindow = mainWindow;
             mainWindow.PrepareShutdownAsync = async () =>
             {
                 await UnregisterTraySessionAsync();
                 StopBackgroundServices();
                 AppLogger.Info("Background schedulers stopped for shutdown");
+                if (!mainWindow.ShouldShutdownTray)
+                {
+                    return;
+                }
+
                 if (localSystemProxyController is not null)
                 {
                     await Task.Run(() => localSystemProxyController.Shutdown());
@@ -433,30 +444,19 @@ public sealed partial class App : Avalonia.Application
             LogStartupTrace("Main window constructed and bound", startupStartedAt);
 #endif
 
-            var shouldStartHidden = ShouldStartHidden(settings);
-            if (shouldStartHidden)
-            {
-                // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
-                desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                mainWindow.ScheduleHiddenMemoryRelease();
-                AppLogger.Info("Silent start enabled; main window stays hidden");
-            }
-            else
-            {
-                desktop.MainWindow = mainWindow;
-            }
+            desktop.MainWindow = mainWindow;
 
             desktop.ShutdownRequested += (_, _) =>
             {
                 var isOsShutdown = Volatile.Read(ref _isOsShutdownRequested) != 0;
                 var source = mainWindow.IsShutdownPreparing
-                    ? "application"
+                    ? mainWindow.ShouldShutdownTray ? "application" : "ui-session"
                     : isOsShutdown ? "os" : "external";
                 AppLogger.Info($"Lifetime cleanup started: origin={source}");
                 StopBackgroundServices();
-                _trayService.Dispose();
                 _traySession?.Dispose();
                 _traySession = null;
+                _mainWindow = null;
                 globalHotkeyService.Dispose();
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
@@ -494,29 +494,23 @@ public sealed partial class App : Avalonia.Application
                     isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
                 _sessionEndCleanup.Start();
             }
-            _trayService.Attach(desktop, mainWindow, viewModel, localization);
             Task<bool> trayRegistration = Task.FromResult(true);
             if (DesktopLaunchContext.TraySessionToken is { } sessionToken)
             {
                 _traySession = new DesktopTraySession();
                 _traySession.ActivationRequested += OnTrayActivationRequested;
+                _traySession.ToggleRequested += OnTrayToggleRequested;
+                _traySession.Disconnected += OnTrayDisconnected;
                 trayRegistration = RegisterTraySessionAsync(sessionToken, mainWindow);
             }
-            foreach (var (action, gesture) in new[]
+            if (!UsesTrayRuntime)
             {
-                (GlobalHotkeyAction.ToggleWindow, settings.WindowToggleHotkey),
-                (GlobalHotkeyAction.ToggleSystemProxy, settings.SystemProxyToggleHotkey),
-                (GlobalHotkeyAction.ToggleTun, settings.TunToggleHotkey),
-            })
-            {
-                var hotkeyResult = globalHotkeyService.Apply(action, gesture);
-                if (!hotkeyResult.IsSuccess)
-                {
-                    AppLogger.Warning($"Global hotkey startup registration failed: action={action} error={hotkeyResult.Error}");
-                }
+                _ = RegisterGlobalHotkeysAsync(globalHotkeyService, settings);
             }
 #if DEBUG
-            LogStartupTrace("Tray service attached", startupStartedAt);
+            LogStartupTrace(
+                UsesTrayRuntime ? "Background tray session initialized" : "Direct UI initialized",
+                startupStartedAt);
 #endif
 #if DEBUG
             DebugCommands.Start(mainWindow);
@@ -551,17 +545,18 @@ public sealed partial class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static bool ShouldStartHidden(AppSettings settings)
-    {
-        return settings.IsSilentStartEnabled;
-    }
-
     private async Task<bool> RegisterTraySessionAsync(string sessionToken, MainWindow mainWindow)
     {
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await _traySession!.RegisterAsync(sessionToken, timeout.Token);
+            if (!_traySession.CanExitToBackground)
+            {
+                throw new InvalidOperationException("Tray host did not provide a background tray.");
+            }
+
+            mainWindow.CanExitToBackground = true;
             AppLogger.Info($"Desktop UI session registered: pid={Environment.ProcessId}");
             return true;
         }
@@ -592,7 +587,51 @@ public sealed partial class App : Avalonia.Application
     }
 
     private void OnTrayActivationRequested(object? sender, EventArgs args) =>
-        Dispatcher.UIThread.Post(_trayService.ShowMainWindow);
+        Dispatcher.UIThread.Post(ShowMainWindow);
+
+    private void OnTrayToggleRequested(object? sender, EventArgs args) =>
+        Dispatcher.UIThread.Post(ToggleMainWindow);
+
+    private void OnTrayDisconnected(object? sender, EventArgs args) =>
+        Dispatcher.UIThread.Post(() => _mainWindow?.RequestUiShutdown());
+
+    private void ShowMainWindow()
+    {
+        if (_mainWindow is not { } mainWindow)
+        {
+            return;
+        }
+
+        mainWindow.Show();
+        if (mainWindow.WindowState == WindowState.Minimized)
+        {
+            mainWindow.WindowState = WindowState.Normal;
+        }
+        mainWindow.Activate();
+    }
+
+    private void ToggleMainWindow()
+    {
+        if (_mainWindow is not { } mainWindow)
+        {
+            return;
+        }
+
+        if (mainWindow.IsVisible && mainWindow.WindowState != WindowState.Minimized)
+        {
+            if (mainWindow.CanExitToBackground)
+            {
+                mainWindow.RequestUiShutdown();
+            }
+            else
+            {
+                mainWindow.RequestShutdown();
+            }
+            return;
+        }
+
+        ShowMainWindow();
+    }
 
     private async Task ShutdownTrayAsync()
     {
@@ -1029,10 +1068,29 @@ public sealed partial class App : Avalonia.Application
         return new UnsupportedAppBehaviorService();
     }
 
-    private static IGlobalHotkeyService CreateGlobalHotkeyService(Action<GlobalHotkeyAction> activated)
+    private static async Task RegisterGlobalHotkeysAsync(
+        IGlobalHotkeyService globalHotkeys,
+        AppSettings settings)
     {
-        return OperatingSystem.IsWindows()
-            ? new WindowsGlobalHotkeyService(activated)
-            : new UnsupportedGlobalHotkeyService(activated);
+        foreach (var (action, gesture) in new[]
+        {
+            (GlobalHotkeyAction.ToggleWindow, settings.WindowToggleHotkey),
+            (GlobalHotkeyAction.ToggleSystemProxy, settings.SystemProxyToggleHotkey),
+            (GlobalHotkeyAction.ToggleTun, settings.TunToggleHotkey),
+        })
+        {
+            try
+            {
+                var result = await globalHotkeys.ApplyAsync(action, gesture).ConfigureAwait(true);
+                if (!result.IsSuccess)
+                {
+                    AppLogger.Warning($"Global hotkey startup registration failed: action={action} error={result.Error}");
+                }
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Warning($"Global hotkey startup registration failed: action={action} error={exception.Message}");
+            }
+        }
     }
 }

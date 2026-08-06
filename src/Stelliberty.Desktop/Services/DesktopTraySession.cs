@@ -9,11 +9,20 @@ internal sealed class DesktopTraySession : IDisposable
 
     public event EventHandler? ActivationRequested;
 
+    public event EventHandler? ToggleRequested;
+
+    public event EventHandler? Disconnected;
+
+    public bool CanExitToBackground { get; private set; }
+
     public async Task RegisterAsync(string sessionToken, CancellationToken cancellationToken)
     {
         _client.ActivationRequested += OnActivationRequested;
+        _client.ToggleRequested += OnToggleRequested;
+        _client.Disconnected += OnDisconnected;
         await _client.ConnectAsync(cancellationToken).ConfigureAwait(false);
-        await _client.HelloAsync(Environment.ProcessId, cancellationToken).ConfigureAwait(false);
+        var hello = await _client.HelloAsync(Environment.ProcessId, cancellationToken).ConfigureAwait(false);
+        CanExitToBackground = hello.Capabilities.Contains("background_tray", StringComparer.Ordinal);
         var result = await _client.RegisterUiAsync(
             sessionToken,
             Environment.ProcessId,
@@ -38,11 +47,21 @@ internal sealed class DesktopTraySession : IDisposable
     private void OnActivationRequested(object? sender, EventArgs args) =>
         ActivationRequested?.Invoke(this, EventArgs.Empty);
 
+    private void OnToggleRequested(object? sender, EventArgs args) =>
+        ToggleRequested?.Invoke(this, EventArgs.Empty);
+
+    private void OnDisconnected(object? sender, EventArgs args) =>
+        Disconnected?.Invoke(this, EventArgs.Empty);
+
     public void Dispose()
     {
         _client.ActivationRequested -= OnActivationRequested;
+        _client.ToggleRequested -= OnToggleRequested;
+        _client.Disconnected -= OnDisconnected;
         _client.Dispose();
         _sessionId = null;
         ActivationRequested = null;
+        ToggleRequested = null;
+        Disconnected = null;
     }
 }

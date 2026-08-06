@@ -10,6 +10,7 @@ using Stelliberty.Infrastructure.Overrides;
 using Stelliberty.Infrastructure.Platform;
 using Stelliberty.Infrastructure.Runtime;
 using Stelliberty.Infrastructure.Settings;
+using Stelliberty.Infrastructure.Storage;
 using Stelliberty.Infrastructure.Subscriptions;
 using Stelliberty.Native.Hub;
 
@@ -32,6 +33,8 @@ internal interface ITrayCoreRuntime
         CancellationToken cancellationToken);
 
     Task RestartAsync(CancellationToken cancellationToken);
+
+    Task<CoreApplyConfigResult> ApplyCurrentSettingsAsync(CancellationToken cancellationToken);
 
     Task<ServiceModeStatus> GetServiceModeStatusAsync(CancellationToken cancellationToken);
 
@@ -177,6 +180,18 @@ internal sealed class TrayCoreRuntimeHost : ITrayCoreRuntime, IAsyncDisposable
         {
             _operationGate.Release();
         }
+    }
+
+    public Task<CoreApplyConfigResult> ApplyCurrentSettingsAsync(CancellationToken cancellationToken)
+    {
+        var runtimePath = Path.Combine(TrayApplicationLayout.RuntimeDirectory, "_tray_menu.yaml");
+        Directory.CreateDirectory(TrayApplicationLayout.RuntimeDirectory);
+        AtomicFile.WriteAllText(
+            runtimePath,
+            BuildBootstrapYaml(CanUseTun() || _isServiceModeActive));
+        var subscriptionId = new FileSubscriptionSelectionStore(TrayApplicationLayout.AppDataDirectory)
+            .GetCurrentSubscriptionId() ?? string.Empty;
+        return ApplyConfigAsync(new CoreApplyConfigRequest(runtimePath, subscriptionId), cancellationToken);
     }
 
     public Task<ServiceModeStatus> GetServiceModeStatusAsync(CancellationToken cancellationToken)
@@ -399,32 +414,37 @@ internal sealed class TrayCoreRuntimeHost : ITrayCoreRuntime, IAsyncDisposable
     {
         try
         {
-            var directories = new TrayPlatformDirectories();
-            var settingsStore = new JsonAppSettingsStore(directories);
-            var selectionStore = new FileSubscriptionSelectionStore(directories.AppDataDirectory);
-            var subscriptionStore = new FileSubscriptionStore(directories.AppDataDirectory);
-            var overrideStore = new FileOverrideStore(directories.AppDataDirectory);
-            var runtimeStore = new FileRuntimeConfigStore(directories.RuntimeDirectory);
-            var builder = new StartupBootstrapConfigBuilder(
-                settingsStore,
-                selectionStore,
-                new SelectedRuntimeFallbackGenerator(
-                    subscriptionStore,
-                    new SubscriptionOverrideSelectionUpdater(subscriptionStore),
-                    new SelectedSubscriptionRuntimeGenerator(
-                        subscriptionStore,
-                        selectionStore,
-                        new RuntimeConfigGenerator(new HubOverrideEngine()),
-                        overrideStore,
-                        runtimeStore)),
-                new SubscriptionFailureRecorder(subscriptionStore));
-            return builder.Build(TrayCoreEndpoints.Core, canUseTun);
+            return BuildBootstrapYaml(canUseTun);
         }
         catch (Exception exception)
         {
             AppLogger.Warning($"Tray startup config generation failed: {exception.Message}");
             return StartupBootstrapConfigBuilder.BuildDefaultEmptyYaml(TrayCoreEndpoints.Core);
         }
+    }
+
+    private static string BuildBootstrapYaml(bool canUseTun)
+    {
+        var directories = new TrayPlatformDirectories();
+        var settingsStore = new JsonAppSettingsStore(directories);
+        var selectionStore = new FileSubscriptionSelectionStore(directories.AppDataDirectory);
+        var subscriptionStore = new FileSubscriptionStore(directories.AppDataDirectory);
+        var overrideStore = new FileOverrideStore(directories.AppDataDirectory);
+        var runtimeStore = new FileRuntimeConfigStore(directories.RuntimeDirectory);
+        var builder = new StartupBootstrapConfigBuilder(
+            settingsStore,
+            selectionStore,
+            new SelectedRuntimeFallbackGenerator(
+                subscriptionStore,
+                new SubscriptionOverrideSelectionUpdater(subscriptionStore),
+                new SelectedSubscriptionRuntimeGenerator(
+                    subscriptionStore,
+                    selectionStore,
+                    new RuntimeConfigGenerator(new HubOverrideEngine()),
+                    overrideStore,
+                    runtimeStore)),
+            new SubscriptionFailureRecorder(subscriptionStore));
+        return builder.Build(TrayCoreEndpoints.Core, canUseTun);
     }
 
     private static string WriteServiceModeActiveConfig(string content)

@@ -114,7 +114,9 @@ internal sealed class RuntimeTrafficMonitor : ITrayRuntimeMonitor, IAsyncDisposa
         TrayRuntimeSample sample;
         lock (_stateGate)
         {
-            if (coreStatus.CoreGeneration != _coreRuntime.CurrentStatus.CoreGeneration)
+            var currentCore = _coreRuntime.CurrentStatus;
+            if (coreStatus.CoreGeneration != currentCore.CoreGeneration
+                || currentCore.Snapshot.State != CoreState.Running)
             {
                 return;
             }
@@ -185,7 +187,8 @@ internal sealed class RuntimeTrafficMonitor : ITrayRuntimeMonitor, IAsyncDisposa
     {
         lock (_stateGate)
         {
-            if (status.CoreGeneration == _snapshot.CoreGeneration)
+            if (status.Snapshot.State == CoreState.Running
+                && status.CoreGeneration == _snapshot.CoreGeneration)
             {
                 return;
             }

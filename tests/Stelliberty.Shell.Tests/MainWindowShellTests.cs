@@ -1043,19 +1043,27 @@ public sealed class MainWindowShellTests
 
     private sealed class FakeGlobalHotkeyService : IGlobalHotkeyService
     {
-        public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
+        public Task<GlobalHotkeyApplyResult> ApplyAsync(
+            GlobalHotkeyAction action,
+            string gesture,
+            CancellationToken cancellationToken = default)
         {
-            return GlobalHotkeyApplyResult.Success();
+            return Task.FromResult(GlobalHotkeyApplyResult.Success());
         }
 
-        public void SetActivationSuppressed(bool isSuppressed)
+        public Task SetActivationSuppressedAsync(
+            bool isSuppressed,
+            CancellationToken cancellationToken = default)
         {
+            return Task.CompletedTask;
         }
 
 #if DEBUG
-        public bool SimulateActivation(GlobalHotkeyAction action)
+        public Task<bool> SimulateActivationAsync(
+            GlobalHotkeyAction action,
+            CancellationToken cancellationToken = default)
         {
-            return false;
+            return Task.FromResult(false);
         }
 #endif
 

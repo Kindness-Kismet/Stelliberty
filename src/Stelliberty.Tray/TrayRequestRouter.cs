@@ -18,6 +18,7 @@ internal sealed class TrayRequestRouter : IDisposable
     private readonly CoreLogJournal? _coreLogs;
     private readonly ITrayRuntimeMonitor? _runtimeMonitor;
     private readonly ISystemProxyController? _systemProxy;
+    private readonly ITrayHotkeyRuntime? _hotkeys;
     private readonly ConcurrentDictionary<Guid, byte> _handshakes = new();
     private readonly ConcurrentDictionary<Guid, TrayIpcConnection> _connections = new();
     private readonly string _trayEpoch = Guid.NewGuid().ToString("N");
@@ -29,7 +30,8 @@ internal sealed class TrayRequestRouter : IDisposable
         ITrayCoreRuntime? coreRuntime = null,
         CoreLogJournal? coreLogs = null,
         ITrayRuntimeMonitor? runtimeMonitor = null,
-        ISystemProxyController? systemProxy = null)
+        ISystemProxyController? systemProxy = null,
+        ITrayHotkeyRuntime? hotkeys = null)
     {
         _lifetime = lifetime;
         _uiSessions = uiSessions;
@@ -37,6 +39,7 @@ internal sealed class TrayRequestRouter : IDisposable
         _coreLogs = coreLogs;
         _runtimeMonitor = runtimeMonitor;
         _systemProxy = systemProxy;
+        _hotkeys = hotkeys;
         if (_coreRuntime is not null)
         {
             _coreRuntime.StateChanged += OnCoreStateChanged;
@@ -96,6 +99,16 @@ internal sealed class TrayRequestRouter : IDisposable
                     await RequireCoreRuntime().InstallOrUpdateServiceModeAsync(cancellationToken).ConfigureAwait(false)),
                 TrayProtocol.ServiceModeUninstallMethod => TrayIpcResult.Success(
                     await RequireCoreRuntime().UninstallServiceModeAsync(cancellationToken).ConfigureAwait(false)),
+                TrayProtocol.HotkeyApplyMethod => await HandleHotkeyApplyAsync(request, cancellationToken).ConfigureAwait(false),
+                TrayProtocol.HotkeySetSuppressedMethod => await HandleHotkeySuppressionAsync(
+                    connection,
+                    request,
+                    cancellationToken).ConfigureAwait(false),
+#if DEBUG
+                TrayProtocol.HotkeySimulateMethod => await HandleHotkeySimulationAsync(
+                    request,
+                    cancellationToken).ConfigureAwait(false),
+#endif
                 TrayProtocol.UiActivateMethod => TrayIpcResult.Success(
                     await _uiSessions.ActivateAsync(cancellationToken).ConfigureAwait(false)),
                 TrayProtocol.UiRegisterMethod => TrayIpcResult.Success(
@@ -129,6 +142,11 @@ internal sealed class TrayRequestRouter : IDisposable
             return TrayIpcResult.Error("service_mode.operation_failed", exception.Message);
         }
         catch (InvalidOperationException exception) when (
+            request.Method.StartsWith("hotkey.", StringComparison.Ordinal))
+        {
+            return TrayIpcResult.Error("hotkey.operation_failed", exception.Message);
+        }
+        catch (InvalidOperationException exception) when (
             request.Method.StartsWith("core.", StringComparison.Ordinal)
             || request.Method.StartsWith("runtime.", StringComparison.Ordinal))
         {
@@ -143,11 +161,15 @@ internal sealed class TrayRequestRouter : IDisposable
         }
     }
 
-    public Task OnConnectionClosedAsync(Guid connectionId)
+    public async Task OnConnectionClosedAsync(Guid connectionId)
     {
         _handshakes.TryRemove(connectionId, out _);
         _connections.TryRemove(connectionId, out _);
-        return _uiSessions.OnConnectionClosedAsync(connectionId);
+        if (_hotkeys is not null)
+        {
+            await _hotkeys.ReleaseSuppressionAsync(connectionId).ConfigureAwait(false);
+        }
+        await _uiSessions.OnConnectionClosedAsync(connectionId).ConfigureAwait(false);
     }
 
     private TrayIpcResult HandleHello(TrayIpcConnection connection, TrayIpcRequest request)
@@ -249,12 +271,26 @@ internal sealed class TrayRequestRouter : IDisposable
         AppMetadata.Version,
         Environment.ProcessId,
         _trayEpoch,
-        _coreRuntime is null
-            ? ["ui_session"]
-            : _systemProxy is null
-                ? ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic"]
-                : ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic", "system_proxy", "service_mode"],
+        Capabilities(),
         _coreRuntime?.CurrentStatus.CoreGeneration ?? 0);
+
+    private string[] Capabilities()
+    {
+        var capabilities = new List<string> { "ui_session", "background_tray" };
+        if (_coreRuntime is not null)
+        {
+            capabilities.AddRange(["core_runtime", "core_log_journal", "runtime_traffic", "service_mode"]);
+        }
+        if (_systemProxy is not null)
+        {
+            capabilities.Add("system_proxy");
+        }
+        if (_hotkeys is not null)
+        {
+            capabilities.Add("global_hotkeys");
+        }
+        return [.. capabilities];
+    }
 
     private async Task<TrayIpcResult> HandleCoreRestartAsync(CancellationToken cancellationToken)
     {
@@ -281,6 +317,45 @@ internal sealed class TrayRequestRouter : IDisposable
 
     private ISystemProxyController RequireSystemProxy() =>
         _systemProxy ?? throw new InvalidOperationException("Tray system proxy runtime is unavailable.");
+
+    private ITrayHotkeyRuntime RequireHotkeys() =>
+        _hotkeys ?? throw new InvalidOperationException("Tray global hotkeys are unavailable.");
+
+    private async Task<TrayIpcResult> HandleHotkeyApplyAsync(
+        TrayIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        var parameters = request.DeserializeParameters<TrayHotkeyApplyRequest>();
+        var result = await RequireHotkeys()
+            .ApplyAsync(parameters.Action, parameters.Gesture, cancellationToken)
+            .ConfigureAwait(false);
+        return TrayIpcResult.Success(result);
+    }
+
+    private async Task<TrayIpcResult> HandleHotkeySuppressionAsync(
+        TrayIpcConnection connection,
+        TrayIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        var parameters = request.DeserializeParameters<TrayHotkeySuppressionRequest>();
+        await RequireHotkeys()
+            .SetSuppressedAsync(connection.Id, parameters.IsSuppressed, cancellationToken)
+            .ConfigureAwait(false);
+        return TrayIpcResult.Success(new { applied = true });
+    }
+
+#if DEBUG
+    private async Task<TrayIpcResult> HandleHotkeySimulationAsync(
+        TrayIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        var parameters = request.DeserializeParameters<TrayHotkeySimulationRequest>();
+        var activated = await RequireHotkeys()
+            .SimulateActivationAsync(parameters.Action, cancellationToken)
+            .ConfigureAwait(false);
+        return TrayIpcResult.Success(activated);
+    }
+#endif
 
     private async Task<TrayIpcResult> HandleSystemProxySetAsync(
         TrayIpcRequest request,
@@ -359,5 +434,8 @@ internal sealed class TrayRequestRouter : IDisposable
 
         public Task RequestActivationAsync(CancellationToken cancellationToken) =>
             connection.SendEventAsync(TrayProtocol.UiActivationEvent, new { }, cancellationToken);
+
+        public Task RequestToggleAsync(CancellationToken cancellationToken) =>
+            connection.SendEventAsync(TrayProtocol.UiToggleEvent, new { }, cancellationToken);
     }
 }

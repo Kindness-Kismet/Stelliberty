@@ -1,25 +1,20 @@
+using Avalonia.Controls.ApplicationLifetimes;
 using Stelliberty.Application.Diagnostics;
-using Stelliberty.Infrastructure.Tray;
+using Stelliberty.Application.Platform;
 using Stelliberty.Infrastructure.Platform;
 using Stelliberty.Infrastructure.Proxies;
-using Stelliberty.Application.Platform;
+using Stelliberty.Infrastructure.Tray;
 
 namespace Stelliberty.Tray;
 
-internal static class TrayRuntime
+internal sealed class TrayRuntime
 {
-    public static async Task<int> RunAsync()
+    public async Task<int> RunAsync(IClassicDesktopStyleApplicationLifetime desktop)
     {
-        using var singleInstance = new TraySingleInstance();
-        if (!singleInstance.OwnsInstance)
-        {
-            AppLogger.Info("Tray is already running; duplicate process exits");
-            return 0;
-        }
-
         using var lifetime = new TrayLifetime();
         Console.CancelKeyPress += OnCancelKeyPress;
         AppDomain.CurrentDomain.ProcessExit += OnProcessExit;
+        desktop.Exit += OnDesktopExit;
         void OnCancelKeyPress(object? sender, ConsoleCancelEventArgs args)
         {
             args.Cancel = true;
@@ -27,6 +22,7 @@ internal static class TrayRuntime
         }
 
         void OnProcessExit(object? sender, EventArgs args) => lifetime.RequestStop();
+        void OnDesktopExit(object? sender, ControlledApplicationLifetimeExitEventArgs args) => lifetime.RequestStop();
 
         try
         {
@@ -39,13 +35,21 @@ internal static class TrayRuntime
             await using var systemProxy = new LocalSystemProxyController(
                 SystemProxyServiceFactory.Create(CurrentSystemProxyPlatform(), TrayApplicationLayout.AppDataDirectory));
             using var sessionEndCleanup = new SessionEndCleanupService(() => systemProxy.Shutdown());
+            await using var trayMenu = new TrayMenuService(
+                uiSessions,
+                coreRuntime,
+                runtimeMonitor,
+                systemProxy,
+                lifetime);
+            await trayMenu.StartAsync();
             using var router = new TrayRequestRouter(
                 lifetime,
                 uiSessions,
                 coreRuntime,
                 coreLogs,
                 runtimeMonitor,
-                systemProxy);
+                systemProxy,
+                trayMenu);
             await using var server = new TrayIpcServer(
                 TrayEndpoint.Current,
                 router.HandleAsync,
@@ -54,6 +58,11 @@ internal static class TrayRuntime
             runtimeMonitor.Start(lifetime.StoppingToken);
             server.Start(lifetime.StoppingToken);
             AppLogger.Info($"Tray startup: pid={Environment.ProcessId} endpoint={TrayEndpoint.Current}");
+            if (Program.ActivateUiOnStart)
+            {
+                await uiSessions.ActivateAsync(lifetime.StoppingToken).ConfigureAwait(false);
+            }
+
             await server.Completion.ConfigureAwait(false);
             AppLogger.Info("Tray shutdown");
             return 0;
@@ -67,6 +76,7 @@ internal static class TrayRuntime
         {
             Console.CancelKeyPress -= OnCancelKeyPress;
             AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
+            desktop.Exit -= OnDesktopExit;
         }
     }
 
