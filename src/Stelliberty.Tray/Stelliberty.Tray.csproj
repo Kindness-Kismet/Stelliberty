@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>$(AppName)-tray</AssemblyName>
+    <Version>$(AppVersion)</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Stelliberty.Tray.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stelliberty.Application\Stelliberty.Application.csproj" />
+    <ProjectReference Include="..\Stelliberty.Infrastructure\Stelliberty.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

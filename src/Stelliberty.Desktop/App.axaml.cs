@@ -43,6 +43,7 @@ namespace Stelliberty.Desktop;
 public sealed partial class App : Avalonia.Application
 {
     private readonly DesktopTrayService _trayService = new();
+    private DesktopTraySession? _traySession;
     private SessionEndCleanupService? _sessionEndCleanup;
     private DispatcherTimer? _appUpdateAutoCheckTimer;
     private DispatcherTimer? _subscriptionAutoDelayTimer;
@@ -356,17 +357,13 @@ public sealed partial class App : Avalonia.Application
                 new SubscriptionAutoUpdateRunner(subscriptionStore, new SubscriptionAutoUpdatePlanner(), subscriptionUpdater),
                 subscriptionPage,
                 () => DateTimeOffset.Now);
-            _ = RunAppUpdateCheckAsync(() => autoUpdateRunner.RunStartupCheckAsync());
-            StartAppUpdateAutoCheckTimer(autoUpdateRunner);
-            StartSubscriptionAutoDelayTimer(viewModel);
-            StartHomeRuntimeTimer(viewModel);
-            StartWebDavBackupTimer(viewModel);
             var mainWindow = new MainWindow(settingsStore, settings)
             {
                 DataContext = viewModel
             };
             mainWindow.PrepareShutdownAsync = async () =>
             {
+                await UnregisterTraySessionAsync();
                 StopBackgroundServices();
                 AppLogger.Info("Background schedulers stopped for shutdown");
                 using var timeout = new CancellationTokenSource(CoreShutdownTimeout);
@@ -385,6 +382,7 @@ public sealed partial class App : Avalonia.Application
                 AppLogger.Info("Normal-mode hub shutdown started");
                 await Task.Run(HubBootstrap.Shutdown);
                 AppLogger.Info($"Normal-mode hub shutdown completed: elapsed={Stopwatch.GetElapsedTime(hubStopStartedAt).TotalMilliseconds:0}ms");
+                await ShutdownTrayAsync();
             };
             mainWindow.OsShutdownDetected = () => Interlocked.Exchange(ref _isOsShutdownRequested, 1);
 #if DEBUG
@@ -416,6 +414,8 @@ public sealed partial class App : Avalonia.Application
                 viewModel.HomePage.DisableSystemProxyOnShutdown();
                 AppLogger.Info("System proxy shutdown cleanup completed");
                 _trayService.Dispose();
+                _traySession?.Dispose();
+                _traySession = null;
                 globalHotkeyService.Dispose();
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
@@ -440,6 +440,13 @@ public sealed partial class App : Avalonia.Application
                 isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
             _sessionEndCleanup.Start();
             _trayService.Attach(desktop, mainWindow, viewModel, localization);
+            Task<bool> trayRegistration = Task.FromResult(true);
+            if (DesktopLaunchContext.TraySessionToken is { } sessionToken)
+            {
+                _traySession = new DesktopTraySession();
+                _traySession.ActivationRequested += OnTrayActivationRequested;
+                trayRegistration = RegisterTraySessionAsync(sessionToken, mainWindow);
+            }
             foreach (var (action, gesture) in new[]
             {
                 (GlobalHotkeyAction.ToggleWindow, settings.WindowToggleHotkey),
@@ -461,11 +468,21 @@ public sealed partial class App : Avalonia.Application
 #endif
             // 首屏出现后再启动重活，保持窗口启动响应。
             Dispatcher.UIThread.Post(
-                () =>
+                async () =>
                 {
 #if DEBUG
                     LogStartupTrace("Background startup dispatch entered", startupStartedAt);
 #endif
+                    if (!await trayRegistration)
+                    {
+                        return;
+                    }
+
+                    _ = RunAppUpdateCheckAsync(() => autoUpdateRunner.RunStartupCheckAsync());
+                    StartAppUpdateAutoCheckTimer(autoUpdateRunner);
+                    StartSubscriptionAutoDelayTimer(viewModel);
+                    StartHomeRuntimeTimer(viewModel);
+                    StartWebDavBackupTimer(viewModel);
                     _ = InitializeSubscriptionServicesAsync(subscriptionPage, subscriptionAutoUpdate);
                     _ = overridePage.InitializeAsync();
                     _ = StartCoreServicesAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner, coreManager, viewModel, proxyPage, rulePage, proxySelectionRestorer);
@@ -482,6 +499,62 @@ public sealed partial class App : Avalonia.Application
     private static bool ShouldStartHidden(AppSettings settings)
     {
         return settings.IsSilentStartEnabled;
+    }
+
+    private async Task<bool> RegisterTraySessionAsync(string sessionToken, MainWindow mainWindow)
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await _traySession!.RegisterAsync(sessionToken, timeout.Token);
+            AppLogger.Info($"Desktop UI session registered: pid={Environment.ProcessId}");
+            return true;
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Error(exception, "Desktop UI session registration failed");
+            mainWindow.RequestShutdown();
+            return false;
+        }
+    }
+
+    private async Task UnregisterTraySessionAsync()
+    {
+        if (_traySession is null)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        try
+        {
+            await _traySession.UnregisterAsync(timeout.Token);
+        }
+        catch (Exception exception) when (exception is IOException or OperationCanceledException)
+        {
+            AppLogger.Warning($"Desktop UI session unregister failed: {exception.Message}");
+        }
+    }
+
+    private void OnTrayActivationRequested(object? sender, EventArgs args) =>
+        Dispatcher.UIThread.Post(_trayService.ShowMainWindow);
+
+    private async Task ShutdownTrayAsync()
+    {
+        if (_traySession is null)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        try
+        {
+            await _traySession.ShutdownTrayAsync(timeout.Token);
+        }
+        catch (Exception exception) when (exception is IOException or OperationCanceledException)
+        {
+            AppLogger.Warning($"Tray shutdown request failed: {exception.Message}");
+        }
     }
 
     private void StopBackgroundServices()

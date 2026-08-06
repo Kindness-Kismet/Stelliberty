@@ -15,22 +15,22 @@ internal static class AppRuntime
     private static string AppFontFamily => $"avares://{AppRuntimeNames.ResourceAuthority}/Assets/fonts#Google Sans";
     private static string CjkFontFamily => $"avares://{AppRuntimeNames.ResourceAuthority}/Assets/fonts#Noto Sans SC";
 
-    public static void Run(string[] args)
+    public static void RunUi(string[] args, bool enforceDesktopSingleInstance)
     {
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
-        using var singleInstance = new SingleInstanceService();
-        if (!singleInstance.OwnsInstance)
+        using var singleInstance = enforceDesktopSingleInstance ? new SingleInstanceService() : null;
+        if (singleInstance is { OwnsInstance: false })
         {
             return;
         }
 
-        AppLogger.Info("App startup");
+        AppLogger.Info("Desktop UI startup");
 
         try
         {
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
-            AppLogger.Info("App shutdown");
+            AppLogger.Info("Desktop UI shutdown");
         }
         catch (Exception exception)
         {

@@ -11,7 +11,11 @@ from build_support.paths import BUILD_DIR
 
 
 def close_running_output_app(metadata: AppMetadata, output_dir: Path) -> None:
-    binary_path = output_binary_path(metadata, output_dir)
+    close_running_binary(output_binary_path(metadata.app_name, output_dir))
+    close_running_binary(output_binary_path(f"{metadata.app_name}-tray", output_dir))
+
+
+def close_running_binary(binary_path: Path) -> None:
     if not binary_path.exists():
         return
 
@@ -39,9 +43,9 @@ def close_running_output_app(metadata: AppMetadata, output_dir: Path) -> None:
         raise RuntimeError(f"Output is still locked by running processes; build cannot continue: {still_running}")
 
 
-def output_binary_path(metadata: AppMetadata, output_dir: Path) -> Path:
+def output_binary_path(binary_name: str, output_dir: Path) -> Path:
     suffix = ".exe" if sys.platform == "win32" else ""
-    return output_dir / f"{metadata.app_name}{suffix}"
+    return output_dir / f"{binary_name}{suffix}"
 
 
 def ensure_build_output_path(path: Path) -> None:

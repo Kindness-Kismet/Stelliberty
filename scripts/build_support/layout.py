@@ -69,10 +69,11 @@ def organize_dependency_directory(output_dir: Path, metadata: AppMetadata, confi
 
     remove_release_symbols(output_dir, configuration)
     moved_files = move_dependency_files(output_dir, deps_dir, root_files(metadata), configuration)
-    rewrite_dependency_manifest(output_dir, metadata, moved_files)
+    rewrite_dependency_manifests(output_dir, metadata, moved_files)
 
 
 def root_files(metadata: AppMetadata) -> set[str]:
+    tray_name = f"{metadata.app_name}-tray"
     return HOST_STARTUP_FILE_NAMES | {
         metadata.app_name,
         f"{metadata.app_name}.dll",
@@ -80,6 +81,12 @@ def root_files(metadata: AppMetadata) -> set[str]:
         f"{metadata.app_name}.deps.json",
         f"{metadata.app_name}.pdb",
         f"{metadata.app_name}.runtimeconfig.json",
+        tray_name,
+        f"{tray_name}.dll",
+        f"{tray_name}.exe",
+        f"{tray_name}.deps.json",
+        f"{tray_name}.pdb",
+        f"{tray_name}.runtimeconfig.json",
     }
 
 
@@ -128,8 +135,12 @@ def is_versioned_shared_object(path: Path) -> bool:
     return name.startswith("lib") and ".so." in name
 
 
-def rewrite_dependency_manifest(output_dir: Path, metadata: AppMetadata, moved_files: set[str]) -> None:
-    deps_path = output_dir / f"{metadata.app_name}.deps.json"
+def rewrite_dependency_manifests(output_dir: Path, metadata: AppMetadata, moved_files: set[str]) -> None:
+    rewrite_dependency_manifest(output_dir / f"{metadata.app_name}.deps.json", moved_files)
+    rewrite_dependency_manifest(output_dir / f"{metadata.app_name}-tray.deps.json", moved_files)
+
+
+def rewrite_dependency_manifest(deps_path: Path, moved_files: set[str]) -> None:
     if not moved_files or not deps_path.exists():
         return
 

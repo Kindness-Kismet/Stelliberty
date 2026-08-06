@@ -268,7 +268,7 @@ internal sealed class DesktopTrayService : IDisposable
         ShowMainWindow();
     }
 
-    private void ShowMainWindow()
+    internal void ShowMainWindow()
     {
         if (_window is null)
         {
