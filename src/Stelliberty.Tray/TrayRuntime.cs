@@ -1,5 +1,6 @@
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Infrastructure.Tray;
+using Stelliberty.Infrastructure.Proxies;
 
 namespace Stelliberty.Tray;
 
@@ -28,11 +29,22 @@ internal static class TrayRuntime
         try
         {
             var uiSessions = new UiSessionManager(new DesktopUiLauncher());
-            var router = new TrayRequestRouter(lifetime, uiSessions);
+            var coreLogs = new CoreLogJournal();
+            await using var coreRuntime = new TrayCoreRuntimeHost(coreLogs);
+            await using var runtimeMonitor = new RuntimeTrafficMonitor(
+                coreRuntime,
+                new PipeCoreProxyClient(TrayCoreEndpoints.Core));
+            using var router = new TrayRequestRouter(
+                lifetime,
+                uiSessions,
+                coreRuntime,
+                coreLogs,
+                runtimeMonitor);
             await using var server = new TrayIpcServer(
                 TrayEndpoint.Current,
                 router.HandleAsync,
                 router.OnConnectionClosedAsync);
+            runtimeMonitor.Start(lifetime.StoppingToken);
             server.Start(lifetime.StoppingToken);
             AppLogger.Info($"Tray startup: pid={Environment.ProcessId} endpoint={TrayEndpoint.Current}");
             await server.Completion.ConfigureAwait(false);

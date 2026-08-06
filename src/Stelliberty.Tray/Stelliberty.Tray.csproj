@@ -16,5 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Stelliberty.Application\Stelliberty.Application.csproj" />
     <ProjectReference Include="..\Stelliberty.Infrastructure\Stelliberty.Infrastructure.csproj" />
+    <ProjectReference Include="..\Stelliberty.Native\Stelliberty.Native.csproj" />
   </ItemGroup>
 </Project>

@@ -1,16 +1,32 @@
+using Stelliberty.Application.Proxies;
+using Stelliberty.Application.Runtime;
+using Stelliberty.Domain.CoreLogs;
+using Stelliberty.Domain.Proxies;
+
 namespace Stelliberty.Application.Tray;
 
 public static class TrayProtocol
 {
-    public const int Version = 1;
+    public const int Version = 2;
 
     public const string HelloMethod = "tray.hello";
     public const string HealthMethod = "tray.get_health";
     public const string ShutdownMethod = "tray.shutdown";
+    public const string CoreEnsureStartedMethod = "core.ensure_started";
+    public const string CoreStopMethod = "core.stop";
+    public const string CoreSnapshotMethod = "core.get_snapshot";
+    public const string CoreApplyConfigMethod = "core.apply_config";
+    public const string CoreRestartMethod = "core.restart";
+    public const string CoreLogsMethod = "core.get_logs";
+    public const string RuntimeSnapshotMethod = "runtime.get_snapshot";
+    public const string RuntimeResetTrafficMethod = "runtime.reset_traffic";
     public const string UiActivateMethod = "ui.activate";
     public const string UiRegisterMethod = "ui.register";
     public const string UiUnregisterMethod = "ui.unregister";
     public const string UiActivationEvent = "ui.activate";
+    public const string CoreStateChangedEvent = "core.state_changed";
+    public const string CoreLogEntryEvent = "core.log_entry";
+    public const string RuntimeSampledEvent = "runtime.sampled";
 }
 
 public sealed record TrayHelloRequest(
@@ -31,7 +47,47 @@ public sealed record TrayHealth(
     string TrayEpoch,
     long UptimeMilliseconds,
     int? UiPid,
-    bool IsUiLaunchPending);
+    bool IsUiLaunchPending,
+    TrayCoreStatus Core,
+    long LatestCoreLogSequence,
+    DateTimeOffset? LastRuntimeSampledAt);
+
+public sealed record TrayCoreStatus(CoreSnapshot Snapshot, long CoreGeneration);
+
+public sealed record TrayCoreOperationResult(
+    bool IsSuccess,
+    string Message,
+    TrayCoreStatus Status);
+
+public sealed record TrayCoreLogEntry(
+    long Sequence,
+    long CoreGeneration,
+    CoreLogMessage Message);
+
+public sealed record TrayCoreLogBatch(
+    TrayCoreLogEntry[] Entries,
+    long OldestSequence,
+    long LatestSequence,
+    bool HasGap);
+
+public sealed record TrayCoreLogsRequest(long AfterSequence);
+
+public sealed record TrayRuntimeSample(
+    DateTimeOffset SampledAt,
+    long CoreGeneration,
+    long UploadSpeed,
+    long DownloadSpeed,
+    long UploadTotal,
+    long DownloadTotal);
+
+public sealed record TrayRuntimeSnapshot(
+    CoreRuntimeStats? Stats,
+    OutboundMode? Mode,
+    string? Version,
+    int ConnectionCount,
+    TrayRuntimeSample[] History,
+    DateTimeOffset? SampledAt,
+    long CoreGeneration);
 
 public sealed record UiActivateRequest(int LauncherPid);
 

@@ -4,19 +4,47 @@ using System.Text.Json;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Tray;
 using Stelliberty.Application.Platform;
+using Stelliberty.Application.Runtime;
 using Stelliberty.Infrastructure.Tray;
+using Stelliberty.Infrastructure.Core;
 
 namespace Stelliberty.Tray;
 
-internal sealed class TrayRequestRouter(
-    TrayLifetime lifetime,
-    UiSessionManager uiSessions)
+internal sealed class TrayRequestRouter : IDisposable
 {
-    private readonly TrayLifetime _lifetime = lifetime;
-    private readonly UiSessionManager _uiSessions = uiSessions;
+    private readonly TrayLifetime _lifetime;
+    private readonly UiSessionManager _uiSessions;
+    private readonly ITrayCoreRuntime? _coreRuntime;
+    private readonly CoreLogJournal? _coreLogs;
+    private readonly ITrayRuntimeMonitor? _runtimeMonitor;
     private readonly ConcurrentDictionary<Guid, byte> _handshakes = new();
+    private readonly ConcurrentDictionary<Guid, TrayIpcConnection> _connections = new();
     private readonly string _trayEpoch = Guid.NewGuid().ToString("N");
     private readonly long _startedAt = Stopwatch.GetTimestamp();
+
+    public TrayRequestRouter(
+        TrayLifetime lifetime,
+        UiSessionManager uiSessions,
+        ITrayCoreRuntime? coreRuntime = null,
+        CoreLogJournal? coreLogs = null,
+        ITrayRuntimeMonitor? runtimeMonitor = null)
+    {
+        _lifetime = lifetime;
+        _uiSessions = uiSessions;
+        _coreRuntime = coreRuntime;
+        _coreLogs = coreLogs;
+        _runtimeMonitor = runtimeMonitor;
+        if (_coreRuntime is not null)
+        {
+            _coreRuntime.StateChanged += OnCoreStateChanged;
+            _coreRuntime.LogReceived += OnCoreLogReceived;
+        }
+
+        if (_runtimeMonitor is not null)
+        {
+            _runtimeMonitor.Sampled += OnRuntimeSampled;
+        }
+    }
 
     public async Task<TrayIpcResult> HandleAsync(
         TrayIpcConnection connection,
@@ -34,6 +62,21 @@ internal sealed class TrayRequestRouter(
             {
                 TrayProtocol.HelloMethod => HandleHello(connection, request),
                 TrayProtocol.HealthMethod => await HandleHealthAsync(cancellationToken).ConfigureAwait(false),
+                TrayProtocol.CoreEnsureStartedMethod => TrayIpcResult.Success(
+                    await RequireCoreRuntime().EnsureStartedAsync(cancellationToken).ConfigureAwait(false)),
+                TrayProtocol.CoreStopMethod => TrayIpcResult.Success(
+                    await RequireCoreRuntime().StopAsync(cancellationToken).ConfigureAwait(false)),
+                TrayProtocol.CoreSnapshotMethod => TrayIpcResult.Success(RequireCoreRuntime().CurrentStatus),
+                TrayProtocol.CoreApplyConfigMethod => TrayIpcResult.Success(
+                    await RequireCoreRuntime().ApplyConfigAsync(
+                        request.DeserializeParameters<CoreApplyConfigRequest>(),
+                        cancellationToken).ConfigureAwait(false)),
+                TrayProtocol.CoreRestartMethod => await HandleCoreRestartAsync(cancellationToken).ConfigureAwait(false),
+                TrayProtocol.CoreLogsMethod => TrayIpcResult.Success(
+                    RequireCoreLogs().ReadAfter(
+                        request.DeserializeParameters<TrayCoreLogsRequest>().AfterSequence)),
+                TrayProtocol.RuntimeSnapshotMethod => TrayIpcResult.Success(RequireRuntimeMonitor().GetSnapshot()),
+                TrayProtocol.RuntimeResetTrafficMethod => await HandleRuntimeResetAsync(cancellationToken).ConfigureAwait(false),
                 TrayProtocol.UiActivateMethod => TrayIpcResult.Success(
                     await _uiSessions.ActivateAsync(cancellationToken).ConfigureAwait(false)),
                 TrayProtocol.UiRegisterMethod => TrayIpcResult.Success(
@@ -52,6 +95,16 @@ internal sealed class TrayRequestRouter(
         {
             return TrayIpcResult.Error("tray.invalid_params", exception.Message);
         }
+        catch (IpcRemoteException exception)
+        {
+            return TrayIpcResult.Error(exception.Code, exception.Message);
+        }
+        catch (InvalidOperationException exception) when (
+            request.Method.StartsWith("core.", StringComparison.Ordinal)
+            || request.Method.StartsWith("runtime.", StringComparison.Ordinal))
+        {
+            return TrayIpcResult.Error("core.operation_failed", exception.Message);
+        }
         catch (Exception exception) when (
             request.Method == TrayProtocol.UiActivateMethod
             && exception is IOException or InvalidOperationException or UnauthorizedAccessException)
@@ -64,6 +117,7 @@ internal sealed class TrayRequestRouter(
     public Task OnConnectionClosedAsync(Guid connectionId)
     {
         _handshakes.TryRemove(connectionId, out _);
+        _connections.TryRemove(connectionId, out _);
         return _uiSessions.OnConnectionClosedAsync(connectionId);
     }
 
@@ -77,18 +131,30 @@ internal sealed class TrayRequestRouter(
         }
 
         _handshakes[connection.Id] = 0;
+        _connections[connection.Id] = connection;
         return TrayIpcResult.Success(CreateHello());
     }
 
     private async Task<TrayIpcResult> HandleHealthAsync(CancellationToken cancellationToken)
     {
         var ui = await _uiSessions.GetStateAsync(cancellationToken).ConfigureAwait(false);
+        var core = _coreRuntime?.CurrentStatus
+            ?? new TrayCoreStatus(
+                new CoreSnapshot(
+                    CoreState.Unavailable,
+                    null,
+                    string.Empty,
+                    null),
+                0);
         return TrayIpcResult.Success(new TrayHealth(
             Environment.ProcessId,
             _trayEpoch,
             (long)Stopwatch.GetElapsedTime(_startedAt).TotalMilliseconds,
             ui.UiPid,
-            ui.IsLaunchPending));
+            ui.IsLaunchPending,
+            core,
+            _coreLogs?.LatestSequence ?? 0,
+            _runtimeMonitor?.GetSnapshot().SampledAt));
     }
 
     private async Task<UiRegisterResult> RegisterUiAsync(
@@ -151,8 +217,79 @@ internal sealed class TrayRequestRouter(
         AppMetadata.Version,
         Environment.ProcessId,
         _trayEpoch,
-        ["ui_session"],
-        0);
+        _coreRuntime is null
+            ? ["ui_session"]
+            : ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic"],
+        _coreRuntime?.CurrentStatus.CoreGeneration ?? 0);
+
+    private async Task<TrayIpcResult> HandleCoreRestartAsync(CancellationToken cancellationToken)
+    {
+        var runtime = RequireCoreRuntime();
+        await runtime.RestartAsync(cancellationToken).ConfigureAwait(false);
+        return TrayIpcResult.Success(runtime.CurrentStatus);
+    }
+
+    private async Task<TrayIpcResult> HandleRuntimeResetAsync(CancellationToken cancellationToken)
+    {
+        var monitor = RequireRuntimeMonitor();
+        await monitor.ResetTrafficAsync(cancellationToken).ConfigureAwait(false);
+        return TrayIpcResult.Success(monitor.GetSnapshot());
+    }
+
+    private ITrayCoreRuntime RequireCoreRuntime() =>
+        _coreRuntime ?? throw new InvalidOperationException("Tray core runtime is unavailable.");
+
+    private CoreLogJournal RequireCoreLogs() =>
+        _coreLogs ?? throw new InvalidOperationException("Tray core log journal is unavailable.");
+
+    private ITrayRuntimeMonitor RequireRuntimeMonitor() =>
+        _runtimeMonitor ?? throw new InvalidOperationException("Tray runtime monitor is unavailable.");
+
+    private void OnCoreStateChanged(object? sender, TrayCoreStatus status) =>
+        Broadcast(TrayProtocol.CoreStateChangedEvent, status);
+
+    private void OnCoreLogReceived(object? sender, TrayCoreLogEntry entry) =>
+        Broadcast(TrayProtocol.CoreLogEntryEvent, entry);
+
+    private void OnRuntimeSampled(object? sender, TrayRuntimeSample sample) =>
+        Broadcast(TrayProtocol.RuntimeSampledEvent, sample);
+
+    private void Broadcast(string eventName, object data)
+    {
+        foreach (var connection in _connections.Values)
+        {
+            _ = SendEventAsync(connection, eventName, data);
+        }
+    }
+
+    private async Task SendEventAsync(TrayIpcConnection connection, string eventName, object data)
+    {
+        try
+        {
+            await connection.SendEventAsync(eventName, data, _lifetime.StoppingToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or ObjectDisposedException or OperationCanceledException)
+        {
+            _connections.TryRemove(connection.Id, out _);
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_coreRuntime is not null)
+        {
+            _coreRuntime.StateChanged -= OnCoreStateChanged;
+            _coreRuntime.LogReceived -= OnCoreLogReceived;
+        }
+
+        if (_runtimeMonitor is not null)
+        {
+            _runtimeMonitor.Sampled -= OnRuntimeSampled;
+        }
+
+        _connections.Clear();
+        _handshakes.Clear();
+    }
 
     private sealed class IpcUiSessionConnection(TrayIpcConnection connection) : IUiSessionConnection
     {

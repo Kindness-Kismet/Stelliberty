@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Stelliberty.Application.Tray;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Localization;
 using Stelliberty.Application.Platform;
@@ -71,8 +72,8 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private const int SpeedHistoryCapacity = 60;
     private readonly Queue<double> _uploadSpeedHistory = new();
     private readonly Queue<double> _downloadSpeedHistory = new();
+    private readonly TrafficRateTracker _directRuntimeTrafficTracker = new();
 
-    private readonly TrafficRateTracker _trafficTracker = new();
     private bool _isCoreRestarting;
     private bool _isCoreUpdating;
     private bool _isServiceModeBusy;
@@ -211,7 +212,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             _coreRunningSince = null;
             _uptime = TimeSpan.Zero;
 
-            _trafficTracker.Reset();
+            _directRuntimeTrafficTracker.Reset();
             _uploadSpeed = 0;
             _downloadSpeed = 0;
             _uploadTotal = 0;
@@ -446,7 +447,12 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                 var snapshot = await snapshotLoader.LoadAsync(includeVersion: _shouldRefreshCoreVersion, cancellationToken);
                 if (snapshot is not null && !cancellationToken.IsCancellationRequested)
                 {
-                    Post(() => ApplyRuntime(snapshot.Stats, snapshot.Mode, snapshot.Version, snapshot.ConnectionCount));
+                    Post(() => ApplyRuntime(
+                        snapshot.Stats,
+                        snapshot.Mode,
+                        snapshot.Version,
+                        snapshot.ConnectionCount,
+                        snapshot.History));
                 }
             }
             catch (Exception exception)
@@ -523,18 +529,33 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         return status;
     }
 
-    private void ApplyRuntime(CoreRuntimeStats? stats, OutboundMode? mode, string? version, int? connectionCount)
+    private void ApplyRuntime(
+        CoreRuntimeStats? stats,
+        OutboundMode? mode,
+        string? version,
+        int? connectionCount,
+        IReadOnlyList<TrayRuntimeSample> history)
     {
         if (stats is not null)
         {
-            var sample = _trafficTracker.Update(stats.UploadTotal, stats.DownloadTotal, _now());
-            _uploadSpeed = stats.HasTrafficRate ? stats.UploadSpeed : sample.UploadSpeed;
-            _downloadSpeed = stats.HasTrafficRate ? stats.DownloadSpeed : sample.DownloadSpeed;
-            _uploadTotal = sample.UploadTotal;
-            _downloadTotal = sample.DownloadTotal;
+            var directSample = _directRuntimeTrafficTracker.Update(
+                stats.UploadTotal,
+                stats.DownloadTotal,
+                _now());
+            _uploadSpeed = stats.HasTrafficRate ? stats.UploadSpeed : directSample.UploadSpeed;
+            _downloadSpeed = stats.HasTrafficRate ? stats.DownloadSpeed : directSample.DownloadSpeed;
+            _uploadTotal = history.Count > 0 ? stats.UploadTotal : directSample.UploadTotal;
+            _downloadTotal = history.Count > 0 ? stats.DownloadTotal : directSample.DownloadTotal;
             _memoryValueText = ByteSize.Format(stats.Memory);
-            PushSpeedSample(_uploadSpeedHistory, _uploadSpeed);
-            PushSpeedSample(_downloadSpeedHistory, _downloadSpeed);
+            if (history.Count > 0)
+            {
+                ApplySpeedHistory(history);
+            }
+            else
+            {
+                PushSpeedSample(_uploadSpeedHistory, _uploadSpeed);
+                PushSpeedSample(_downloadSpeedHistory, _downloadSpeed);
+            }
             UploadSamples = _uploadSpeedHistory.ToArray();
             DownloadSamples = _downloadSpeedHistory.ToArray();
             _speedAxisMax = ComputeAxisMax(_uploadSpeedHistory, _downloadSpeedHistory);
@@ -1079,9 +1100,11 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     private void ResetTraffic()
     {
-
-        // 总流量不能重置，所以用基线重置本地显示。
-        _trafficTracker.ResetBaseline();
+        if (_proxyClient is IRuntimeSnapshotClient runtimeClient)
+        {
+            _ = ResetRuntimeTrafficAsync(runtimeClient);
+        }
+        _directRuntimeTrafficTracker.ResetBaseline();
         _uploadSpeed = 0;
         _downloadSpeed = 0;
         _uploadTotal = 0;
@@ -1090,6 +1113,18 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         // 重置回到首次进入时使用的零基线。
         SeedZeroHistory();
         RaiseHomeStateChanged();
+    }
+
+    private static async Task ResetRuntimeTrafficAsync(IRuntimeSnapshotClient runtimeClient)
+    {
+        try
+        {
+            await runtimeClient.ResetRuntimeTrafficAsync();
+        }
+        catch (Exception exception)
+        {
+            AppLogger.Warning($"Runtime traffic reset failed: {exception.Message}");
+        }
     }
 
     private void Post(Action action)
@@ -1210,6 +1245,23 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         if (history.Count > SpeedHistoryCapacity)
         {
             history.Dequeue();
+        }
+    }
+
+    private void ApplySpeedHistory(IReadOnlyList<TrayRuntimeSample> history)
+    {
+        _uploadSpeedHistory.Clear();
+        _downloadSpeedHistory.Clear();
+        for (var i = history.Count; i < SpeedHistoryCapacity; i++)
+        {
+            _uploadSpeedHistory.Enqueue(0);
+            _downloadSpeedHistory.Enqueue(0);
+        }
+
+        foreach (var sample in history.TakeLast(SpeedHistoryCapacity))
+        {
+            _uploadSpeedHistory.Enqueue(sample.UploadSpeed);
+            _downloadSpeedHistory.Enqueue(sample.DownloadSpeed);
         }
     }
 

@@ -17,6 +17,7 @@ using Stelliberty.Application.Runtime;
 using Stelliberty.Application.Settings;
 using Stelliberty.Application.Updates;
 using Stelliberty.Desktop.Services;
+using Stelliberty.Infrastructure.Tray;
 using Stelliberty.Infrastructure.Core;
 using Stelliberty.Infrastructure.DataManagement;
 using Stelliberty.Infrastructure.Diagnostics;
@@ -158,7 +159,7 @@ public sealed partial class App : Avalonia.Application
                 runtimeStore);
             var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore);
             // Provider 同步和状态读取始终走核心管道，保持 Debug 和 Release 路径一致。
-            var coreProviderClient = new PipeCoreProviderClient(HubStartupCoordinator.CorePipe);
+            var coreProviderClient = new PipeCoreProviderClient(TrayCoreEndpoints.Core);
             var providerCatalogLoader = new SelectedSubscriptionProviderCatalogLoader(
                 subscriptionStore,
                 subscriptionSelectionStore,
@@ -195,17 +196,23 @@ public sealed partial class App : Avalonia.Application
                 overrideFileOpener,
                 localization);
 #if DEBUG
-            var pipeProxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.CorePipe);
-            IProxyCoreClient proxyCoreClient = new ProxyCoreClient(pipeProxyCoreClient);
+            var pipeProxyCoreClient = new PipeCoreProxyClient(TrayCoreEndpoints.Core);
+            IProxyCoreClient directProxyCoreClient = new ProxyCoreClient(pipeProxyCoreClient);
+            IProxyCoreClient proxyCoreClient = UsesTrayRuntime
+                ? new TrayRuntimeProxyCoreClient(directProxyCoreClient)
+                : directProxyCoreClient;
             IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
-                HubStartupCoordinator.CorePipe,
+                TrayCoreEndpoints.Core,
                 () => settings.DelayTestUrl,
                 5000);
 #else
 
-            IProxyCoreClient proxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.CorePipe);
+            IProxyCoreClient directProxyCoreClient = new PipeCoreProxyClient(TrayCoreEndpoints.Core);
+            IProxyCoreClient proxyCoreClient = UsesTrayRuntime
+                ? new TrayRuntimeProxyCoreClient(directProxyCoreClient)
+                : directProxyCoreClient;
             IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
-                HubStartupCoordinator.CorePipe,
+                TrayCoreEndpoints.Core,
                 () => settings.DelayTestUrl,
                 5000);
 #endif
@@ -219,9 +226,9 @@ public sealed partial class App : Avalonia.Application
                 serviceModeManager,
                 coreManager,
                 status => CreateCoreManager(status, serviceModeManager),
-                () => new IpcCoreManager(HubStartupCoordinator.PipeName),
-                HubStartupCoordinator.StopCoreAsync,
-                HubStartupCoordinator.ResumeCoreAsync,
+                CreateNormalCoreManager,
+                StopNormalCoreAsync,
+                ResumeNormalCoreAsync,
                 (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
                 isActive => _isServiceModeCoreHostActive = isActive,
                 isServiceModeActive: initialServiceModeStatus.IsRunning);
@@ -378,11 +385,14 @@ public sealed partial class App : Avalonia.Application
                     AppLogger.Info($"Service-mode core stop completed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
                 }
 
-                var hubStopStartedAt = Stopwatch.GetTimestamp();
-                AppLogger.Info("Normal-mode hub shutdown started");
-                await Task.Run(HubBootstrap.Shutdown);
-                AppLogger.Info($"Normal-mode hub shutdown completed: elapsed={Stopwatch.GetElapsedTime(hubStopStartedAt).TotalMilliseconds:0}ms");
-                await ShutdownTrayAsync();
+                if (UsesTrayRuntime)
+                {
+                    await ShutdownTrayAsync();
+                }
+                else
+                {
+                    await Task.Run(HubBootstrap.Shutdown);
+                }
             };
             mainWindow.OsShutdownDetected = () => Interlocked.Exchange(ref _isOsShutdownRequested, 1);
 #if DEBUG
@@ -424,7 +434,11 @@ public sealed partial class App : Avalonia.Application
                 var coreManagerDisposed = coreManager.TryDisposeForShutdown();
                 AppLogger.Info($"Core ownership released for shutdown: switcher={switcherDisposed} manager={coreManagerDisposed}");
                 DisposeOwnedServices(selectionRestoringCoreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
-                if (OperatingSystem.IsWindows())
+                if (UsesTrayRuntime)
+                {
+                    AppLogger.Info("Desktop core client released; Tray retains runtime ownership");
+                }
+                else if (OperatingSystem.IsWindows())
                 {
                     AppLogger.Info("Lifetime cleanup skipped synchronous hub wait; Job Object owns remaining normal core termination");
                 }
@@ -705,7 +719,7 @@ public sealed partial class App : Avalonia.Application
             return BootstrapResult.Failure(cleanup.Message);
         }
 
-        return await HubStartupCoordinator.EnsureStartedAsync();
+        return await ResumeNormalCoreAsync(cancellationToken);
     }
 
     private static ServiceModeStatus GetInitialServiceModeStatus(IServiceModeManager serviceModeManager, bool waitForTunService)
@@ -793,7 +807,49 @@ public sealed partial class App : Avalonia.Application
                 isActive => _isServiceModeCoreHostActive = isActive);
         }
 
-        return new IpcCoreManager(HubStartupCoordinator.PipeName);
+        return CreateNormalCoreManager();
+    }
+
+    private static bool UsesTrayRuntime => DesktopLaunchContext.TraySessionToken is not null;
+
+    private static ICoreManager CreateNormalCoreManager()
+    {
+        return UsesTrayRuntime
+            ? new TrayCoreManager()
+            : new IpcCoreManager(TrayCoreEndpoints.Hub);
+    }
+
+    private static async Task<BootstrapResult> StopNormalCoreAsync(CancellationToken cancellationToken)
+    {
+        if (!UsesTrayRuntime)
+        {
+            return await HubStartupCoordinator.StopCoreAsync(cancellationToken);
+        }
+
+        await using var manager = new TrayCoreManager();
+        var result = await manager.StopCoreAsync(cancellationToken);
+        return result.IsSuccess
+            ? BootstrapResult.Success(result.Message)
+            : BootstrapResult.Failure(result.Message);
+    }
+
+    private static async Task<BootstrapResult> ResumeNormalCoreAsync(CancellationToken cancellationToken)
+    {
+        if (!UsesTrayRuntime)
+        {
+            return await HubStartupCoordinator.ResumeCoreAsync(cancellationToken);
+        }
+
+        await using var manager = new TrayCoreManager();
+        try
+        {
+            var result = await manager.EnsureReadyAsync(cancellationToken);
+            return BootstrapResult.Success(result.Message);
+        }
+        catch (Exception exception)
+        {
+            return BootstrapResult.Failure(exception.Message);
+        }
     }
 
     private void StartAppUpdateAutoCheckTimer(AppUpdateAutoCheckRunner runner)

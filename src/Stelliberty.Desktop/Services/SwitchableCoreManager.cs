@@ -3,6 +3,7 @@ using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Infrastructure.Core;
+using Stelliberty.Infrastructure.Tray;
 
 namespace Stelliberty.Desktop.Services;
 
@@ -196,6 +197,9 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
         {
             case IpcCoreManager ipcCoreManager:
                 await ipcCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case TrayCoreManager trayCoreManager:
+                await trayCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
                 break;
             case ServiceModeCoreManager serviceModeCoreManager:
                 await serviceModeCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);

@@ -5,6 +5,7 @@ using Stelliberty.Application.Settings;
 using Stelliberty.Application.Subscriptions;
 using Stelliberty.Desktop.Services;
 using Stelliberty.Infrastructure.Overrides;
+using Stelliberty.Infrastructure.Tray;
 using Stelliberty.Infrastructure.Platform;
 using Stelliberty.Infrastructure.Runtime;
 using Stelliberty.Infrastructure.Settings;
@@ -16,15 +17,9 @@ namespace Stelliberty.Desktop;
 // 只编排普通模式启动；启动配置策略归 Application。
 internal static class HubStartupCoordinator
 {
-    // 端点标识沿用 mihomo，确保升级后仍能连接旧服务托管的核心。
-#if DEBUG
+    public static string PipeName => TrayCoreEndpoints.Hub;
 
-    public static readonly string PipeName = BuildHubEndpoint(AppMetadata.PipePrefix + "_core_dev");
-    public static readonly string CorePipe = BuildCoreEndpoint(AppMetadata.PipePrefix + "_mihomo_dev");
-#else
-    public static readonly string PipeName = BuildHubEndpoint(AppMetadata.PipePrefix + "_core_prod");
-    public static readonly string CorePipe = BuildCoreEndpoint(AppMetadata.PipePrefix + "_mihomo_prod");
-#endif
+    public static string CorePipe => TrayCoreEndpoints.Core;
 
     private static readonly object StartGate = new();
     private static Task<BootstrapResult>? _startTask;
@@ -133,17 +128,4 @@ internal static class HubStartupCoordinator
         return AppSettingsNormalizer.CanUseTun(new SystemProcessPrivilegeProbe().Detect(), hasServiceTunHost: false);
     }
 
-    private static string BuildCoreEndpoint(string name)
-    {
-        return OperatingSystem.IsWindows()
-            ? $@"\\.\pipe\{name}"
-            : Path.Combine(Path.GetTempPath(), $"{name}.sock");
-    }
-
-    private static string BuildHubEndpoint(string name)
-    {
-        return OperatingSystem.IsWindows()
-            ? name
-            : Path.Combine(Path.GetTempPath(), $"{name}.sock");
-    }
 }
