@@ -57,7 +57,7 @@ internal sealed class TrayRuntime
             sessionEndCleanup.Start();
             runtimeMonitor.Start(lifetime.StoppingToken);
             server.Start(lifetime.StoppingToken);
-            AppLogger.Info($"Tray startup: pid={Environment.ProcessId} endpoint={TrayEndpoint.Current}");
+            AppLogger.Info($"Tray startup: pid={Environment.ProcessId} channel={AppRuntimeNames.ChannelName}");
             if (Program.ActivateUiOnStart)
             {
                 await uiSessions.ActivateAsync(lifetime.StoppingToken).ConfigureAwait(false);
