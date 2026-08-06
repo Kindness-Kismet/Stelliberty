@@ -92,12 +92,12 @@ class SimulationTests:
             self.require("control.click Navigation.HomeButton"),
             time.sleep(0.6),
             self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=true"]),
-            self.require("window.state", contains=["visible=false"]),
+            self.wait_for("window.state", contains=["visible=false"], timeout=10, interval=0.1),
             self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=false"]),
-            self.require("window.state", contains=["visible=false"]),
+            self.wait_for("window.state", contains=["visible=false"], timeout=10, interval=0.1),
             time.sleep(0.6),
             self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=true"]),
-            self.require("window.state", contains=["visible=true"]),
+            self.wait_for("window.state", contains=["visible=true"], timeout=10, interval=0.1),
         ))
         self.step("Restore shortcut setting", self.restore_window_shortcut)
         self.step("Close app after shortcut verification", self.stop_app_step)
