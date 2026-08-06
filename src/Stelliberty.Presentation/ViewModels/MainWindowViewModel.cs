@@ -97,7 +97,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Action? serviceModeCoreTransitionStarting = null,
         Func<CancellationToken, Task>? serviceModeCoreTransitionCompleted = null,
         IAppLogReader? appLogReader = null,
-        IAppLogExporter? appLogExporter = null)
+        IAppLogExporter? appLogExporter = null,
+        bool serviceModeCoreHostManagedExternally = false)
     {
         _settingsStore = settingsStore;
         _localization = localization;
@@ -166,7 +167,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             serviceModeSessionActivator,
             serviceModeSessionDeactivator,
             serviceModeCoreTransitionStarting,
-            serviceModeCoreTransitionCompleted);
+            serviceModeCoreTransitionCompleted,
+            serviceModeCoreHostManagedExternally);
         SystemIntegration = new SettingsSystemIntegrationViewModel(
             _settings,
             settingsStore,

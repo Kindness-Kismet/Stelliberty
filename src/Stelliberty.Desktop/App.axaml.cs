@@ -384,6 +384,7 @@ public sealed partial class App : Avalonia.Application
                     : _ => selectionRestoringCoreManager.RestoreCurrentCoreSelectionsAsync(
                         "service-mode-operation-completion",
                         CancellationToken.None),
+                serviceModeCoreHostManagedExternally: UsesTrayRuntime,
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
             hotkeyViewModel = viewModel;

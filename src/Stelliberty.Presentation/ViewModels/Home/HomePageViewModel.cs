@@ -27,6 +27,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionDeactivator;
     private readonly Action? _serviceModeCoreTransitionStarting;
     private readonly Func<CancellationToken, Task>? _serviceModeCoreTransitionCompleted;
+    private readonly bool _serviceModeCoreHostManagedExternally;
     private readonly Func<SystemProxyApplicationRequest> _systemProxyRequestFactory;
     private readonly Action<bool>? _tunStateChanged;
 
@@ -104,7 +105,8 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionActivator = null,
         Func<CancellationToken, Task<ServiceModeOperationResult>>? serviceModeSessionDeactivator = null,
         Action? serviceModeCoreTransitionStarting = null,
-        Func<CancellationToken, Task>? serviceModeCoreTransitionCompleted = null)
+        Func<CancellationToken, Task>? serviceModeCoreTransitionCompleted = null,
+        bool serviceModeCoreHostManagedExternally = false)
     {
         _localization = localization;
         _systemPlatform = systemPlatform;
@@ -117,6 +119,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _serviceModeSessionDeactivator = serviceModeSessionDeactivator;
         _serviceModeCoreTransitionStarting = serviceModeCoreTransitionStarting;
         _serviceModeCoreTransitionCompleted = serviceModeCoreTransitionCompleted;
+        _serviceModeCoreHostManagedExternally = serviceModeCoreHostManagedExternally;
         _systemProxyRequestFactory = systemProxyRequestFactory;
         _tunStateChanged = tunStateChanged;
         _coreRestart = coreRestart;
@@ -247,9 +250,9 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     }
 
     public bool CanToggleTun => _runMode is ProcessRunMode.Administrator or ProcessRunMode.Service
-        || (_serviceModeStatus.IsRunning && _isServiceModeCoreHostActive());
+        || (_serviceModeStatus.IsRunning && IsServiceModeCoreHostActive);
 
-    public string CoreHostMode => _isServiceModeCoreHostActive() ? "service" : "process";
+    public string CoreHostMode => IsServiceModeCoreHostActive ? "service" : "process";
 
     public string PrivilegeModeText => _serviceModeStatus.IsRunning
         ? Localize("Home.RunMode.Service")
@@ -877,7 +880,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _isServiceModeBusy = true;
         RaiseHomeStateChanged();
         var token = cancellationToken.CanBeCanceled ? cancellationToken : _refreshCancellation?.Token ?? CancellationToken.None;
-        var shouldDeactivateSession = !installOrUpdate && _isServiceModeCoreHostActive();
+        var shouldDeactivateSession = !installOrUpdate && IsServiceModeCoreHostActive;
         ServiceModeOperationResult result;
         var sessionActivationFailed = false;
         var sessionDeactivationFailed = false;
@@ -1024,6 +1027,10 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _serviceModeStatus = status;
         RaiseHomeStateChanged();
     }
+
+    private bool IsServiceModeCoreHostActive => _serviceModeCoreHostManagedExternally
+        ? _serviceModeStatus.IsRunning
+        : _isServiceModeCoreHostActive();
 
     private Task ApplyServiceModeStatusAsync(ServiceModeStatus status)
     {
