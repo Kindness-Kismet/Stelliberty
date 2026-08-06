@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <AssemblyName>$(AppName)</AssemblyName>
+    <AssemblyName>$(AppName)-ui</AssemblyName>
     <Version>$(AppVersion)</Version>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <HotAvaloniaAutoEnable>false</HotAvaloniaAutoEnable>

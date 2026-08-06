@@ -12,8 +12,8 @@ namespace Stelliberty.Desktop;
 
 internal static class AppRuntime
 {
-    private static string AppFontFamily => $"avares://{AppRuntimeNames.ResourceAuthority}/Assets/fonts#Google Sans";
-    private static string CjkFontFamily => $"avares://{AppRuntimeNames.ResourceAuthority}/Assets/fonts#Noto Sans SC";
+    private static string AppFontFamily => $"avares://{AppRuntimeNames.UiResourceAuthority}/Assets/fonts#Google Sans";
+    private static string CjkFontFamily => $"avares://{AppRuntimeNames.UiResourceAuthority}/Assets/fonts#Noto Sans SC";
 
     public static void RunUi(string[] args, bool enforceDesktopSingleInstance)
     {
@@ -81,7 +81,7 @@ internal static class AppRuntime
 #if DEBUG
     private static string? ResolveProjectPath(Assembly assembly)
     {
-        return assembly.GetName().Name == AppMetadata.Name ? FindDesktopProjectPath() : null;
+        return assembly.GetName().Name == AppRuntimeNames.UiResourceAuthority ? FindDesktopProjectPath() : null;
     }
 
     private static string? FindDesktopProjectPath()

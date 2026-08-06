@@ -549,6 +549,7 @@ def render_windows_template(
         "APP_VERSION": metadata.version,
         "APP_PUBLISHER": metadata.display_name,
         "APP_EXE_NAME": f"{metadata.app_name}.exe",
+        "APP_UI_EXE_NAME": f"{metadata.app_name}-ui.exe",
         "APP_PACKAGE_NAME": metadata.app_name.lower(),
         "APP_MUTEX": single_instance_mutex(metadata, configuration),
         "APP_ID": app_id(configuration),
@@ -776,6 +777,7 @@ def build_macos_icns(output_path: Path, configuration: str) -> None:
 def set_macos_payload_permissions(install_dir: Path, metadata: AppMetadata, target: PlatformTarget) -> None:
     executable_paths = [
         install_dir / metadata.app_name,
+        install_dir / f"{metadata.app_name}-ui",
         install_dir / "data" / "core" / "clash-mihomo-core",
         install_dir / "data" / "service" / "update" / service_binary_name(metadata, target),
     ]
@@ -810,6 +812,7 @@ def macos_min_system(platform_name: str) -> str:
 def set_linux_payload_permissions(install_dir: Path, metadata: AppMetadata, target: PlatformTarget) -> None:
     executable_paths = [
         install_dir / metadata.app_name,
+        install_dir / f"{metadata.app_name}-ui",
         install_dir / "data" / "core" / "clash-mihomo-core",
         install_dir / "data" / "service" / "update" / service_binary_name(metadata, target),
     ]

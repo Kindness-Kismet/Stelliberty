@@ -29,7 +29,7 @@ internal sealed class DesktopUiLauncher : IDesktopUiLauncher
 
     private static string ResolveDesktopExecutable()
     {
-        var packagedPath = Path.Combine(AppContext.BaseDirectory, AppRuntimeNames.DesktopBinaryName);
+        var packagedPath = Path.Combine(AppContext.BaseDirectory, AppRuntimeNames.UiBinaryName);
         if (File.Exists(packagedPath))
         {
             return packagedPath;
@@ -46,7 +46,7 @@ internal sealed class DesktopUiLauncher : IDesktopUiLauncher
                 "bin",
                 "Debug",
                 "net11.0",
-                AppRuntimeNames.DesktopBinaryName);
+                AppRuntimeNames.UiBinaryName);
             if (File.Exists(candidate))
             {
                 return candidate;

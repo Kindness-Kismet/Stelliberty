@@ -20,12 +20,7 @@ public sealed class MacOSAppBehaviorService : IAppBehaviorService
             return;
         }
 
-        var binaryPath = Environment.ProcessPath ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(binaryPath))
-        {
-            AppLogger.Warning("macOS autostart path is empty");
-            return;
-        }
+        var binaryPath = Path.Combine(AppContext.BaseDirectory, AppRuntimeNames.TrayBinaryName);
 
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, AutoStartEntryBuilder.MacOSLaunchAgentPlist(binaryPath, isSilentStartEnabled));

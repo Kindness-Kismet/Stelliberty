@@ -12,7 +12,7 @@ from build_support.paths import BUILD_DIR
 
 def close_running_output_app(metadata: AppMetadata, output_dir: Path) -> None:
     close_running_binary(output_binary_path(metadata.app_name, output_dir))
-    close_running_binary(output_binary_path(f"{metadata.app_name}-tray", output_dir))
+    close_running_binary(output_binary_path(f"{metadata.app_name}-ui", output_dir))
 
 
 def close_running_binary(binary_path: Path) -> None:

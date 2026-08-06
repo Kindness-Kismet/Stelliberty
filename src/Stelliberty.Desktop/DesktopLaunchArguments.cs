@@ -2,7 +2,6 @@ namespace Stelliberty.Desktop;
 
 internal enum DesktopLaunchMode
 {
-    Launcher,
     TrayUi,
     DirectUi,
     Invalid,
@@ -30,7 +29,7 @@ internal sealed record DesktopLaunchArguments(
         var uiIndex = Array.IndexOf(args, UiArgument);
         if (uiIndex < 0)
         {
-            return new DesktopLaunchArguments(DesktopLaunchMode.Launcher, null, args);
+            return new DesktopLaunchArguments(DesktopLaunchMode.Invalid, null, []);
         }
 
         var sessionIndex = Array.IndexOf(args, TraySessionArgument);

@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from build_support.commands import run
@@ -127,8 +128,15 @@ def build_rust(metadata: AppMetadata, configuration: str, target: PlatformTarget
     run(command, env)
 
 def publish_dotnet(metadata: AppMetadata, configuration: str, target: PlatformTarget, output_dir: Path) -> None:
-    publish_dotnet_project(TRAY_PROJECT, metadata, configuration, target, output_dir)
-    publish_dotnet_project(DESKTOP_PROJECT, metadata, configuration, target, output_dir)
+    with tempfile.TemporaryDirectory(prefix="stelliberty-dotnet-publish-") as temp_dir:
+        staging_dir = Path(temp_dir)
+        tray_output = staging_dir / "tray"
+        ui_output = staging_dir / "ui"
+        publish_dotnet_project(TRAY_PROJECT, metadata, configuration, target, tray_output)
+        publish_dotnet_project(DESKTOP_PROJECT, metadata, configuration, target, ui_output)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(tray_output, output_dir, dirs_exist_ok=True)
+        shutil.copytree(ui_output, output_dir, dirs_exist_ok=True)
 
 
 def publish_dotnet_project(project: Path, metadata: AppMetadata, configuration: str, target: PlatformTarget, output_dir: Path) -> None:
