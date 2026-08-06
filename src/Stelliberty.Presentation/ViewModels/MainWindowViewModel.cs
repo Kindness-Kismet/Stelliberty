@@ -61,7 +61,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public MainWindowViewModel(
         IAppSettingsStore settingsStore,
         ILocalizationService localization,
-        ISystemProxyService systemProxyService,
+        ISystemProxyController systemProxyService,
         IAppBehaviorService appBehaviorService,
         IGlobalHotkeyService globalHotkeyService,
         SubscriptionPageViewModel subscriptionPage,

@@ -93,9 +93,13 @@ public sealed partial class App : Avalonia.Application
                 ? new WindowsUwpLoopbackService()
                 : new UnsupportedUwpLoopbackService();
             var systemProxyHostDetector = new NetworkInterfaceSystemProxyHostDetector();
-            ISystemProxyService systemProxyService = CreateSystemProxyService(
-                systemProxyPlatform,
-                platformDirectories.AppDataDirectory);
+            LocalSystemProxyController? localSystemProxyController = UsesTrayRuntime
+                ? null
+                : new LocalSystemProxyController(SystemProxyServiceFactory.Create(
+                    systemProxyPlatform,
+                    platformDirectories.AppDataDirectory));
+            ISystemProxyController systemProxyService = (ISystemProxyController?)localSystemProxyController
+                ?? new TraySystemProxyController();
             IServiceModeManager serviceModeManager = new DesktopServiceModeManager();
             var coreProcessCleaner = new CoreProcessCleaner();
             var networkConnectionProbe = new SystemNetworkConnectionProbe();
@@ -373,6 +377,10 @@ public sealed partial class App : Avalonia.Application
                 await UnregisterTraySessionAsync();
                 StopBackgroundServices();
                 AppLogger.Info("Background schedulers stopped for shutdown");
+                if (localSystemProxyController is not null)
+                {
+                    await Task.Run(() => localSystemProxyController.Shutdown());
+                }
                 using var timeout = new CancellationTokenSource(CoreShutdownTimeout);
                 var serviceStopStartedAt = Stopwatch.GetTimestamp();
                 var result = await serviceModeSessionSwitcher.PrepareForShutdownAsync(timeout.Token);
@@ -420,9 +428,6 @@ public sealed partial class App : Avalonia.Application
                     : isOsShutdown ? "os" : "external";
                 AppLogger.Info($"Lifetime cleanup started: origin={source}");
                 StopBackgroundServices();
-                AppLogger.Info("System proxy shutdown cleanup started");
-                viewModel.HomePage.DisableSystemProxyOnShutdown();
-                AppLogger.Info("System proxy shutdown cleanup completed");
                 _trayService.Dispose();
                 _traySession?.Dispose();
                 _traySession = null;
@@ -433,7 +438,13 @@ public sealed partial class App : Avalonia.Application
                 var switcherDisposed = serviceModeSessionSwitcher.TryDisposeForShutdown();
                 var coreManagerDisposed = coreManager.TryDisposeForShutdown();
                 AppLogger.Info($"Core ownership released for shutdown: switcher={switcherDisposed} manager={coreManagerDisposed}");
-                DisposeOwnedServices(selectionRestoringCoreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
+                DisposeOwnedServices(
+                    selectionRestoringCoreManager,
+                    proxyCoreClient,
+                    proxyDelayTester,
+                    coreProviderClient,
+                    webDavBackupStore,
+                    systemProxyService);
                 if (UsesTrayRuntime)
                 {
                     AppLogger.Info("Desktop core client released; Tray retains runtime ownership");
@@ -448,11 +459,14 @@ public sealed partial class App : Avalonia.Application
                 }
                 AppLogger.Info($"Lifetime cleanup completed: origin={source}");
             };
-            // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。
-            _sessionEndCleanup = new SessionEndCleanupService(
-                viewModel.HomePage.DisableSystemProxyOnShutdown,
-                isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
-            _sessionEndCleanup.Start();
+            if (localSystemProxyController is not null)
+            {
+                // 直接宿主仍需同步响应系统注销；Tray 模式由后台宿主负责。
+                _sessionEndCleanup = new SessionEndCleanupService(
+                    () => localSystemProxyController.Shutdown(),
+                    isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
+                _sessionEndCleanup.Start();
+            }
             _trayService.Attach(desktop, mainWindow, viewModel, localization);
             Task<bool> trayRegistration = Task.FromResult(true);
             if (DesktopLaunchContext.TraySessionToken is { } sessionToken)
@@ -952,18 +966,6 @@ public sealed partial class App : Avalonia.Application
         }
 
         return SystemProxyPlatform.Other;
-    }
-
-    private static ISystemProxyService CreateSystemProxyService(SystemProxyPlatform platform, string appDataDirectory)
-    {
-        return platform switch
-        {
-            SystemProxyPlatform.Windows => new WindowsSystemProxyService(appDataDirectory),
-            SystemProxyPlatform.MacOS => new MacOSSystemProxyService(appDataDirectory),
-            SystemProxyPlatform.Linux => new LinuxSystemProxyService(appDataDirectory),
-            SystemProxyPlatform.Other => new UnsupportedSystemProxyService(),
-            _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown system proxy platform")
-        };
     }
 
     private static IAppBehaviorService CreateAppBehaviorService()

@@ -17,6 +17,7 @@ internal sealed class TrayRequestRouter : IDisposable
     private readonly ITrayCoreRuntime? _coreRuntime;
     private readonly CoreLogJournal? _coreLogs;
     private readonly ITrayRuntimeMonitor? _runtimeMonitor;
+    private readonly ISystemProxyController? _systemProxy;
     private readonly ConcurrentDictionary<Guid, byte> _handshakes = new();
     private readonly ConcurrentDictionary<Guid, TrayIpcConnection> _connections = new();
     private readonly string _trayEpoch = Guid.NewGuid().ToString("N");
@@ -27,13 +28,15 @@ internal sealed class TrayRequestRouter : IDisposable
         UiSessionManager uiSessions,
         ITrayCoreRuntime? coreRuntime = null,
         CoreLogJournal? coreLogs = null,
-        ITrayRuntimeMonitor? runtimeMonitor = null)
+        ITrayRuntimeMonitor? runtimeMonitor = null,
+        ISystemProxyController? systemProxy = null)
     {
         _lifetime = lifetime;
         _uiSessions = uiSessions;
         _coreRuntime = coreRuntime;
         _coreLogs = coreLogs;
         _runtimeMonitor = runtimeMonitor;
+        _systemProxy = systemProxy;
         if (_coreRuntime is not null)
         {
             _coreRuntime.StateChanged += OnCoreStateChanged;
@@ -43,6 +46,11 @@ internal sealed class TrayRequestRouter : IDisposable
         if (_runtimeMonitor is not null)
         {
             _runtimeMonitor.Sampled += OnRuntimeSampled;
+        }
+
+        if (_systemProxy is not null)
+        {
+            _systemProxy.StatusChanged += OnSystemProxyChanged;
         }
     }
 
@@ -77,6 +85,11 @@ internal sealed class TrayRequestRouter : IDisposable
                         request.DeserializeParameters<TrayCoreLogsRequest>().AfterSequence)),
                 TrayProtocol.RuntimeSnapshotMethod => TrayIpcResult.Success(RequireRuntimeMonitor().GetSnapshot()),
                 TrayProtocol.RuntimeResetTrafficMethod => await HandleRuntimeResetAsync(cancellationToken).ConfigureAwait(false),
+                TrayProtocol.SystemProxyStatusMethod => TrayIpcResult.Success(
+                    await RequireSystemProxy().GetStatusAsync(cancellationToken).ConfigureAwait(false)),
+                TrayProtocol.SystemProxySetEnabledMethod => await HandleSystemProxySetAsync(
+                    request,
+                    cancellationToken).ConfigureAwait(false),
                 TrayProtocol.UiActivateMethod => TrayIpcResult.Success(
                     await _uiSessions.ActivateAsync(cancellationToken).ConfigureAwait(false)),
                 TrayProtocol.UiRegisterMethod => TrayIpcResult.Success(
@@ -98,6 +111,11 @@ internal sealed class TrayRequestRouter : IDisposable
         catch (IpcRemoteException exception)
         {
             return TrayIpcResult.Error(exception.Code, exception.Message);
+        }
+        catch (InvalidOperationException exception) when (
+            request.Method.StartsWith("system_proxy.", StringComparison.Ordinal))
+        {
+            return TrayIpcResult.Error("system_proxy.operation_failed", exception.Message);
         }
         catch (InvalidOperationException exception) when (
             request.Method.StartsWith("core.", StringComparison.Ordinal)
@@ -154,7 +172,10 @@ internal sealed class TrayRequestRouter : IDisposable
             ui.IsLaunchPending,
             core,
             _coreLogs?.LatestSequence ?? 0,
-            _runtimeMonitor?.GetSnapshot().SampledAt));
+            _runtimeMonitor?.GetSnapshot().SampledAt,
+            _systemProxy is null
+                ? new SystemProxyStatus(false, false)
+                : await _systemProxy.GetStatusAsync(cancellationToken).ConfigureAwait(false)));
     }
 
     private async Task<UiRegisterResult> RegisterUiAsync(
@@ -219,7 +240,9 @@ internal sealed class TrayRequestRouter : IDisposable
         _trayEpoch,
         _coreRuntime is null
             ? ["ui_session"]
-            : ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic"],
+            : _systemProxy is null
+                ? ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic"]
+                : ["ui_session", "core_runtime", "core_log_journal", "runtime_traffic", "system_proxy"],
         _coreRuntime?.CurrentStatus.CoreGeneration ?? 0);
 
     private async Task<TrayIpcResult> HandleCoreRestartAsync(CancellationToken cancellationToken)
@@ -245,6 +268,26 @@ internal sealed class TrayRequestRouter : IDisposable
     private ITrayRuntimeMonitor RequireRuntimeMonitor() =>
         _runtimeMonitor ?? throw new InvalidOperationException("Tray runtime monitor is unavailable.");
 
+    private ISystemProxyController RequireSystemProxy() =>
+        _systemProxy ?? throw new InvalidOperationException("Tray system proxy runtime is unavailable.");
+
+    private async Task<TrayIpcResult> HandleSystemProxySetAsync(
+        TrayIpcRequest request,
+        CancellationToken cancellationToken)
+    {
+        var parameters = request.DeserializeParameters<TraySystemProxySetRequest>();
+        if (parameters.IsEnabled && parameters.Request is null)
+        {
+            return TrayIpcResult.Error("tray.invalid_params", "Enabling the system proxy requires settings.");
+        }
+
+        var result = await RequireSystemProxy().SetEnabledAsync(
+            parameters.IsEnabled,
+            parameters.Request,
+            cancellationToken).ConfigureAwait(false);
+        return TrayIpcResult.Success(result);
+    }
+
     private void OnCoreStateChanged(object? sender, TrayCoreStatus status) =>
         Broadcast(TrayProtocol.CoreStateChangedEvent, status);
 
@@ -253,6 +296,9 @@ internal sealed class TrayRequestRouter : IDisposable
 
     private void OnRuntimeSampled(object? sender, TrayRuntimeSample sample) =>
         Broadcast(TrayProtocol.RuntimeSampledEvent, sample);
+
+    private void OnSystemProxyChanged(object? sender, SystemProxyStatus status) =>
+        Broadcast(TrayProtocol.SystemProxyChangedEvent, status);
 
     private void Broadcast(string eventName, object data)
     {
@@ -285,6 +331,11 @@ internal sealed class TrayRequestRouter : IDisposable
         if (_runtimeMonitor is not null)
         {
             _runtimeMonitor.Sampled -= OnRuntimeSampled;
+        }
+
+        if (_systemProxy is not null)
+        {
+            _systemProxy.StatusChanged -= OnSystemProxyChanged;
         }
 
         _connections.Clear();

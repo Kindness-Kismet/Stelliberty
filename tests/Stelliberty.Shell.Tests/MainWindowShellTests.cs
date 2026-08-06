@@ -804,7 +804,7 @@ public sealed class MainWindowShellTests
         SelectedRuntimeFallbackGenerator? runtimeFallbackGenerator = null,
         ISelectedSubscriptionRuntimeStore? runtimeStore = null,
         FakeSettingsStore? settingsStore = null,
-        ISystemProxyService? systemProxyService = null,
+        ISystemProxyController? systemProxyService = null,
         IProcessPrivilegeProbe? processPrivilegeProbe = null,
         ServiceModeStatus? initialServiceModeStatus = null,
         IAppUpdateChecker? updateChecker = null)
@@ -977,10 +977,13 @@ public sealed class MainWindowShellTests
         }
     }
 
-    private sealed class FakeSystemProxyService : ISystemProxyService
+    private sealed class FakeSystemProxyService : ISystemProxyController
     {
         private readonly object _gate = new();
         private readonly List<SystemProxyApplicationRequest> _enableRequests = [];
+        private SystemProxyStatus _status = new(false, false);
+
+        public event EventHandler<SystemProxyStatus>? StatusChanged;
 
         public int EnableCount
         {
@@ -997,19 +1000,37 @@ public sealed class MainWindowShellTests
             get { lock (_gate) return [.. _enableRequests]; }
         }
 
-        public SystemProxyOperationResult Enable(SystemProxyApplicationRequest request)
+        public Task<SystemProxyStatus> GetStatusAsync(CancellationToken cancellationToken = default)
         {
-            lock (_gate)
-            {
-                _enableRequests.Add(request);
-            }
-
-            return new SystemProxyOperationResult(true, "enabled");
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_status);
         }
 
-        public SystemProxyOperationResult Disable()
+        public Task<SystemProxyApplyResult> SetEnabledAsync(
+            bool isEnabled,
+            SystemProxyApplicationRequest? request,
+            CancellationToken cancellationToken = default)
         {
-            return new SystemProxyOperationResult(true, "disabled");
+            if (isEnabled)
+            {
+                lock (_gate)
+                {
+                    _enableRequests.Add(request!);
+                }
+
+                _status = new SystemProxyStatus(true, true);
+            }
+            else
+            {
+                _status = new SystemProxyStatus(false, false);
+            }
+
+            StatusChanged?.Invoke(this, _status);
+
+            return Task.FromResult(new SystemProxyApplyResult(
+                true,
+                isEnabled ? "enabled" : "disabled",
+                _status));
         }
     }
 

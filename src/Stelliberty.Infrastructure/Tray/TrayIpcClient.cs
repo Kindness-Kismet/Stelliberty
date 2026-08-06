@@ -25,6 +25,8 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
 
     public event EventHandler<TrayRuntimeSample>? RuntimeSampled;
 
+    public event EventHandler<SystemProxyStatus>? SystemProxyChanged;
+
     public event EventHandler? Disconnected;
 
     public Task ConnectAsync(CancellationToken cancellationToken) => _client.ConnectAsync(cancellationToken);
@@ -73,6 +75,18 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
     public Task<TrayRuntimeSnapshot> ResetRuntimeTrafficAsync(CancellationToken cancellationToken) =>
         RequestAsync<TrayRuntimeSnapshot>(TrayProtocol.RuntimeResetTrafficMethod, new { }, cancellationToken);
 
+    public Task<SystemProxyStatus> GetSystemProxyStatusAsync(CancellationToken cancellationToken) =>
+        RequestAsync<SystemProxyStatus>(TrayProtocol.SystemProxyStatusMethod, new { }, cancellationToken);
+
+    public Task<SystemProxyApplyResult> SetSystemProxyEnabledAsync(
+        bool isEnabled,
+        SystemProxyApplicationRequest? request,
+        CancellationToken cancellationToken) =>
+        RequestAsync<SystemProxyApplyResult>(
+            TrayProtocol.SystemProxySetEnabledMethod,
+            new TraySystemProxySetRequest(isEnabled, request),
+            cancellationToken);
+
     public Task<UiActivateResult> ActivateUiAsync(int launcherPid, CancellationToken cancellationToken) =>
         RequestAsync<UiActivateResult>(
             TrayProtocol.UiActivateMethod,
@@ -117,6 +131,9 @@ public sealed class TrayIpcClient : IDisposable, IAsyncDisposable
                 break;
             case TrayProtocol.RuntimeSampledEvent:
                 RuntimeSampled?.Invoke(this, DeserializeEvent<TrayRuntimeSample>(notification));
+                break;
+            case TrayProtocol.SystemProxyChangedEvent:
+                SystemProxyChanged?.Invoke(this, DeserializeEvent<SystemProxyStatus>(notification));
                 break;
         }
     }

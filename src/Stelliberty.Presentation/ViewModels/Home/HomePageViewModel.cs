@@ -17,12 +17,10 @@ namespace Stelliberty.Presentation.ViewModels;
 
 public sealed class HomePageViewModel : ViewModelBase, IDisposable
 {
-    // 系统关机不能无限等待正在执行的代理设置。
-    private static readonly TimeSpan ShutdownProxyLockTimeout = TimeSpan.FromSeconds(2);
     private readonly ILocalizationService? _localization;
     private readonly SystemProxyPlatform _systemPlatform;
     private readonly IClipboardWriter? _clipboardWriter;
-    private readonly ISystemProxyService _systemProxyService;
+    private readonly ISystemProxyController _systemProxyService;
     private readonly IServiceModeManager? _serviceModeManager;
     private readonly Func<bool> _isServiceModeCoreHostActive;
     private readonly Func<CancellationToken, Task<ServiceModeOperationResult>>? _serviceModeSessionActivator;
@@ -43,11 +41,9 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private readonly Func<DateTimeOffset> _now;
 
     private readonly SynchronizationContext? _uiContext;
-    private readonly SemaphoreSlim _systemProxyApplyLock = new(1, 1);
     private bool _isSystemProxyEnabled;
-
-    private bool _hasEnabledSystemProxy;
     private int _systemProxyApplyVersion;
+    private int _pendingSystemProxyOperations;
     private bool _isTunEnabled;
     private int _tunApplyVersion;
 
@@ -87,7 +83,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource? _refreshCancellation;
 
     public HomePageViewModel(
-        ISystemProxyService systemProxyService,
+        ISystemProxyController systemProxyService,
         Func<SystemProxyApplicationRequest> systemProxyRequestFactory,
         IServiceModeManager? serviceModeManager = null,
         Func<bool>? isServiceModeCoreHostActive = null,
@@ -114,6 +110,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _systemPlatform = systemPlatform;
         _clipboardWriter = clipboardWriter;
         _systemProxyService = systemProxyService;
+        _systemProxyService.StatusChanged += OnSystemProxyStatusChanged;
         _serviceModeManager = serviceModeManager;
         _isServiceModeCoreHostActive = isServiceModeCoreHostActive ?? (() => serviceModeManager is not null);
         _serviceModeSessionActivator = serviceModeSessionActivator;
@@ -152,6 +149,7 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         ToggleServiceModeCommand = new RelayCommand(() => _ = ToggleServiceModeAsync());
 
         SeedZeroHistory();
+        _ = RefreshSystemProxyStatusAsync();
         RefreshServiceMode(force: true);
     }
 
@@ -669,78 +667,33 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     {
         var version = Interlocked.Increment(ref _systemProxyApplyVersion);
         _isSystemProxyEnabled = shouldEnable;
-        if (shouldEnable)
-        {
-            _hasEnabledSystemProxy = true;
-        }
         RaiseHomeStateChanged();
-        _ = Task.Run(() => ApplySystemProxyAsync(shouldEnable, version));
-    }
-
-    public void DisableSystemProxyOnShutdown()
-    {
-        // 只关闭本实例的系统代理，保留外部代理状态。
-        Interlocked.Increment(ref _systemProxyApplyVersion);
-        if (!_systemProxyApplyLock.Wait(ShutdownProxyLockTimeout))
-        {
-            AppLogger.Warning("System proxy shutdown cleanup timed out waiting for the apply lock");
-            return;
-        }
-        try
-        {
-            if (!_hasEnabledSystemProxy)
-            {
-                return;
-            }
-            ApplySystemProxyCore(shouldEnable: false);
-            _hasEnabledSystemProxy = false;
-        }
-        catch (Exception exception)
-        {
-            AppLogger.Warning($"System proxy shutdown cleanup failed: {exception.Message}");
-        }
-        finally
-        {
-            _systemProxyApplyLock.Release();
-        }
+        _ = ApplySystemProxyAsync(shouldEnable, version);
     }
 
     private async Task ApplySystemProxyAsync(bool shouldEnable, int version)
     {
+        Interlocked.Increment(ref _pendingSystemProxyOperations);
         try
         {
-            SystemProxyOperationResult result;
-            await _systemProxyApplyLock.WaitAsync().ConfigureAwait(false);
-            try
-            {
-                if (_isDisposed || version != Volatile.Read(ref _systemProxyApplyVersion))
-                {
-                    return;
-                }
-
-                result = ApplySystemProxyCore(shouldEnable);
-            }
-            finally
-            {
-                _systemProxyApplyLock.Release();
-            }
-
-            if (result.IsSuccess)
-            {
-                if (!_isDisposed && version == Volatile.Read(ref _systemProxyApplyVersion))
-                {
-                    _hasEnabledSystemProxy = shouldEnable;
-                }
-                return;
-            }
-
-            if (_isDisposed)
+            var request = shouldEnable ? _systemProxyRequestFactory.Invoke() : null;
+            var result = await _systemProxyService.SetEnabledAsync(
+                shouldEnable,
+                request,
+                _refreshCancellation?.Token ?? CancellationToken.None).ConfigureAwait(false);
+            if (_isDisposed || version != Volatile.Read(ref _systemProxyApplyVersion))
             {
                 return;
             }
 
-            AppLogger.Warning($"System proxy apply returned failure: {result.Message}");
-            Post(() => ApplySystemProxyFailure(shouldEnable, version));
+            Post(() => ApplySystemProxyResult(result, version));
+            if (!result.IsSuccess)
+            {
+                AppLogger.Warning($"System proxy apply returned failure: {result.Message}");
+            }
+        }
+        catch (OperationCanceledException) when (_isDisposed)
+        {
         }
         catch (Exception exception)
         {
@@ -750,13 +703,10 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                 Post(() => ApplySystemProxyFailure(shouldEnable, version));
             }
         }
-    }
-
-    private SystemProxyOperationResult ApplySystemProxyCore(bool shouldEnable)
-    {
-        return shouldEnable
-            ? _systemProxyService.Enable(_systemProxyRequestFactory.Invoke())
-            : _systemProxyService.Disable();
+        finally
+        {
+            Interlocked.Decrement(ref _pendingSystemProxyOperations);
+        }
     }
 
     private void ApplySystemProxyFailure(bool attemptedState, int version)
@@ -767,10 +717,69 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         }
 
         _isSystemProxyEnabled = !attemptedState;
-        _hasEnabledSystemProxy = !attemptedState;
         RaiseHomeStateChanged();
 
         RaiseToast(Localize("Home.Toast.SystemProxyFailed"), ToastType.Error);
+    }
+
+    private void ApplySystemProxyResult(SystemProxyApplyResult result, int version)
+    {
+        if (_isDisposed || version != Volatile.Read(ref _systemProxyApplyVersion))
+        {
+            return;
+        }
+
+        _isSystemProxyEnabled = result.Status.IsEnabled;
+        RaiseHomeStateChanged();
+        if (!result.IsSuccess)
+        {
+            RaiseToast(Localize("Home.Toast.SystemProxyFailed"), ToastType.Error);
+        }
+    }
+
+    private async Task RefreshSystemProxyStatusAsync()
+    {
+        var version = Volatile.Read(ref _systemProxyApplyVersion);
+        try
+        {
+            var status = await _systemProxyService.GetStatusAsync(
+                _refreshCancellation?.Token ?? CancellationToken.None).ConfigureAwait(false);
+            if (!_isDisposed && version == Volatile.Read(ref _systemProxyApplyVersion))
+            {
+                Post(() =>
+                {
+                    if (version == Volatile.Read(ref _systemProxyApplyVersion))
+                    {
+                        ApplySystemProxyStatus(status);
+                    }
+                });
+            }
+        }
+        catch (Exception exception) when (exception is IOException or OperationCanceledException)
+        {
+            AppLogger.Warning($"System proxy status refresh failed: {exception.Message}");
+        }
+    }
+
+    private void OnSystemProxyStatusChanged(object? sender, SystemProxyStatus status)
+    {
+        if (_isDisposed || Volatile.Read(ref _pendingSystemProxyOperations) != 0)
+        {
+            return;
+        }
+
+        Post(() => ApplySystemProxyStatus(status));
+    }
+
+    private void ApplySystemProxyStatus(SystemProxyStatus status)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        _isSystemProxyEnabled = status.IsEnabled;
+        RaiseHomeStateChanged();
     }
 
     private async Task RestartCoreAsync()
@@ -1305,20 +1314,11 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         {
             _localization.LanguageChanged -= OnLanguageChanged;
         }
+        _systemProxyService.StatusChanged -= OnSystemProxyStatusChanged;
 
         var cancellation = _refreshCancellation;
         _refreshCancellation = null;
         cancellation?.Cancel();
-        // 短暂等待后台操作响应取消，避免销毁过程中触发 toast
-        if (_isServiceModeBusy || _isCoreUpdating || _isCoreRestarting)
-        {
-            // 超时未取得信号量时不得 Release，否则持有者释放时抛 SemaphoreFullException
-            if (_systemProxyApplyLock.Wait(200))
-            {
-                _systemProxyApplyLock.Release();
-            }
-            Thread.Sleep(50);
-        }
         cancellation?.Dispose();
     }
 }

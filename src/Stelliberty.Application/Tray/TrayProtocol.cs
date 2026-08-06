@@ -1,4 +1,5 @@
 using Stelliberty.Application.Proxies;
+using Stelliberty.Application.Platform;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Domain.Proxies;
@@ -7,7 +8,7 @@ namespace Stelliberty.Application.Tray;
 
 public static class TrayProtocol
 {
-    public const int Version = 2;
+    public const int Version = 3;
 
     public const string HelloMethod = "tray.hello";
     public const string HealthMethod = "tray.get_health";
@@ -20,6 +21,8 @@ public static class TrayProtocol
     public const string CoreLogsMethod = "core.get_logs";
     public const string RuntimeSnapshotMethod = "runtime.get_snapshot";
     public const string RuntimeResetTrafficMethod = "runtime.reset_traffic";
+    public const string SystemProxyStatusMethod = "system_proxy.get_status";
+    public const string SystemProxySetEnabledMethod = "system_proxy.set_enabled";
     public const string UiActivateMethod = "ui.activate";
     public const string UiRegisterMethod = "ui.register";
     public const string UiUnregisterMethod = "ui.unregister";
@@ -27,6 +30,7 @@ public static class TrayProtocol
     public const string CoreStateChangedEvent = "core.state_changed";
     public const string CoreLogEntryEvent = "core.log_entry";
     public const string RuntimeSampledEvent = "runtime.sampled";
+    public const string SystemProxyChangedEvent = "system_proxy.changed";
 }
 
 public sealed record TrayHelloRequest(
@@ -50,7 +54,8 @@ public sealed record TrayHealth(
     bool IsUiLaunchPending,
     TrayCoreStatus Core,
     long LatestCoreLogSequence,
-    DateTimeOffset? LastRuntimeSampledAt);
+    DateTimeOffset? LastRuntimeSampledAt,
+    SystemProxyStatus SystemProxy);
 
 public sealed record TrayCoreStatus(CoreSnapshot Snapshot, long CoreGeneration);
 
@@ -88,6 +93,10 @@ public sealed record TrayRuntimeSnapshot(
     TrayRuntimeSample[] History,
     DateTimeOffset? SampledAt,
     long CoreGeneration);
+
+public sealed record TraySystemProxySetRequest(
+    bool IsEnabled,
+    SystemProxyApplicationRequest? Request);
 
 public sealed record UiActivateRequest(int LauncherPid);
 

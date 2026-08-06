@@ -1,6 +1,8 @@
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Infrastructure.Tray;
+using Stelliberty.Infrastructure.Platform;
 using Stelliberty.Infrastructure.Proxies;
+using Stelliberty.Application.Platform;
 
 namespace Stelliberty.Tray;
 
@@ -34,16 +36,21 @@ internal static class TrayRuntime
             await using var runtimeMonitor = new RuntimeTrafficMonitor(
                 coreRuntime,
                 new PipeCoreProxyClient(TrayCoreEndpoints.Core));
+            await using var systemProxy = new LocalSystemProxyController(
+                SystemProxyServiceFactory.Create(CurrentSystemProxyPlatform(), TrayApplicationLayout.AppDataDirectory));
+            using var sessionEndCleanup = new SessionEndCleanupService(() => systemProxy.Shutdown());
             using var router = new TrayRequestRouter(
                 lifetime,
                 uiSessions,
                 coreRuntime,
                 coreLogs,
-                runtimeMonitor);
+                runtimeMonitor,
+                systemProxy);
             await using var server = new TrayIpcServer(
                 TrayEndpoint.Current,
                 router.HandleAsync,
                 router.OnConnectionClosedAsync);
+            sessionEndCleanup.Start();
             runtimeMonitor.Start(lifetime.StoppingToken);
             server.Start(lifetime.StoppingToken);
             AppLogger.Info($"Tray startup: pid={Environment.ProcessId} endpoint={TrayEndpoint.Current}");
@@ -61,5 +68,22 @@ internal static class TrayRuntime
             Console.CancelKeyPress -= OnCancelKeyPress;
             AppDomain.CurrentDomain.ProcessExit -= OnProcessExit;
         }
+    }
+
+    private static SystemProxyPlatform CurrentSystemProxyPlatform()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return SystemProxyPlatform.Windows;
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return SystemProxyPlatform.Linux;
+        }
+
+        return OperatingSystem.IsMacOS()
+            ? SystemProxyPlatform.MacOS
+            : SystemProxyPlatform.Other;
     }
 }
