@@ -216,6 +216,43 @@ public sealed class MainWindowShellTests
         Assert.Equal(0, settingsStore.SaveCount);
     }
 
+    [Fact(DisplayName = "Tray-managed startup keeps TUN before service status is loaded")]
+    public void TrayManagedStartupKeepsTunBeforeServiceStatusIsLoaded()
+    {
+        var settings = new AppSettings { IsTunEnabled = true };
+        var settingsStore = new FakeSettingsStore(settings);
+
+        using var viewModel = CreateViewModel(
+            settingsStore: settingsStore,
+            processPrivilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Normal),
+            initialServiceModeStatus: ServiceModeStatus.Unavailable(string.Empty),
+            tunAvailabilityManagedExternally: true);
+
+        Assert.True(settings.IsTunEnabled);
+        Assert.True(viewModel.HomePage.IsTunEnabled);
+        Assert.False(viewModel.IsToastVisible);
+        Assert.Equal(0, settingsStore.SaveCount);
+    }
+
+    [Fact(DisplayName = "Tray-managed runtime heartbeat synchronizes external TUN changes")]
+    public void TrayManagedRuntimeHeartbeatSynchronizesExternalTunChanges()
+    {
+        var settings = new AppSettings { IsTunEnabled = false };
+        var settingsStore = new FakeSettingsStore(settings);
+        using var viewModel = CreateViewModel(
+            settingsStore: settingsStore,
+            tunAvailabilityManagedExternally: true);
+
+        settings.IsTunEnabled = true;
+        viewModel.OnHomeRuntimeTick();
+        Assert.True(viewModel.HomePage.IsTunEnabled);
+
+        settings.IsTunEnabled = false;
+        viewModel.OnHomeRuntimeTick();
+        Assert.False(viewModel.HomePage.IsTunEnabled);
+        Assert.Equal(0, settingsStore.SaveCount);
+    }
+
     [Fact(DisplayName = "Manual update no-update result uses common toast")]
     public async Task ManualUpdateNoUpdateResultUsesCommonToast()
     {
@@ -807,7 +844,8 @@ public sealed class MainWindowShellTests
         ISystemProxyController? systemProxyService = null,
         IProcessPrivilegeProbe? processPrivilegeProbe = null,
         ServiceModeStatus? initialServiceModeStatus = null,
-        IAppUpdateChecker? updateChecker = null)
+        IAppUpdateChecker? updateChecker = null,
+        bool tunAvailabilityManagedExternally = false)
     {
         var settings = settingsStore?.Load() ?? new AppSettings();
         var resolvedLocalization = localization ?? new FakeLocalizationService();
@@ -831,7 +869,8 @@ public sealed class MainWindowShellTests
             runtimeStore: runtimeStore,
             initialSettings: settings,
             processPrivilegeProbe: processPrivilegeProbe,
-            initialServiceModeStatus: initialServiceModeStatus);
+            initialServiceModeStatus: initialServiceModeStatus,
+            tunAvailabilityManagedExternally: tunAvailabilityManagedExternally);
     }
 
     private static SubscriptionDeleter CreateSubscriptionDeleter()

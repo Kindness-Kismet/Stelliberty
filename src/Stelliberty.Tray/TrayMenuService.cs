@@ -44,6 +44,7 @@ internal sealed class TrayMenuService(
     private readonly ProcessRunMode _runMode = new SystemProcessPrivilegeProbe().Detect();
     private readonly DispatcherTimer _refreshTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly HashSet<Guid> _hotkeySuppressors = [];
+    private readonly SemaphoreSlim _runtimeOperationGate = new(1, 1);
     private JsonLocalizationService? _localization;
     private IGlobalHotkeyService? _globalHotkeyService;
     private TrayIcon? _trayIcon;
@@ -65,6 +66,7 @@ internal sealed class TrayMenuService(
     private ServiceModeStatus _serviceModeStatus = ServiceModeStatus.Unavailable(string.Empty);
     private long _lastTrayClickTick;
     private int _isRefreshing;
+    private int _refreshPending;
     private int _refreshCount;
     private bool _isDisposed;
 
@@ -186,20 +188,23 @@ internal sealed class TrayMenuService(
     private void OnTrayIconClicked(object? sender, EventArgs args)
     {
         var settings = _settingsStore.Load();
-        if (!settings.IsTrayDoubleClickEnabled)
+        var isRepeatedClick = ConsumeRepeatedTrayClick();
+        if (settings.IsTrayDoubleClickEnabled)
         {
-            _lastTrayClickTick = 0;
-            _ = ToggleUiAsync();
+            if (isRepeatedClick)
+            {
+                _ = ToggleUiAsync();
+            }
             return;
         }
 
-        if (ConsumeTrayDoubleClick())
+        if (!isRepeatedClick)
         {
             _ = ToggleUiAsync();
         }
     }
 
-    private bool ConsumeTrayDoubleClick()
+    private bool ConsumeRepeatedTrayClick()
     {
         var current = Stopwatch.GetTimestamp();
         if (_lastTrayClickTick == 0)
@@ -240,6 +245,11 @@ internal sealed class TrayMenuService(
     {
         return ExecuteAsync("copy terminal proxy", async token =>
         {
+            if (!IsCoreRunning())
+            {
+                return;
+            }
+
             var settings = _settingsStore.Load();
             var url = $"http://{settings.ProxyHost}:{settings.MixedPort}";
             var command = shell switch
@@ -263,8 +273,13 @@ internal sealed class TrayMenuService(
 
     private Task SetOutboundModeAsync(OutboundMode mode)
     {
-        return ExecuteAsync("set outbound mode", async token =>
+        return ExecuteRuntimeAsync("set outbound mode", async token =>
         {
+            if (!IsCoreRunning())
+            {
+                return;
+            }
+
             if (!await _proxyClient.SetOutboundModeAsync(mode, token).ConfigureAwait(false))
             {
                 throw new InvalidOperationException("Core rejected the outbound mode change.");
@@ -283,9 +298,14 @@ internal sealed class TrayMenuService(
 
     private Task ToggleSystemProxyAsync()
     {
-        return ExecuteAsync("toggle system proxy", async token =>
+        return ExecuteRuntimeAsync("toggle system proxy", async token =>
         {
             var status = await systemProxy.GetStatusAsync(token).ConfigureAwait(false);
+            if (!status.IsEnabled && !IsCoreRunning())
+            {
+                return;
+            }
+
             var settings = _settingsStore.Load();
             var request = status.IsEnabled
                 ? null
@@ -305,9 +325,19 @@ internal sealed class TrayMenuService(
 
     private Task ToggleTunAsync()
     {
-        return ExecuteAsync("toggle TUN", async token =>
+        return ExecuteRuntimeAsync("toggle TUN", async token =>
         {
+            if (!IsCoreRunning())
+            {
+                return;
+            }
+
             var settings = _settingsStore.Load();
+            if (!settings.IsTunEnabled && !await CanEnableTunAsync(token).ConfigureAwait(false))
+            {
+                return;
+            }
+
             var previous = settings.IsTunEnabled;
             settings.IsTunEnabled = !settings.IsTunEnabled;
             _settingsStore.Save(settings);
@@ -348,8 +378,13 @@ internal sealed class TrayMenuService(
 
     private void OnRestartCoreClicked(object? sender, EventArgs args)
     {
-        _ = ExecuteAsync("restart Core", async token =>
+        _ = ExecuteRuntimeAsync("restart Core", async token =>
         {
+            if (!IsCoreRunning())
+            {
+                return;
+            }
+
             await coreRuntime.RestartAsync(token).ConfigureAwait(false);
             var status = await systemProxy.GetStatusAsync(token).ConfigureAwait(false);
             if (status.IsEnabled)
@@ -365,6 +400,21 @@ internal sealed class TrayMenuService(
                 }
             }
         });
+    }
+
+    private bool IsCoreRunning() => coreRuntime.CurrentStatus.Snapshot.State == CoreState.Running;
+
+    private async Task<bool> CanEnableTunAsync(CancellationToken cancellationToken)
+    {
+        if (_runMode is ProcessRunMode.Administrator or ProcessRunMode.Service)
+        {
+            return true;
+        }
+
+        _serviceModeStatus = await coreRuntime
+            .GetServiceModeStatusAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return _serviceModeStatus.IsRunning;
     }
 
     private void OnExitClicked(object? sender, EventArgs args) => lifetime.RequestStop();
@@ -386,6 +436,22 @@ internal sealed class TrayMenuService(
         }
     }
 
+    private Task ExecuteRuntimeAsync(string operation, Func<CancellationToken, Task> action)
+    {
+        return ExecuteAsync(operation, async token =>
+        {
+            await _runtimeOperationGate.WaitAsync(token).ConfigureAwait(false);
+            try
+            {
+                await action(token).ConfigureAwait(false);
+            }
+            finally
+            {
+                _runtimeOperationGate.Release();
+            }
+        });
+    }
+
     private void OnStateChanged(object? sender, object args) => ScheduleRefresh();
 
     private void OnSystemProxyChanged(object? sender, SystemProxyStatus status) => ScheduleRefresh();
@@ -399,16 +465,34 @@ internal sealed class TrayMenuService(
             return;
         }
 
-        _ = RefreshStateAsync();
+        Interlocked.Exchange(ref _refreshPending, 1);
+        if (Interlocked.CompareExchange(ref _isRefreshing, 1, 0) == 0)
+        {
+            _ = RefreshStateLoopAsync();
+        }
+    }
+
+    private async Task RefreshStateLoopAsync()
+    {
+        try
+        {
+            while (Interlocked.Exchange(ref _refreshPending, 0) != 0)
+            {
+                await RefreshStateAsync().ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            Volatile.Write(ref _isRefreshing, 0);
+            if (Volatile.Read(ref _refreshPending) != 0)
+            {
+                ScheduleRefresh();
+            }
+        }
     }
 
     private async Task RefreshStateAsync()
     {
-        if (Interlocked.Exchange(ref _isRefreshing, 1) != 0)
-        {
-            return;
-        }
-
         try
         {
             var settings = _settingsStore.Load();
@@ -422,7 +506,9 @@ internal sealed class TrayMenuService(
 
             var isCoreRunning = core.Snapshot.State == CoreState.Running;
             var canToggleTun = isCoreRunning
-                && (_runMode is ProcessRunMode.Administrator or ProcessRunMode.Service || _serviceModeStatus.IsRunning);
+                && (settings.IsTunEnabled
+                    || _runMode is ProcessRunMode.Administrator or ProcessRunMode.Service
+                    || _serviceModeStatus.IsRunning);
             var state = new TrayMenuState(
                 AppLanguageParser.Parse(settings.Language),
                 runtime.Mode,
@@ -436,10 +522,6 @@ internal sealed class TrayMenuService(
         catch (Exception exception)
         {
             AppLogger.Warning($"Tray state refresh failed: {exception.Message}");
-        }
-        finally
-        {
-            Volatile.Write(ref _isRefreshing, 0);
         }
     }
 
@@ -471,7 +553,11 @@ internal sealed class TrayMenuService(
             _outboundDirectItem.IsChecked = state.Mode == OutboundMode.Direct;
             _outboundDirectItem.IsEnabled = state.IsCoreRunning;
         }
-        if (_systemProxyItem is not null) _systemProxyItem.IsChecked = state.IsSystemProxyEnabled;
+        if (_systemProxyItem is not null)
+        {
+            _systemProxyItem.IsChecked = state.IsSystemProxyEnabled;
+            _systemProxyItem.IsEnabled = state.IsCoreRunning || state.IsSystemProxyEnabled;
+        }
         if (_tunItem is not null)
         {
             _tunItem.IsChecked = state.IsTunEnabled;
