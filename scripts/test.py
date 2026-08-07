@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RUST_WORKSPACE = ROOT / "Cargo.toml"
 CSHARP_TESTS: list[tuple[str, Path, str]] = [
     ("infrastructure", ROOT / "tests" / "Stelliberty.Infrastructure.Tests" / "Stelliberty.Infrastructure.Tests.csproj", "Infrastructure integrations: core REST responses, remote downloads, and platform behavior"),
+    ("tray-lifetime", ROOT / "tests" / "Stelliberty.Tray.Tests" / "Stelliberty.Tray.Tests.csproj", "Tray lifetime: UI process ownership, graceful exit, forced cleanup, and relaunch replacement"),
     ("proxy-selection", ROOT / "tests" / "Stelliberty.ProxySelection.Tests" / "Stelliberty.ProxySelection.Tests.csproj", "Proxy selection semantics: default nodes, fixed groups, local persistence, external sync, and outbound mode"),
     ("proxy-page", ROOT / "tests" / "Stelliberty.ProxyPage.Tests" / "Stelliberty.ProxyPage.Tests.csproj", "Proxy page interactions: visible groups, node switching, search, sorting, delay tests, and controller sync"),
     ("home-state", ROOT / "tests" / "Stelliberty.Home.Tests" / "Stelliberty.Home.Tests.csproj", "Home state: system proxy, TUN permissions, outbound mode, runtime refresh, and service mode"),

@@ -1,18 +1,17 @@
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Platform;
 using Stelliberty.Application.Runtime;
-using Stelliberty.Native.Hub;
 
-namespace Stelliberty.Desktop.Services;
+namespace Stelliberty.Infrastructure.Core;
 
-internal sealed class ServiceModeSessionSwitcher(
+public sealed class ServiceModeSessionSwitcher(
     IServiceModeManager serviceModeManager,
     SwitchableCoreManager coreManager,
     Func<ServiceModeStatus, ICoreManager> createServiceCoreManager,
     Func<ICoreManager> createNormalCoreManager,
-    Func<CancellationToken, Task<BootstrapResult>> stopNormalCore,
-    Func<CancellationToken, Task<BootstrapResult>> resumeNormalCore,
-    Func<ServiceModeStatus, CancellationToken, Task<BootstrapResult>> startServiceCore,
+    Func<CancellationToken, Task<CoreHostOperationResult>> stopNormalCore,
+    Func<CancellationToken, Task<CoreHostOperationResult>> resumeNormalCore,
+    Func<ServiceModeStatus, CancellationToken, Task<CoreHostOperationResult>> startServiceCore,
     Action<bool> setServiceModeCoreHostActive,
     bool isServiceModeActive = false) : IDisposable
 {
@@ -211,7 +210,7 @@ internal sealed class ServiceModeSessionSwitcher(
 
         using var ownedTransition = transition;
         // 两种核心共用控制管道，整段切换期间不允许其它核心操作进入。
-        BootstrapResult stopped;
+        CoreHostOperationResult stopped;
         try
         {
             stopped = await stopNormalCore(cancellationToken).ConfigureAwait(false);
@@ -229,7 +228,7 @@ internal sealed class ServiceModeSessionSwitcher(
                 ServiceModeOperationResult.Failed(exception.Message)).ConfigureAwait(false);
         }
 
-        if (!stopped.Ok)
+        if (!stopped.IsSuccess)
         {
             return await RollBackAsync(
                 transition,
@@ -240,7 +239,7 @@ internal sealed class ServiceModeSessionSwitcher(
         {
             cancellationToken.ThrowIfCancellationRequested();
             var started = await startServiceCore(status, cancellationToken).ConfigureAwait(false);
-            if (!started.Ok)
+            if (!started.IsSuccess)
             {
                 return await RollBackAsync(
                     transition,
@@ -286,7 +285,7 @@ internal sealed class ServiceModeSessionSwitcher(
         try
         {
             var resumed = await resumeNormalCore(cancellationToken).ConfigureAwait(false);
-            if (!resumed.Ok)
+            if (!resumed.IsSuccess)
             {
                 return ServiceModeOperationResult.Failed($"Normal-mode activation failed: {resumed.Message}");
             }
@@ -335,7 +334,7 @@ internal sealed class ServiceModeSessionSwitcher(
         try
         {
             var resumed = await resumeNormalCore(CancellationToken.None).ConfigureAwait(false);
-            if (!resumed.Ok)
+            if (!resumed.IsSuccess)
             {
                 return ServiceModeOperationResult.Failed($"{result.Message} Normal-mode recovery failed: {resumed.Message}");
             }

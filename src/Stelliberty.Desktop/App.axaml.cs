@@ -17,6 +17,7 @@ using Stelliberty.Application.Runtime;
 using Stelliberty.Application.Settings;
 using Stelliberty.Application.Updates;
 using Stelliberty.Desktop.Services;
+using Stelliberty.Infrastructure.Tray;
 using Stelliberty.Infrastructure.Core;
 using Stelliberty.Infrastructure.DataManagement;
 using Stelliberty.Infrastructure.Diagnostics;
@@ -42,7 +43,8 @@ namespace Stelliberty.Desktop;
 
 public sealed partial class App : Avalonia.Application
 {
-    private readonly DesktopTrayService _trayService = new();
+    private DesktopTraySession? _traySession;
+    private MainWindow? _mainWindow;
     private SessionEndCleanupService? _sessionEndCleanup;
     private DispatcherTimer? _appUpdateAutoCheckTimer;
     private DispatcherTimer? _subscriptionAutoDelayTimer;
@@ -66,6 +68,11 @@ public sealed partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            _traySession = DesktopLaunchContext.TraySession
+                ?? throw new InvalidOperationException("Desktop UI tray session is unavailable.");
+            _traySession.ActivationRequested += OnTrayActivationRequested;
+            _traySession.ToggleRequested += OnTrayToggleRequested;
+            _traySession.Disconnected += OnTrayDisconnected;
 #if DEBUG
             var startupStartedAt = Stopwatch.GetTimestamp();
             LogStartupTrace("Framework initialization started", startupStartedAt);
@@ -91,21 +98,30 @@ public sealed partial class App : Avalonia.Application
                 ? new WindowsUwpLoopbackService()
                 : new UnsupportedUwpLoopbackService();
             var systemProxyHostDetector = new NetworkInterfaceSystemProxyHostDetector();
-            ISystemProxyService systemProxyService = CreateSystemProxyService(
-                systemProxyPlatform,
-                platformDirectories.AppDataDirectory);
-            IServiceModeManager serviceModeManager = new DesktopServiceModeManager();
-            var coreProcessCleaner = new CoreProcessCleaner();
+            LocalSystemProxyController? localSystemProxyController = UsesTrayRuntime
+                ? null
+                : new LocalSystemProxyController(SystemProxyServiceFactory.Create(
+                    systemProxyPlatform,
+                    platformDirectories.AppDataDirectory));
+            ISystemProxyController systemProxyService = (ISystemProxyController?)localSystemProxyController
+                ?? new TraySystemProxyController();
+            IServiceModeManager serviceModeManager = UsesTrayRuntime
+                ? new TrayServiceModeManager()
+                : new ServiceModeManager(new ServiceModePaths(
+                    DesktopApplicationLayout.ServiceDirectory,
+                    DesktopApplicationLayout.ServiceCommandBinaryPath,
+                    DesktopApplicationLayout.ServiceInstalledBinaryPath));
+            var coreProcessCleaner = new CoreProcessCleaner(DesktopApplicationLayout.ServiceDirectory);
             var networkConnectionProbe = new SystemNetworkConnectionProbe();
             var processPrivilegeProbe = new SystemProcessPrivilegeProbe();
             IAppBehaviorService appBehaviorService = CreateAppBehaviorService();
             MainWindowViewModel? hotkeyViewModel = null;
-            IGlobalHotkeyService globalHotkeyService = CreateGlobalHotkeyService(action =>
+            Action<GlobalHotkeyAction> hotkeyActivated = action =>
             {
                 switch (action)
                 {
                     case GlobalHotkeyAction.ToggleWindow:
-                        _trayService.ToggleMainWindowVisibility();
+                        Dispatcher.UIThread.Post(ToggleMainWindow);
                         break;
                     case GlobalHotkeyAction.ToggleSystemProxy:
                         hotkeyViewModel?.HomePage.ToggleSystemProxyFromHotkey();
@@ -114,7 +130,10 @@ public sealed partial class App : Avalonia.Application
                         hotkeyViewModel?.HomePage.ToggleTunFromHotkey();
                         break;
                 }
-            });
+            };
+            IGlobalHotkeyService globalHotkeyService = UsesTrayRuntime
+                ? new TrayGlobalHotkeyService()
+                : GlobalHotkeyServiceFactory.Create(hotkeyActivated);
             var initialLanguage = AppLanguageParser.Parse(settings.Language);
             var localization = new JsonLocalizationService(initialLanguage);
             LocalizationManager.Initialize(localization);
@@ -157,7 +176,7 @@ public sealed partial class App : Avalonia.Application
                 runtimeStore);
             var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore);
             // Provider 同步和状态读取始终走核心管道，保持 Debug 和 Release 路径一致。
-            var coreProviderClient = new PipeCoreProviderClient(HubStartupCoordinator.CorePipe);
+            var coreProviderClient = new PipeCoreProviderClient(TrayCoreEndpoints.Core);
             var providerCatalogLoader = new SelectedSubscriptionProviderCatalogLoader(
                 subscriptionStore,
                 subscriptionSelectionStore,
@@ -194,36 +213,56 @@ public sealed partial class App : Avalonia.Application
                 overrideFileOpener,
                 localization);
 #if DEBUG
-            var pipeProxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.CorePipe);
-            IProxyCoreClient proxyCoreClient = new ProxyCoreClient(pipeProxyCoreClient);
+            var pipeProxyCoreClient = new PipeCoreProxyClient(TrayCoreEndpoints.Core);
+            IProxyCoreClient directProxyCoreClient = new ProxyCoreClient(pipeProxyCoreClient);
+            IProxyCoreClient proxyCoreClient = UsesTrayRuntime
+                ? new TrayRuntimeProxyCoreClient(directProxyCoreClient)
+                : directProxyCoreClient;
             IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
-                HubStartupCoordinator.CorePipe,
+                TrayCoreEndpoints.Core,
                 () => settings.DelayTestUrl,
                 5000);
 #else
 
-            IProxyCoreClient proxyCoreClient = new PipeCoreProxyClient(HubStartupCoordinator.CorePipe);
+            IProxyCoreClient directProxyCoreClient = new PipeCoreProxyClient(TrayCoreEndpoints.Core);
+            IProxyCoreClient proxyCoreClient = UsesTrayRuntime
+                ? new TrayRuntimeProxyCoreClient(directProxyCoreClient)
+                : directProxyCoreClient;
             IProxyDelayTester proxyDelayTester = new PipeCoreProxyDelayTester(
-                HubStartupCoordinator.CorePipe,
+                TrayCoreEndpoints.Core,
                 () => settings.DelayTestUrl,
                 5000);
 #endif
 
-            var initialServiceModeStatus = GetInitialServiceModeStatus(serviceModeManager, settings.IsTunEnabled);
+            var initialServiceModeStatus = UsesTrayRuntime
+                ? ServiceModeStatus.Unavailable(string.Empty)
+                : GetInitialServiceModeStatus(serviceModeManager, settings.IsTunEnabled);
 #if DEBUG
             LogStartupTrace($"Initial service status ready state={initialServiceModeStatus.State}", startupStartedAt);
 #endif
-            var coreManager = new SwitchableCoreManager(CreateCoreManager(initialServiceModeStatus, serviceModeManager));
-            var serviceModeSessionSwitcher = new ServiceModeSessionSwitcher(
-                serviceModeManager,
-                coreManager,
-                status => CreateCoreManager(status, serviceModeManager),
-                () => new IpcCoreManager(HubStartupCoordinator.PipeName),
-                HubStartupCoordinator.StopCoreAsync,
-                HubStartupCoordinator.ResumeCoreAsync,
-                (status, token) => StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token),
-                isActive => _isServiceModeCoreHostActive = isActive,
-                isServiceModeActive: initialServiceModeStatus.IsRunning);
+            var coreManager = new SwitchableCoreManager(
+                UsesTrayRuntime
+                    ? new TrayCoreManager()
+                    : CreateCoreManager(initialServiceModeStatus, serviceModeManager));
+            ServiceModeSessionSwitcher? serviceModeSessionSwitcher = null;
+            if (!UsesTrayRuntime)
+            {
+                serviceModeSessionSwitcher = new ServiceModeSessionSwitcher(
+                    serviceModeManager,
+                    coreManager,
+                    status => CreateCoreManager(status, serviceModeManager),
+                    CreateNormalCoreManager,
+                    async token => ToCoreHostResult(await StopNormalCoreAsync(token)),
+                    async token => ToCoreHostResult(await ResumeNormalCoreAsync(token)),
+                    async (status, token) => ToCoreHostResult(
+                        await StartCoreHostAsync(status, serviceModeManager, coreProcessCleaner, token)),
+                    isActive => _isServiceModeCoreHostActive = isActive,
+                    isServiceModeActive: initialServiceModeStatus.IsRunning);
+            }
+            else
+            {
+                _isServiceModeCoreHostActive = initialServiceModeStatus.IsRunning;
+            }
             var connectionPage = new ConnectionPageViewModel(proxyCoreClient, localization: localization);
             var proxyConfigSource = new FileRuntimeProxyConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore);
             var proxyConfigParser = new ProxyConfigParser();
@@ -330,20 +369,28 @@ public sealed partial class App : Avalonia.Application
                 initialServiceModeStatus: initialServiceModeStatus,
                 systemPlatform: systemProxyPlatform,
                 clipboardWriter: clipboardWriter,
-                serviceModeSessionActivator: token => selectionRestoringCoreManager.RunCoreResetAsync(
-                    "service-mode-activation",
-                    serviceModeSessionSwitcher.ActivateAsync,
-                    token),
-                serviceModeSessionDeactivator: token => selectionRestoringCoreManager.RunCoreResetAsync(
-                    "service-mode-deactivation",
-                    serviceModeSessionSwitcher.DeactivateAsync,
-                    token),
-                serviceModeCoreTransitionStarting: () =>
-                    selectionRestoringCoreManager.NotifyCoreResetStarting("service-mode-operation"),
-                serviceModeCoreTransitionCompleted: _ =>
-                    selectionRestoringCoreManager.RestoreCurrentCoreSelectionsAsync(
+                serviceModeSessionActivator: serviceModeSessionSwitcher is null
+                    ? null
+                    : token => selectionRestoringCoreManager.RunCoreResetAsync(
+                        "service-mode-activation",
+                        serviceModeSessionSwitcher.ActivateAsync,
+                        token),
+                serviceModeSessionDeactivator: serviceModeSessionSwitcher is null
+                    ? null
+                    : token => selectionRestoringCoreManager.RunCoreResetAsync(
+                        "service-mode-deactivation",
+                        serviceModeSessionSwitcher.DeactivateAsync,
+                        token),
+                serviceModeCoreTransitionStarting: serviceModeSessionSwitcher is null
+                    ? null
+                    : () => selectionRestoringCoreManager.NotifyCoreResetStarting("service-mode-operation"),
+                serviceModeCoreTransitionCompleted: serviceModeSessionSwitcher is null
+                    ? null
+                    : _ => selectionRestoringCoreManager.RestoreCurrentCoreSelectionsAsync(
                         "service-mode-operation-completion",
                         CancellationToken.None),
+                serviceModeCoreHostManagedExternally: UsesTrayRuntime,
+                tunAvailabilityManagedExternally: UsesTrayRuntime,
                 appLogReader: new FileAppLogReader(DesktopApplicationLayout.RunningLogFilePath),
                 appLogExporter: new FileAppLogExporter(DesktopApplicationLayout.RunningLogFilePath));
             hotkeyViewModel = viewModel;
@@ -356,75 +403,98 @@ public sealed partial class App : Avalonia.Application
                 new SubscriptionAutoUpdateRunner(subscriptionStore, new SubscriptionAutoUpdatePlanner(), subscriptionUpdater),
                 subscriptionPage,
                 () => DateTimeOffset.Now);
-            _ = RunAppUpdateCheckAsync(() => autoUpdateRunner.RunStartupCheckAsync());
-            StartAppUpdateAutoCheckTimer(autoUpdateRunner);
-            StartSubscriptionAutoDelayTimer(viewModel);
-            StartHomeRuntimeTimer(viewModel);
-            StartWebDavBackupTimer(viewModel);
             var mainWindow = new MainWindow(settingsStore, settings)
             {
                 DataContext = viewModel
             };
+            _mainWindow = mainWindow;
+            mainWindow.CanExitToBackground = true;
+            if (_traySession.IsDisconnected)
+            {
+                mainWindow.RequestUiShutdown();
+            }
+
             mainWindow.PrepareShutdownAsync = async () =>
             {
+                await UnregisterTraySessionAsync();
                 StopBackgroundServices();
                 AppLogger.Info("Background schedulers stopped for shutdown");
-                using var timeout = new CancellationTokenSource(CoreShutdownTimeout);
-                var serviceStopStartedAt = Stopwatch.GetTimestamp();
-                var result = await serviceModeSessionSwitcher.PrepareForShutdownAsync(timeout.Token);
-                if (!result.IsSuccess)
+                if (!mainWindow.ShouldShutdownTray)
                 {
-                    AppLogger.Warning($"Service-mode core stop failed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    return;
+                }
+
+                if (localSystemProxyController is not null)
+                {
+                    await Task.Run(() => localSystemProxyController.Shutdown());
+                }
+                using var timeout = new CancellationTokenSource(CoreShutdownTimeout);
+                if (serviceModeSessionSwitcher is not null)
+                {
+                    var serviceStopStartedAt = Stopwatch.GetTimestamp();
+                    var result = await serviceModeSessionSwitcher.PrepareForShutdownAsync(timeout.Token);
+                    if (!result.IsSuccess)
+                    {
+                        AppLogger.Warning($"Service-mode core stop failed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    }
+                    else
+                    {
+                        AppLogger.Info($"Service-mode core stop completed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    }
+                }
+
+                if (UsesTrayRuntime)
+                {
+                    await ShutdownTrayAsync();
                 }
                 else
                 {
-                    AppLogger.Info($"Service-mode core stop completed: elapsed={Stopwatch.GetElapsedTime(serviceStopStartedAt).TotalMilliseconds:0}ms message={result.Message}");
+                    await Task.Run(HubBootstrap.Shutdown);
                 }
-
-                var hubStopStartedAt = Stopwatch.GetTimestamp();
-                AppLogger.Info("Normal-mode hub shutdown started");
-                await Task.Run(HubBootstrap.Shutdown);
-                AppLogger.Info($"Normal-mode hub shutdown completed: elapsed={Stopwatch.GetElapsedTime(hubStopStartedAt).TotalMilliseconds:0}ms");
             };
             mainWindow.OsShutdownDetected = () => Interlocked.Exchange(ref _isOsShutdownRequested, 1);
 #if DEBUG
             LogStartupTrace("Main window constructed and bound", startupStartedAt);
 #endif
 
-            var shouldStartHidden = ShouldStartHidden(settings);
-            if (shouldStartHidden)
-            {
-                // 静默启动没有首个可见窗口，退出必须来自托盘或调试命令。
-                desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-                mainWindow.ScheduleHiddenMemoryRelease();
-                AppLogger.Info("Silent start enabled; main window stays hidden");
-            }
-            else
-            {
-                desktop.MainWindow = mainWindow;
-            }
+            desktop.MainWindow = mainWindow;
 
             desktop.ShutdownRequested += (_, _) =>
             {
                 var isOsShutdown = Volatile.Read(ref _isOsShutdownRequested) != 0;
                 var source = mainWindow.IsShutdownPreparing
-                    ? "application"
+                    ? mainWindow.ShouldShutdownTray ? "application" : "ui-session"
                     : isOsShutdown ? "os" : "external";
                 AppLogger.Info($"Lifetime cleanup started: origin={source}");
                 StopBackgroundServices();
-                AppLogger.Info("System proxy shutdown cleanup started");
-                viewModel.HomePage.DisableSystemProxyOnShutdown();
-                AppLogger.Info("System proxy shutdown cleanup completed");
-                _trayService.Dispose();
+                if (_traySession is not null)
+                {
+                    _traySession.ActivationRequested -= OnTrayActivationRequested;
+                    _traySession.ToggleRequested -= OnTrayToggleRequested;
+                    _traySession.Disconnected -= OnTrayDisconnected;
+                }
+                _traySession = null;
+                _mainWindow = null;
                 globalHotkeyService.Dispose();
                 _sessionEndCleanup?.Dispose();
                 _sessionEndCleanup = null;
                 viewModel.Dispose();
-                var switcherDisposed = serviceModeSessionSwitcher.TryDisposeForShutdown();
+                var switcherDisposed = serviceModeSessionSwitcher?.TryDisposeForShutdown() ?? true;
                 var coreManagerDisposed = coreManager.TryDisposeForShutdown();
                 AppLogger.Info($"Core ownership released for shutdown: switcher={switcherDisposed} manager={coreManagerDisposed}");
-                DisposeOwnedServices(selectionRestoringCoreManager, proxyCoreClient, proxyDelayTester, coreProviderClient, webDavBackupStore);
-                if (OperatingSystem.IsWindows())
+                DisposeOwnedServices(
+                    selectionRestoringCoreManager,
+                    proxyCoreClient,
+                    proxyDelayTester,
+                    coreProviderClient,
+                    webDavBackupStore,
+                    systemProxyService,
+                    serviceModeManager);
+                if (UsesTrayRuntime)
+                {
+                    AppLogger.Info("Desktop core client released; Tray retains runtime ownership");
+                }
+                else if (OperatingSystem.IsWindows())
                 {
                     AppLogger.Info("Lifetime cleanup skipped synchronous hub wait; Job Object owns remaining normal core termination");
                 }
@@ -434,27 +504,22 @@ public sealed partial class App : Avalonia.Application
                 }
                 AppLogger.Info($"Lifetime cleanup completed: origin={source}");
             };
-            // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。
-            _sessionEndCleanup = new SessionEndCleanupService(
-                viewModel.HomePage.DisableSystemProxyOnShutdown,
-                isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
-            _sessionEndCleanup.Start();
-            _trayService.Attach(desktop, mainWindow, viewModel, localization);
-            foreach (var (action, gesture) in new[]
+            if (localSystemProxyController is not null)
             {
-                (GlobalHotkeyAction.ToggleWindow, settings.WindowToggleHotkey),
-                (GlobalHotkeyAction.ToggleSystemProxy, settings.SystemProxyToggleHotkey),
-                (GlobalHotkeyAction.ToggleTun, settings.TunToggleHotkey),
-            })
+                // 直接宿主仍需同步响应系统注销；Tray 模式由后台宿主负责。
+                _sessionEndCleanup = new SessionEndCleanupService(
+                    () => localSystemProxyController.Shutdown(),
+                    isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
+                _sessionEndCleanup.Start();
+            }
+            if (!UsesTrayRuntime)
             {
-                var hotkeyResult = globalHotkeyService.Apply(action, gesture);
-                if (!hotkeyResult.IsSuccess)
-                {
-                    AppLogger.Warning($"Global hotkey startup registration failed: action={action} error={hotkeyResult.Error}");
-                }
+                _ = RegisterGlobalHotkeysAsync(globalHotkeyService, settings);
             }
 #if DEBUG
-            LogStartupTrace("Tray service attached", startupStartedAt);
+            LogStartupTrace(
+                "Background tray session initialized",
+                startupStartedAt);
 #endif
 #if DEBUG
             DebugCommands.Start(mainWindow);
@@ -466,6 +531,11 @@ public sealed partial class App : Avalonia.Application
 #if DEBUG
                     LogStartupTrace("Background startup dispatch entered", startupStartedAt);
 #endif
+                    _ = RunAppUpdateCheckAsync(() => autoUpdateRunner.RunStartupCheckAsync());
+                    StartAppUpdateAutoCheckTimer(autoUpdateRunner);
+                    StartSubscriptionAutoDelayTimer(viewModel);
+                    StartHomeRuntimeTimer(viewModel);
+                    StartWebDavBackupTimer(viewModel);
                     _ = InitializeSubscriptionServicesAsync(subscriptionPage, subscriptionAutoUpdate);
                     _ = overridePage.InitializeAsync();
                     _ = StartCoreServicesAsync(initialServiceModeStatus, serviceModeManager, coreProcessCleaner, coreManager, viewModel, proxyPage, rulePage, proxySelectionRestorer);
@@ -479,9 +549,87 @@ public sealed partial class App : Avalonia.Application
         base.OnFrameworkInitializationCompleted();
     }
 
-    private static bool ShouldStartHidden(AppSettings settings)
+    private async Task UnregisterTraySessionAsync()
     {
-        return settings.IsSilentStartEnabled;
+        if (_traySession is null)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        try
+        {
+            await _traySession.UnregisterAsync(timeout.Token);
+        }
+        catch (Exception exception) when (exception is IOException or OperationCanceledException)
+        {
+            AppLogger.Warning($"Desktop UI session unregister failed: {exception.Message}");
+        }
+    }
+
+    private void OnTrayActivationRequested(object? sender, EventArgs args) =>
+        Dispatcher.UIThread.Post(ShowMainWindow);
+
+    private void OnTrayToggleRequested(object? sender, EventArgs args) =>
+        Dispatcher.UIThread.Post(ToggleMainWindow);
+
+    private void OnTrayDisconnected(object? sender, EventArgs args) =>
+        Dispatcher.UIThread.Post(() => _mainWindow?.RequestUiShutdown());
+
+    private void ShowMainWindow()
+    {
+        if (_mainWindow is not { } mainWindow)
+        {
+            return;
+        }
+
+        mainWindow.Show();
+        if (mainWindow.WindowState == WindowState.Minimized)
+        {
+            mainWindow.WindowState = WindowState.Normal;
+        }
+        mainWindow.Activate();
+    }
+
+    private void ToggleMainWindow()
+    {
+        if (_mainWindow is not { } mainWindow)
+        {
+            return;
+        }
+
+        if (mainWindow.IsVisible && mainWindow.WindowState != WindowState.Minimized)
+        {
+            if (mainWindow.CanExitToBackground)
+            {
+                mainWindow.RequestUiShutdown();
+            }
+            else
+            {
+                mainWindow.RequestShutdown();
+            }
+            return;
+        }
+
+        ShowMainWindow();
+    }
+
+    private async Task ShutdownTrayAsync()
+    {
+        if (_traySession is null)
+        {
+            return;
+        }
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        try
+        {
+            await _traySession.ShutdownTrayAsync(timeout.Token);
+        }
+        catch (Exception exception) when (exception is IOException or OperationCanceledException)
+        {
+            AppLogger.Warning($"Tray shutdown request failed: {exception.Message}");
+        }
     }
 
     private void StopBackgroundServices()
@@ -600,6 +748,11 @@ public sealed partial class App : Avalonia.Application
         CoreProcessCleaner coreProcessCleaner,
         CancellationToken cancellationToken)
     {
+        if (UsesTrayRuntime)
+        {
+            return await ResumeNormalCoreAsync(cancellationToken);
+        }
+
         if (initialServiceModeStatus.IsRunning)
         {
             var serviceCleanup = coreProcessCleaner.CleanupForServiceMode(initialServiceModeStatus);
@@ -632,7 +785,7 @@ public sealed partial class App : Avalonia.Application
             return BootstrapResult.Failure(cleanup.Message);
         }
 
-        return await HubStartupCoordinator.EnsureStartedAsync();
+        return await ResumeNormalCoreAsync(cancellationToken);
     }
 
     private static ServiceModeStatus GetInitialServiceModeStatus(IServiceModeManager serviceModeManager, bool waitForTunService)
@@ -716,11 +869,62 @@ public sealed partial class App : Avalonia.Application
             return new ServiceModeCoreManager(
                 serviceModeManager,
                 HubStartupCoordinator.CorePipe,
+                DesktopApplicationLayout.CoreBinaryPath,
+                DesktopApplicationLayout.CoreDirectory,
                 HubStartupCoordinator.WriteServiceModeActiveConfig,
                 isActive => _isServiceModeCoreHostActive = isActive);
         }
 
-        return new IpcCoreManager(HubStartupCoordinator.PipeName);
+        return CreateNormalCoreManager();
+    }
+
+    private static bool UsesTrayRuntime => DesktopLaunchContext.TraySession is not null;
+
+    private static ICoreManager CreateNormalCoreManager()
+    {
+        return UsesTrayRuntime
+            ? new TrayCoreManager()
+            : new IpcCoreManager(TrayCoreEndpoints.Hub);
+    }
+
+    private static async Task<BootstrapResult> StopNormalCoreAsync(CancellationToken cancellationToken)
+    {
+        if (!UsesTrayRuntime)
+        {
+            return await HubStartupCoordinator.StopCoreAsync(cancellationToken);
+        }
+
+        await using var manager = new TrayCoreManager();
+        var result = await manager.StopCoreAsync(cancellationToken);
+        return result.IsSuccess
+            ? BootstrapResult.Success(result.Message)
+            : BootstrapResult.Failure(result.Message);
+    }
+
+    private static async Task<BootstrapResult> ResumeNormalCoreAsync(CancellationToken cancellationToken)
+    {
+        if (!UsesTrayRuntime)
+        {
+            return await HubStartupCoordinator.ResumeCoreAsync(cancellationToken);
+        }
+
+        await using var manager = new TrayCoreManager();
+        try
+        {
+            var result = await manager.EnsureReadyAsync(cancellationToken);
+            return BootstrapResult.Success(result.Message);
+        }
+        catch (Exception exception)
+        {
+            return BootstrapResult.Failure(exception.Message);
+        }
+    }
+
+    private static CoreHostOperationResult ToCoreHostResult(BootstrapResult result)
+    {
+        return result.Ok
+            ? CoreHostOperationResult.Success(result.Message)
+            : CoreHostOperationResult.Failure(result.Message);
     }
 
     private void StartAppUpdateAutoCheckTimer(AppUpdateAutoCheckRunner runner)
@@ -825,42 +1029,49 @@ public sealed partial class App : Avalonia.Application
         return SystemProxyPlatform.Other;
     }
 
-    private static ISystemProxyService CreateSystemProxyService(SystemProxyPlatform platform, string appDataDirectory)
-    {
-        return platform switch
-        {
-            SystemProxyPlatform.Windows => new WindowsSystemProxyService(appDataDirectory),
-            SystemProxyPlatform.MacOS => new MacOSSystemProxyService(appDataDirectory),
-            SystemProxyPlatform.Linux => new LinuxSystemProxyService(appDataDirectory),
-            SystemProxyPlatform.Other => new UnsupportedSystemProxyService(),
-            _ => throw new ArgumentOutOfRangeException(nameof(platform), platform, "Unknown system proxy platform")
-        };
-    }
-
     private static IAppBehaviorService CreateAppBehaviorService()
     {
         if (OperatingSystem.IsWindows())
         {
-            return new WindowsAppBehaviorService();
+            return new WindowsAppBehaviorService(DesktopApplicationLayout.TrayBinaryPath);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return new LinuxAppBehaviorService();
+            return new LinuxAppBehaviorService(DesktopApplicationLayout.TrayBinaryPath);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return new MacOSAppBehaviorService();
+            return new MacOSAppBehaviorService(DesktopApplicationLayout.TrayBinaryPath);
         }
 
         return new UnsupportedAppBehaviorService();
     }
 
-    private static IGlobalHotkeyService CreateGlobalHotkeyService(Action<GlobalHotkeyAction> activated)
+    private static async Task RegisterGlobalHotkeysAsync(
+        IGlobalHotkeyService globalHotkeys,
+        AppSettings settings)
     {
-        return OperatingSystem.IsWindows()
-            ? new WindowsGlobalHotkeyService(activated)
-            : new UnsupportedGlobalHotkeyService(activated);
+        foreach (var (action, gesture) in new[]
+        {
+            (GlobalHotkeyAction.ToggleWindow, settings.WindowToggleHotkey),
+            (GlobalHotkeyAction.ToggleSystemProxy, settings.SystemProxyToggleHotkey),
+            (GlobalHotkeyAction.ToggleTun, settings.TunToggleHotkey),
+        })
+        {
+            try
+            {
+                var result = await globalHotkeys.ApplyAsync(action, gesture).ConfigureAwait(true);
+                if (!result.IsSuccess)
+                {
+                    AppLogger.Warning($"Global hotkey startup registration failed: action={action} error={result.Error}");
+                }
+            }
+            catch (Exception exception)
+            {
+                AppLogger.Warning($"Global hotkey startup registration failed: action={action} error={exception.Message}");
+            }
+        }
     }
 }

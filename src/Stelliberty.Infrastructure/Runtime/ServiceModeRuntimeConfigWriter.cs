@@ -1,9 +1,9 @@
 using System.Text;
 using YamlDotNet.RepresentationModel;
 
-namespace Stelliberty.Desktop;
+namespace Stelliberty.Infrastructure.Runtime;
 
-internal static class ServiceModeRuntimeConfigWriter
+public static class ServiceModeRuntimeConfigWriter
 {
     public static string Write(string content, string corePipe)
     {

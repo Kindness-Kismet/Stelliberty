@@ -10,13 +10,14 @@ public sealed class AutoStartEntryBuilderTests
     {
         var xml = AutoStartEntryBuilder.WindowsScheduledTaskXml(
             @"C:\Program Files\Stelliberty\stelliberty.exe",
-            userId: "S-1-5-21-test");
+            userId: "S-1-5-21-test",
+            isSilentStartEnabled: true);
 
         Assert.Contains("<LogonTrigger>", xml);
         Assert.Contains("<Delay>PT1S</Delay>", xml);
         Assert.Contains("<RunLevel>LeastPrivilege</RunLevel>", xml);
         Assert.Contains("<UserId>S-1-5-21-test</UserId>", xml);
-        Assert.DoesNotContain("<Arguments>", xml);
+        Assert.Contains("<Arguments>--silent-start</Arguments>", xml);
     }
 
     [Fact(DisplayName = "Windows scheduled task XML escapes path and omits silent argument")]

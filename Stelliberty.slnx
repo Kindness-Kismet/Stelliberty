@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="src/Stelliberty.Application/Stelliberty.Application.csproj" />
+  <Project Path="src/Stelliberty.Tray/Stelliberty.Tray.csproj" />
   <Project Path="src/Stelliberty.Domain/Stelliberty.Domain.csproj" />
   <Project Path="src/Stelliberty.Infrastructure/Stelliberty.Infrastructure.csproj" />
   <Project Path="src/Stelliberty.Native/Stelliberty.Native.csproj" />
@@ -16,5 +17,6 @@
   <Project Path="tests/Stelliberty.Override.Tests/Stelliberty.Override.Tests.csproj" />
   <Project Path="tests/Stelliberty.Settings.Tests/Stelliberty.Settings.Tests.csproj" />
   <Project Path="tests/Stelliberty.Infrastructure.Tests/Stelliberty.Infrastructure.Tests.csproj" />
+  <Project Path="tests/Stelliberty.Tray.Tests/Stelliberty.Tray.Tests.csproj" />
   <Project Path="tests/Stelliberty.WebDav.Tests/Stelliberty.WebDav.Tests.csproj" />
 </Solution>

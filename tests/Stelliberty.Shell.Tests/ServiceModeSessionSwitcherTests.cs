@@ -3,9 +3,8 @@ using Stelliberty.Application.Platform;
 using Stelliberty.Application.Rules;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Desktop;
-using Stelliberty.Desktop.Services;
+using Stelliberty.Infrastructure.Core;
 using Stelliberty.Domain.CoreLogs;
-using Stelliberty.Native.Hub;
 using Xunit;
 
 namespace Stelliberty.Shell.Tests;
@@ -44,7 +43,7 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             service,
             order,
-            resumeNormalCore: _ => Task.FromResult(BootstrapResult.Success()),
+            resumeNormalCore: _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
             setActive: value => isServiceCoreActive = value);
 
         var result = await switcher.ActivateAsync(CancellationToken.None);
@@ -79,18 +78,18 @@ public sealed class ServiceModeSessionSwitcherTests
             _ =>
             {
                 order.Add("stop-normal");
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             _ =>
             {
                 resumeCount++;
                 order.Add("resume-normal");
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             (_, _) =>
             {
                 order.Add("start-service");
-                return Task.FromResult(BootstrapResult.Failure("start failed"));
+                return Task.FromResult(CoreHostOperationResult.Failure("start failed"));
             },
             value => isServiceCoreActive = value);
 
@@ -119,17 +118,17 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => new FakeCoreManager(RunningSnapshot(10)),
-            _ => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
             _ =>
             {
                 resumeCount++;
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             (_, token) =>
             {
                 cancellation.Cancel();
                 token.ThrowIfCancellationRequested();
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             _ => { });
 
@@ -155,16 +154,16 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => recoveredNormal,
-            _ => Task.FromResult(BootstrapResult.Failure("stop failed")),
+            _ => Task.FromResult(CoreHostOperationResult.Failure("stop failed")),
             _ =>
             {
                 resumeCount++;
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             (_, _) =>
             {
                 startCount++;
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             _ => { });
 
@@ -195,13 +194,13 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => new FakeCoreManager(RunningSnapshot(10)),
-            _ => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
             _ =>
             {
                 resumeCount++;
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
-            (_, _) => Task.FromResult(BootstrapResult.Failure("start failed")),
+            (_, _) => Task.FromResult(CoreHostOperationResult.Failure("start failed")),
             value => isServiceCoreActive = value);
 
         var result = await switcher.ActivateAsync(CancellationToken.None);
@@ -226,13 +225,13 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => service,
             () => new FakeCoreManager(RunningSnapshot(10)),
-            _ => Task.FromResult(BootstrapResult.Success()),
-            _ => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
             async (_, token) =>
             {
                 startEntered.TrySetResult();
                 await releaseStart.Task.WaitAsync(token);
-                return BootstrapResult.Success();
+                return CoreHostOperationResult.Success("ok");
             },
             _ => { });
 
@@ -261,9 +260,9 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => normal,
-            _ => Task.FromResult(BootstrapResult.Success()),
-            _ => Task.FromResult(BootstrapResult.Success()),
-            (_, _) => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
+            (_, _) => Task.FromResult(CoreHostOperationResult.Success("ok")),
             value => isServiceCoreActive = value);
 
         var result = await switcher.DeactivateAsync(CancellationToken.None);
@@ -286,9 +285,9 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => new FakeCoreManager(RunningSnapshot(10)),
-            _ => Task.FromResult(BootstrapResult.Success()),
-            _ => Task.FromResult(BootstrapResult.Failure("resume failed")),
-            (_, _) => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
+            _ => Task.FromResult(CoreHostOperationResult.Failure("resume failed")),
+            (_, _) => Task.FromResult(CoreHostOperationResult.Success("ok")),
             value => isServiceCoreActive = value);
 
         var result = await switcher.DeactivateAsync(CancellationToken.None);
@@ -313,9 +312,9 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => normal,
-            _ => Task.FromResult(BootstrapResult.Success()),
-            _ => Task.FromResult(BootstrapResult.Success()),
-            (_, _) => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
+            (_, _) => Task.FromResult(CoreHostOperationResult.Success("ok")),
             value => isServiceCoreActive = value);
 
         var result = await switcher.DeactivateAsync(CancellationToken.None);
@@ -344,13 +343,13 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => normal,
-            _ => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
             _ =>
             {
                 cancellation.Cancel();
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
-            (_, _) => Task.FromResult(BootstrapResult.Success()),
+            (_, _) => Task.FromResult(CoreHostOperationResult.Success("ok")),
             _ => { });
 
         var result = await switcher.DeactivateAsync(cancellation.Token);
@@ -369,7 +368,7 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             new FakeCoreManager(RunningSnapshot(20)),
             [],
-            _ => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
             _ => { });
         switcher.Dispose();
 
@@ -401,17 +400,17 @@ public sealed class ServiceModeSessionSwitcherTests
             coreManager,
             _ => new FakeCoreManager(RunningSnapshot(20)),
             () => new FakeCoreManager(RunningSnapshot(10)),
-            _ => Task.FromResult(BootstrapResult.Success()),
+            _ => Task.FromResult(CoreHostOperationResult.Success("ok")),
             _ =>
             {
                 resumeCount++;
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             async (_, token) =>
             {
                 startEntered.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, token);
-                return BootstrapResult.Success();
+                return CoreHostOperationResult.Success("ok");
             },
             _ => { });
 
@@ -486,7 +485,7 @@ public sealed class ServiceModeSessionSwitcherTests
         SwitchableCoreManager coreManager,
         ICoreManager serviceCore,
         List<string> order,
-        Func<CancellationToken, Task<BootstrapResult>> resumeNormalCore,
+        Func<CancellationToken, Task<CoreHostOperationResult>> resumeNormalCore,
         Action<bool> setActive)
     {
         return new ServiceModeSessionSwitcher(
@@ -497,13 +496,13 @@ public sealed class ServiceModeSessionSwitcherTests
             _ =>
             {
                 order.Add("stop-normal");
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             resumeNormalCore,
             (_, _) =>
             {
                 order.Add("start-service");
-                return Task.FromResult(BootstrapResult.Success());
+                return Task.FromResult(CoreHostOperationResult.Success("ok"));
             },
             setActive);
     }

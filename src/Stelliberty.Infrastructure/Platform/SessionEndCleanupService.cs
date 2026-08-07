@@ -2,7 +2,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Stelliberty.Application.Diagnostics;
 
-namespace Stelliberty.Desktop.Services;
+namespace Stelliberty.Infrastructure.Platform;
 
 // 系统关机/注销时同步清理系统代理，兜底用户未主动退出（如托盘常驻）的场景。
 // 关机会强杀进程，异步回调来不及，故清理必须在会话结束消息/信号里同步完成。
@@ -86,14 +86,18 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
     {
         private const uint WmQueryEndSession = 0x0011;
         private const uint WmEndSession = 0x0016;
+        private const uint WmClose = 0x0010;
 
         private readonly Action _cleanup;
         private readonly Action<bool> _shutdownStateChanged;
         private readonly WndProc _wndProc; // 保持委托引用，防 GC 回收后回调悬空
         private readonly string _className;
-        private readonly IntPtr _instance;
+        private readonly ManualResetEventSlim _started = new(false);
+        private readonly Thread _messageThread;
+        private IntPtr _instance;
         private IntPtr _hwnd;
         private ushort _classAtom;
+        private bool _isInitialized;
 
         private WindowsSessionWatcher(Action cleanup, Action<bool> shutdownStateChanged)
         {
@@ -101,13 +105,48 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
             _shutdownStateChanged = shutdownStateChanged;
             _wndProc = HandleMessage;
             _className = $"StellibertySessionWatcher_{Environment.ProcessId}";
-            _instance = GetModuleHandle(null);
+            _messageThread = new Thread(RunMessageLoop)
+            {
+                IsBackground = true,
+                Name = "Stelliberty session watcher"
+            };
         }
 
         public static WindowsSessionWatcher? Create(Action cleanup, Action<bool> shutdownStateChanged)
         {
             var watcher = new WindowsSessionWatcher(cleanup, shutdownStateChanged);
-            return watcher.Initialize() ? watcher : null;
+            watcher._messageThread.Start();
+            watcher._started.Wait();
+            if (watcher._isInitialized)
+            {
+                return watcher;
+            }
+
+            watcher.Dispose();
+            return null;
+        }
+
+        private void RunMessageLoop()
+        {
+            _instance = GetModuleHandle(null);
+            _isInitialized = Initialize();
+            _started.Set();
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            while (GetMessage(out var message, IntPtr.Zero, 0, 0) > 0)
+            {
+                TranslateMessage(ref message);
+                DispatchMessage(ref message);
+            }
+
+            if (_classAtom != 0)
+            {
+                UnregisterClass(_className, _instance);
+                _classAtom = 0;
+            }
         }
 
         private bool Initialize()
@@ -141,6 +180,14 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
 
         private IntPtr HandleMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
         {
+            if (msg == WmClose)
+            {
+                DestroyWindow(hWnd);
+                _hwnd = IntPtr.Zero;
+                PostQuitMessage(0);
+                return IntPtr.Zero;
+            }
+
             if (msg == WmEndSession)
             {
                 if (wParam != IntPtr.Zero)
@@ -170,15 +217,15 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
         {
             if (_hwnd != IntPtr.Zero)
             {
-                DestroyWindow(_hwnd);
-                _hwnd = IntPtr.Zero;
+                PostMessage(_hwnd, WmClose, IntPtr.Zero, IntPtr.Zero);
             }
 
-            if (_classAtom != 0)
+            if (_messageThread.IsAlive && Thread.CurrentThread != _messageThread)
             {
-                UnregisterClass(_className, _instance);
-                _classAtom = 0;
+                _messageThread.Join(TimeSpan.FromSeconds(2));
             }
+
+            _started.Dispose();
         }
 
         private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
@@ -200,6 +247,19 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
             public IntPtr hIconSm;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
+        {
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public int ptX;
+            public int ptY;
+            public uint lPrivate;
+        }
+
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "RegisterClassExW")]
         private static extern ushort RegisterClassEx(ref WNDCLASSEX windowClass);
 
@@ -212,6 +272,23 @@ public sealed class SessionEndCleanupService(Action cleanup, Action<bool>? shutd
         [DllImport("user32.dll", SetLastError = true, EntryPoint = "DestroyWindow")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool DestroyWindow(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "GetMessageW")]
+        private static extern int GetMessage(out MSG message, IntPtr hWnd, uint minimumMessage, uint maximumMessage);
+
+        [DllImport("user32.dll", EntryPoint = "TranslateMessage")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool TranslateMessage(ref MSG message);
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "DispatchMessageW")]
+        private static extern IntPtr DispatchMessage(ref MSG message);
+
+        [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "PostMessageW")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool PostMessage(IntPtr hWnd, uint message, IntPtr wParam, IntPtr lParam);
+
+        [DllImport("user32.dll", EntryPoint = "PostQuitMessage")]
+        private static extern void PostQuitMessage(int exitCode);
 
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "UnregisterClassW")]
         [return: MarshalAs(UnmanagedType.Bool)]

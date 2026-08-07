@@ -1,5 +1,5 @@
-- Fixed service mode failing to detect available updates.
+- Separate the tray and desktop UI into independent processes, keeping hidden-window memory usage in the low double-digit megabytes.
 
 ---
 
-- 修复服务模式无法正确检测到新版本的问题。
+- 完成托盘与桌面界面进程分离，窗口隐藏时内存占用仅保持在两位数 MB。

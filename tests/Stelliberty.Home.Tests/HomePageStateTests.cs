@@ -121,43 +121,6 @@ public sealed class HomePageStateTests
         Assert.Equal(7891, service.EnableRequests.Last().Port);
     }
 
-    [Fact(DisplayName = "Shutdown disables only proxy enabled by current instance")]
-    public void ShutdownDisablesOnlyProxyEnabledByCurrentInstance()
-    {
-        var restoredService = new FakeSystemProxyService();
-        var restored = new HomePageViewModel(
-            systemProxyService: restoredService,
-            systemProxyRequestFactory: Request);
-
-        restored.DisableSystemProxyOnShutdown();
-        Assert.Equal(0, restoredService.DisableCount);
-
-        restored.IsSystemProxyEnabled = true;
-        restored.DisableSystemProxyOnShutdown();
-        restored.DisableSystemProxyOnShutdown();
-        Assert.Equal(1, restoredService.DisableCount);
-    }
-
-    [Fact(DisplayName = "Shutdown still disables after optimistic proxy off before apply")]
-    public async Task ShutdownStillDisablesAfterOptimisticProxyOffBeforeApply()
-    {
-        var service = new FakeSystemProxyService { BlockEnable = true };
-        var viewModel = new HomePageViewModel(
-            systemProxyService: service,
-            systemProxyRequestFactory: Request);
-
-        viewModel.IsSystemProxyEnabled = true;
-        Assert.True(service.EnableStarted.Wait(AsyncTestTimeout));
-        viewModel.IsSystemProxyEnabled = false;
-
-        var cleanupTask = Task.Run(viewModel.DisableSystemProxyOnShutdown);
-        service.ReleaseEnable.Set();
-        await cleanupTask.WaitAsync(AsyncTestTimeout);
-
-        Assert.False(viewModel.IsSystemProxyEnabled);
-        Assert.InRange(service.DisableCount, 1, 2);
-    }
-
     [Fact(DisplayName = "TUN toggle requires privilege and interactive core")]
     public async Task TunToggleRequiresPrivilegeAndInteractiveCore()
     {
@@ -783,12 +746,15 @@ public sealed class HomePageStateTests
         Assert.True(predicate());
     }
 
-    private sealed class FakeSystemProxyService : ISystemProxyService
+    private sealed class FakeSystemProxyService : ISystemProxyController
     {
         private readonly object _gate = new();
         private readonly List<SystemProxyApplicationRequest> _enableRequests = [];
         private int _enableCount;
         private int _disableCount;
+        private SystemProxyStatus _status = new(false, false);
+
+        public event EventHandler<SystemProxyStatus>? StatusChanged;
 
         public bool NextEnableSuccess { get; set; } = true;
         public bool NextDisableSuccess { get; set; } = true;
@@ -811,25 +777,48 @@ public sealed class HomePageStateTests
             get { lock (_gate) return [.. _enableRequests]; }
         }
 
-        public SystemProxyOperationResult Enable(SystemProxyApplicationRequest request)
+        public Task<SystemProxyStatus> GetStatusAsync(CancellationToken cancellationToken = default)
         {
-            lock (_gate)
-            {
-                _enableRequests.Add(request);
-                _enableCount++;
-            }
-
-            EnableStarted.Set();
-            if (BlockEnable)
-            {
-                ReleaseEnable.Wait(AsyncTestTimeout);
-            }
-
-            return new SystemProxyOperationResult(NextEnableSuccess, NextEnableSuccess ? "enabled" : "failed");
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(_status);
         }
 
-        public SystemProxyOperationResult Disable()
+        public Task<SystemProxyApplyResult> SetEnabledAsync(
+            bool isEnabled,
+            SystemProxyApplicationRequest? request,
+            CancellationToken cancellationToken = default)
         {
+            return Task.Run(() => Apply(isEnabled, request), cancellationToken);
+        }
+
+        private SystemProxyApplyResult Apply(bool isEnabled, SystemProxyApplicationRequest? request)
+        {
+            if (isEnabled)
+            {
+                lock (_gate)
+                {
+                    _enableRequests.Add(request!);
+                    _enableCount++;
+                }
+
+                EnableStarted.Set();
+                if (BlockEnable)
+                {
+                    ReleaseEnable.Wait(AsyncTestTimeout);
+                }
+
+                if (NextEnableSuccess)
+                {
+                    _status = new SystemProxyStatus(true, true);
+                    StatusChanged?.Invoke(this, _status);
+                }
+
+                return new SystemProxyApplyResult(
+                    NextEnableSuccess,
+                    NextEnableSuccess ? "enabled" : "failed",
+                    _status);
+            }
+
             lock (_gate)
             {
                 _disableCount++;
@@ -841,7 +830,16 @@ public sealed class HomePageStateTests
                 ReleaseDisable.Wait(AsyncTestTimeout);
             }
 
-            return new SystemProxyOperationResult(NextDisableSuccess, NextDisableSuccess ? "disabled" : "failed");
+            if (NextDisableSuccess)
+            {
+                _status = new SystemProxyStatus(false, false);
+                StatusChanged?.Invoke(this, _status);
+            }
+
+            return new SystemProxyApplyResult(
+                NextDisableSuccess,
+                NextDisableSuccess ? "disabled" : "failed",
+                _status);
         }
     }
 

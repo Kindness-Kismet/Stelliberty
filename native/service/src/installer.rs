@@ -5,6 +5,7 @@ use anyhow::{Context, Result, bail};
 
 #[cfg(target_os = "linux")]
 use crate::channel::linux_unit_path;
+#[cfg(any(windows, target_os = "linux"))]
 use crate::channel::service_name;
 #[cfg(target_os = "macos")]
 use crate::channel::{launchd_label, launchd_plist_path};

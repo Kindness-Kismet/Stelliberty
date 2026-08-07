@@ -88,15 +88,16 @@ class SimulationTests:
             self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=false"]),
             self.require("window.state", contains=["visible=true"]),
         ))
-        self.step("Trigger window shortcut after recording", lambda: (
+        self.step("Toggle UI session after recording", lambda: (
             self.require("control.click Navigation.HomeButton"),
             time.sleep(0.6),
             self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=true"]),
-            self.require("window.state", contains=["visible=false"]),
-            self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=false"]),
-            self.require("window.state", contains=["visible=false"]),
-            time.sleep(0.6),
+            self.wait_for_ui_exit(),
+            self.activate_ui_session(),
+            self.require("window.state", contains=["visible=true"]),
             self.require("hotkey.trigger window", contains=["action=ToggleWindow", "activated=true"]),
+            self.wait_for_ui_exit(),
+            self.activate_ui_session(),
             self.require("window.state", contains=["visible=true"]),
         ))
         self.step("Restore shortcut setting", self.restore_window_shortcut)
@@ -487,6 +488,35 @@ class SimulationTests:
                 return
             time.sleep(0.5)
         raise SimulationTestError("Debug port was not ready within 60s")
+
+    def wait_for_ui_exit(self, timeout: float = 15) -> None:
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self.try_probe_port():
+                time.sleep(0.2)
+                if not self.try_probe_port():
+                    return
+            time.sleep(0.2)
+        raise SimulationTestError("UI debug port did not close after the UI session toggle")
+
+    def activate_ui_session(self) -> None:
+        with self.app_log_path.open("a", encoding="utf-8") as log:
+            activation = subprocess.run(
+                [str(self.app_exec)],
+                cwd=self.app_output,
+                env=self.env,
+                stdin=subprocess.DEVNULL,
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                timeout=COMMAND_TIMEOUT_SECONDS,
+                check=False,
+                creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+                if self.os_family == "windows"
+                else 0,
+            )
+        if activation.returncode != 0:
+            raise SimulationTestError(f"UI activation process exited with code {activation.returncode}")
+        self.wait_debug_ready()
 
     def try_probe_port(self) -> bool:
         try:
