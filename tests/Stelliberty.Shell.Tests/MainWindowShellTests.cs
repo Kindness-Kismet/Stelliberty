@@ -216,43 +216,6 @@ public sealed class MainWindowShellTests
         Assert.Equal(0, settingsStore.SaveCount);
     }
 
-    [Fact(DisplayName = "Tray-managed startup keeps TUN before service status is loaded")]
-    public void TrayManagedStartupKeepsTunBeforeServiceStatusIsLoaded()
-    {
-        var settings = new AppSettings { IsTunEnabled = true };
-        var settingsStore = new FakeSettingsStore(settings);
-
-        using var viewModel = CreateViewModel(
-            settingsStore: settingsStore,
-            processPrivilegeProbe: new FakePrivilegeProbe(ProcessRunMode.Normal),
-            initialServiceModeStatus: ServiceModeStatus.Unavailable(string.Empty),
-            tunAvailabilityManagedExternally: true);
-
-        Assert.True(settings.IsTunEnabled);
-        Assert.True(viewModel.HomePage.IsTunEnabled);
-        Assert.False(viewModel.IsToastVisible);
-        Assert.Equal(0, settingsStore.SaveCount);
-    }
-
-    [Fact(DisplayName = "Tray-managed runtime heartbeat synchronizes external TUN changes")]
-    public void TrayManagedRuntimeHeartbeatSynchronizesExternalTunChanges()
-    {
-        var settings = new AppSettings { IsTunEnabled = false };
-        var settingsStore = new FakeSettingsStore(settings);
-        using var viewModel = CreateViewModel(
-            settingsStore: settingsStore,
-            tunAvailabilityManagedExternally: true);
-
-        settings.IsTunEnabled = true;
-        viewModel.OnHomeRuntimeTick();
-        Assert.True(viewModel.HomePage.IsTunEnabled);
-
-        settings.IsTunEnabled = false;
-        viewModel.OnHomeRuntimeTick();
-        Assert.False(viewModel.HomePage.IsTunEnabled);
-        Assert.Equal(0, settingsStore.SaveCount);
-    }
-
     [Fact(DisplayName = "Manual update no-update result uses common toast")]
     public async Task ManualUpdateNoUpdateResultUsesCommonToast()
     {
@@ -841,11 +804,10 @@ public sealed class MainWindowShellTests
         SelectedRuntimeFallbackGenerator? runtimeFallbackGenerator = null,
         ISelectedSubscriptionRuntimeStore? runtimeStore = null,
         FakeSettingsStore? settingsStore = null,
-        ISystemProxyController? systemProxyService = null,
+        ISystemProxyService? systemProxyService = null,
         IProcessPrivilegeProbe? processPrivilegeProbe = null,
         ServiceModeStatus? initialServiceModeStatus = null,
-        IAppUpdateChecker? updateChecker = null,
-        bool tunAvailabilityManagedExternally = false)
+        IAppUpdateChecker? updateChecker = null)
     {
         var settings = settingsStore?.Load() ?? new AppSettings();
         var resolvedLocalization = localization ?? new FakeLocalizationService();
@@ -869,8 +831,7 @@ public sealed class MainWindowShellTests
             runtimeStore: runtimeStore,
             initialSettings: settings,
             processPrivilegeProbe: processPrivilegeProbe,
-            initialServiceModeStatus: initialServiceModeStatus,
-            tunAvailabilityManagedExternally: tunAvailabilityManagedExternally);
+            initialServiceModeStatus: initialServiceModeStatus);
     }
 
     private static SubscriptionDeleter CreateSubscriptionDeleter()
@@ -1016,13 +977,10 @@ public sealed class MainWindowShellTests
         }
     }
 
-    private sealed class FakeSystemProxyService : ISystemProxyController
+    private sealed class FakeSystemProxyService : ISystemProxyService
     {
         private readonly object _gate = new();
         private readonly List<SystemProxyApplicationRequest> _enableRequests = [];
-        private SystemProxyStatus _status = new(false, false);
-
-        public event EventHandler<SystemProxyStatus>? StatusChanged;
 
         public int EnableCount
         {
@@ -1039,37 +997,19 @@ public sealed class MainWindowShellTests
             get { lock (_gate) return [.. _enableRequests]; }
         }
 
-        public Task<SystemProxyStatus> GetStatusAsync(CancellationToken cancellationToken = default)
+        public SystemProxyOperationResult Enable(SystemProxyApplicationRequest request)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            return Task.FromResult(_status);
+            lock (_gate)
+            {
+                _enableRequests.Add(request);
+            }
+
+            return new SystemProxyOperationResult(true, "enabled");
         }
 
-        public Task<SystemProxyApplyResult> SetEnabledAsync(
-            bool isEnabled,
-            SystemProxyApplicationRequest? request,
-            CancellationToken cancellationToken = default)
+        public SystemProxyOperationResult Disable()
         {
-            if (isEnabled)
-            {
-                lock (_gate)
-                {
-                    _enableRequests.Add(request!);
-                }
-
-                _status = new SystemProxyStatus(true, true);
-            }
-            else
-            {
-                _status = new SystemProxyStatus(false, false);
-            }
-
-            StatusChanged?.Invoke(this, _status);
-
-            return Task.FromResult(new SystemProxyApplyResult(
-                true,
-                isEnabled ? "enabled" : "disabled",
-                _status));
+            return new SystemProxyOperationResult(true, "disabled");
         }
     }
 
@@ -1082,27 +1022,19 @@ public sealed class MainWindowShellTests
 
     private sealed class FakeGlobalHotkeyService : IGlobalHotkeyService
     {
-        public Task<GlobalHotkeyApplyResult> ApplyAsync(
-            GlobalHotkeyAction action,
-            string gesture,
-            CancellationToken cancellationToken = default)
+        public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
         {
-            return Task.FromResult(GlobalHotkeyApplyResult.Success());
+            return GlobalHotkeyApplyResult.Success();
         }
 
-        public Task SetActivationSuppressedAsync(
-            bool isSuppressed,
-            CancellationToken cancellationToken = default)
+        public void SetActivationSuppressed(bool isSuppressed)
         {
-            return Task.CompletedTask;
         }
 
 #if DEBUG
-        public Task<bool> SimulateActivationAsync(
-            GlobalHotkeyAction action,
-            CancellationToken cancellationToken = default)
+        public bool SimulateActivation(GlobalHotkeyAction action)
         {
-            return Task.FromResult(false);
+            return false;
         }
 #endif
 

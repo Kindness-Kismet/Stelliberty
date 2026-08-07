@@ -20,10 +20,7 @@ public static class AutoStartEntryBuilder
     public const string LinuxDesktopFileName = EntryName + ".desktop";
     public const string MacOSLaunchAgentFileName = LaunchAgentLabel + ".plist";
 
-    public static string WindowsScheduledTaskXml(
-        string binaryPath,
-        string? userId = null,
-        bool isSilentStartEnabled = false)
+    public static string WindowsScheduledTaskXml(string binaryPath, string? userId = null)
     {
         var workingDirectory = Path.GetDirectoryName(binaryPath);
         var lines = new List<string>
@@ -86,11 +83,6 @@ public static class AutoStartEntryBuilder
         if (!string.IsNullOrWhiteSpace(workingDirectory))
         {
             lines.Add($"      <WorkingDirectory>{Xml(workingDirectory)}</WorkingDirectory>");
-        }
-
-        if (isSilentStartEnabled)
-        {
-            lines.Add("      <Arguments>--silent-start</Arguments>");
         }
 
         lines.AddRange(

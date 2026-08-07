@@ -7,7 +7,7 @@ using Stelliberty.Application.CoreLogs;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Domain.CoreLogs;
 
-namespace Stelliberty.Infrastructure.Core;
+namespace Stelliberty.Desktop.Services;
 
 internal sealed class CorePipeLogStreamer : IDisposable
 {

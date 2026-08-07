@@ -5,17 +5,13 @@ namespace Stelliberty.Infrastructure.Platform;
 
 public sealed class LinuxAppBehaviorService : IAppBehaviorService
 {
-    private readonly string _binaryPath;
-
-    public LinuxAppBehaviorService(string binaryPath) => _binaryPath = binaryPath;
-
     public void Apply(AppBehaviorApplicationRequest request)
     {
         ApplyAutoStart(request.IsAutoStartEnabled, request.IsSilentStartEnabled);
         AppLogger.Info($"Linux app behavior applied: autoStart={request.IsAutoStartEnabled}");
     }
 
-    private void ApplyAutoStart(bool isEnabled, bool isSilentStartEnabled)
+    private static void ApplyAutoStart(bool isEnabled, bool isSilentStartEnabled)
     {
         var path = AutoStartFilePath();
         if (!isEnabled)
@@ -24,8 +20,15 @@ public sealed class LinuxAppBehaviorService : IAppBehaviorService
             return;
         }
 
+        var binaryPath = Environment.ProcessPath ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(binaryPath))
+        {
+            AppLogger.Warning("Linux autostart path is empty");
+            return;
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, AutoStartEntryBuilder.LinuxDesktopEntry(_binaryPath, isSilentStartEnabled));
+        File.WriteAllText(path, AutoStartEntryBuilder.LinuxDesktopEntry(binaryPath, isSilentStartEnabled));
     }
 
     private static string AutoStartFilePath()

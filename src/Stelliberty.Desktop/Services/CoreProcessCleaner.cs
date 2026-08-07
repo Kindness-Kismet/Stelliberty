@@ -2,9 +2,9 @@ using System.Diagnostics;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Platform;
 
-namespace Stelliberty.Infrastructure.Core;
+namespace Stelliberty.Desktop.Services;
 
-public sealed class CoreProcessCleaner(string serviceDirectory)
+internal sealed class CoreProcessCleaner
 {
     private const string CoreLockSuffix = ".lock";
 
@@ -28,7 +28,7 @@ public sealed class CoreProcessCleaner(string serviceDirectory)
         return CleanupLockedCores(serviceModeStatus.CorePid is { } corePid ? [corePid] : []);
     }
 
-    private CoreProcessCleanupResult CleanupLockedCores(IReadOnlyCollection<int> excludedProcessIds)
+    private static CoreProcessCleanupResult CleanupLockedCores(IReadOnlyCollection<int> excludedProcessIds)
     {
         try
         {
@@ -58,7 +58,7 @@ public sealed class CoreProcessCleaner(string serviceDirectory)
         }
     }
 
-    private bool TryKillLockedCore(int processId)
+    private static bool TryKillLockedCore(int processId)
     {
         try
         {
@@ -80,15 +80,15 @@ public sealed class CoreProcessCleaner(string serviceDirectory)
         }
     }
 
-    private IEnumerable<int> FindLockedCoreProcessIds()
+    private static IEnumerable<int> FindLockedCoreProcessIds()
     {
-        if (!Directory.Exists(serviceDirectory))
+        if (!Directory.Exists(DesktopApplicationLayout.ServiceDirectory))
         {
             yield break;
         }
 
         foreach (var lockPath in Directory.EnumerateFiles(
-            serviceDirectory,
+            DesktopApplicationLayout.ServiceDirectory,
             $"{AppRuntimeNames.CoreLockPrefix}*{CoreLockSuffix}",
             SearchOption.TopDirectoryOnly))
         {
@@ -134,10 +134,10 @@ public sealed class CoreProcessCleaner(string serviceDirectory)
         }
     }
 
-    private void RemoveCoreLock(int processId)
+    private static void RemoveCoreLock(int processId)
     {
         TryDelete(Path.Combine(
-            serviceDirectory,
+            DesktopApplicationLayout.ServiceDirectory,
             $"{AppRuntimeNames.CoreLockPrefix}{processId}{CoreLockSuffix}"));
     }
 
@@ -154,7 +154,7 @@ public sealed class CoreProcessCleaner(string serviceDirectory)
     }
 }
 
-public sealed record CoreProcessCleanupResult(bool IsSuccess, bool IsSkipped, string Message, IReadOnlyList<int> KilledProcessIds)
+internal sealed record CoreProcessCleanupResult(bool IsSuccess, bool IsSkipped, string Message, IReadOnlyList<int> KilledProcessIds)
 {
     public static CoreProcessCleanupResult Success(IReadOnlyList<int> killedProcessIds)
     {

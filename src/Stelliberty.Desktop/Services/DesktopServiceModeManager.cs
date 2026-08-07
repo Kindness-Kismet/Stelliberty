@@ -8,14 +8,9 @@ using Microsoft.Win32;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Platform;
 
-namespace Stelliberty.Infrastructure.Platform;
+namespace Stelliberty.Desktop.Services;
 
-public sealed record ServiceModePaths(
-    string ServiceDirectory,
-    string UpdateBinaryPath,
-    string InstalledBinaryPath);
-
-public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeManager
+internal sealed class DesktopServiceModeManager : IServiceModeManager
 {
     // 管理超时覆盖提权和服务操作；Rust IPC 超时只约束一次本地调用。
     private static readonly TimeSpan StatusTimeout = TimeSpan.FromSeconds(5);
@@ -88,7 +83,7 @@ public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeMan
 
     public async Task<ServiceModeOperationResult> InstallOrUpdateAsync(CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(paths.UpdateBinaryPath))
+        if (!File.Exists(DesktopApplicationLayout.ServiceCommandBinaryPath))
         {
             return ServiceModeOperationResult.Failed("Service executable is missing. Run prebuild or rebuild the app first.");
         }
@@ -124,7 +119,7 @@ public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeMan
             true,
             ManageTimeout,
             cancellationToken,
-            binaryPath: paths.InstalledBinaryPath).ConfigureAwait(false);
+            binaryPath: DesktopApplicationLayout.ServiceInstalledBinaryPath).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             return result;
@@ -138,10 +133,10 @@ public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeMan
 
     public async Task<ServiceModeOperationResult> UninstallAsync(CancellationToken cancellationToken = default)
     {
-        var commandBinaryPath = File.Exists(paths.InstalledBinaryPath)
-            ? paths.InstalledBinaryPath
-            : File.Exists(paths.UpdateBinaryPath)
-                ? paths.UpdateBinaryPath
+        var commandBinaryPath = File.Exists(DesktopApplicationLayout.ServiceInstalledBinaryPath)
+            ? DesktopApplicationLayout.ServiceInstalledBinaryPath
+            : File.Exists(DesktopApplicationLayout.ServiceCommandBinaryPath)
+                ? DesktopApplicationLayout.ServiceCommandBinaryPath
                 : null;
         if (commandBinaryPath is null)
         {
@@ -200,7 +195,7 @@ public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeMan
         return RunServiceCommandAsync("heartbeat", false, StatusTimeout, cancellationToken);
     }
 
-    private async Task<ServiceModeOperationResult> RunServiceCommandAsync(
+    private static async Task<ServiceModeOperationResult> RunServiceCommandAsync(
         string command,
         bool elevated,
         TimeSpan timeout,
@@ -269,19 +264,19 @@ public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeMan
         }
     }
 
-    private ServiceModeOperationResult CopyServiceUpdateToInstalled()
+    private static ServiceModeOperationResult CopyServiceUpdateToInstalled()
     {
         try
         {
-            Directory.CreateDirectory(paths.ServiceDirectory);
+            Directory.CreateDirectory(DesktopApplicationLayout.ServiceDirectory);
             File.Copy(
-                paths.UpdateBinaryPath,
-                paths.InstalledBinaryPath,
+                DesktopApplicationLayout.ServiceCommandBinaryPath,
+                DesktopApplicationLayout.ServiceInstalledBinaryPath,
                 overwrite: true);
             if (!OperatingSystem.IsWindows())
             {
                 File.SetUnixFileMode(
-                    paths.InstalledBinaryPath,
+                    DesktopApplicationLayout.ServiceInstalledBinaryPath,
                     UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
                     UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
                     UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
@@ -297,14 +292,14 @@ public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeMan
         }
     }
 
-    private string? InstalledServiceBinaryPath()
+    private static string? InstalledServiceBinaryPath()
     {
-        return File.Exists(paths.InstalledBinaryPath)
-            ? paths.InstalledBinaryPath
+        return File.Exists(DesktopApplicationLayout.ServiceInstalledBinaryPath)
+            ? DesktopApplicationLayout.ServiceInstalledBinaryPath
             : null;
     }
 
-    private ServiceModeStatus? DetectServiceRepairStatus()
+    private static ServiceModeStatus? DetectServiceRepairStatus()
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -345,8 +340,8 @@ public sealed class ServiceModeManager(ServiceModePaths paths) : IServiceModeMan
                 return new ServiceModeStatus(ServiceModeState.NeedsRepair, "Service mode is installed but needs repair.");
             }
 
-            var expectedPath = Path.GetFullPath(paths.InstalledBinaryPath);
-            if (!File.Exists(paths.InstalledBinaryPath))
+            var expectedPath = Path.GetFullPath(DesktopApplicationLayout.ServiceInstalledBinaryPath);
+            if (!File.Exists(DesktopApplicationLayout.ServiceInstalledBinaryPath))
             {
                 return new ServiceModeStatus(ServiceModeState.NeedsRepair, "Service mode is installed but needs repair.");
             }

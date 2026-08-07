@@ -25,19 +25,19 @@ public sealed partial class SettingsAppBehaviorView : UserControl
         }
     }
 
-    private async void OnWindowToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
+    private void OnWindowToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
     {
-        await ApplyHotkeyAsync(args, viewModel => viewModel.AppBehavior.SetWindowToggleHotkeyAsync);
+        ApplyHotkey(args, viewModel => viewModel.AppBehavior.SetWindowToggleHotkey);
     }
 
-    private async void OnSystemProxyToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
+    private void OnSystemProxyToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
     {
-        await ApplyHotkeyAsync(args, viewModel => viewModel.AppBehavior.SetSystemProxyToggleHotkeyAsync);
+        ApplyHotkey(args, viewModel => viewModel.AppBehavior.SetSystemProxyToggleHotkey);
     }
 
-    private async void OnTunToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
+    private void OnTunToggleHotkeyKeyDown(object? sender, KeyEventArgs args)
     {
-        await ApplyHotkeyAsync(args, viewModel => viewModel.AppBehavior.SetTunToggleHotkeyAsync);
+        ApplyHotkey(args, viewModel => viewModel.AppBehavior.SetTunToggleHotkey);
     }
 
     private void OnHotkeyBoxGotFocus(object? sender, RoutedEventArgs args)
@@ -62,9 +62,7 @@ public sealed partial class SettingsAppBehaviorView : UserControl
         }, DispatcherPriority.Background);
     }
 
-    private async Task ApplyHotkeyAsync(
-        KeyEventArgs args,
-        Func<MainWindowViewModel, Func<string, Task>> resolveSetter)
+    private void ApplyHotkey(KeyEventArgs args, Func<MainWindowViewModel, Action<string>> resolveSetter)
     {
         if (DataContext is not MainWindowViewModel viewModel)
         {
@@ -84,7 +82,7 @@ public sealed partial class SettingsAppBehaviorView : UserControl
         if (args.KeyModifiers.HasFlag(KeyModifiers.Meta)) parts.Add("Win");
         parts.Add(ShortcutKeyName(args.Key));
 
-        await resolveSetter(viewModel)(string.Join('+', parts));
+        resolveSetter(viewModel)(string.Join('+', parts));
         args.Handled = true;
     }
 

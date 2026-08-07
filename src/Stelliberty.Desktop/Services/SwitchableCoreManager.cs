@@ -2,9 +2,11 @@ using Stelliberty.Application.CoreLogs;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Domain.CoreLogs;
-namespace Stelliberty.Infrastructure.Core;
+using Stelliberty.Infrastructure.Core;
 
-public sealed class SwitchableCoreManager : IReadyCoreManager, IDisposable, IAsyncDisposable
+namespace Stelliberty.Desktop.Services;
+
+internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncDisposable
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private ICoreManager _current;
@@ -190,9 +192,14 @@ public sealed class SwitchableCoreManager : IReadyCoreManager, IDisposable, IAsy
 
     private static async Task<CoreSnapshot> EnsureCoreReadyAsync(ICoreManager core, CancellationToken cancellationToken)
     {
-        if (core is IReadyCoreManager readyCoreManager)
+        switch (core)
         {
-            await readyCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+            case IpcCoreManager ipcCoreManager:
+                await ipcCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case ServiceModeCoreManager serviceModeCoreManager:
+                await serviceModeCoreManager.EnsureReadyAsync(cancellationToken).ConfigureAwait(false);
+                break;
         }
 
         return await core.GetSnapshotAsync(cancellationToken).ConfigureAwait(false);
@@ -243,7 +250,7 @@ public sealed class SwitchableCoreManager : IReadyCoreManager, IDisposable, IAsy
         }
     }
 
-    public sealed class CoreTransition : IDisposable
+    internal sealed class CoreTransition : IDisposable
     {
         private SwitchableCoreManager? _owner;
 
