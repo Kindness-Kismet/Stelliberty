@@ -68,6 +68,11 @@ public sealed partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            _traySession = DesktopLaunchContext.TraySession
+                ?? throw new InvalidOperationException("Desktop UI tray session is unavailable.");
+            _traySession.ActivationRequested += OnTrayActivationRequested;
+            _traySession.ToggleRequested += OnTrayToggleRequested;
+            _traySession.Disconnected += OnTrayDisconnected;
 #if DEBUG
             var startupStartedAt = Stopwatch.GetTimestamp();
             LogStartupTrace("Framework initialization started", startupStartedAt);
@@ -403,6 +408,12 @@ public sealed partial class App : Avalonia.Application
                 DataContext = viewModel
             };
             _mainWindow = mainWindow;
+            mainWindow.CanExitToBackground = true;
+            if (_traySession.IsDisconnected)
+            {
+                mainWindow.RequestUiShutdown();
+            }
+
             mainWindow.PrepareShutdownAsync = async () =>
             {
                 await UnregisterTraySessionAsync();
@@ -456,7 +467,12 @@ public sealed partial class App : Avalonia.Application
                     : isOsShutdown ? "os" : "external";
                 AppLogger.Info($"Lifetime cleanup started: origin={source}");
                 StopBackgroundServices();
-                _traySession?.Dispose();
+                if (_traySession is not null)
+                {
+                    _traySession.ActivationRequested -= OnTrayActivationRequested;
+                    _traySession.ToggleRequested -= OnTrayToggleRequested;
+                    _traySession.Disconnected -= OnTrayDisconnected;
+                }
                 _traySession = null;
                 _mainWindow = null;
                 globalHotkeyService.Dispose();
@@ -496,22 +512,13 @@ public sealed partial class App : Avalonia.Application
                     isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
                 _sessionEndCleanup.Start();
             }
-            Task<bool> trayRegistration = Task.FromResult(true);
-            if (DesktopLaunchContext.TraySessionToken is { } sessionToken)
-            {
-                _traySession = new DesktopTraySession();
-                _traySession.ActivationRequested += OnTrayActivationRequested;
-                _traySession.ToggleRequested += OnTrayToggleRequested;
-                _traySession.Disconnected += OnTrayDisconnected;
-                trayRegistration = RegisterTraySessionAsync(sessionToken, mainWindow);
-            }
             if (!UsesTrayRuntime)
             {
                 _ = RegisterGlobalHotkeysAsync(globalHotkeyService, settings);
             }
 #if DEBUG
             LogStartupTrace(
-                UsesTrayRuntime ? "Background tray session initialized" : "Direct UI initialized",
+                "Background tray session initialized",
                 startupStartedAt);
 #endif
 #if DEBUG
@@ -519,16 +526,11 @@ public sealed partial class App : Avalonia.Application
 #endif
             // 首屏出现后再启动重活，保持窗口启动响应。
             Dispatcher.UIThread.Post(
-                async () =>
+                () =>
                 {
 #if DEBUG
                     LogStartupTrace("Background startup dispatch entered", startupStartedAt);
 #endif
-                    if (!await trayRegistration)
-                    {
-                        return;
-                    }
-
                     _ = RunAppUpdateCheckAsync(() => autoUpdateRunner.RunStartupCheckAsync());
                     StartAppUpdateAutoCheckTimer(autoUpdateRunner);
                     StartSubscriptionAutoDelayTimer(viewModel);
@@ -545,29 +547,6 @@ public sealed partial class App : Avalonia.Application
         }
 
         base.OnFrameworkInitializationCompleted();
-    }
-
-    private async Task<bool> RegisterTraySessionAsync(string sessionToken, MainWindow mainWindow)
-    {
-        try
-        {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await _traySession!.RegisterAsync(sessionToken, timeout.Token);
-            if (!_traySession.CanExitToBackground)
-            {
-                throw new InvalidOperationException("Tray host did not provide a background tray.");
-            }
-
-            mainWindow.CanExitToBackground = true;
-            AppLogger.Info($"Desktop UI session registered: pid={Environment.ProcessId}");
-            return true;
-        }
-        catch (Exception exception)
-        {
-            AppLogger.Error(exception, "Desktop UI session registration failed");
-            mainWindow.RequestShutdown();
-            return false;
-        }
     }
 
     private async Task UnregisterTraySessionAsync()
@@ -899,7 +878,7 @@ public sealed partial class App : Avalonia.Application
         return CreateNormalCoreManager();
     }
 
-    private static bool UsesTrayRuntime => DesktopLaunchContext.TraySessionToken is not null;
+    private static bool UsesTrayRuntime => DesktopLaunchContext.TraySession is not null;
 
     private static ICoreManager CreateNormalCoreManager()
     {
@@ -1054,17 +1033,17 @@ public sealed partial class App : Avalonia.Application
     {
         if (OperatingSystem.IsWindows())
         {
-            return new WindowsAppBehaviorService();
+            return new WindowsAppBehaviorService(DesktopApplicationLayout.TrayBinaryPath);
         }
 
         if (OperatingSystem.IsLinux())
         {
-            return new LinuxAppBehaviorService();
+            return new LinuxAppBehaviorService(DesktopApplicationLayout.TrayBinaryPath);
         }
 
         if (OperatingSystem.IsMacOS())
         {
-            return new MacOSAppBehaviorService();
+            return new MacOSAppBehaviorService(DesktopApplicationLayout.TrayBinaryPath);
         }
 
         return new UnsupportedAppBehaviorService();

@@ -1,41 +1,24 @@
 namespace Stelliberty.Desktop;
 
-internal enum DesktopLaunchMode
-{
-    TrayUi,
-    DirectUi,
-    Invalid,
-}
-
 internal sealed record DesktopLaunchArguments(
-    DesktopLaunchMode Mode,
-    string? TraySessionToken,
+    string TraySessionToken,
     string[] AvaloniaArguments)
 {
     private const string UiArgument = "--ui";
-    private const string DirectUiArgument = "--direct-ui";
     private const string TraySessionArgument = "--tray-session";
 
-    public static DesktopLaunchArguments Parse(string[] args)
+    public static DesktopLaunchArguments? Parse(string[] args)
     {
-        if (args.Contains(DirectUiArgument, StringComparer.Ordinal))
-        {
-            return new DesktopLaunchArguments(
-                DesktopLaunchMode.DirectUi,
-                null,
-                args.Where(argument => argument != DirectUiArgument).ToArray());
-        }
-
         var uiIndex = Array.IndexOf(args, UiArgument);
         if (uiIndex < 0)
         {
-            return new DesktopLaunchArguments(DesktopLaunchMode.Invalid, null, []);
+            return null;
         }
 
         var sessionIndex = Array.IndexOf(args, TraySessionArgument);
         if (sessionIndex < 0 || sessionIndex + 1 >= args.Length || string.IsNullOrWhiteSpace(args[sessionIndex + 1]))
         {
-            return new DesktopLaunchArguments(DesktopLaunchMode.Invalid, null, []);
+            return null;
         }
 
         var internalIndexes = new HashSet<int> { uiIndex, sessionIndex, sessionIndex + 1 };
@@ -43,7 +26,6 @@ internal sealed record DesktopLaunchArguments(
             .Where((_, index) => !internalIndexes.Contains(index))
             .ToArray();
         return new DesktopLaunchArguments(
-            DesktopLaunchMode.TrayUi,
             args[sessionIndex + 1],
             avaloniaArguments);
     }

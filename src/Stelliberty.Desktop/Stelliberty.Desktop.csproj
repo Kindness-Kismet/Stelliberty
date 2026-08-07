@@ -8,10 +8,6 @@
     <ApplicationIcon>Assets\win\app_icon.ico</ApplicationIcon>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <OutputType>Exe</OutputType>
-  </PropertyGroup>
-
   <ItemGroup>
     <InternalsVisibleTo Include="Stelliberty.Shell.Tests" />
   </ItemGroup>

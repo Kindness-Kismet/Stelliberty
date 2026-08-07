@@ -7,12 +7,14 @@ import time
 from pathlib import Path
 
 from build_support.models import AppMetadata
-from build_support.paths import BUILD_DIR
+from build_support.paths import BUILD_DIR, DEPS_DIRECTORY
 
 
 def close_running_output_app(metadata: AppMetadata, output_dir: Path) -> None:
     close_running_binary(output_binary_path(metadata.app_name, output_dir))
-    close_running_binary(output_binary_path(f"{metadata.app_name}-ui", output_dir))
+    ui_name = f"{metadata.app_name}-ui"
+    close_running_binary(output_binary_path(ui_name, output_dir / DEPS_DIRECTORY))
+    close_running_binary(output_binary_path(ui_name, output_dir))
 
 
 def close_running_binary(binary_path: Path) -> None:

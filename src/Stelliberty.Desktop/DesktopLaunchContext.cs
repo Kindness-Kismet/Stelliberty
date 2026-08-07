@@ -1,6 +1,8 @@
+using Stelliberty.Desktop.Services;
+
 namespace Stelliberty.Desktop;
 
 internal static class DesktopLaunchContext
 {
-    public static string? TraySessionToken { get; set; }
+    public static DesktopTraySession? TraySession { get; set; }
 }

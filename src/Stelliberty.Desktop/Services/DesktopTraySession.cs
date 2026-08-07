@@ -6,6 +6,7 @@ internal sealed class DesktopTraySession : IDisposable
 {
     private readonly TrayIpcClient _client = new();
     private string? _sessionId;
+    private int _isDisconnected;
 
     public event EventHandler? ActivationRequested;
 
@@ -14,6 +15,8 @@ internal sealed class DesktopTraySession : IDisposable
     public event EventHandler? Disconnected;
 
     public bool CanExitToBackground { get; private set; }
+
+    public bool IsDisconnected => Volatile.Read(ref _isDisconnected) != 0;
 
     public async Task RegisterAsync(string sessionToken, CancellationToken cancellationToken)
     {
@@ -50,8 +53,11 @@ internal sealed class DesktopTraySession : IDisposable
     private void OnToggleRequested(object? sender, EventArgs args) =>
         ToggleRequested?.Invoke(this, EventArgs.Empty);
 
-    private void OnDisconnected(object? sender, EventArgs args) =>
+    private void OnDisconnected(object? sender, EventArgs args)
+    {
+        Interlocked.Exchange(ref _isDisconnected, 1);
         Disconnected?.Invoke(this, EventArgs.Empty);
+    }
 
     public void Dispose()
     {

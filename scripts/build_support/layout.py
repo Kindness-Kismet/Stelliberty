@@ -68,13 +68,13 @@ def organize_dependency_directory(output_dir: Path, metadata: AppMetadata, confi
     deps_dir.mkdir(parents=True, exist_ok=True)
 
     remove_release_symbols(output_dir, configuration)
+    move_ui_host_files(output_dir, deps_dir, metadata)
     moved_files = move_dependency_files(output_dir, deps_dir, root_files(metadata), configuration)
-    rewrite_dependency_manifests(output_dir, metadata, moved_files)
+    rewrite_dependency_manifest(output_dir / f"{metadata.app_name}.deps.json", moved_files)
 
 
 def root_files(metadata: AppMetadata) -> set[str]:
     tray_name = metadata.app_name
-    ui_name = f"{metadata.app_name}-ui"
     return HOST_STARTUP_FILE_NAMES | {
         tray_name,
         f"{tray_name}.dll",
@@ -82,6 +82,12 @@ def root_files(metadata: AppMetadata) -> set[str]:
         f"{tray_name}.deps.json",
         f"{tray_name}.pdb",
         f"{tray_name}.runtimeconfig.json",
+    }
+
+
+def move_ui_host_files(output_dir: Path, deps_dir: Path, metadata: AppMetadata) -> None:
+    ui_name = f"{metadata.app_name}-ui"
+    file_names = {
         ui_name,
         f"{ui_name}.dll",
         f"{ui_name}.exe",
@@ -89,6 +95,15 @@ def root_files(metadata: AppMetadata) -> set[str]:
         f"{ui_name}.pdb",
         f"{ui_name}.runtimeconfig.json",
     }
+    for file_name in file_names:
+        source = output_dir / file_name
+        if not source.exists():
+            continue
+
+        target = deps_dir / file_name
+        if target.exists():
+            target.unlink()
+        shutil.move(str(source), target)
 
 
 def remove_release_symbols(output_dir: Path, configuration: str) -> None:
@@ -134,11 +149,6 @@ def should_move_dependency_file(path: Path, configuration: str) -> bool:
 def is_versioned_shared_object(path: Path) -> bool:
     name = path.name
     return name.startswith("lib") and ".so." in name
-
-
-def rewrite_dependency_manifests(output_dir: Path, metadata: AppMetadata, moved_files: set[str]) -> None:
-    rewrite_dependency_manifest(output_dir / f"{metadata.app_name}.deps.json", moved_files)
-    rewrite_dependency_manifest(output_dir / f"{metadata.app_name}-ui.deps.json", moved_files)
 
 
 def rewrite_dependency_manifest(deps_path: Path, moved_files: set[str]) -> None:

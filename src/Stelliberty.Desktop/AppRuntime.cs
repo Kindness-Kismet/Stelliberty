@@ -6,7 +6,6 @@ using HotAvalonia;
 #endif
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Platform;
-using Stelliberty.Desktop.Services;
 
 namespace Stelliberty.Desktop;
 
@@ -15,15 +14,9 @@ internal static class AppRuntime
     private static string AppFontFamily => $"avares://{AppRuntimeNames.UiResourceAuthority}/Assets/fonts#Google Sans";
     private static string CjkFontFamily => $"avares://{AppRuntimeNames.UiResourceAuthority}/Assets/fonts#Noto Sans SC";
 
-    public static void RunUi(string[] args, bool enforceDesktopSingleInstance)
+    public static void RunUi(string[] args)
     {
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
-
-        using var singleInstance = enforceDesktopSingleInstance ? new SingleInstanceService() : null;
-        if (singleInstance is { OwnsInstance: false })
-        {
-            return;
-        }
 
         AppLogger.Info("Desktop UI startup");
 

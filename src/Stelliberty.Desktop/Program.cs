@@ -12,18 +12,38 @@ internal static class Program
     {
         Console.OutputEncoding = Encoding.UTF8;
         var launch = DesktopLaunchArguments.Parse(args);
-        if (launch.Mode == DesktopLaunchMode.Invalid)
+        if (launch is null)
         {
-            AppLogger.Configure(new CapturedAppLogger());
-            AppLogger.Error("Desktop UI launch arguments are invalid");
-            return 2;
+            return 0;
+        }
+
+        using var traySession = new DesktopTraySession();
+        try
+        {
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            // Avalonia 必须继续使用入口 STA 线程，因此只在进程边界同步等待托盘授权。
+            traySession.RegisterAsync(launch.TraySessionToken, timeout.Token).GetAwaiter().GetResult();
+            if (!traySession.CanExitToBackground)
+            {
+                return 1;
+            }
+        }
+        catch
+        {
+            return 1;
         }
 
         ConfigureUiProcess();
-        DesktopLaunchContext.TraySessionToken = launch.TraySessionToken;
-        AppRuntime.RunUi(
-            launch.AvaloniaArguments,
-            enforceDesktopSingleInstance: launch.Mode == DesktopLaunchMode.DirectUi);
+        DesktopLaunchContext.TraySession = traySession;
+        try
+        {
+            AppRuntime.RunUi(launch.AvaloniaArguments);
+        }
+        finally
+        {
+            DesktopLaunchContext.TraySession = null;
+        }
+
         return 0;
     }
 

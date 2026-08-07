@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.IO.Pipes;
 using System.Net.Sockets;
@@ -148,15 +149,9 @@ public sealed class TrayIpcServer : IAsyncDisposable
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    var line = await connection.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+                    var line = await connection.ReadLineAsync(MaxFrameBytes, cancellationToken).ConfigureAwait(false);
                     if (line is null)
                     {
-                        return;
-                    }
-
-                    if (Encoding.UTF8.GetByteCount(line) > MaxFrameBytes)
-                    {
-                        AppLogger.Warning("Tray IPC connection closed after an oversized request");
                         return;
                     }
 
@@ -173,6 +168,14 @@ public sealed class TrayIpcServer : IAsyncDisposable
             }
             catch (SocketException)
             {
+            }
+            catch (TrayIpcFrameTooLargeException)
+            {
+                AppLogger.Warning("Tray IPC connection closed after an oversized request");
+            }
+            catch (DecoderFallbackException)
+            {
+                AppLogger.Warning("Tray IPC rejected invalid UTF-8");
             }
             catch (JsonException exception)
             {
@@ -252,15 +255,17 @@ public sealed class TrayIpcServer : IAsyncDisposable
 
 public sealed class TrayIpcConnection : IAsyncDisposable
 {
+    private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private readonly Stream _stream;
-    private readonly StreamReader _reader;
     private readonly StreamWriter _writer;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
+    private readonly byte[] _readBuffer = new byte[8192];
+    private int _readOffset;
+    private int _readLength;
 
     internal TrayIpcConnection(Stream stream)
     {
         _stream = stream;
-        _reader = new StreamReader(stream, Encoding.UTF8, false, 8192, leaveOpen: true);
         _writer = new StreamWriter(stream, new UTF8Encoding(false), 8192, leaveOpen: true)
         {
             AutoFlush = false,
@@ -270,8 +275,51 @@ public sealed class TrayIpcConnection : IAsyncDisposable
 
     public Guid Id { get; } = Guid.NewGuid();
 
-    internal ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken) =>
-        _reader.ReadLineAsync(cancellationToken);
+    internal async ValueTask<string?> ReadLineAsync(int maxFrameBytes, CancellationToken cancellationToken)
+    {
+        var line = new ArrayBufferWriter<byte>(Math.Min(_readBuffer.Length, maxFrameBytes));
+        while (true)
+        {
+            if (_readOffset == _readLength)
+            {
+                _readLength = await _stream.ReadAsync(_readBuffer, cancellationToken).ConfigureAwait(false);
+                _readOffset = 0;
+                if (_readLength == 0)
+                {
+                    return line.WrittenCount == 0 ? null : DecodeLine(line.WrittenSpan);
+                }
+            }
+
+            var unread = _readBuffer.AsSpan(_readOffset, _readLength - _readOffset);
+            var newlineIndex = unread.IndexOf((byte)'\n');
+            var chunkLength = newlineIndex >= 0 ? newlineIndex : unread.Length;
+            if (line.WrittenCount > maxFrameBytes - chunkLength)
+            {
+                throw new TrayIpcFrameTooLargeException();
+            }
+
+            unread[..chunkLength].CopyTo(line.GetSpan(chunkLength));
+            line.Advance(chunkLength);
+            _readOffset += chunkLength;
+            if (newlineIndex < 0)
+            {
+                continue;
+            }
+
+            _readOffset++;
+            return DecodeLine(line.WrittenSpan);
+        }
+    }
+
+    private static string DecodeLine(ReadOnlySpan<byte> bytes)
+    {
+        if (!bytes.IsEmpty && bytes[^1] == '\r')
+        {
+            bytes = bytes[..^1];
+        }
+
+        return StrictUtf8.GetString(bytes);
+    }
 
     public Task SendEventAsync(string eventName, object data, CancellationToken cancellationToken) =>
         WriteAsync(new { @event = eventName, data }, cancellationToken);
@@ -307,8 +355,11 @@ public sealed class TrayIpcConnection : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await _writer.DisposeAsync().ConfigureAwait(false);
-        _reader.Dispose();
         await _stream.DisposeAsync().ConfigureAwait(false);
         _writeGate.Dispose();
     }
+}
+
+internal sealed class TrayIpcFrameTooLargeException : Exception
+{
 }

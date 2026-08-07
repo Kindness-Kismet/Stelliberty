@@ -12,6 +12,9 @@ public sealed class WindowsAppBehaviorService : IAppBehaviorService
 {
     private static readonly TimeSpan SchtasksTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ElevatedSchtasksTimeout = TimeSpan.FromMinutes(2);
+    private readonly string _binaryPath;
+
+    public WindowsAppBehaviorService(string binaryPath) => _binaryPath = binaryPath;
 
     public void Apply(AppBehaviorApplicationRequest request)
     {
@@ -19,7 +22,7 @@ public sealed class WindowsAppBehaviorService : IAppBehaviorService
         AppLogger.Info($"Windows app behavior applied: autoStart={request.IsAutoStartEnabled}");
     }
 
-    private static void ApplyAutoStart(bool isEnabled, bool isSilentStartEnabled)
+    private void ApplyAutoStart(bool isEnabled, bool isSilentStartEnabled)
     {
         if (!isEnabled)
         {
@@ -31,9 +34,7 @@ public sealed class WindowsAppBehaviorService : IAppBehaviorService
             return;
         }
 
-        var binaryPath = Path.Combine(AppContext.BaseDirectory, AppRuntimeNames.TrayBinaryName);
-
-        if (!RegisterScheduledTask(binaryPath, isSilentStartEnabled))
+        if (!RegisterScheduledTask(_binaryPath, isSilentStartEnabled))
         {
             throw new InvalidOperationException("Windows autostart scheduled task registration failed.");
         }
