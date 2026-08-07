@@ -26,7 +26,8 @@ internal sealed class TrayRuntime
 
         try
         {
-            var uiSessions = new UiSessionManager(new DesktopUiLauncher());
+            await using var uiLauncher = new DesktopUiLauncher();
+            var uiSessions = new UiSessionManager(uiLauncher);
             var coreLogs = new CoreLogJournal();
             await using var coreRuntime = new TrayCoreRuntimeHost(coreLogs);
             await using var runtimeMonitor = new RuntimeTrafficMonitor(
@@ -64,6 +65,7 @@ internal sealed class TrayRuntime
             }
 
             await server.Completion.ConfigureAwait(false);
+            await uiLauncher.DisposeAsync().ConfigureAwait(false);
             AppLogger.Info("Tray shutdown");
             return 0;
         }
