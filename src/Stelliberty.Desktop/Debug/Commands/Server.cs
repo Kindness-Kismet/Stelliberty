@@ -150,7 +150,7 @@ internal static partial class DebugCommands
 
         if (command.StartsWith("hotkey.trigger ", StringComparison.OrdinalIgnoreCase))
         {
-            return ExecuteHotkeyCommandAsync(window, command);
+            return Task.FromResult<string?>(ExecuteHotkeyCommand(window, command));
         }
 
         throw new InvalidOperationException($"Unknown command: {command}");

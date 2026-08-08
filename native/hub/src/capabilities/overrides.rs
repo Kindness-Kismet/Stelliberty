@@ -9,6 +9,14 @@ use serde_yaml_ng::{Mapping, Value as Yaml};
 const JS_MEMORY_LIMIT: usize = 8 * 1024 * 1024;
 const JS_OUTPUT_LIMIT: usize = 1024 * 1024;
 const JS_TIMEOUT: Duration = Duration::from_secs(2);
+const JS_CONSOLE_POLYFILL: &str = r#"
+globalThis.console = globalThis.console || {};
+globalThis.console.log = globalThis.console.log || function() {};
+globalThis.console.info = globalThis.console.info || function() {};
+globalThis.console.warn = globalThis.console.warn || function() {};
+globalThis.console.error = globalThis.console.error || function() {};
+globalThis.console.debug = globalThis.console.debug || function() {};
+"#;
 
 pub fn apply_yaml(base: &str, over: &str) -> Result<String> {
     let base_val: Yaml = serde_yaml_ng::from_str(base).context("Failed to parse base config")?;
@@ -32,8 +40,10 @@ pub fn apply_js(base: &str, js_code: &str) -> Result<String> {
     let context = JsContext::full(&runtime).context("Failed to create JS context")?;
 
     let result_json: String = context.with(|ctx| -> Result<String> {
-        // 预声明 proxies，承接隐式全局写入；空返回回退为空字符串。
-        let script = format!("var proxies;\n{js_code}\n;JSON.stringify(main({json_str})) || '';");
+        // console 只兼容常见日志调用，不输出参数，避免泄露订阅内容。
+        let script = format!(
+            "{JS_CONSOLE_POLYFILL}\nvar proxies;\n{js_code}\n;JSON.stringify(main({json_str})) || '';"
+        );
         ctx.eval::<String, _>(script)
             .catch(&ctx)
             .map_err(|e| anyhow!("JS execution failed: {e}"))

@@ -412,6 +412,7 @@
   "Overrides.Validation.Url": "覆写地址必须以 http:// 或 https:// 开头",
   "RuntimeConfig.Toast.LoadFailedRevertFailed": "订阅配置加载失败，切回空配置也失败",
   "RuntimeConfig.Toast.RefreshFailed": "运行配置刷新失败",
+  "RuntimeConfig.Toast.OverridesDisabled": "覆写执行失败，已自动停用并恢复原配置",
   "RuntimeConfig.Toast.LoadFailedReverted": "订阅配置无法被核心加载，已切回空配置",
   "Settings.Header.Root": "设置",
   "Settings.Header.Theme": "主题",

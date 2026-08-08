@@ -127,7 +127,7 @@ public sealed class SettingsPageBusinessTests
     }
 
     [Fact(DisplayName = "App behavior rejects a shortcut already used by another action")]
-    public async Task AppBehaviorRejectsDuplicateShortcut()
+    public void AppBehaviorRejectsDuplicateShortcut()
     {
         var settings = new AppSettings { WindowToggleHotkey = "Ctrl+F1" };
         var store = new FakeSettingsStore(settings);
@@ -142,7 +142,7 @@ public sealed class SettingsPageBusinessTests
             new FakeAppBehaviorService(),
             hotkeys);
 
-        await viewModel.SetSystemProxyToggleHotkeyAsync("Ctrl+F1");
+        viewModel.SetSystemProxyToggleHotkey("Ctrl+F1");
 
         Assert.Equal(string.Empty, settings.SystemProxyToggleHotkey);
         Assert.Equal(0, store.SaveCount);
@@ -181,8 +181,8 @@ public sealed class SettingsPageBusinessTests
         Assert.Equal([GlobalHotkeyAction.ToggleWindow], actions);
     }
 
-    [Fact(DisplayName = "Changing silent start refreshes an enabled platform startup entry")]
-    public void ChangingSilentStartRefreshesEnabledPlatformStartupEntry()
+    [Fact(DisplayName = "Changing silent start does not reconfigure platform startup")]
+    public void ChangingSilentStartDoesNotReconfigurePlatformStartup()
     {
         var settings = new AppSettings { IsAutoStartEnabled = true };
         var store = new FakeSettingsStore(settings);
@@ -191,9 +191,7 @@ public sealed class SettingsPageBusinessTests
 
         viewModel.IsSilentStartEnabled = true;
 
-        Assert.Equal(1, service.ApplyCount);
-        Assert.True(service.LastRequest!.IsSilentStartEnabled);
-        Assert.True(service.LastRequest.IsAutoStartEnabled);
+        Assert.Equal(0, service.ApplyCount);
         Assert.True(settings.IsSilentStartEnabled);
         Assert.Equal(1, store.SaveCount);
     }
@@ -1256,28 +1254,20 @@ public sealed class SettingsPageBusinessTests
 
         public GlobalHotkeyAction LastAction { get; private set; }
 
-        public Task<GlobalHotkeyApplyResult> ApplyAsync(
-            GlobalHotkeyAction action,
-            string gesture,
-            CancellationToken cancellationToken = default)
+        public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
         {
             LastAction = action;
-            return Task.FromResult(NextResult);
+            return NextResult;
         }
 
-        public Task SetActivationSuppressedAsync(
-            bool isSuppressed,
-            CancellationToken cancellationToken = default)
+        public void SetActivationSuppressed(bool isSuppressed)
         {
-            return Task.CompletedTask;
         }
 
 #if DEBUG
-        public Task<bool> SimulateActivationAsync(
-            GlobalHotkeyAction action,
-            CancellationToken cancellationToken = default)
+        public bool SimulateActivation(GlobalHotkeyAction action)
         {
-            return Task.FromResult(false);
+            return false;
         }
 #endif
 

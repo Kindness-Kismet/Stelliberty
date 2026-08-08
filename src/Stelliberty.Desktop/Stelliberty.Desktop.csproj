@@ -1,11 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <AssemblyName>$(AppName)-ui</AssemblyName>
+    <AssemblyName>$(AppName)</AssemblyName>
     <Version>$(AppVersion)</Version>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     <HotAvaloniaAutoEnable>false</HotAvaloniaAutoEnable>
     <ApplicationIcon>Assets\win\app_icon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <OutputType>Exe</OutputType>
   </PropertyGroup>
 
   <ItemGroup>
@@ -36,6 +40,11 @@
     <AvaloniaResource Include="Assets\fonts\**" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <AvaloniaResource Include="Assets\win\**" />
+    <AvaloniaResource Include="Assets\linux\**" />
+    <AvaloniaResource Include="Assets\macos\**" />
+  </ItemGroup>
   <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
     <AvaloniaResource Include="Assets\win\**" />
   </ItemGroup>

@@ -3,7 +3,7 @@ using System.Runtime.Versioning;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Platform;
 
-namespace Stelliberty.Infrastructure.Platform;
+namespace Stelliberty.Desktop.Services;
 
 [SupportedOSPlatform("windows")]
 internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
@@ -33,16 +33,7 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
         Initialize();
     }
 
-    public Task<GlobalHotkeyApplyResult> ApplyAsync(
-        GlobalHotkeyAction action,
-        string gesture,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Apply(action, gesture));
-    }
-
-    private GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
+    public GlobalHotkeyApplyResult Apply(GlobalHotkeyAction action, string gesture)
     {
         if (string.IsNullOrWhiteSpace(gesture))
         {
@@ -102,23 +93,15 @@ internal sealed class WindowsGlobalHotkeyService : IGlobalHotkeyService
         }
     }
 
-    public Task SetActivationSuppressedAsync(
-        bool isSuppressed,
-        CancellationToken cancellationToken = default)
+    public void SetActivationSuppressed(bool isSuppressed)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         _activationController.SetSuppressed(isSuppressed);
-        return Task.CompletedTask;
     }
 
 #if DEBUG
-    public Task<bool> SimulateActivationAsync(
-        GlobalHotkeyAction action,
-        CancellationToken cancellationToken = default)
+    public bool SimulateActivation(GlobalHotkeyAction action)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(
-            _registeredHotkeys.ContainsKey(action) && _activationController.TryActivate(action));
+        return _registeredHotkeys.ContainsKey(action) && _activationController.TryActivate(action);
     }
 #endif
 

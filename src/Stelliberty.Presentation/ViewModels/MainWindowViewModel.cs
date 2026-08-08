@@ -26,7 +26,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private readonly ISelectedSubscriptionRuntimeStore? _runtimeStore;
     private readonly SynchronizationContext? _synchronizationContext;
     private readonly AppSettings _settings;
-    private readonly bool _tunAvailabilityManagedExternally;
     private int _runtimeRefreshVersion;
     private string? _pendingRuntimeSubscriptionId;
     private string? _startupOverrideRetrySubscriptionId;
@@ -62,7 +61,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     public MainWindowViewModel(
         IAppSettingsStore settingsStore,
         ILocalizationService localization,
-        ISystemProxyController systemProxyService,
+        ISystemProxyService systemProxyService,
         IAppBehaviorService appBehaviorService,
         IGlobalHotkeyService globalHotkeyService,
         SubscriptionPageViewModel subscriptionPage,
@@ -98,16 +97,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         Action? serviceModeCoreTransitionStarting = null,
         Func<CancellationToken, Task>? serviceModeCoreTransitionCompleted = null,
         IAppLogReader? appLogReader = null,
-        IAppLogExporter? appLogExporter = null,
-        bool serviceModeCoreHostManagedExternally = false,
-        bool tunAvailabilityManagedExternally = false)
+        IAppLogExporter? appLogExporter = null)
     {
         _settingsStore = settingsStore;
         _localization = localization;
         _synchronizationContext = SynchronizationContext.Current;
         _now = now ?? (() => DateTimeOffset.Now);
         _settings = initialSettings ?? settingsStore.Load();
-        _tunAvailabilityManagedExternally = tunAvailabilityManagedExternally;
         DataManagement = new SettingsDataManagementViewModel(
             dataManagementService,
             localization,
@@ -126,9 +122,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CoreManager = coreManager;
         var runMode = processPrivilegeProbe?.Detect() ?? ProcessRunMode.Normal;
         var hasInitialServiceTunHost = initialServiceModeStatus?.IsRunning == true;
-        // Tray 模式由后台宿主判定 TUN 可用性，UI 进程不能按自身权限撤销偏好。
-        var wasTunRevokedForPermission = !tunAvailabilityManagedExternally
-            && AppSettingsNormalizer.RevokeTunIfUnavailable(_settings, runMode, hasInitialServiceTunHost);
+        var wasTunRevokedForPermission = AppSettingsNormalizer.RevokeTunIfUnavailable(_settings, runMode, hasInitialServiceTunHost);
         if (wasTunRevokedForPermission)
         {
             settingsStore.Save(_settings);
@@ -172,8 +166,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             serviceModeSessionActivator,
             serviceModeSessionDeactivator,
             serviceModeCoreTransitionStarting,
-            serviceModeCoreTransitionCompleted,
-            serviceModeCoreHostManagedExternally);
+            serviceModeCoreTransitionCompleted);
         SystemIntegration = new SettingsSystemIntegrationViewModel(
             _settings,
             settingsStore,
@@ -195,10 +188,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             HomePage.IsSystemProxyEnabled = true;
         }
 
-        var isTunEnabled = tunAvailabilityManagedExternally
-            ? _settings.IsTunEnabled
-            : AppSettingsNormalizer.EffectiveTunEnabled(_settings, runMode, hasInitialServiceTunHost);
-        HomePage.ApplyTunState(isTunEnabled);
+        HomePage.ApplyTunState(AppSettingsNormalizer.EffectiveTunEnabled(_settings, runMode, hasInitialServiceTunHost));
         // 模式偏好是应用级状态；先注入主页和代理基线，再加载订阅。
         HomePage.ApplyOutboundMode(OutboundModeParser.TryParse(_settings.OutboundMode) ?? Domain.Proxies.OutboundMode.Rule);
         HomePage.RefreshNetworkConnection();
@@ -737,7 +727,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     // 宿主心跳只提供节奏；当前页面状态决定是否刷新。
     public void OnHomeRuntimeTick()
     {
-        SyncExternallyManagedTun();
         HomePage.RefreshServiceMode();
         if (CurrentPage == NavigationPage.Home)
         {
@@ -748,24 +737,6 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             // 连接是动态数据；可见且未暂停页面每秒拉取，避免入口为空。
             _ = ConnectionPage.RefreshConnectionsAsync();
         }
-    }
-
-    private void SyncExternallyManagedTun()
-    {
-        if (!_tunAvailabilityManagedExternally)
-        {
-            return;
-        }
-
-        var isTunEnabled = _settingsStore.Load().IsTunEnabled;
-        if (_settings.IsTunEnabled == isTunEnabled && HomePage.IsTunEnabled == isTunEnabled)
-        {
-            return;
-        }
-
-        _settings.IsTunEnabled = isTunEnabled;
-        CoreConfig.RefreshFromSettings();
-        HomePage.ApplyTunState(isTunEnabled);
     }
 
     private void RefreshSelectedSubscriptionRuntime(string? subscriptionId, string successMessage, string failureMessage)
@@ -863,6 +834,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (result.OverridesDisabled)
         {
             SubscriptionPage.RefreshOverrideSelectionFromStore(subscriptionId);
+            ShowToast(Localize("RuntimeConfig.Toast.OverridesDisabled"), ToastType.Warning);
         }
 
         return result.Runtime;

@@ -412,6 +412,7 @@
   "Overrides.Validation.Url": "覆寫地址必須以 http:// 或 https:// 開頭",
   "RuntimeConfig.Toast.LoadFailedRevertFailed": "訂閱配置載入失敗，切回空配置也失敗",
   "RuntimeConfig.Toast.RefreshFailed": "執行配置重新整理失敗",
+  "RuntimeConfig.Toast.OverridesDisabled": "覆寫執行失敗，已自動停用並恢復原始配置",
   "RuntimeConfig.Toast.LoadFailedReverted": "訂閱配置無法被核心載入，已切回空配置",
   "Settings.Header.Root": "設定",
   "Settings.Header.Theme": "主題",

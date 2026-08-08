@@ -24,8 +24,6 @@ public sealed class JsonRpcPipeClient : IDisposable, IAsyncDisposable
 
     public event EventHandler<EventNotification>? EventReceived;
 
-    public event EventHandler? Disconnected;
-
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
@@ -132,12 +130,6 @@ public sealed class JsonRpcPipeClient : IDisposable, IAsyncDisposable
                     }
                 }
             }
-
-            if (!ct.IsCancellationRequested && !_isDisposed)
-            {
-                FailPending(new IOException("IPC connection closed before a response was received."));
-                NotifyDisconnected();
-            }
         }
         catch (OperationCanceledException)
         {
@@ -149,8 +141,11 @@ public sealed class JsonRpcPipeClient : IDisposable, IAsyncDisposable
         {
             // 读取循环失败会中断所有待处理调用的响应源；无 pending 时仍需留下第一现场。
             AppLogger.Error(ex, "IPC read loop failed");
-            FailPending(ex);
-            NotifyDisconnected();
+            foreach (var kv in _pending)
+            {
+                kv.Value.TrySetException(ex);
+            }
+            _pending.Clear();
         }
     }
 
@@ -210,28 +205,6 @@ public sealed class JsonRpcPipeClient : IDisposable, IAsyncDisposable
         }
 
         _pending.Clear();
-    }
-
-    private void FailPending(Exception exception)
-    {
-        foreach (var pending in _pending.Values)
-        {
-            pending.TrySetException(exception);
-        }
-
-        _pending.Clear();
-    }
-
-    private void NotifyDisconnected()
-    {
-        try
-        {
-            Disconnected?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception exception)
-        {
-            AppLogger.Error(exception, "IPC disconnect observer failed");
-        }
     }
 
     private void ThrowIfDisposed()

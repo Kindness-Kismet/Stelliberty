@@ -33,7 +33,7 @@ internal static partial class DebugCommands
 
         if (spec.StartsWith("app_behavior.", StringComparison.OrdinalIgnoreCase))
         {
-            return ExecuteAppBehaviorSettingsCommandAsync(viewModel, spec["app_behavior.".Length..].Trim());
+            return Task.FromResult<string?>(ExecuteAppBehaviorSettingsCommand(viewModel, spec["app_behavior.".Length..].Trim()));
         }
 
         if (spec.StartsWith("update.", StringComparison.OrdinalIgnoreCase))
@@ -295,9 +295,7 @@ internal static partial class DebugCommands
         throw new InvalidOperationException($"Unknown window effect settings command: settings.window_effect.{spec}");
     }
 
-    private static async Task<string?> ExecuteAppBehaviorSettingsCommandAsync(
-        MainWindowViewModel viewModel,
-        string spec)
+    private static string ExecuteAppBehaviorSettingsCommand(MainWindowViewModel viewModel, string spec)
     {
         if (string.Equals(spec, "keys", StringComparison.OrdinalIgnoreCase))
         {
@@ -317,7 +315,7 @@ internal static partial class DebugCommands
                 throw new InvalidOperationException("settings.app_behavior.set usage: settings.app_behavior.set <key> <value>");
             }
 
-            await SetAppBehaviorSettingAsync(viewModel, parts[0], parts[1]);
+            SetAppBehaviorSetting(viewModel, parts[0], parts[1]);
             return AppBehaviorSettingsState(viewModel);
         }
 
@@ -684,10 +682,7 @@ internal static partial class DebugCommands
         ];
     }
 
-    private static async Task SetAppBehaviorSettingAsync(
-        MainWindowViewModel viewModel,
-        string key,
-        string value)
+    private static void SetAppBehaviorSetting(MainWindowViewModel viewModel, string key, string value)
     {
         var behavior = viewModel.AppBehavior;
         var normalizedValue = NormalizeInputValue(value);
@@ -699,9 +694,9 @@ internal static partial class DebugCommands
             case "lazy-mode": behavior.IsLazyModeEnabled = ParseBool(normalizedValue); break;
             case "titlebar-fps": behavior.IsTitleBarFpsVisible = ParseBool(normalizedValue); break;
             case "auto-start": behavior.SetAutoStartEnabled(ParseBool(normalizedValue)); break;
-            case "window-toggle-hotkey": await behavior.SetWindowToggleHotkeyAsync(normalizedValue); break;
-            case "system-proxy-toggle-hotkey": await behavior.SetSystemProxyToggleHotkeyAsync(normalizedValue); break;
-            case "tun-toggle-hotkey": await behavior.SetTunToggleHotkeyAsync(normalizedValue); break;
+            case "window-toggle-hotkey": behavior.SetWindowToggleHotkey(normalizedValue); break;
+            case "system-proxy-toggle-hotkey": behavior.SetSystemProxyToggleHotkey(normalizedValue); break;
+            case "tun-toggle-hotkey": behavior.SetTunToggleHotkey(normalizedValue); break;
             default: throw new InvalidOperationException($"Unknown app behavior setting: {key}");
         }
     }

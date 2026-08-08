@@ -5,17 +5,13 @@ namespace Stelliberty.Infrastructure.Platform;
 
 public sealed class MacOSAppBehaviorService : IAppBehaviorService
 {
-    private readonly string _binaryPath;
-
-    public MacOSAppBehaviorService(string binaryPath) => _binaryPath = binaryPath;
-
     public void Apply(AppBehaviorApplicationRequest request)
     {
         ApplyAutoStart(request.IsAutoStartEnabled, request.IsSilentStartEnabled);
         AppLogger.Info($"macOS app behavior applied: autoStart={request.IsAutoStartEnabled}");
     }
 
-    private void ApplyAutoStart(bool isEnabled, bool isSilentStartEnabled)
+    private static void ApplyAutoStart(bool isEnabled, bool isSilentStartEnabled)
     {
         var path = LaunchAgentPath();
         if (!isEnabled)
@@ -24,8 +20,15 @@ public sealed class MacOSAppBehaviorService : IAppBehaviorService
             return;
         }
 
+        var binaryPath = Environment.ProcessPath ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(binaryPath))
+        {
+            AppLogger.Warning("macOS autostart path is empty");
+            return;
+        }
+
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, AutoStartEntryBuilder.MacOSLaunchAgentPlist(_binaryPath, isSilentStartEnabled));
+        File.WriteAllText(path, AutoStartEntryBuilder.MacOSLaunchAgentPlist(binaryPath, isSilentStartEnabled));
     }
 
     private static string LaunchAgentPath()

@@ -6,30 +6,14 @@ internal static class DesktopApplicationLayout
 {
     private static string BaseDirectory => AppContext.BaseDirectory;
 
-    private static string InstallRootDirectory
-    {
-        get
-        {
-            var baseDirectory = new DirectoryInfo(BaseDirectory);
-            // 发布版 UI 位于 data/deps，所有安装资源仍以发布根目录为基准。
-            if (baseDirectory.Name == PathConventions.DepsSubdirectory
-                && baseDirectory.Parent is { Name: PathConventions.DataDirectoryName, Parent: { } installRoot })
-            {
-                return installRoot.FullName;
-            }
-
-            return BaseDirectory;
-        }
-    }
-
-    private static string InstallDataDirectory => Path.Combine(InstallRootDirectory, PathConventions.DataDirectoryName);
+    private static string InstallDataDirectory => Path.Combine(BaseDirectory, PathConventions.DataDirectoryName);
 
     // 安装资源随版本替换，用户数据固定在安装载体之外。
     public static string AppDataDirectory => OperatingSystem.IsMacOS()
-        ? PortableDataDirectoryResolver.ResolveMacOS(InstallRootDirectory)
+        ? PortableDataDirectoryResolver.ResolveMacOS(BaseDirectory)
         : OperatingSystem.IsLinux()
             ? PortableDataDirectoryResolver.ResolveLinux(
-                InstallRootDirectory,
+                BaseDirectory,
                 Environment.GetEnvironmentVariable(PathConventions.PortableDataDirectoryEnvironmentVariable))
             : InstallDataDirectory;
 
@@ -55,8 +39,6 @@ internal static class DesktopApplicationLayout
 
     public static string SettingsFilePath => Path.Combine(AppDataDirectory, PathConventions.SettingsFileName);
 
-    public static string TrayBinaryPath => Path.Combine(InstallRootDirectory, AppRuntimeNames.TrayBinaryName);
-
     private static string CoreBinaryName => OperatingSystem.IsWindows() ? "clash-mihomo-core.exe" : "clash-mihomo-core";
 
     private static string ServiceBinaryName => AppRuntimeNames.ServiceBinaryName;
@@ -64,4 +46,5 @@ internal static class DesktopApplicationLayout
     private static string ServiceInstalledBinaryName => OperatingSystem.IsWindows()
         ? $"{PathConventions.ServiceInstalledBinaryStem}.exe"
         : PathConventions.ServiceInstalledBinaryStem;
+
 }
