@@ -1,5 +1,7 @@
-- Separate the tray and desktop UI into independent processes, keeping hidden-window memory usage in the low double-digit megabytes.
+- Reverted to single-process mode because process separation did not provide clear benefits
+- Fixed some override scripts not taking effect
 
 ---
 
-- 完成托盘与桌面界面进程分离，窗口隐藏时内存占用仅保持在两位数 MB。
+- 回退到单进程模式，目前看起来并没有得到有效反馈
+- 修复某些覆写脚本不生效的问题
