@@ -834,6 +834,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (result.OverridesDisabled)
         {
             SubscriptionPage.RefreshOverrideSelectionFromStore(subscriptionId);
+            ShowToast(Localize("RuntimeConfig.Toast.OverridesDisabled"), ToastType.Warning);
         }
 
         return result.Runtime;
