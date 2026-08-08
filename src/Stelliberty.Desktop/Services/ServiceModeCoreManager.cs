@@ -256,7 +256,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
 
     private static void LogStateTransition(CoreSnapshot? previous, CoreSnapshot snapshot)
     {
-        var previousState = previous?.State.ToString() ?? "None";
+        var previousState = previous?.State.ToString() ?? "none";
         var pid = snapshot.Pid?.ToString() ?? "none";
         var error = string.IsNullOrWhiteSpace(snapshot.LastError) ? "none" : snapshot.LastError;
         var message = $"Service-mode core state changed: previous={previousState} current={snapshot.State} pid={pid} error={error}";

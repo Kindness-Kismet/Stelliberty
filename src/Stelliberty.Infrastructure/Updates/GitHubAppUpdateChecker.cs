@@ -69,7 +69,7 @@ public sealed class GitHubAppUpdateChecker : IAppUpdateChecker
             catch (HttpRequestException exception)
             {
                 lastFailure = exception;
-                AppLogger.Warning($"App update check route failed: route={route.Name}; error={exception.Message}");
+                AppLogger.Warning($"App update check route failed: route={route.Name} error={exception.Message}");
             }
             catch (Exception exception)
             {

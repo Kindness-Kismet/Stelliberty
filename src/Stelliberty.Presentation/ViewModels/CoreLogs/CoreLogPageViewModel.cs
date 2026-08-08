@@ -95,7 +95,7 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
             var isActive = !string.IsNullOrWhiteSpace(value);
             if (wasActive != isActive)
             {
-                AppLogger.Info($"Core log search changed: active={isActive.ToString().ToLowerInvariant()} total={_state.Logs.Count}");
+                AppLogger.Info($"Core log search changed: active={isActive.ToString().ToLowerInvariant()} count={_state.Logs.Count}");
             }
 
             RaiseLogStateChanged();
@@ -118,14 +118,14 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
         }
 
         _state = _state with { FilterLevel = level };
-        AppLogger.Info($"Core log filter changed: level={level?.ToString() ?? "All"} total={_state.Logs.Count}");
+        AppLogger.Info($"Core log filter changed: level={level?.ToString() ?? "All"} count={_state.Logs.Count}");
         RaiseLogStateChanged();
     }
 
     public void TogglePause()
     {
         _state = _reducer.TogglePause(_state);
-        AppLogger.Info($"Core log monitoring changed: paused={_state.IsMonitoringPaused.ToString().ToLowerInvariant()} total={_state.Logs.Count}");
+        AppLogger.Info($"Core log monitoring changed: paused={_state.IsMonitoringPaused.ToString().ToLowerInvariant()} count={_state.Logs.Count}");
         RaiseLogStateChanged();
     }
 
@@ -138,7 +138,7 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
             var filter = _state.FilterLevel?.ToString() ?? "All";
             var searchActive = !string.IsNullOrWhiteSpace(_state.SearchKeyword);
             AppLogger.Info(
-                $"Core log page received first batch: received={logs.Count} stored={_state.Logs.Count} filter={filter} searchActive={searchActive.ToString().ToLowerInvariant()}");
+                $"Core log page received first batch: received={logs.Count} count={_state.Logs.Count} filter={filter} searchActive={searchActive.ToString().ToLowerInvariant()}");
         }
 
         RaiseLogStateChanged();

@@ -18,13 +18,13 @@ internal static class LocalFilePicker
         {
             // StorageProvider 必须绑定当前 TopLevel，不能脱离窗口调用。
             var provider = topLevel.StorageProvider;
-            AppLogger.Info($"File picker preparing to open: TopLevel={topLevel.GetType().Name}, Provider={provider.GetType().FullName}, CanOpen={provider.CanOpen}");
+            AppLogger.Info($"File picker preparing to open: topLevel={topLevel.GetType().Name} provider={provider.GetType().FullName} canOpen={provider.CanOpen}");
             if (!provider.CanOpen)
             {
                 throw new InvalidOperationException("File picker is unavailable");
             }
 
-            AppLogger.Info($"File picker call started: Title={title}, Filter={filterName}");
+            AppLogger.Info($"File picker call started: title={title} filter={filterName}");
             var files = await provider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 Title = title,
@@ -36,7 +36,7 @@ internal static class LocalFilePicker
                 ]
             });
 
-            AppLogger.Info($"File picker call completed: Count={files.Count}");
+            AppLogger.Info($"File picker call completed: count={files.Count}");
             return files.Count > 0 ? files[0].TryGetLocalPath() : null;
         }
         catch (Exception)
@@ -57,7 +57,7 @@ internal static class LocalFilePicker
         try
         {
             var provider = topLevel.StorageProvider;
-            AppLogger.Info($"Save file picker preparing to open: TopLevel={topLevel.GetType().Name}, Provider={provider.GetType().FullName}, CanSave={provider.CanSave}");
+            AppLogger.Info($"Save file picker preparing to open: topLevel={topLevel.GetType().Name} provider={provider.GetType().FullName} canSave={provider.CanSave}");
             if (!provider.CanSave)
             {
                 throw new InvalidOperationException("Save file picker is unavailable");
