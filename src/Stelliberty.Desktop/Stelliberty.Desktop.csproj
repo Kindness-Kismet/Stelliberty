@@ -40,6 +40,11 @@
     <AvaloniaResource Include="Assets\fonts\**" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == ''">
+    <AvaloniaResource Include="Assets\win\**" />
+    <AvaloniaResource Include="Assets\linux\**" />
+    <AvaloniaResource Include="Assets\macos\**" />
+  </ItemGroup>
   <ItemGroup Condition="$(RuntimeIdentifier.StartsWith('win'))">
     <AvaloniaResource Include="Assets\win\**" />
   </ItemGroup>
