@@ -103,8 +103,9 @@ fn print_help() {
     );
 }
 
+// 服务版本固定为 crate 版本，不随 App 版本漂移。
 pub(crate) fn service_version() -> &'static str {
-    option_env!("STELLIBERTY_APP_VERSION").unwrap_or(env!("CARGO_PKG_VERSION"))
+    env!("CARGO_PKG_VERSION")
 }
 
 fn parse_log_lines(value: Option<&String>) -> Result<Option<usize>> {

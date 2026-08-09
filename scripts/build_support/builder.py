@@ -120,7 +120,8 @@ def build_rust(metadata: AppMetadata, configuration: str, target: PlatformTarget
     if configuration == "release":
         command.append("--release")
 
-    env = {"STELLIBERTY_APP_NAME": metadata.app_name, "STELLIBERTY_APP_VERSION": metadata.version}
+    # 服务版本固定为 crate 版本，不随 App 版本漂移。
+    env = {"STELLIBERTY_APP_NAME": metadata.app_name}
     if configuration == "release":
         env.update(release_path_remap_env())
 
