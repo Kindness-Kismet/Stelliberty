@@ -63,6 +63,7 @@ internal static partial class DebugCommands
             $"text={ServiceStatusText(status)}",
             $"message={status.Message}",
             $"version={status.InstalledVersion ?? "unknown"}",
+            $"available={status.AvailableVersion ?? "unknown"}",
             $"update={page.IsServiceModeUpdateAvailable.ToString().ToLowerInvariant()}",
             $"heartbeat={status.LastHeartbeatAge?.TotalSeconds.ToString("0") ?? "none"}",
             $"core={status.CoreState ?? "unknown"}",

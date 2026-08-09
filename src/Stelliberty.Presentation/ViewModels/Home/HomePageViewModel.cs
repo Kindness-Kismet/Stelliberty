@@ -275,8 +275,10 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     public bool IsServiceModeUpdateAvailable => _serviceModeStatus.IsInstalled
         && !string.IsNullOrWhiteSpace(_serviceModeStatus.InstalledVersion)
+        && !string.IsNullOrWhiteSpace(_serviceModeStatus.AvailableVersion)
         && AppVersionComparer.IsValid(_serviceModeStatus.InstalledVersion)
-        && AppVersionComparer.IsNewer(AppMetadata.Version, _serviceModeStatus.InstalledVersion);
+        && AppVersionComparer.IsValid(_serviceModeStatus.AvailableVersion)
+        && AppVersionComparer.IsNewer(_serviceModeStatus.AvailableVersion, _serviceModeStatus.InstalledVersion);
 
     public bool CanToggleServiceMode => !_isServiceModeBusy && _serviceModeManager is not null;
 

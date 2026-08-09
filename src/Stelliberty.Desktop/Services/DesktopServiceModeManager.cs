@@ -18,6 +18,11 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
     private static readonly TimeSpan StatusSettleTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan StatusPollInterval = TimeSpan.FromMilliseconds(250);
     private const string PrivilegeCanceledMessage = "Administrator approval was canceled; no changes were made.";
+    // 安装包替换服务文件后按文件特征失效缓存，避免每次状态刷新重复启动进程。
+    private readonly object _serviceVersionCacheLock = new();
+    private DateTime _serviceVersionFileLastWriteUtc;
+    private long _serviceVersionFileLength = -1;
+    private string? _cachedServiceVersion;
 
     public async Task<ServiceModeStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
@@ -46,6 +51,11 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
 
         var message = result.Message.Trim();
         var parts = ParseServiceStatus(message);
+        var isInstalledState = message.StartsWith("running", StringComparison.OrdinalIgnoreCase)
+            || message.StartsWith("stopped", StringComparison.OrdinalIgnoreCase);
+        var availableVersion = isInstalledState
+            ? await GetAvailableServiceVersionAsync(cancellationToken).ConfigureAwait(false)
+            : null;
         if (message.StartsWith("running", StringComparison.OrdinalIgnoreCase))
         {
             if (parts.ServiceName is not null
@@ -62,7 +72,8 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
                 parts.CoreState,
                 parts.CorePid,
                 parts.CoreLastError,
-                parts.Version);
+                parts.Version,
+                availableVersion);
         }
 
         if (message.StartsWith("stopped", StringComparison.OrdinalIgnoreCase))
@@ -70,7 +81,8 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             return new ServiceModeStatus(
                 ServiceModeState.Stopped,
                 "Service is installed but not running.",
-                InstalledVersion: parts.Version);
+                InstalledVersion: parts.Version,
+                AvailableVersion: availableVersion);
         }
 
         if (message.StartsWith("not-installed", StringComparison.OrdinalIgnoreCase))
@@ -297,6 +309,52 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         return File.Exists(DesktopApplicationLayout.ServiceInstalledBinaryPath)
             ? DesktopApplicationLayout.ServiceInstalledBinaryPath
             : null;
+    }
+
+    private async Task<string?> GetAvailableServiceVersionAsync(CancellationToken cancellationToken)
+    {
+        var path = DesktopApplicationLayout.ServiceCommandBinaryPath;
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var fileInfo = new FileInfo(path);
+        var lastWriteUtc = fileInfo.LastWriteTimeUtc;
+        var length = fileInfo.Length;
+        lock (_serviceVersionCacheLock)
+        {
+            if (_serviceVersionFileLength == length
+                && _serviceVersionFileLastWriteUtc == lastWriteUtc)
+            {
+                return _cachedServiceVersion;
+            }
+        }
+
+        var result = await RunServiceCommandAsync(
+            "version",
+            false,
+            StatusTimeout,
+            cancellationToken,
+            binaryPath: path).ConfigureAwait(false);
+        var version = result.IsSuccess ? ParseServiceVersion(result.Message) : null;
+        if (version is not null)
+        {
+            lock (_serviceVersionCacheLock)
+            {
+                _serviceVersionFileLastWriteUtc = lastWriteUtc;
+                _serviceVersionFileLength = length;
+                _cachedServiceVersion = version;
+            }
+        }
+
+        return version;
+    }
+
+    private static string? ParseServiceVersion(string message)
+    {
+        var parts = message.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? parts[^1] : null;
     }
 
     private static ServiceModeStatus? DetectServiceRepairStatus()
