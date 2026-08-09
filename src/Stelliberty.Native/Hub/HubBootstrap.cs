@@ -32,7 +32,7 @@ public static class HubBootstrap
                 var message = ffi.message.String;
                 if (!ffi.ok.Is)
                 {
-                    AppLogger.Error($"hub startup failed: {message}");
+                    AppLogger.Error($"Hub startup failed: {message}");
                     return BootstrapResult.Failure(message);
                 }
                 _started = true;
@@ -43,7 +43,7 @@ public static class HubBootstrap
             }
             catch (Exception ex)
             {
-                AppLogger.Error(ex, "hub startup exception");
+                AppLogger.Error(ex, "Hub startup exception");
                 return BootstrapResult.Failure(ex.Message);
             }
         }
@@ -111,7 +111,7 @@ public static class HubBootstrap
             }
             catch (Exception ex)
             {
-                AppLogger.Warning($"hub shutdown exception ignored: {ex.Message}");
+                AppLogger.Warning($"Hub shutdown exception ignored: {ex.Message}");
             }
             finally
             {

@@ -233,18 +233,41 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             return;
         }
 
-        if (snapshot.State != CoreState.Running)
+        if (snapshot.State == CoreState.Running)
+        {
+            // 状态查询恢复后必须重新建立先前停止的日志流。
+            _logStreamer.Start();
+        }
+        else
         {
             _logStreamer.Stop();
         }
+
         _setCoreHostActive(snapshot.State == CoreState.Running);
         if (_lastSnapshot == snapshot)
         {
             return;
         }
 
+        LogStateTransition(_lastSnapshot, snapshot);
         _lastSnapshot = snapshot;
         StateChanged?.Invoke(this, snapshot);
+    }
+
+    private static void LogStateTransition(CoreSnapshot? previous, CoreSnapshot snapshot)
+    {
+        var previousState = previous?.State.ToString() ?? "none";
+        var pid = snapshot.Pid?.ToString() ?? "none";
+        var error = string.IsNullOrWhiteSpace(snapshot.LastError) ? "none" : snapshot.LastError;
+        var message = $"Service-mode core state changed: previous={previousState} current={snapshot.State} pid={pid} error={error}";
+
+        if (snapshot.State is CoreState.Unavailable or CoreState.Crashed)
+        {
+            AppLogger.Warning(message);
+            return;
+        }
+
+        AppLogger.Info(message);
     }
 
     private async Task<string?> ProbeVersionAsync(CancellationToken cancellationToken)

@@ -216,7 +216,7 @@ public sealed class FileDataBackupService(string appDataDirectory) : IDataManage
                 added++;
             }
 
-            AppLogger.Info($"Data backup merge restored: {backupPath}, added={added}, skipped={skipped}");
+            AppLogger.Info($"Data backup merge restored: {backupPath} added={added} skipped={skipped}");
             return (added, skipped);
         }
 
@@ -245,7 +245,7 @@ public sealed class FileDataBackupService(string appDataDirectory) : IDataManage
         }
 
         RestoreLocalSettings(currentLocalSettings);
-        AppLogger.Info($"Data backup overwrite restored: {backupPath}, restored={restored}");
+        AppLogger.Info($"Data backup overwrite restored: {backupPath} restored={restored}");
         return (restored, 0);
     }
 

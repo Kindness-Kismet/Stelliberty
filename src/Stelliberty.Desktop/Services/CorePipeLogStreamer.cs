@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -19,6 +20,7 @@ internal sealed class CorePipeLogStreamer : IDisposable
     private readonly object _gate = new();
     private CancellationTokenSource? _streamCancellation;
     private Task? _streamTask;
+    private long _streamGeneration;
     private bool _isDisposed;
 
     public CorePipeLogStreamer(string corePipe)
@@ -28,8 +30,26 @@ internal sealed class CorePipeLogStreamer : IDisposable
 
     public event EventHandler<CoreLogMessage>? MessageReceived;
 
+    public void Start()
+    {
+        long generation;
+        lock (_gate)
+        {
+            if (_isDisposed || _streamCancellation is not null)
+            {
+                return;
+            }
+
+            generation = StartLocked();
+        }
+
+        AppLogger.Info($"Service-mode core log stream started: generation={generation}");
+    }
+
     public void Restart()
     {
+        long generation;
+        var replacedActiveStream = false;
         lock (_gate)
         {
             if (_isDisposed)
@@ -37,22 +57,30 @@ internal sealed class CorePipeLogStreamer : IDisposable
                 return;
             }
 
-            StopLocked();
-            _streamCancellation = new CancellationTokenSource();
-            _streamTask = Task.Run(() => RunAsync(_streamCancellation.Token));
+            replacedActiveStream = StopLocked() is not null;
+            generation = StartLocked();
         }
+
+        AppLogger.Info($"Service-mode core log stream restarted: generation={generation} replacedActive={replacedActiveStream.ToString().ToLowerInvariant()}");
     }
 
     public void Stop()
     {
+        long? generation;
         lock (_gate)
         {
-            StopLocked();
+            generation = StopLocked();
+        }
+
+        if (generation is not null)
+        {
+            AppLogger.Info($"Service-mode core log stream stopped: generation={generation}");
         }
     }
 
     public void Dispose()
     {
+        long? generation;
         lock (_gate)
         {
             if (_isDisposed)
@@ -61,13 +89,26 @@ internal sealed class CorePipeLogStreamer : IDisposable
             }
 
             _isDisposed = true;
-            StopLocked();
+            generation = StopLocked();
         }
 
         MessageReceived = null;
+        if (generation is not null)
+        {
+            AppLogger.Info($"Service-mode core log stream disposed: generation={generation}");
+        }
     }
 
-    private void StopLocked()
+    private long StartLocked()
+    {
+        var generation = ++_streamGeneration;
+        var cancellation = new CancellationTokenSource();
+        _streamCancellation = cancellation;
+        _streamTask = Task.Run(() => RunAsync(generation, cancellation.Token));
+        return generation;
+    }
+
+    private long? StopLocked()
     {
         var cancellation = _streamCancellation;
         var task = _streamTask;
@@ -75,11 +116,12 @@ internal sealed class CorePipeLogStreamer : IDisposable
         _streamTask = null;
         if (cancellation is null)
         {
-            return;
+            return null;
         }
 
         cancellation.Cancel();
         DisposeCancellationAfterTask(cancellation, task);
+        return _streamGeneration;
     }
 
     private static void DisposeCancellationAfterTask(CancellationTokenSource cancellation, Task? task)
@@ -97,13 +139,25 @@ internal sealed class CorePipeLogStreamer : IDisposable
             TaskScheduler.Default);
     }
 
-    private async Task RunAsync(CancellationToken cancellationToken)
+    private async Task RunAsync(long generation, CancellationToken cancellationToken)
     {
+        var attempt = 0;
         while (!cancellationToken.IsCancellationRequested)
         {
+            attempt++;
             try
             {
-                await StreamOnceAsync(cancellationToken).ConfigureAwait(false);
+                var ended = await StreamOnceAsync(generation, attempt, cancellationToken).ConfigureAwait(false);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (ShouldLogAttempt(attempt))
+                {
+                    AppLogger.Warning(
+                        $"Service-mode core log stream disconnected: generation={generation} attempt={attempt} reason={ended.Reason} payloads={ended.PayloadCount} messages={ended.MessageCount} elapsed={ended.Elapsed.TotalMilliseconds:0}ms retry={ReconnectDelay.TotalSeconds:0}s");
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -111,30 +165,44 @@ internal sealed class CorePipeLogStreamer : IDisposable
             }
             catch (Exception exception)
             {
-                AppLogger.Warning($"Service-mode core log stream was interrupted: {exception.Message}");
+                if (ShouldLogAttempt(attempt))
+                {
+                    AppLogger.Warning(
+                        $"Service-mode core log stream interrupted: generation={generation} attempt={attempt} error={exception.GetType().Name} message={exception.Message} retry={ReconnectDelay.TotalSeconds:0}s");
+                }
             }
 
             await Task.Delay(ReconnectDelay, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private async Task StreamOnceAsync(CancellationToken cancellationToken)
+    private async Task<StreamEnd> StreamOnceAsync(long generation, int attempt, CancellationToken cancellationToken)
     {
+        var startedAt = Stopwatch.GetTimestamp();
         await using var stream = await ConnectStreamAsync(_pipeName, cancellationToken).ConfigureAwait(false);
         await WriteHandshakeAsync(stream, cancellationToken).ConfigureAwait(false);
         await ReadHandshakeAsync(stream, cancellationToken).ConfigureAwait(false);
+        if (ShouldLogAttempt(attempt))
+        {
+            AppLogger.Info($"Service-mode core log stream connected: generation={generation} attempt={attempt}");
+        }
+
+        List<byte>? fragmentedPayload = null;
+        var payloadCount = 0;
+        var messageCount = 0;
+        var hasLoggedFirstPayload = false;
 
         while (!cancellationToken.IsCancellationRequested)
         {
             var frame = await ReadFrameAsync(stream, cancellationToken).ConfigureAwait(false);
             if (frame is null)
             {
-                return;
+                return new StreamEnd("end-of-stream", payloadCount, messageCount, Stopwatch.GetElapsedTime(startedAt));
             }
 
             if (frame.Value.Opcode == 0x8)
             {
-                return;
+                return new StreamEnd("close-frame", payloadCount, messageCount, Stopwatch.GetElapsedTime(startedAt));
             }
 
             if (frame.Value.Opcode == 0x9)
@@ -145,10 +213,79 @@ internal sealed class CorePipeLogStreamer : IDisposable
 
             if (frame.Value.Opcode is 0x1 or 0x2)
             {
-                Publish(Encoding.UTF8.GetString(frame.Value.Payload));
+                if (fragmentedPayload is not null)
+                {
+                    throw new IOException("Log WebSocket started a new message before the fragmented message ended");
+                }
+
+                if (frame.Value.IsFinal)
+                {
+                    payloadCount++;
+                    var parsed = Publish(Encoding.UTF8.GetString(frame.Value.Payload));
+                    messageCount += parsed;
+                    LogFirstPayload(generation, attempt, frame.Value.Payload.Length, parsed, fragmented: false, ref hasLoggedFirstPayload);
+                    continue;
+                }
+
+                fragmentedPayload = new List<byte>(frame.Value.Payload.Length);
+                AppendFragment(fragmentedPayload, frame.Value.Payload);
+                continue;
+            }
+
+            if (frame.Value.Opcode == 0x0)
+            {
+                if (fragmentedPayload is null)
+                {
+                    throw new IOException("Log WebSocket continuation frame has no initial frame");
+                }
+
+                AppendFragment(fragmentedPayload, frame.Value.Payload);
+                if (!frame.Value.IsFinal)
+                {
+                    continue;
+                }
+
+                payloadCount++;
+                var payload = fragmentedPayload.ToArray();
+                fragmentedPayload = null;
+                var parsed = Publish(Encoding.UTF8.GetString(payload));
+                messageCount += parsed;
+                LogFirstPayload(generation, attempt, payload.Length, parsed, fragmented: true, ref hasLoggedFirstPayload);
             }
         }
+
+        return new StreamEnd("canceled", payloadCount, messageCount, Stopwatch.GetElapsedTime(startedAt));
     }
+
+    private static void AppendFragment(List<byte> buffer, byte[] payload)
+    {
+        if (buffer.Count > MaxFrameBytes - payload.Length)
+        {
+            throw new IOException("Log WebSocket fragmented message is too large");
+        }
+
+        buffer.AddRange(payload);
+    }
+
+    private static void LogFirstPayload(
+        long generation,
+        int attempt,
+        int byteCount,
+        int messageCount,
+        bool fragmented,
+        ref bool hasLoggedFirstPayload)
+    {
+        if (hasLoggedFirstPayload)
+        {
+            return;
+        }
+
+        hasLoggedFirstPayload = true;
+        AppLogger.Info(
+            $"Service-mode core log stream received first payload: generation={generation} attempt={attempt} bytes={byteCount} messages={messageCount} fragmented={fragmented.ToString().ToLowerInvariant()}");
+    }
+
+    private static bool ShouldLogAttempt(int attempt) => attempt <= 5 || attempt % 30 == 0;
 
     private static async Task WriteHandshakeAsync(Stream stream, CancellationToken cancellationToken)
     {
@@ -207,6 +344,7 @@ internal sealed class CorePipeLogStreamer : IDisposable
             return null;
         }
 
+        var isFinal = (header[0] & 0x80) != 0;
         var opcode = header[0] & 0x0F;
         var isMasked = (header[1] & 0x80) != 0;
         var length = header[1] & 0x7F;
@@ -251,7 +389,7 @@ internal sealed class CorePipeLogStreamer : IDisposable
             }
         }
 
-        return new WebSocketFrame(opcode, payload);
+        return new WebSocketFrame(isFinal, opcode, payload);
     }
 
     private static async Task WriteClientFrameAsync(Stream stream, int opcode, byte[] payload, CancellationToken cancellationToken)
@@ -299,17 +437,20 @@ internal sealed class CorePipeLogStreamer : IDisposable
         }
     }
 
-    private void Publish(string line)
+    private int Publish(string line)
     {
         if (_isDisposed)
         {
-            return;
+            return 0;
         }
 
-        foreach (var message in _parser.Parse(line))
+        var messages = _parser.Parse(line);
+        foreach (var message in messages)
         {
             MessageReceived?.Invoke(this, message);
         }
+
+        return messages.Count;
     }
 
     private static async Task<Stream> ConnectStreamAsync(string pipeName, CancellationToken cancellationToken)
@@ -350,5 +491,7 @@ internal sealed class CorePipeLogStreamer : IDisposable
         return pipePath.StartsWith(prefix, StringComparison.Ordinal) ? pipePath[prefix.Length..] : pipePath;
     }
 
-    private readonly record struct WebSocketFrame(int Opcode, byte[] Payload);
+    private readonly record struct WebSocketFrame(bool IsFinal, int Opcode, byte[] Payload);
+
+    private readonly record struct StreamEnd(string Reason, int PayloadCount, int MessageCount, TimeSpan Elapsed);
 }

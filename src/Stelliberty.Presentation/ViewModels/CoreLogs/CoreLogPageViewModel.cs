@@ -1,5 +1,6 @@
 using System.Windows.Input;
 using Stelliberty.Application.CoreLogs;
+using Stelliberty.Application.Diagnostics;
 using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Application.Localization;
 using Stelliberty.Presentation.Commands;
@@ -89,7 +90,14 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
                 return;
             }
 
+            var wasActive = !string.IsNullOrWhiteSpace(_state.SearchKeyword);
             _state = _state with { SearchKeyword = value };
+            var isActive = !string.IsNullOrWhiteSpace(value);
+            if (wasActive != isActive)
+            {
+                AppLogger.Info($"Core log search changed: active={isActive.ToString().ToLowerInvariant()} count={_state.Logs.Count}");
+            }
+
             RaiseLogStateChanged();
         }
     }
@@ -110,24 +118,37 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
         }
 
         _state = _state with { FilterLevel = level };
+        AppLogger.Info($"Core log filter changed: level={level?.ToString() ?? "All"} count={_state.Logs.Count}");
         RaiseLogStateChanged();
     }
 
     public void TogglePause()
     {
         _state = _reducer.TogglePause(_state);
+        AppLogger.Info($"Core log monitoring changed: paused={_state.IsMonitoringPaused.ToString().ToLowerInvariant()} count={_state.Logs.Count}");
         RaiseLogStateChanged();
     }
 
     public void AppendLogs(IReadOnlyList<CoreLogMessage> logs)
     {
+        var previousCount = _state.Logs.Count;
         _state = _reducer.Append(_state, logs);
+        if (previousCount == 0 && _state.Logs.Count > 0)
+        {
+            var filter = _state.FilterLevel?.ToString() ?? "All";
+            var searchActive = !string.IsNullOrWhiteSpace(_state.SearchKeyword);
+            AppLogger.Info(
+                $"Core log page received first batch: received={logs.Count} count={_state.Logs.Count} filter={filter} searchActive={searchActive.ToString().ToLowerInvariant()}");
+        }
+
         RaiseLogStateChanged();
     }
 
     public void ClearLogs()
     {
+        var clearedCount = _state.Logs.Count;
         _state = _reducer.Clear(_state);
+        AppLogger.Info($"Core logs cleared: count={clearedCount}");
         LogsCleared?.Invoke(this, EventArgs.Empty);
         RaiseLogStateChanged();
     }
@@ -142,6 +163,7 @@ public sealed class CoreLogPageViewModel : ViewModelBase, IDisposable
         _isCoreRunning = isRunning;
         if (!isRunning)
         {
+            AppLogger.Info($"Core log page reset because core is not running: count={_state.Logs.Count}");
             _state = CoreLogState.Initial;
         }
 

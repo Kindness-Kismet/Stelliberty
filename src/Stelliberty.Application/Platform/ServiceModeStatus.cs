@@ -8,7 +8,8 @@ public sealed record ServiceModeStatus(
     string? CoreState = null,
     int? CorePid = null,
     string? CoreLastError = null,
-    string? InstalledVersion = null)
+    string? InstalledVersion = null,
+    string? AvailableVersion = null)
 {
     public bool IsInstalled => State is ServiceModeState.Running or ServiceModeState.Stopped;
 

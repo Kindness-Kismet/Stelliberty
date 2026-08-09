@@ -678,7 +678,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 SubscriptionAutoDelay.Reset();
                 ProxyPage.CancelDelayTests();
                 await ApplyEmptyRuntimeToCoreAsync();
-                AppLogger.Info("Runtime config refreshed after data overwrite restore：empty");
+                AppLogger.Info("Runtime config refreshed after data overwrite restore: empty");
                 return;
             }
 
@@ -755,7 +755,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         if (string.IsNullOrWhiteSpace(subscriptionId))
         {
             await ApplyEmptyRuntimeToCoreAsync(refreshVersion, endpointChangeVersion);
-            AppLogger.Info($"{successMessage}：empty");
+            AppLogger.Info($"{successMessage}: empty");
             return;
         }
 
@@ -803,13 +803,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
                 SubscriptionPage.ClearSubscriptionRuntimeFailure(subscriptionId);
             }
 
-            AppLogger.Info($"{successMessage}：{subscriptionId}");
+            AppLogger.Info($"{successMessage}: {subscriptionId}");
         }
         catch (Exception exception)
         {
             LastRuntimeApplyMode = "error";
             LastRuntimeApplyError = exception.Message;
-            AppLogger.Error(exception, $"{failureMessage}：{subscriptionId}");
+            AppLogger.Error(exception, $"{failureMessage}: {subscriptionId}");
             // 生成器负责覆写禁用和重试；此路径只回退到空配置。
             try
             {
