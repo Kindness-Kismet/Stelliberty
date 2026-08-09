@@ -66,7 +66,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          if git diff --unified=0 "${BEFORE_SHA}" "${AFTER_SHA}" -- Directory.Build.props | grep -Eq '^[+-].*<AppVersion>'; then
+          if git log --format= --patch "${BEFORE_SHA}..${AFTER_SHA}" -- Directory.Build.props | grep -Eq '^[+-].*<AppVersion>'; then
             echo 'should_build=false' >> "$GITHUB_OUTPUT"
             echo 'Stable version metadata changed in this push; beta build is skipped.'
             exit 0
