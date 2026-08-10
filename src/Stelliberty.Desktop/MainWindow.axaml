@@ -204,7 +204,7 @@
                     ZIndex="50"
                     Opacity="0"
                     IsHitTestVisible="False"
-                    Background="{DynamicResource AppRootSurfaceBrush}"
+                    Background="Transparent"
                     AutomationProperties.AutomationId="Shell.PageLoadingOverlay">
               <controls:PageLoadingIndicator x:Name="PageLoadingIndicator"
                                              HorizontalAlignment="Stretch"
