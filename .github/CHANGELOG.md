@@ -1,9 +1,9 @@
-- Service-mode core logs now resume correctly after the service recovers
-- Service Mode now detects the bundled service version before offering an update
-- Before or after installing this update, uninstall Service Mode once and then reinstall it
+- You can now edit rules per subscription: disable built-in rules, add local custom rules, and drag to reorder them
+- Rule templates let you save local rules and reuse them in other subscriptions
+- Page switching no longer dims the content, and the loading indicator no longer gets stuck when first opening a page
 
 ---
 
-- 服务恢复运行后，服务模式的核心日志现在会正常继续显示
-- 服务模式现在会先检测安装包内的服务版本，再提示更新
-- 安装此次更新前或安装后，请先卸载一次服务模式，再重新安装
+- 规则页现在支持按订阅编辑规则：停用内置规则、添加本地自定义规则并拖动排序
+- 规则模板可保存本地规则，并在其它订阅中复用
+- 页面切换不再出现遮罩变暗，首次进入页面时加载指示不再卡住

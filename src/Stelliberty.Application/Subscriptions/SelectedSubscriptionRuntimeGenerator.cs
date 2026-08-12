@@ -1,6 +1,7 @@
 using Stelliberty.Domain.Subscriptions;
 using Stelliberty.Application.Overrides;
 using Stelliberty.Application.Runtime;
+using Stelliberty.Application.Rules;
 
 namespace Stelliberty.Application.Subscriptions;
 
@@ -10,10 +11,12 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
     RuntimeConfigGenerator runtimeConfigGenerator,
     IOverrideStore? overrideStore = null,
     ISelectedSubscriptionRuntimeStore? runtimeStore = null,
-    SubscriptionChainProxyRuntimeApplier? chainProxyApplier = null)
+    SubscriptionChainProxyRuntimeApplier? chainProxyApplier = null,
+    RuleOverrideService? ruleOverrideService = null)
 {
     private readonly SubscriptionChainProxyRuntimeApplier _chainProxyApplier = chainProxyApplier ?? new SubscriptionChainProxyRuntimeApplier();
     private readonly SubscriptionOverrideResolver _overrideResolver = new(overrideStore);
+    private readonly RuleOverrideService? _ruleOverrideService = ruleOverrideService;
 
     public SelectedSubscriptionRuntimeResult Generate(SelectedSubscriptionRuntimeRequest request)
     {
@@ -32,8 +35,8 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
             BaseConfigContent: originalContent,
             Overrides: _overrideResolver.Resolve(subscription).Concat(request.Overrides).ToList(),
             RuntimeParams: request.RuntimeParams,
-        // 链式代理在覆写后定稿，避免脚本抹掉它们。
-            PostOverrideTransform: content => _chainProxyApplier.Apply(content, subscription)));
+        // 本地规则最后定稿，避免订阅覆写改写用户编辑结果。
+            PostOverrideTransform: content => ApplyRuntimeRuleOverrides(subscription.Id, content)));
         var paths = runtimeStore?.Save(subscription, originalContent, runtimeConfig.RuntimeConfigContent);
 
         return new SelectedSubscriptionRuntimeResult(
@@ -57,5 +60,13 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
         {
             throw new InvalidOperationException($"Selected subscription content is missing or unreadable: {subscription.Name}", exception);
         }
+    }
+
+    private string ApplyRuntimeRuleOverrides(string subscriptionId, string content)
+    {
+        var subscription = subscriptionStore.LoadSubscriptions().FirstOrDefault(item => item.Id == subscriptionId)
+            ?? throw new InvalidOperationException($"Selected subscription not found: {subscriptionId}");
+        var withChainProxies = _chainProxyApplier.Apply(content, subscription);
+        return _ruleOverrideService?.Apply(subscriptionId, withChainProxies) ?? withChainProxies;
     }
 }

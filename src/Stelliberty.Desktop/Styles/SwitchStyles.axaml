@@ -83,4 +83,55 @@
   <Style Selector="ToggleSwitch:disabled">
     <Setter Property="Opacity" Value="0.4" />
   </Style>
+
+  <!-- 规则页专用紧凑开关，精致小巧设计 -->
+  <Style Selector="ToggleSwitch.rule-toggle">
+    <Setter Property="OnContent" Value="{x:Null}" />
+    <Setter Property="OffContent" Value="{x:Null}" />
+    <Setter Property="Padding" Value="0" />
+    <Setter Property="MinWidth" Value="40" />
+    <Setter Property="MinHeight" Value="24" />
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Panel Width="40" Height="24" Background="Transparent">
+          <Border x:Name="RuleTrack" Width="40" Height="24" CornerRadius="12" BorderThickness="0"
+                  Background="{DynamicResource AppBorderBrush}" />
+          <Panel x:Name="PART_MovingKnobs" Width="0" Height="0" />
+          <Border x:Name="RuleThumb" Width="18" Height="18" CornerRadius="9" Margin="3,0,0,0"
+                  HorizontalAlignment="Left" VerticalAlignment="Center"
+                  Background="{DynamicResource AppCardBrush}"
+                  BoxShadow="0 1 3 0 #10000000" />
+        </Panel>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleSwitch.rule-toggle /template/ Border#RuleTrack">
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.2" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleSwitch.rule-toggle /template/ Border#RuleThumb">
+    <Setter Property="Transitions">
+      <Transitions>
+        <ThicknessTransition Property="Margin" Duration="0:0:0.2" Easing="CubicEaseOut" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ToggleSwitch.rule-toggle:checked /template/ Border#RuleTrack">
+    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
+  </Style>
+  <Style Selector="ToggleSwitch.rule-toggle:checked /template/ Border#RuleThumb">
+    <Setter Property="Margin" Value="19,0,0,0" />
+  </Style>
+  <Style Selector="ToggleSwitch.rule-toggle:pointerover:unchecked /template/ Border#RuleTrack">
+    <Setter Property="Background" Value="{DynamicResource AppTextTertiaryBrush}" />
+  </Style>
+  <Style Selector="ToggleSwitch.rule-toggle:pointerover:checked /template/ Border#RuleTrack">
+    <Setter Property="Opacity" Value="0.9" />
+  </Style>
+  <Style Selector="ToggleSwitch.rule-toggle:disabled">
+    <Setter Property="Opacity" Value="0.5" />
+  </Style>
 </Styles>

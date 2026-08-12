@@ -318,7 +318,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        // 页面创建前先提交加载帧，确保重布局前已有导航反馈。
+        // 先让加载状态进入渲染队列，再在后台优先级创建页面。
         if (previousHost is not null)
         {
             DeactivatePageHost(previousHost);
@@ -330,37 +330,21 @@ public sealed partial class MainWindow : Window
         }
 
         SetPageLoadingVisible(true);
-        RequestAnimationFrame(
-            _ =>
+        Dispatcher.UIThread.Post(
+            () =>
             {
                 if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
                 {
                     return;
                 }
 
-                RequestAnimationFrame(
-                    _ =>
-                    {
-                        if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
-                        {
-                            return;
-                        }
-
-                        Dispatcher.UIThread.Post(
-                            () =>
-                            {
-                                if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
-                                {
-                                    return;
-                                }
-
-                                EnsurePageLoaded(page);
-                                PrepareNextHostEnterState(nextHost);
-                                RequestPagePreparationFrame(previousHost, nextHost, page, version);
-                            },
-                            DispatcherPriority.Background);
-                    });
-            });
+                EnsurePageLoaded(page);
+                PrepareNextHostEnterState(nextHost);
+                ActivatePageHost(nextHost);
+                PreparePageLayout(page, nextHost);
+                CompletePageLoadingThenEnter(previousHost, nextHost, version);
+            },
+            DispatcherPriority.Background);
     }
 
     private static void PrepareNextHostEnterState(ContentControl nextHost)
@@ -373,27 +357,6 @@ public sealed partial class MainWindow : Window
         nextHost.RenderTransform = PageTransition.EnterFromTransform;
     }
 
-    // 目标页先在隐藏状态完成激活和布局，下一帧再启动动画。
-    private void RequestPagePreparationFrame(
-        ContentControl? previousHost,
-        ContentControl nextHost,
-        AppNavigationPage page,
-        long version)
-    {
-        RequestAnimationFrame(
-            _ =>
-            {
-                if (version != _pageTransitionVersion || !ReferenceEquals(_pendingPageHost, nextHost))
-                {
-                    return;
-                }
-
-                ActivatePageHost(nextHost);
-                PreparePageLayout(page, nextHost);
-                CompletePageLoadingThenEnter(previousHost, nextHost, version);
-            });
-    }
-
     private void CompletePageLoadingThenEnter(
         ContentControl? previousHost,
         ContentControl nextHost,
@@ -404,16 +367,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        if (_pageLoadingShownAt == 0)
-        {
-            RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
-            return;
-        }
-
         var remaining = PageLoadingMinVisible - Stopwatch.GetElapsedTime(_pageLoadingShownAt);
         if (remaining <= TimeSpan.Zero)
         {
-            RequestAnimationFrame(_ => StartPageTransition(previousHost, nextHost, version));
+            StartPageTransition(previousHost, nextHost, version);
             return;
         }
 
