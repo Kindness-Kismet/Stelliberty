@@ -8,7 +8,7 @@ public sealed record SubscriptionChainProxySlotViewModel(int Index, string NodeN
 
     public string DisplayName => NodeName;
 
-    public string AutomationId => $"Subscriptions.ChainProxy.Slot.{Index}";
+    public string AutomationId => $"Subscriptions.ChainProxy.Slot.{NodeName}";
 
     private string Localize(string key) => Localization?.GetString(key) ?? key;
 }

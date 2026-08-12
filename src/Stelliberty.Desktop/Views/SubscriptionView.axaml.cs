@@ -16,6 +16,7 @@ public sealed partial class SubscriptionView : UserControl
 {
     private readonly GridReorderController _subscriptionReorder;
     private readonly GridReorderController _overrideSelectorReorder;
+    private readonly GridReorderController _chainProxyReorder;
     private SubscriptionAddDialogViewModel? _subscribedAddDialog;
     private SubscriptionEditDialogViewModel? _subscribedEditDialog;
     private SubscriptionChainProxyDialogViewModel? _subscribedChainProxyDialog;
@@ -35,6 +36,11 @@ public sealed partial class SubscriptionView : UserControl
             dataContext => (dataContext as SubscriptionOverrideOptionViewModel)?.Id,
             (id, targetIndex) => (OverrideSelectorList.DataContext as SubscriptionPageViewModel)?.OverrideSelector.MoveCommand
                 .Execute(new SubscriptionOverrideMoveRequest(id, targetIndex)));
+        _chainProxyReorder = new GridReorderController(
+            ChainProxySlotList,
+            dataContext => (dataContext as SubscriptionChainProxySlotViewModel)?.NodeName,
+            (nodeName, targetIndex) => (SubscriptionPageRoot.DataContext as SubscriptionPageViewModel)?.ChainProxy.MoveDraftNodeCommand
+                .Execute(new SubscriptionChainProxyMoveRequest(nodeName, targetIndex)));
 
         // Overlay 对话框必须沿按钮绑定链解析自己的 VM。
         ChooseLocalFileButton.Command = new Presentation.Commands.RelayCommand(async () => await ChooseLocalFileAsync());
@@ -45,6 +51,7 @@ public sealed partial class SubscriptionView : UserControl
         base.OnAttachedToVisualTree(e);
         _subscriptionReorder.Attach();
         _overrideSelectorReorder.Attach();
+        _chainProxyReorder.Attach();
         SubscribeAddDialog();
         SubscribeEditDialog();
         SubscribeChainProxyDialog();
@@ -57,6 +64,7 @@ public sealed partial class SubscriptionView : UserControl
         UnsubscribeChainProxyDialog();
         _subscriptionReorder.Detach();
         _overrideSelectorReorder.Detach();
+        _chainProxyReorder.Detach();
         base.OnDetachedFromVisualTree(e);
     }
 

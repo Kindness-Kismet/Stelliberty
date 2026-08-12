@@ -1067,7 +1067,8 @@
                               <TextBlock Classes="dialog-subtitle"
                                          IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
                                          Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
-                              <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
+                              <ItemsControl x:Name="ChainProxySlotList"
+                                            AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
                                             ItemsSource="{Binding ChainProxy.Slots}">
                                 <ItemsControl.ItemsPanel>
                                   <ItemsPanelTemplate>
@@ -1078,10 +1079,13 @@
                                   <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
                                     <Border Classes="chain-slot" Margin="0,0,8,8"
                                             AutomationProperties.AutomationId="{Binding AutomationId}">
-                                      <StackPanel Spacing="3">
+                                      <Grid RowDefinitions="Auto,Auto">
                                         <TextBlock Classes="settings-row-subtitle" Text="{Binding PositionLabel}" />
-                                        <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
-                                      </StackPanel>
+                                        <TextBlock Grid.Row="1" Classes="settings-row-title"
+                                                   Text="{Binding DisplayName}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   ToolTip.Tip="{Binding DisplayName}" />
+                                      </Grid>
                                     </Border>
                                   </DataTemplate>
                                 </ItemsControl.ItemTemplate>

@@ -505,7 +505,8 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="10" />
     <Setter Property="Padding" Value="12,8" />
-    <Setter Property="MinWidth" Value="150" />
+    <Setter Property="Width" Value="220" />
+    <Setter Property="Cursor" Value="Hand" />
     <Setter Property="Transitions">
       <Transitions>
         <BrushTransition Property="Background" Duration="0:0:0.15" />

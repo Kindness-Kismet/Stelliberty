@@ -746,6 +746,34 @@ public sealed class SubscriptionBusinessTests
         Assert.Contains(dialog.CustomChainProxies, custom => custom.Id == "old" && custom.NodeNames.Contains("OldHK", StringComparer.Ordinal));
     }
 
+    [Fact(DisplayName = "Chain proxy dialog reorders draft nodes by stable node name")]
+    public async Task ChainProxyDialogReordersDraftNodesByStableNodeName()
+    {
+        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => new SubscriptionChainProxyContext(
+            [],
+            [
+                new ChainProxyNodeOption("HK", "ss"),
+                new ChainProxyNodeOption("TW", "ss"),
+                new ChainProxyNodeOption("JP", "trojan")
+            ]));
+        dialog.Open("sub-1", "Sub", [], []);
+        await WaitUntilAsync(() => !dialog.IsLoading);
+        dialog.StartAddDraftCommand.Execute(null);
+        dialog.SelectCandidateCommand.Execute("HK");
+        dialog.SelectCandidateCommand.Execute("TW");
+        dialog.SelectCandidateCommand.Execute("JP");
+
+        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest("JP", 0));
+        Assert.Equal(["JP", "HK", "TW"], dialog.Slots.Select(slot => slot.NodeName));
+        Assert.Equal("Subscriptions.ChainProxy.Slot.JP", dialog.Slots[0].AutomationId);
+
+        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest("JP", 99));
+        Assert.Equal(["HK", "TW", "JP"], dialog.Slots.Select(slot => slot.NodeName));
+
+        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest("missing", 0));
+        Assert.Equal(["HK", "TW", "JP"], dialog.Slots.Select(slot => slot.NodeName));
+    }
+
     [Fact(DisplayName = "Chain proxy dialog ignores stale context after subscription switch")]
     public async Task ChainProxyDialogIgnoresStaleContextAfterSubscriptionSwitch()
     {

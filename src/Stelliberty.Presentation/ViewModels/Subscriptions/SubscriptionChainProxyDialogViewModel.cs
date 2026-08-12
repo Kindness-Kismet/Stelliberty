@@ -57,6 +57,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         EditCustomCommand = new RelayCommand<string>(EditCustom);
         RemoveCustomCommand = new RelayCommand<string>(RemoveCustom);
         SelectCandidateCommand = new RelayCommand<string>(SelectCandidate);
+        MoveDraftNodeCommand = new RelayCommand<SubscriptionChainProxyMoveRequest>(MoveDraftNode);
         SaveDraftCommand = new RelayCommand(SaveDraft);
         CancelDraftCommand = new RelayCommand(CancelDraft);
         SaveCommand = new RelayCommand(Save);
@@ -157,6 +158,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     public ICommand RemoveCustomCommand { get; }
 
     public ICommand SelectCandidateCommand { get; }
+
+    public ICommand MoveDraftNodeCommand { get; }
 
     public ICommand SaveDraftCommand { get; }
 
@@ -316,6 +319,31 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         {
             ValidateDraftNodes();
         }
+        RaiseStateChanged();
+    }
+
+    private void MoveDraftNode(SubscriptionChainProxyMoveRequest? request)
+    {
+        if (!_isEditingDraft || request is null)
+        {
+            return;
+        }
+
+        var sourceIndex = _draftNodes.IndexOf(request.NodeName);
+        if (sourceIndex < 0)
+        {
+            return;
+        }
+
+        var targetIndex = Math.Clamp(request.TargetIndex, 0, _draftNodes.Count - 1);
+        if (sourceIndex == targetIndex)
+        {
+            return;
+        }
+
+        var nodeName = _draftNodes[sourceIndex];
+        _draftNodes.RemoveAt(sourceIndex);
+        _draftNodes.Insert(targetIndex, nodeName);
         RaiseStateChanged();
     }
 
