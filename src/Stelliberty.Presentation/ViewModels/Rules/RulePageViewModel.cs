@@ -13,15 +13,36 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     private readonly RuleListLoader? _loader;
     private readonly ILocalizationService? _localization;
     private readonly RuleSearch _search = new();
+    private static readonly IReadOnlyList<RuleTypeOptionViewModel> RuleTypeOptions = [
+        new("DOMAIN", "DOMAIN"),
+        new("DOMAIN-SUFFIX", "DOMAIN-SUFFIX"),
+        new("DOMAIN-KEYWORD", "DOMAIN-KEYWORD"),
+        new("IP-CIDR", "IP-CIDR"),
+        new("IP-CIDR (no-resolve)", "IP-CIDR", "no-resolve"),
+        new("IP-CIDR6", "IP-CIDR6"),
+        new("IP-CIDR6 (no-resolve)", "IP-CIDR6", "no-resolve"),
+        new("GEOIP", "GEOIP"),
+        new("GEOIP (no-resolve)", "GEOIP", "no-resolve"),
+        new("GEOSITE", "GEOSITE"),
+        new("RULE-SET", "RULE-SET"),
+        new("PROCESS-NAME", "PROCESS-NAME"),
+        new("PROCESS-PATH", "PROCESS-PATH"),
+        new("DST-PORT", "DST-PORT"),
+        new("SRC-IP-CIDR", "SRC-IP-CIDR"),
+        new("SRC-IP-CIDR (no-resolve)", "SRC-IP-CIDR", "no-resolve"),
+        new("MATCH", "MATCH"),
+    ];
+    private static readonly IReadOnlyList<string> BuiltinOutboundActions = ["DIRECT", "REJECT", "REJECT-DROP"];
     private bool _isCoreRunning = true;
     private bool _hasRequestedRefresh;
     private bool _isEditorDialogVisible;
     private bool _isTemplateDialogVisible;
     private bool _isTemplateSelectMode;
-    private string _type = "DOMAIN-SUFFIX";
+    private RuleTypeOptionViewModel _selectedRuleType = RuleTypeOptions[1];
     private string _payload = string.Empty;
-    private string _proxy = "DIRECT";
-    private string _options = string.Empty;
+    private string _proxy = string.Empty;
+    private IReadOnlyList<OutboundTargetOptionViewModel> _outboundTargets = [];
+    private OutboundTargetOptionViewModel? _selectedOutboundTarget;
     private string _templateName = string.Empty;
     private string _errorText = string.Empty;
     private RuleTemplateOptionViewModel? _selectedTemplate;
@@ -61,6 +82,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         ConfirmDeleteRuleCommand = new RelayCommand(ConfirmDeleteRule);
         DeleteEditingRuleCommand = new RelayCommand(DeleteEditingRule);
         CancelDeleteRuleCommand = new RelayCommand(() => DeleteCandidate = null);
+        RebuildOutboundTargets();
     }
 
     public RulePageViewModel(RuleListLoader loader, ILocalizationService? localization = null)
@@ -75,7 +97,8 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public ObservableCollection<RuleEditorRowViewModel> BuiltinRules { get; } = [];
     public ObservableCollection<RuleEditorRowViewModel> CustomRules { get; } = [];
     public ObservableCollection<RuleEditorRowViewModel> VisibleRules { get; } = [];
-    public IReadOnlyList<string> RuleTypes { get; } = ["DOMAIN", "DOMAIN-SUFFIX", "DOMAIN-KEYWORD", "IP-CIDR", "IP-CIDR6", "GEOIP", "GEOSITE", "RULE-SET", "PROCESS-NAME", "PROCESS-PATH", "DST-PORT", "SRC-IP-CIDR", "MATCH"];
+    public IReadOnlyList<RuleTypeOptionViewModel> RuleTypes => RuleTypeOptions;
+    public IReadOnlyList<OutboundTargetOptionViewModel> OutboundTargets => _outboundTargets;
     public IReadOnlyList<RuleTemplateOptionViewModel> Templates => _snapshot.Templates.Select(template => new RuleTemplateOptionViewModel(template)).ToList();
     public IReadOnlyList<RuleItem> Rules => _rules;
     public IReadOnlyList<RuleItem> FilteredRules => _filteredRules;
@@ -131,10 +154,11 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public bool IsDialogOverlayVisible => IsEditorDialogVisible || IsTemplateDialogVisible || IsDeleteDialogVisible;
     public bool IsEditingExisting => _editingRule is not null;
     public string EditorTitle => IsEditingExisting ? Localize("Rules.Dialog.Edit.Title") : Localize("Rules.Dialog.Add.Title");
-    public string Type { get => _type; set => SetProperty(ref _type, value); }
+    public RuleTypeOptionViewModel SelectedRuleType { get => _selectedRuleType; set => SetProperty(ref _selectedRuleType, value); }
     public string Payload { get => _payload; set => SetProperty(ref _payload, value); }
     public string Proxy { get => _proxy; set => SetProperty(ref _proxy, value); }
-    public string Options { get => _options; set => SetProperty(ref _options, value); }
+    public OutboundTargetOptionViewModel? SelectedOutboundTarget { get => _selectedOutboundTarget; set { if (SetProperty(ref _selectedOutboundTarget, value)) OnPropertyChanged(nameof(IsCustomOutboundTarget)); } }
+    public bool IsCustomOutboundTarget => _selectedOutboundTarget?.IsCustom == true;
     public string TemplateName { get => _templateName; set { if (SetProperty(ref _templateName, value)) { OnPropertyChanged(nameof(CanSaveTemplate)); ((RelayCommand)SaveTemplateCommand).RaiseCanExecuteChanged(); } } }
     public RuleEditorRowViewModel? DeleteCandidate
     {
@@ -233,6 +257,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         RebuildFilteredRows();
 
         OnPropertyChanged(nameof(Templates));
+        RebuildOutboundTargets();
         OnPropertyChanged(nameof(HasSubscription));
         OnPropertyChanged(nameof(IsEmptyVisible));
         OnPropertyChanged(nameof(EmptyText));
@@ -282,10 +307,9 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     private void OpenEditor(RuleEditorRowViewModel? row)
     {
         _editingRule = row;
-        Type = row?.Type ?? "DOMAIN-SUFFIX";
+        SelectedRuleType = row is null ? RuleTypeOptions[1] : FindRuleType(row.Type, row.Options);
         Payload = row?.Item.Payload ?? string.Empty;
-        Proxy = row?.Proxy ?? "DIRECT";
-        Options = row?.Options ?? string.Empty;
+        SelectOutboundTarget(row?.Proxy ?? "DIRECT");
         ErrorText = string.Empty;
         IsEditorDialogVisible = true;
         OnPropertyChanged(nameof(IsEditingExisting));
@@ -310,7 +334,8 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         }
 
         var id = _editingRule?.Id ?? $"local-{Guid.NewGuid():N}";
-        var rule = new EditableRule(id, Type, Payload, Proxy, Options);
+        var target = IsCustomOutboundTarget ? Proxy.Trim() : SelectedOutboundTarget?.Value ?? string.Empty;
+        var rule = new EditableRule(id, SelectedRuleType.Type, Payload, target, SelectedRuleType.Options);
         var custom = CustomRules.Select(row => row.ToEditableRule()).ToList();
         if (_editingRule is not null)
         {
@@ -435,6 +460,33 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         catch (RuleOverrideException exception) { ErrorText = LocalizeRuleError(exception.Error); }
     }
 
+    private static RuleTypeOptionViewModel FindRuleType(string type, string options)
+        => RuleTypeOptions.FirstOrDefault(option => string.Equals(option.Type, type, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(option.Options, options, StringComparison.OrdinalIgnoreCase)) ?? RuleTypeOptions[1];
+
+    // 自定义选项固定首位且 Value 为空，实际出站目标取左侧输入框文本。
+    private void RebuildOutboundTargets()
+    {
+        var wasCustom = IsCustomOutboundTarget;
+        var previousValue = _selectedOutboundTarget?.Value;
+        var names = _snapshot.ProxyOptions.Count > 0 ? _snapshot.ProxyOptions : BuiltinOutboundActions;
+        var options = new List<OutboundTargetOptionViewModel> { new(Localize("Rules.Outbound.Custom"), string.Empty, true) };
+        options.AddRange(names.Select(name => new OutboundTargetOptionViewModel(name, name)));
+        _outboundTargets = options;
+        OnPropertyChanged(nameof(OutboundTargets));
+        if (_selectedOutboundTarget is not null)
+        {
+            SelectOutboundTarget(wasCustom ? Proxy : previousValue ?? string.Empty);
+        }
+    }
+
+    private void SelectOutboundTarget(string target)
+    {
+        var option = _outboundTargets.FirstOrDefault(item => !item.IsCustom && string.Equals(item.Value, target, StringComparison.Ordinal));
+        SelectedOutboundTarget = option ?? _outboundTargets[0];
+        Proxy = option is null ? target : string.Empty;
+    }
+
     private string Localize(string key) => _localization?.GetString(key) ?? key;
     private string LocalizeRuleError(RuleOverrideError error) => Localize(error switch
     {
@@ -542,6 +594,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(MonitorStateText));
         OnPropertyChanged(nameof(EditorTitle));
+        RebuildOutboundTargets();
     }
 
     public void Dispose() => _localization?.LanguageChanged -= OnLanguageChanged;

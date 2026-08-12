@@ -65,15 +65,15 @@
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
             <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.AddButton"
-                    Command="{Binding AddRuleCommand}" IsEnabled="{Binding HasSubscription}" ToolTip.Tip="{loc:Loc Rules.Action.Add}">
+                    Command="{Binding AddRuleCommand}" ToolTip.Tip="{loc:Loc Rules.Action.Add}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="AddLine" />
             </Button>
             <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.CreateTemplateButton"
-                    Command="{Binding OpenCreateTemplateCommand}" IsEnabled="{Binding HasSubscription}" ToolTip.Tip="{loc:Loc Rules.Action.CreateTemplate}">
+                    Command="{Binding OpenCreateTemplateCommand}" ToolTip.Tip="{loc:Loc Rules.Action.CreateTemplate}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="FileNewLine" />
             </Button>
             <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.SelectTemplateButton"
-                    Command="{Binding OpenTemplateCommand}" IsEnabled="{Binding HasSubscription}" ToolTip.Tip="{loc:Loc Rules.Action.SelectTemplate}">
+                    Command="{Binding OpenTemplateCommand}" ToolTip.Tip="{loc:Loc Rules.Action.SelectTemplate}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="FolderOpenLine" />
             </Button>
             <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.RefreshButton"
@@ -150,16 +150,28 @@
                     <Button Grid.Column="1" Classes="dialog-close" AutomationProperties.AutomationId="Rules.EditorDialog.CloseButton" Command="{Binding CancelEditorCommand}" ToolTip.Tip="{loc:Loc Common.Close}"><iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" /></Button>
                   </Grid>
                   <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="10" Margin="24,0,22,0">
+                    <!-- 字段结构对齐订阅对话框：外层 16、标题与输入框 6 -->
+                    <StackPanel Spacing="16" Margin="24,0,22,0">
                       <TextBlock Classes="dialog-error" Text="{Binding ErrorText}" IsVisible="{Binding HasError}" />
-                      <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Type}" />
-                      <ComboBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.TypeBox" ItemsSource="{Binding RuleTypes}" SelectedItem="{Binding Type, Mode=TwoWay}" IsEditable="True" />
-                      <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Payload}" />
-                      <TextBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.PayloadBox" Text="{Binding Payload, Mode=TwoWay}" />
-                      <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Proxy}" />
-                      <TextBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.ProxyBox" Text="{Binding Proxy, Mode=TwoWay}" />
-                      <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Options}" />
-                      <TextBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.OptionsBox" Text="{Binding Options, Mode=TwoWay}" />
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Type}" />
+                        <ComboBox Classes="dialog-input" Width="260" HorizontalAlignment="Left" HorizontalContentAlignment="Left" AutomationProperties.AutomationId="Rules.EditorDialog.TypeBox" ItemsSource="{Binding RuleTypes}" SelectedItem="{Binding SelectedRuleType, Mode=TwoWay}" DisplayMemberBinding="{Binding Name}" />
+                      </StackPanel>
+                      <!-- 左输入框仅在右侧下拉选中自定义代理组时可编辑，其余选项直接取下拉值 -->
+                      <Grid ColumnDefinitions="*,260" ColumnSpacing="12">
+                        <StackPanel Spacing="6">
+                          <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.CustomProxyName}" />
+                          <TextBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.ProxyBox" Text="{Binding Proxy, Mode=TwoWay}" IsEnabled="{Binding IsCustomOutboundTarget}" PlaceholderText="{loc:Loc Rules.Field.CustomProxyHint}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="6">
+                          <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Proxy}" />
+                          <ComboBox Classes="dialog-input" Width="260" HorizontalContentAlignment="Left" AutomationProperties.AutomationId="Rules.EditorDialog.OutboundBox" ItemsSource="{Binding OutboundTargets}" SelectedItem="{Binding SelectedOutboundTarget, Mode=TwoWay}" DisplayMemberBinding="{Binding Name}" />
+                        </StackPanel>
+                      </Grid>
+                      <StackPanel Spacing="6">
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Payload}" />
+                        <TextBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.PayloadBox" Text="{Binding Payload, Mode=TwoWay}" />
+                      </StackPanel>
                     </StackPanel>
                   </ScrollViewer>
                   <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" Margin="24,4,24,24">
@@ -210,11 +222,10 @@
 
                   <!-- 创建模板模式 -->
                   <ScrollViewer Grid.Row="1" IsVisible="{Binding IsTemplateCreateMode}" VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="18" Margin="24,0,22,0">
+                    <StackPanel Spacing="16" Margin="24,0,22,0">
                       <StackPanel Spacing="6">
-                        <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Template.SaveSection}" />
-                        <TextBox Classes="dialog-input" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="Rules.TemplateDialog.NameBox" Text="{Binding TemplateName, Mode=TwoWay}" PlaceholderText="{loc:Loc Rules.Field.TemplateName}" />
-                        <TextBlock Classes="dialog-subtitle" Text="{loc:Loc Rules.Template.SaveHint}" TextWrapping="Wrap" />
+                        <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.TemplateName}" />
+                        <TextBox Classes="dialog-input" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="Rules.TemplateDialog.NameBox" Text="{Binding TemplateName, Mode=TwoWay}" />
                       </StackPanel>
                     </StackPanel>
                   </ScrollViewer>

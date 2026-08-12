@@ -27,7 +27,11 @@ public sealed record RuleEditorSnapshot(
     string SubscriptionId,
     IReadOnlyList<RuleEditorItem> Items,
     IReadOnlyList<RuleTemplate> Templates,
-    bool HasSubscription);
+    bool HasSubscription,
+    IReadOnlyList<string>? ProxyOptions = null)
+{
+    public IReadOnlyList<string> ProxyOptions { get; init; } = ProxyOptions ?? [];
+}
 
 public enum RuleOverrideError
 {
@@ -62,7 +66,8 @@ public sealed class RuleOverrideService(
             return new RuleEditorSnapshot(subscriptionId, [], [], false);
         }
 
-        var parsedRules = parser.Parse(subscriptionStore.ReadContent(subscriptionId))
+        var content = subscriptionStore.ReadContent(subscriptionId);
+        var parsedRules = parser.Parse(content)
             .Where(rule => !string.Equals(rule.Source, "rule-providers", StringComparison.Ordinal))
             .ToList();
         var matchCounts = parsedRules
@@ -95,7 +100,7 @@ public sealed class RuleOverrideService(
                 .ToList();
         var items = MergeRuleOrder(builtinItems, customItems, set.RuleOrder);
 
-        return new RuleEditorSnapshot(subscriptionId, items, set.Templates, true);
+        return new RuleEditorSnapshot(subscriptionId, items, set.Templates, true, BuildProxyOptions(content));
     }
 
     public void Save(
@@ -152,6 +157,44 @@ public sealed class RuleOverrideService(
         return writer.ToString();
     }
 
+    // 编辑器候选只含内置动作与订阅代理组，其它目标走自定义输入。
+    private static IReadOnlyList<string> BuildProxyOptions(string configContent)
+    {
+        var options = new List<string> { "DIRECT", "REJECT", "REJECT-DROP" };
+        options.AddRange(ParseProxyGroups(configContent));
+        return options
+            .Where(option => !string.IsNullOrWhiteSpace(option))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static IReadOnlyList<string> ParseProxyGroups(string configContent)
+    {
+        var stream = new YamlStream();
+        try
+        {
+            stream.Load(new StringReader(configContent));
+        }
+        catch (YamlDotNet.Core.YamlException)
+        {
+            return [];
+        }
+
+        if (stream.Documents.Count == 0
+            || stream.Documents[0].RootNode is not YamlMappingNode root
+            || !root.Children.TryGetValue(new YamlScalarNode("proxy-groups"), out var node)
+            || node is not YamlSequenceNode groups)
+        {
+            return [];
+        }
+
+        return groups.Children
+            .OfType<YamlMappingNode>()
+            .Select(group => group.Children.TryGetValue(new YamlScalarNode("name"), out var nameNode) && nameNode is YamlScalarNode scalar ? scalar.Value ?? string.Empty : string.Empty)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .ToList();
+    }
+
     private static List<RuleEditorItem> MergeRuleOrder(
         IReadOnlyList<RuleEditorItem> builtinItems,
         IReadOnlyList<RuleEditorItem> customItems,
@@ -174,9 +217,11 @@ public sealed class RuleOverrideService(
             }
         }
 
-        ordered.AddRange(DefaultEditorOrder(
-            byOrderId.Values.Where(item => item.IsBuiltIn).ToList(),
-            byOrderId.Values.Where(item => !item.IsBuiltIn).ToList()));
+        // 不在已存顺序里的新自定义规则插到 MATCH 前，避免落在兜底规则后失效。
+        ordered.AddRange(byOrderId.Values.Where(item => item.IsBuiltIn));
+        var pendingCustoms = byOrderId.Values.Where(item => !item.IsBuiltIn).ToList();
+        var mergedMatchIndex = ordered.FindIndex(item => string.Equals(item.Type, "MATCH", StringComparison.OrdinalIgnoreCase));
+        ordered.InsertRange(mergedMatchIndex < 0 ? ordered.Count : mergedMatchIndex, pendingCustoms);
         return ordered;
     }
 
@@ -210,9 +255,11 @@ public sealed class RuleOverrideService(
             }
         }
 
-        ordered.AddRange(DefaultRuntimeOrder(
-            byOrderId.Values.Where(rule => rule.OrderId.StartsWith("builtin:", StringComparison.Ordinal)).ToList(),
-            byOrderId.Values.Where(rule => rule.OrderId.StartsWith("custom:", StringComparison.Ordinal)).ToList()));
+        // 不在已存顺序里的新自定义规则插到 MATCH 前，避免落在兜底规则后失效。
+        ordered.AddRange(byOrderId.Values.Where(rule => rule.OrderId.StartsWith("builtin:", StringComparison.Ordinal)));
+        var pendingCustoms = byOrderId.Values.Where(rule => rule.OrderId.StartsWith("custom:", StringComparison.Ordinal)).ToList();
+        var mergedMatchIndex = ordered.FindIndex(rule => string.Equals(rule.Rule.Split(',')[0].Trim(), "MATCH", StringComparison.OrdinalIgnoreCase));
+        ordered.InsertRange(mergedMatchIndex < 0 ? ordered.Count : mergedMatchIndex, pendingCustoms);
         return ordered;
     }
 
