@@ -44,7 +44,11 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     private IReadOnlyList<OutboundTargetOptionViewModel> _outboundTargets = [];
     private OutboundTargetOptionViewModel? _selectedOutboundTarget;
     private string _templateName = string.Empty;
-    private string _errorText = string.Empty;
+    private bool _hasAttemptedEditorSubmit;
+    private bool _hasAttemptedTemplateSubmit;
+    private string _proxyErrorKey = string.Empty;
+    private string _payloadErrorKey = string.Empty;
+    private string _templateNameErrorKey = string.Empty;
     private RuleTemplateOptionViewModel? _selectedTemplate;
     private RuleEditorRowViewModel? _editingRule;
     private RuleEditorRowViewModel? _deleteCandidate;
@@ -78,7 +82,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         SaveTemplateCommand = new RelayCommand(SaveTemplate, () => CanSaveTemplate);
         ApplyTemplateCommand = new RelayCommand(ApplyTemplate, () => SelectedTemplate is not null);
         DeleteSingleTemplateCommand = new RelayCommand<RuleTemplateOptionViewModel>(DeleteSingleTemplate);
-        CancelTemplateCommand = new RelayCommand(() => IsTemplateDialogVisible = false);
+        CancelTemplateCommand = new RelayCommand(CancelTemplate);
         ConfirmDeleteRuleCommand = new RelayCommand(ConfirmDeleteRule);
         DeleteEditingRuleCommand = new RelayCommand(DeleteEditingRule);
         CancelDeleteRuleCommand = new RelayCommand(() => DeleteCandidate = null);
@@ -93,6 +97,8 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
     public event EventHandler? RefreshRequested;
     public event EventHandler? RuntimeRefreshRequested;
+    public event EventHandler<(string Message, ToastType Type)>? ToastRequested;
+    public event EventHandler<DialogInputField>? InputFocusRequested;
 
     public ObservableCollection<RuleEditorRowViewModel> BuiltinRules { get; } = [];
     public ObservableCollection<RuleEditorRowViewModel> CustomRules { get; } = [];
@@ -135,9 +141,8 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public string TemplateDialogTitle => Localize(IsTemplateSelectMode ? "Rules.Dialog.Template.SelectTitle" : "Rules.Dialog.Template.CreateTitle");
     public bool IsVisibleRulesEmpty => VisibleRules.Count == 0;
     public bool IsNoMatchesVisible => HasSubscription && IsVisibleRulesEmpty;
-    public bool HasError => !string.IsNullOrWhiteSpace(ErrorText);
     public bool HasSelectedTemplate => SelectedTemplate is not null;
-    public bool CanSaveTemplate => HasCustomRules && !string.IsNullOrWhiteSpace(TemplateName);
+    public bool CanSaveTemplate => HasCustomRules;
     public string EmptyText => _overrideService is null
         ? !_isCoreRunning
             ? Localize("Rules.Empty.CoreStopped")
@@ -154,12 +159,90 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public bool IsDialogOverlayVisible => IsEditorDialogVisible || IsTemplateDialogVisible || IsDeleteDialogVisible;
     public bool IsEditingExisting => _editingRule is not null;
     public string EditorTitle => IsEditingExisting ? Localize("Rules.Dialog.Edit.Title") : Localize("Rules.Dialog.Add.Title");
-    public RuleTypeOptionViewModel SelectedRuleType { get => _selectedRuleType; set => SetProperty(ref _selectedRuleType, value); }
-    public string Payload { get => _payload; set => SetProperty(ref _payload, value); }
-    public string Proxy { get => _proxy; set => SetProperty(ref _proxy, value); }
-    public OutboundTargetOptionViewModel? SelectedOutboundTarget { get => _selectedOutboundTarget; set { if (SetProperty(ref _selectedOutboundTarget, value)) OnPropertyChanged(nameof(IsCustomOutboundTarget)); } }
+    public RuleTypeOptionViewModel SelectedRuleType
+    {
+        get => _selectedRuleType;
+        set
+        {
+            if (!SetProperty(ref _selectedRuleType, value))
+            {
+                return;
+            }
+
+            if (!IsPayloadEnabled)
+            {
+                _payload = string.Empty;
+                _payloadErrorKey = string.Empty;
+                OnPropertyChanged(nameof(Payload));
+            }
+            else if (_hasAttemptedEditorSubmit)
+            {
+                ValidatePayload();
+            }
+
+            OnPropertyChanged(nameof(IsPayloadEnabled));
+            OnPropertyChanged(nameof(PayloadError));
+            OnPropertyChanged(nameof(IsPayloadErrorVisible));
+        }
+    }
+    public string Payload
+    {
+        get => _payload;
+        set
+        {
+            if (SetProperty(ref _payload, value) && _hasAttemptedEditorSubmit)
+            {
+                ValidatePayload();
+            }
+        }
+    }
+    public string Proxy
+    {
+        get => _proxy;
+        set
+        {
+            if (SetProperty(ref _proxy, value) && _hasAttemptedEditorSubmit)
+            {
+                ValidateProxy();
+            }
+        }
+    }
+    public OutboundTargetOptionViewModel? SelectedOutboundTarget
+    {
+        get => _selectedOutboundTarget;
+        set
+        {
+            if (!SetProperty(ref _selectedOutboundTarget, value))
+            {
+                return;
+            }
+
+            OnPropertyChanged(nameof(IsCustomOutboundTarget));
+            if (_hasAttemptedEditorSubmit)
+            {
+                ValidateProxy();
+            }
+        }
+    }
     public bool IsCustomOutboundTarget => _selectedOutboundTarget?.IsCustom == true;
-    public string TemplateName { get => _templateName; set { if (SetProperty(ref _templateName, value)) { OnPropertyChanged(nameof(CanSaveTemplate)); ((RelayCommand)SaveTemplateCommand).RaiseCanExecuteChanged(); } } }
+    public bool IsPayloadEnabled => !string.Equals(SelectedRuleType.Type, "MATCH", StringComparison.OrdinalIgnoreCase);
+    public string ProxyError => LocalizeError(_proxyErrorKey);
+    public bool IsProxyErrorVisible => !string.IsNullOrEmpty(_proxyErrorKey);
+    public string PayloadError => LocalizeError(_payloadErrorKey);
+    public bool IsPayloadErrorVisible => !string.IsNullOrEmpty(_payloadErrorKey);
+    public string TemplateNameError => LocalizeError(_templateNameErrorKey);
+    public bool IsTemplateNameErrorVisible => !string.IsNullOrEmpty(_templateNameErrorKey);
+    public string TemplateName
+    {
+        get => _templateName;
+        set
+        {
+            if (SetProperty(ref _templateName, value) && _hasAttemptedTemplateSubmit)
+            {
+                ValidateTemplateName();
+            }
+        }
+    }
     public RuleEditorRowViewModel? DeleteCandidate
     {
         get => _deleteCandidate;
@@ -172,7 +255,6 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
             }
         }
     }
-    public string ErrorText { get => _errorText; private set { if (SetProperty(ref _errorText, value)) OnPropertyChanged(nameof(HasError)); } }
     public RuleTemplateOptionViewModel? SelectedTemplate { get => _selectedTemplate; set { if (SetProperty(ref _selectedTemplate, value)) { OnPropertyChanged(nameof(HasSelectedTemplate)); ((RelayCommand)ApplyTemplateCommand).RaiseCanExecuteChanged(); } } }
 
     public ICommand RefreshRulesCommand { get; }
@@ -200,7 +282,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
     private void OpenTemplateSelector()
     {
-        ErrorText = string.Empty;
+        ResetTemplateValidation();
         _isTemplateSelectMode = true;
         SelectedTemplate = null;
         OnPropertyChanged(nameof(IsTemplateSelectMode));
@@ -222,12 +304,18 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
     private void OpenTemplateCreator()
     {
-        ErrorText = string.Empty;
+        ResetTemplateValidation();
         _isTemplateSelectMode = false;
         OnPropertyChanged(nameof(IsTemplateSelectMode));
         OnPropertyChanged(nameof(IsTemplateCreateMode));
         OnPropertyChanged(nameof(TemplateDialogTitle));
         IsTemplateDialogVisible = true;
+    }
+
+    private void CancelTemplate()
+    {
+        IsTemplateDialogVisible = false;
+        ResetTemplateValidation();
     }
 
     public void LoadEditorSnapshot()
@@ -310,7 +398,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         SelectedRuleType = row is null ? RuleTypeOptions[1] : FindRuleType(row.Type, row.Options);
         Payload = row?.Item.Payload ?? string.Empty;
         SelectOutboundTarget(row?.Proxy ?? "DIRECT");
-        ErrorText = string.Empty;
+        ResetEditorValidation();
         IsEditorDialogVisible = true;
         OnPropertyChanged(nameof(IsEditingExisting));
         OnPropertyChanged(nameof(EditorTitle));
@@ -330,6 +418,12 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     {
         if (_overrideService is null || string.IsNullOrWhiteSpace(_snapshot.SubscriptionId))
         {
+            return;
+        }
+
+        if (!ValidateEditorInputs())
+        {
+            FocusFirstInvalidEditorInput();
             return;
         }
 
@@ -356,7 +450,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         }
         catch (RuleOverrideException exception)
         {
-            ErrorText = LocalizeRuleError(exception.Error);
+            ApplyEditorSaveError(exception.Error);
         }
     }
 
@@ -368,7 +462,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
             SaveCurrentRules(CustomRules.Select(row => row.ToEditableRule()).ToList());
             RuntimeRefreshRequested?.Invoke(this, EventArgs.Empty);
         }
-        catch (RuleOverrideException exception) { ErrorText = LocalizeRuleError(exception.Error); }
+        catch (RuleOverrideException exception) { ShowRuleSaveToast(exception.Error); }
     }
 
     private void SaveCurrentRules(IReadOnlyList<EditableRule> customRules, IReadOnlyList<string>? ruleOrder = null)
@@ -431,12 +525,20 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
             SaveCurrentRules(CustomRules.Select(row => row.ToEditableRule()).ToList());
             RuntimeRefreshRequested?.Invoke(this, EventArgs.Empty);
         }
-        catch (RuleOverrideException exception) { ErrorText = LocalizeRuleError(exception.Error); }
+        catch (RuleOverrideException exception) { ShowRuleSaveToast(exception.Error); }
     }
 
     private void SaveTemplate()
     {
-        if (_overrideService is null || string.IsNullOrWhiteSpace(_snapshot.SubscriptionId) || string.IsNullOrWhiteSpace(TemplateName)) return;
+        if (_overrideService is null || string.IsNullOrWhiteSpace(_snapshot.SubscriptionId)) return;
+        _hasAttemptedTemplateSubmit = true;
+        ValidateTemplateName();
+        if (IsTemplateNameErrorVisible)
+        {
+            InputFocusRequested?.Invoke(this, DialogInputField.TemplateName);
+            return;
+        }
+
         var existing = _snapshot.Templates.FirstOrDefault(template => string.Equals(template.Name, TemplateName.Trim(), StringComparison.OrdinalIgnoreCase));
         var template = new RuleTemplate(existing?.Id ?? $"template-{Guid.NewGuid():N}", TemplateName.Trim(), CustomRules.Select(row => row.ToEditableRule()).ToList());
         _overrideService.UpsertTemplate(template);
@@ -457,7 +559,128 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
             LoadEditorSnapshot();
             RuntimeRefreshRequested?.Invoke(this, EventArgs.Empty);
         }
-        catch (RuleOverrideException exception) { ErrorText = LocalizeRuleError(exception.Error); }
+        catch (RuleOverrideException exception) { ShowRuleSaveToast(exception.Error); }
+    }
+
+    private void ResetEditorValidation()
+    {
+        _hasAttemptedEditorSubmit = false;
+        _proxyErrorKey = string.Empty;
+        _payloadErrorKey = string.Empty;
+        RaiseEditorValidationChanged();
+    }
+
+    private void ResetTemplateValidation()
+    {
+        _hasAttemptedTemplateSubmit = false;
+        _templateNameErrorKey = string.Empty;
+        OnPropertyChanged(nameof(TemplateNameError));
+        OnPropertyChanged(nameof(IsTemplateNameErrorVisible));
+    }
+
+    private bool ValidateEditorInputs()
+    {
+        _hasAttemptedEditorSubmit = true;
+        ValidateProxy();
+        ValidatePayload();
+        return !IsProxyErrorVisible && !IsPayloadErrorVisible;
+    }
+
+    private void FocusFirstInvalidEditorInput()
+    {
+        if (IsProxyErrorVisible)
+        {
+            InputFocusRequested?.Invoke(this, DialogInputField.Proxy);
+            return;
+        }
+
+        if (IsPayloadErrorVisible)
+        {
+            InputFocusRequested?.Invoke(this, DialogInputField.Payload);
+        }
+    }
+
+    private void ValidateProxy()
+    {
+        _proxyErrorKey = string.Empty;
+        if (IsCustomOutboundTarget && string.IsNullOrWhiteSpace(Proxy))
+        {
+            _proxyErrorKey = "Rules.Error.ProxyRequired";
+        }
+        else if (IsCustomOutboundTarget && Proxy.Contains(',', StringComparison.Ordinal))
+        {
+            _proxyErrorKey = "Rules.Error.ProxyDelimiter";
+        }
+
+        OnPropertyChanged(nameof(ProxyError));
+        OnPropertyChanged(nameof(IsProxyErrorVisible));
+    }
+
+    private void ValidatePayload()
+    {
+        _payloadErrorKey = string.Empty;
+        if (IsPayloadEnabled && string.IsNullOrWhiteSpace(Payload))
+        {
+            _payloadErrorKey = "Rules.Error.PayloadRequired";
+        }
+        else if (IsPayloadEnabled && Payload.Contains(',', StringComparison.Ordinal))
+        {
+            _payloadErrorKey = "Rules.Error.PayloadDelimiter";
+        }
+        else if (IsPayloadEnabled)
+        {
+            var matchKey = RuleKey.CreateMatch(SelectedRuleType.Type, Payload, SelectedRuleType.Options);
+            if (CustomRules.Any(row => row.Id != _editingRule?.Id
+                && string.Equals(row.Item.MatchKey, matchKey, StringComparison.Ordinal)))
+            {
+                _payloadErrorKey = "Rules.Error.DuplicateCustom";
+            }
+            else if (BuiltinRules.Any(row => row.IsEnabled
+                && string.Equals(row.Item.MatchKey, matchKey, StringComparison.Ordinal)))
+            {
+                _payloadErrorKey = "Rules.Error.DuplicateBuiltin";
+            }
+        }
+
+        OnPropertyChanged(nameof(PayloadError));
+        OnPropertyChanged(nameof(IsPayloadErrorVisible));
+    }
+
+    private void ValidateTemplateName()
+    {
+        _templateNameErrorKey = string.IsNullOrWhiteSpace(TemplateName)
+            ? "Rules.Error.TemplateNameRequired"
+            : string.Empty;
+        OnPropertyChanged(nameof(TemplateNameError));
+        OnPropertyChanged(nameof(IsTemplateNameErrorVisible));
+    }
+
+    private void ApplyEditorSaveError(RuleOverrideError error)
+    {
+        if (IsPayloadEnabled
+            && error is RuleOverrideError.DuplicateCustomRule or RuleOverrideError.DuplicateBuiltinRule)
+        {
+            _payloadErrorKey = error == RuleOverrideError.DuplicateCustomRule
+                ? "Rules.Error.DuplicateCustom"
+                : "Rules.Error.DuplicateBuiltin";
+            OnPropertyChanged(nameof(PayloadError));
+            OnPropertyChanged(nameof(IsPayloadErrorVisible));
+            InputFocusRequested?.Invoke(this, DialogInputField.Payload);
+            return;
+        }
+
+        ShowRuleSaveToast(error);
+    }
+
+    private void ShowRuleSaveToast(RuleOverrideError error)
+        => ToastRequested?.Invoke(this, (LocalizeRuleError(error), ToastType.Error));
+
+    private void RaiseEditorValidationChanged()
+    {
+        OnPropertyChanged(nameof(ProxyError));
+        OnPropertyChanged(nameof(IsProxyErrorVisible));
+        OnPropertyChanged(nameof(PayloadError));
+        OnPropertyChanged(nameof(IsPayloadErrorVisible));
     }
 
     private static RuleTypeOptionViewModel FindRuleType(string type, string options)
@@ -488,6 +711,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     }
 
     private string Localize(string key) => _localization?.GetString(key) ?? key;
+    private string LocalizeError(string key) => string.IsNullOrEmpty(key) ? string.Empty : Localize(key);
     private string LocalizeRuleError(RuleOverrideError error) => Localize(error switch
     {
         RuleOverrideError.DuplicateCustomRule => "Rules.Error.DuplicateCustom",
@@ -594,6 +818,13 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(MonitorStateText));
         OnPropertyChanged(nameof(EditorTitle));
+        OnPropertyChanged(nameof(TemplateDialogTitle));
+        RaiseEditorValidationChanged();
+        if (_hasAttemptedTemplateSubmit)
+        {
+            ValidateTemplateName();
+        }
+        OnPropertyChanged(nameof(TemplateNameError));
         RebuildOutboundTargets();
     }
 

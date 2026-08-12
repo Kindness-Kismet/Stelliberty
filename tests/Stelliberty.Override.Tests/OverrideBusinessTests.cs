@@ -149,21 +149,23 @@ public sealed class OverrideBusinessTests
     public void AddDialogValidatesRemoteUrlAndSubmitsTrimmedRemoteRequest()
     {
         var dialog = new OverrideAddDialogViewModel();
-        string? validation = null;
         OverrideAddRemoteRequestedEventArgs? requested = null;
-        dialog.ValidationFailed += (_, message) => validation = message;
         dialog.RemoteRequested += (_, args) => requested = args;
         dialog.Open();
 
+        Assert.False(dialog.IsSourceLocationErrorVisible);
         dialog.Name = " Remote ";
         dialog.SourceLocation = "local.yaml";
+        Assert.False(dialog.IsSourceLocationErrorVisible);
         dialog.ConfirmCommand.Execute(null);
 
-        Assert.Equal("Overrides.Validation.Url", validation);
+        Assert.True(dialog.IsSourceLocationErrorVisible);
+        Assert.Equal("Overrides.Validation.Url", dialog.SourceLocationError);
         Assert.False(dialog.IsSubmitting);
         Assert.Null(requested);
 
         dialog.SourceLocation = " https://override.example/a.js ";
+        Assert.False(dialog.IsSourceLocationErrorVisible);
         dialog.SelectJavaScriptFormatCommand.Execute(null);
         dialog.SelectCoreProxyModeCommand.Execute(null);
         dialog.ConfirmCommand.Execute(null);
@@ -176,19 +178,17 @@ public sealed class OverrideBusinessTests
         Assert.True(dialog.IsSubmitting);
     }
 
-    [Fact(DisplayName = "Add dialog refreshes confirm command when required fields change")]
-    public void AddDialogRefreshesConfirmCommandWhenRequiredFieldsChange()
+    [Fact(DisplayName = "Add dialog keeps confirm enabled for invalid input")]
+    public void AddDialogKeepsConfirmEnabledForInvalidInput()
     {
         var dialog = new OverrideAddDialogViewModel();
-        var canExecuteStates = new List<bool>();
         dialog.Open();
-        dialog.ConfirmCommand.CanExecuteChanged += (_, _) =>
-            canExecuteStates.Add(dialog.ConfirmCommand.CanExecute(null));
 
+        Assert.True(dialog.ConfirmCommand.CanExecute(null));
         dialog.Name = "Remote";
-        dialog.SourceLocation = "https://override.example/a.yaml";
+        dialog.SourceLocation = "invalid";
 
-        Assert.Equal([false, true], canExecuteStates);
+        Assert.True(dialog.ConfirmCommand.CanExecute(null));
     }
 
     [Fact(DisplayName = "Edit dialog refreshes confirm command when opened")]
@@ -279,13 +279,19 @@ public sealed class OverrideBusinessTests
         editor.Open(Item("a", isLocal: false));
 
         editor.Name = " ";
+        editor.SourceLocation = "invalid";
         editor.ConfirmCommand.Execute(null);
 
         Assert.Null(completed);
         Assert.True(editor.IsDialogVisible);
-        Assert.False(editor.CanSubmit);
+        Assert.True(editor.CanSubmit);
+        Assert.True(editor.IsNameErrorVisible);
+        Assert.True(editor.IsSourceLocationErrorVisible);
 
         editor.Name = "Renamed";
+        editor.SourceLocation = "https://override.example/a.yaml";
+        Assert.False(editor.IsNameErrorVisible);
+        Assert.False(editor.IsSourceLocationErrorVisible);
         editor.SelectJavaScriptFormatCommand.Execute(null);
         editor.SelectCoreProxyModeCommand.Execute(null);
         editor.ClearForOverride("other");

@@ -37,7 +37,9 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private bool _isEditingDraft;
     private string? _draftId;
     private string _draftName = string.Empty;
-    private string _draftError = string.Empty;
+    private bool _hasAttemptedDraftSubmit;
+    private string _draftNameErrorKey = string.Empty;
+    private string _draftNodesErrorKey = string.Empty;
 
     public SubscriptionChainProxyDialogViewModel(
         ILocalizationService? localization = null,
@@ -64,6 +66,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     public event EventHandler<SubscriptionChainProxySaveEventArgs>? Saved;
 
     public event EventHandler? DialogStateChanged;
+
+    public event EventHandler<DialogInputField>? InputFocusRequested;
 
     public string? DialogSubscriptionId => _subscriptionId;
 
@@ -108,7 +112,13 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     public string DraftName
     {
         get => _draftName;
-        set => SetProperty(ref _draftName, value);
+        set
+        {
+            if (SetProperty(ref _draftName, value) && _hasAttemptedDraftSubmit)
+            {
+                ValidateDraftName();
+            }
+        }
     }
 
     public IReadOnlyList<SubscriptionChainProxySlotViewModel> Slots => _isEditingDraft
@@ -130,9 +140,13 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     public bool HasCandidates => _candidates.Count > 0;
 
-    public string DraftError => _draftError;
+    public string DraftNameError => LocalizeError(_draftNameErrorKey);
 
-    public bool IsDraftErrorVisible => !string.IsNullOrEmpty(_draftError);
+    public bool IsDraftNameErrorVisible => !string.IsNullOrEmpty(_draftNameErrorKey);
+
+    public string DraftNodesError => LocalizeError(_draftNodesErrorKey);
+
+    public bool IsDraftNodesErrorVisible => !string.IsNullOrEmpty(_draftNodesErrorKey);
 
     public ICommand ToggleBuiltinCommand { get; }
 
@@ -255,8 +269,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _draftId = Guid.NewGuid().ToString("N");
         _draftName = string.Empty;
         _draftNodes.Clear();
-        _draftError = string.Empty;
         _isEditingDraft = true;
+        ResetDraftValidation();
         RaiseStateChanged();
     }
 
@@ -272,8 +286,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _draftName = custom.DisplayName;
         _draftNodes.Clear();
         _draftNodes.AddRange(custom.NodeNames.Where(name => !string.IsNullOrWhiteSpace(name)));
-        _draftError = string.Empty;
         _isEditingDraft = true;
+        ResetDraftValidation();
         RaiseStateChanged();
     }
 
@@ -298,30 +312,28 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
             _draftNodes.Add(name);
         }
 
-        _draftError = string.Empty;
+        if (_hasAttemptedDraftSubmit)
+        {
+            ValidateDraftNodes();
+        }
         RaiseStateChanged();
     }
 
     private void SaveDraft()
     {
+        _hasAttemptedDraftSubmit = true;
+        ValidateDraftName();
+        ValidateDraftNodes();
+        if (IsDraftNameErrorVisible || IsDraftNodesErrorVisible)
+        {
+            FocusFirstInvalidDraftInput();
+            return;
+        }
+
         var name = _draftName.Trim();
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            _draftError = Localize("Subscriptions.ChainProxy.Error.Name");
-            RaiseStateChanged();
-            return;
-        }
-
         var nodes = _draftNodes.Where(node => !string.IsNullOrWhiteSpace(node)).ToList();
-        if (nodes.Count < MinNodeCount)
-        {
-            _draftError = Localize("Subscriptions.ChainProxy.Error.Nodes");
-            RaiseStateChanged();
-            return;
-        }
-
         var draftId = _draftId ?? Guid.NewGuid().ToString("N");
-        _customChainProxies.RemoveAll(item => item.Id == draftId || string.Equals(item.DisplayName, name, StringComparison.Ordinal));
+        _customChainProxies.RemoveAll(item => item.Id == draftId);
         _customChainProxies.Add(new SubscriptionCustomChainProxy(draftId, name, nodes));
         ExitDraftState();
         RaiseStateChanged();
@@ -366,7 +378,55 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _draftId = null;
         _draftName = string.Empty;
         _draftNodes.Clear();
-        _draftError = string.Empty;
+        ResetDraftValidation();
+    }
+
+    private void ResetDraftValidation()
+    {
+        _hasAttemptedDraftSubmit = false;
+        _draftNameErrorKey = string.Empty;
+        _draftNodesErrorKey = string.Empty;
+    }
+
+    private void ValidateDraftName()
+    {
+        var name = _draftName.Trim();
+        _draftNameErrorKey = string.Empty;
+        if (string.IsNullOrEmpty(name))
+        {
+            _draftNameErrorKey = "Subscriptions.ChainProxy.Error.Name";
+        }
+        else if (_customChainProxies.Any(item => item.Id != _draftId
+            && string.Equals(item.DisplayName, name, StringComparison.Ordinal)))
+        {
+            _draftNameErrorKey = "Subscriptions.ChainProxy.Error.DuplicateName";
+        }
+
+        OnPropertyChanged(nameof(DraftNameError));
+        OnPropertyChanged(nameof(IsDraftNameErrorVisible));
+    }
+
+    private void ValidateDraftNodes()
+    {
+        _draftNodesErrorKey = _draftNodes.Count(node => !string.IsNullOrWhiteSpace(node)) < MinNodeCount
+            ? "Subscriptions.ChainProxy.Error.Nodes"
+            : string.Empty;
+        OnPropertyChanged(nameof(DraftNodesError));
+        OnPropertyChanged(nameof(IsDraftNodesErrorVisible));
+    }
+
+    private void FocusFirstInvalidDraftInput()
+    {
+        if (IsDraftNameErrorVisible)
+        {
+            InputFocusRequested?.Invoke(this, DialogInputField.Name);
+            return;
+        }
+
+        if (IsDraftNodesErrorVisible)
+        {
+            InputFocusRequested?.Invoke(this, DialogInputField.Nodes);
+        }
     }
 
     private void Reset()
@@ -419,12 +479,16 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         OnPropertyChanged(nameof(HasSelectedNodes));
         OnPropertyChanged(nameof(Candidates));
         OnPropertyChanged(nameof(HasCandidates));
-        OnPropertyChanged(nameof(DraftError));
-        OnPropertyChanged(nameof(IsDraftErrorVisible));
+        OnPropertyChanged(nameof(DraftNameError));
+        OnPropertyChanged(nameof(IsDraftNameErrorVisible));
+        OnPropertyChanged(nameof(DraftNodesError));
+        OnPropertyChanged(nameof(IsDraftNodesErrorVisible));
         DialogStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnLanguageChanged(object? sender, EventArgs args) => RaiseStateChanged();
 
     private string Localize(string key) => _localization?.GetString(key) ?? key;
+
+    private string LocalizeError(string key) => string.IsNullOrEmpty(key) ? string.Empty : Localize(key);
 }

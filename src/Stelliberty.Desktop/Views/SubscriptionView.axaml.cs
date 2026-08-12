@@ -1,7 +1,10 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Desktop.Controls;
 using Stelliberty.Desktop.Localization;
@@ -15,6 +18,7 @@ public sealed partial class SubscriptionView : UserControl
     private readonly GridReorderController _overrideSelectorReorder;
     private SubscriptionAddDialogViewModel? _subscribedAddDialog;
     private SubscriptionEditDialogViewModel? _subscribedEditDialog;
+    private SubscriptionChainProxyDialogViewModel? _subscribedChainProxyDialog;
 
     public SubscriptionView()
     {
@@ -43,12 +47,14 @@ public sealed partial class SubscriptionView : UserControl
         _overrideSelectorReorder.Attach();
         SubscribeAddDialog();
         SubscribeEditDialog();
+        SubscribeChainProxyDialog();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         UnsubscribeAddDialog();
         UnsubscribeEditDialog();
+        UnsubscribeChainProxyDialog();
         _subscriptionReorder.Detach();
         _overrideSelectorReorder.Detach();
         base.OnDetachedFromVisualTree(e);
@@ -65,6 +71,7 @@ public sealed partial class SubscriptionView : UserControl
         UnsubscribeAddDialog();
         _subscribedAddDialog = viewModel.AddDialog;
         _subscribedAddDialog.DialogStateChanged += OnAddDialogStateChanged;
+        _subscribedAddDialog.InputFocusRequested += OnInputFocusRequested;
     }
 
     private void UnsubscribeAddDialog()
@@ -75,6 +82,7 @@ public sealed partial class SubscriptionView : UserControl
         }
 
         _subscribedAddDialog.DialogStateChanged -= OnAddDialogStateChanged;
+        _subscribedAddDialog.InputFocusRequested -= OnInputFocusRequested;
         _subscribedAddDialog = null;
     }
 
@@ -89,6 +97,7 @@ public sealed partial class SubscriptionView : UserControl
         UnsubscribeEditDialog();
         _subscribedEditDialog = viewModel.EditDialog;
         _subscribedEditDialog.DialogStateChanged += OnEditDialogStateChanged;
+        _subscribedEditDialog.InputFocusRequested += OnInputFocusRequested;
     }
 
     private void UnsubscribeEditDialog()
@@ -99,7 +108,32 @@ public sealed partial class SubscriptionView : UserControl
         }
 
         _subscribedEditDialog.DialogStateChanged -= OnEditDialogStateChanged;
+        _subscribedEditDialog.InputFocusRequested -= OnInputFocusRequested;
         _subscribedEditDialog = null;
+    }
+
+    private void SubscribeChainProxyDialog()
+    {
+        if (SubscriptionPageRoot.DataContext is not SubscriptionPageViewModel viewModel
+            || ReferenceEquals(_subscribedChainProxyDialog, viewModel.ChainProxy))
+        {
+            return;
+        }
+
+        UnsubscribeChainProxyDialog();
+        _subscribedChainProxyDialog = viewModel.ChainProxy;
+        _subscribedChainProxyDialog.InputFocusRequested += OnInputFocusRequested;
+    }
+
+    private void UnsubscribeChainProxyDialog()
+    {
+        if (_subscribedChainProxyDialog is null)
+        {
+            return;
+        }
+
+        _subscribedChainProxyDialog.InputFocusRequested -= OnInputFocusRequested;
+        _subscribedChainProxyDialog = null;
     }
 
     private async void OnAddDialogStateChanged(object? sender, EventArgs args)
@@ -110,6 +144,45 @@ public sealed partial class SubscriptionView : UserControl
     private async void OnEditDialogStateChanged(object? sender, EventArgs args)
     {
         await RefreshEditSubscriptionUrlPasteAvailabilityAsync();
+    }
+
+    private void OnInputFocusRequested(object? sender, DialogInputField field)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var automationId = GetInputAutomationId(sender, field);
+            var target = this.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(control => AutomationProperties.GetAutomationId(control) == automationId);
+            target?.BringIntoView();
+            target?.Focus();
+        }, DispatcherPriority.Input);
+    }
+
+    private static string GetInputAutomationId(object? sender, DialogInputField field)
+    {
+        if (sender is SubscriptionChainProxyDialogViewModel)
+        {
+            return field switch
+            {
+                DialogInputField.Name => "Subscriptions.ChainProxy.NameBox",
+                DialogInputField.Nodes => "Subscriptions.ChainProxy.SelectedNodesRegion",
+                _ => string.Empty,
+            };
+        }
+
+        var prefix = sender is SubscriptionEditDialogViewModel
+            ? "Subscriptions.EditDialog"
+            : "Subscriptions.Dialog";
+        return field switch
+        {
+            DialogInputField.Name => $"{prefix}.NameBox",
+            DialogInputField.Source => $"{prefix}.UrlBox",
+            DialogInputField.LocalFile => "Subscriptions.Dialog.ChooseLocalFileButton",
+            DialogInputField.AutoTestDelayInterval => $"{prefix}.AutoTestDelayIntervalBox",
+            DialogInputField.AutoUpdateInterval => $"{prefix}.AutoUpdateIntervalBox",
+            _ => string.Empty,
+        };
     }
 
     private async void OnSubscriptionUrlBoxGotFocus(object? sender, RoutedEventArgs args)

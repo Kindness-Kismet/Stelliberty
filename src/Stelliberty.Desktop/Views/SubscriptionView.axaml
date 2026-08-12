@@ -338,7 +338,7 @@
 
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Name}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsNameErrorVisible}"
                                  AutomationProperties.AutomationId="Subscriptions.Dialog.NameBox"
                                  PlaceholderText="{loc:Loc Subscriptions.Placeholder.Name}"
                                  Text="{Binding AddDialog.Name, Mode=TwoWay}">
@@ -348,13 +348,17 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.Dialog.NameError"
+                                   IsVisible="{Binding AddDialog.IsNameErrorVisible}"
+                                   Text="{Binding AddDialog.NameError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
                                   IsVisible="{Binding AddDialog.IsRemoteFieldsVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Url}" />
                         <Grid>
-                          <TextBox Classes="dialog-input"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsUrlErrorVisible}"
                                    AutomationProperties.AutomationId="Subscriptions.Dialog.UrlBox"
                                    PlaceholderText="{loc:Loc Subscriptions.Placeholder.Url}"
                                    GotFocus="OnSubscriptionUrlBoxGotFocus"
@@ -381,13 +385,17 @@
                                                              Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                           </Button>
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.Dialog.UrlError"
+                                   IsVisible="{Binding AddDialog.IsUrlErrorVisible}"
+                                   Text="{Binding AddDialog.UrlError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
                                   IsVisible="{Binding AddDialog.IsLocalFieldsVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.LocalPath}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                          <TextBox Classes="dialog-input"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsLocalFilePathErrorVisible}"
                                    AutomationProperties.AutomationId="Subscriptions.Dialog.LocalFilePathBox"
                                    Focusable="False"
                                    IsHitTestVisible="False"
@@ -406,6 +414,10 @@
                                   AutomationProperties.AutomationId="Subscriptions.Dialog.ChooseLocalFileButton"
                                   Content="{loc:Loc Common.ChooseFile}" />
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.Dialog.LocalFilePathError"
+                                   IsVisible="{Binding AddDialog.IsLocalFilePathErrorVisible}"
+                                   Text="{Binding AddDialog.LocalFilePathError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
@@ -443,7 +455,7 @@
 
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoDelay}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsAutoTestDelayIntervalErrorVisible}"
                                  x:Name="AddAutoTestDelayIntervalBox"
                                  AutomationProperties.AutomationId="Subscriptions.Dialog.AutoTestDelayIntervalBox"
                                  GotFocus="OnAutoTestDelayIntervalBoxGotFocus"
@@ -456,7 +468,8 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
-                        <TextBlock Classes="dialog-error"
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.Dialog.AutoTestDelayIntervalError"
                                    IsVisible="{Binding AddDialog.IsAutoTestDelayIntervalErrorVisible}"
                                    Text="{Binding AddDialog.AutoTestDelayIntervalMinutesError}" />
                       </StackPanel>
@@ -473,7 +486,7 @@
                           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <StackPanel Spacing="6">
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
-                              <TextBox Classes="dialog-input"
+                              <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
                                        IsEnabled="{Binding AddDialog.IsAutoUpdateIntervalEnabled}"
                                        AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateIntervalBox"
                                        PlaceholderText="{loc:Loc Subscriptions.Placeholder.Interval}"
@@ -484,7 +497,8 @@
                                                                    Foreground="{DynamicResource AppTextTertiaryBrush}" />
                                 </TextBox.InnerLeftContent>
                               </TextBox>
-                              <TextBlock Classes="dialog-error"
+                              <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                         AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateIntervalError"
                                          IsVisible="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
                                          Text="{Binding AddDialog.AutoUpdateIntervalMinutesError}" />
                             </StackPanel>
@@ -590,7 +604,7 @@
                     <StackPanel Spacing="16" Margin="24,0,22,0">
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Name}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsNameErrorVisible}"
                                  AutomationProperties.AutomationId="Subscriptions.EditDialog.NameBox"
                                  PlaceholderText="{loc:Loc Subscriptions.Placeholder.EditName}"
                                  Text="{Binding EditDialog.Name, Mode=TwoWay}">
@@ -600,12 +614,16 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.EditDialog.NameError"
+                                   IsVisible="{Binding EditDialog.IsNameErrorVisible}"
+                                   Text="{Binding EditDialog.NameError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
                         <TextBlock Classes="dialog-label" Text="{Binding EditDialog.SourceLabel}" />
                         <Grid>
-                          <TextBox Classes="dialog-input"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsUrlErrorVisible}"
                                    AutomationProperties.AutomationId="Subscriptions.EditDialog.UrlBox"
                                    PlaceholderText="{Binding EditDialog.SourcePlaceholder}"
                                    GotFocus="OnEditSubscriptionUrlBoxGotFocus"
@@ -632,6 +650,10 @@
                                                              Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                           </Button>
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.EditDialog.UrlError"
+                                   IsVisible="{Binding EditDialog.IsUrlErrorVisible}"
+                                   Text="{Binding EditDialog.UrlError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
@@ -667,7 +689,7 @@
 
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoDelay}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsAutoTestDelayIntervalErrorVisible}"
                                  x:Name="EditAutoTestDelayIntervalBox"
                                  AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoTestDelayIntervalBox"
                                  GotFocus="OnAutoTestDelayIntervalBoxGotFocus"
@@ -680,7 +702,8 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
-                        <TextBlock Classes="dialog-error"
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoTestDelayIntervalError"
                                    IsVisible="{Binding EditDialog.IsAutoTestDelayIntervalErrorVisible}"
                                    Text="{Binding EditDialog.AutoTestDelayIntervalMinutesError}" />
                       </StackPanel>
@@ -697,7 +720,7 @@
                           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <StackPanel Spacing="6">
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
-                              <TextBox Classes="dialog-input"
+                              <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsAutoUpdateIntervalErrorVisible}"
                                        IsEnabled="{Binding EditDialog.IsAutoUpdateIntervalEnabled}"
                                        AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoUpdateIntervalBox"
                                        PlaceholderText="{loc:Loc Subscriptions.Placeholder.Interval}"
@@ -708,7 +731,8 @@
                                                                    Foreground="{DynamicResource AppTextTertiaryBrush}" />
                                 </TextBox.InnerLeftContent>
                               </TextBox>
-                              <TextBlock Classes="dialog-error"
+                              <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                         AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoUpdateIntervalError"
                                          IsVisible="{Binding EditDialog.IsAutoUpdateIntervalErrorVisible}"
                                          Text="{Binding EditDialog.AutoUpdateIntervalMinutesError}" />
                             </StackPanel>
@@ -1024,36 +1048,50 @@
                       <StackPanel Margin="24,0,22,0" Spacing="14">
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
-                          <TextBox Classes="dialog-input"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding ChainProxy.IsDraftNameErrorVisible}"
                                    AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameBox"
                                    PlaceholderText="{loc:Loc Subscriptions.ChainProxy.Placeholder.Name}"
                                    Text="{Binding ChainProxy.DraftName, Mode=TwoWay}" />
+                          <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                     AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameError"
+                                     IsVisible="{Binding ChainProxy.IsDraftNameErrorVisible}"
+                                     Text="{Binding ChainProxy.DraftNameError}" />
                         </StackPanel>
 
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.SelectedPath}" />
-                          <TextBlock Classes="dialog-subtitle"
-                                     IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
-                                     Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
-                          <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
-                                        ItemsSource="{Binding ChainProxy.Slots}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate>
-                                <WrapPanel />
-                              </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
-                                <Border Classes="chain-slot" Margin="0,0,8,8"
-                                        AutomationProperties.AutomationId="{Binding AutomationId}">
-                                  <StackPanel Spacing="3">
-                                    <TextBlock Classes="settings-row-subtitle" Text="{Binding PositionLabel}" />
-                                    <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
-                                  </StackPanel>
-                                </Border>
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
+                          <Border Classes="chain-node-region" Classes.error="{Binding ChainProxy.IsDraftNodesErrorVisible}"
+                                  AutomationProperties.AutomationId="Subscriptions.ChainProxy.SelectedNodesRegion"
+                                  Focusable="True">
+                            <StackPanel>
+                              <TextBlock Classes="dialog-subtitle"
+                                         IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
+                                         Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
+                              <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
+                                            ItemsSource="{Binding ChainProxy.Slots}">
+                                <ItemsControl.ItemsPanel>
+                                  <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                  </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                  <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
+                                    <Border Classes="chain-slot" Margin="0,0,8,8"
+                                            AutomationProperties.AutomationId="{Binding AutomationId}">
+                                      <StackPanel Spacing="3">
+                                        <TextBlock Classes="settings-row-subtitle" Text="{Binding PositionLabel}" />
+                                        <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
+                                      </StackPanel>
+                                    </Border>
+                                  </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                              </ItemsControl>
+                            </StackPanel>
+                          </Border>
+                          <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                     AutomationProperties.AutomationId="Subscriptions.ChainProxy.NodesError"
+                                     IsVisible="{Binding ChainProxy.IsDraftNodesErrorVisible}"
+                                     Text="{Binding ChainProxy.DraftNodesError}" />
                         </StackPanel>
 
                         <StackPanel Spacing="6">
@@ -1081,10 +1119,6 @@
                           </ItemsControl>
                         </StackPanel>
 
-                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                   AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftErrorText"
-                                   IsVisible="{Binding ChainProxy.IsDraftErrorVisible}"
-                                   Text="{Binding ChainProxy.DraftError}" />
                       </StackPanel>
                     </ScrollViewer>
                   </Panel>

@@ -291,46 +291,79 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal("本地订阅导入失败，请稍后重试", failureToast?.Message);
     }
 
-    [Fact(DisplayName = "Add dialog rejects invalid remote URL and invalid interval")]
-    public void AddDialogRejectsInvalidRemoteUrlAndInvalidInterval()
+    [Fact(DisplayName = "Add dialog reports all invalid remote fields after submit and clears them live")]
+    public void AddDialogReportsAllInvalidRemoteFieldsAfterSubmitAndClearsThemLive()
     {
         var dialog = new SubscriptionAddDialogViewModel();
-        string? validation = null;
+        DialogInputField? focusedField = null;
         SubscriptionAddRemoteRequestedEventArgs? requested = null;
-        dialog.ValidationFailed += (_, message) => validation = message;
+        dialog.InputFocusRequested += (_, field) => focusedField = field;
         dialog.RemoteRequested += (_, args) => requested = args;
         dialog.Open();
 
-        dialog.Name = " Remote ";
+        dialog.Name = " ";
         dialog.Url = "ftp://sub.example/config.yaml";
-        dialog.ConfirmCommand.Execute(null);
-
-        Assert.Equal("Subscriptions.Validation.Url", validation);
-        Assert.False(dialog.IsSubmitting);
-        Assert.Null(requested);
-
-        dialog.Url = "https://sub.example/config.yaml";
+        dialog.AutoTestDelayIntervalMinutesText = "-1";
         dialog.SelectedAutoUpdateMode = SubscriptionAutoUpdateMode.Interval;
         dialog.AutoUpdateIntervalMinutesText = "abc";
+
+        Assert.False(dialog.IsNameErrorVisible);
+        Assert.False(dialog.IsUrlErrorVisible);
+        Assert.False(dialog.IsAutoTestDelayIntervalErrorVisible);
+        Assert.False(dialog.IsAutoUpdateIntervalErrorVisible);
         dialog.ConfirmCommand.Execute(null);
 
-        Assert.False(dialog.CanSubmit);
+        Assert.True(dialog.IsNameErrorVisible);
+        Assert.True(dialog.IsUrlErrorVisible);
+        Assert.True(dialog.IsAutoTestDelayIntervalErrorVisible);
+        Assert.True(dialog.IsAutoUpdateIntervalErrorVisible);
+        Assert.Equal(DialogInputField.Name, focusedField);
+        Assert.False(dialog.IsSubmitting);
+        Assert.True(dialog.CanSubmit);
         Assert.Null(requested);
-    }
-
-    [Fact(DisplayName = "Add dialog refreshes confirm command when required fields change")]
-    public void AddDialogRefreshesConfirmCommandWhenRequiredFieldsChange()
-    {
-        var dialog = new SubscriptionAddDialogViewModel();
-        var canExecuteStates = new List<bool>();
-        dialog.Open();
-        dialog.ConfirmCommand.CanExecuteChanged += (_, _) =>
-            canExecuteStates.Add(dialog.ConfirmCommand.CanExecute(null));
 
         dialog.Name = "Remote";
         dialog.Url = "https://sub.example/config.yaml";
+        dialog.AutoTestDelayIntervalMinutesText = "0";
+        dialog.AutoUpdateIntervalMinutesText = "30";
 
-        Assert.Equal([false, true], canExecuteStates);
+        Assert.False(dialog.IsNameErrorVisible);
+        Assert.False(dialog.IsUrlErrorVisible);
+        Assert.False(dialog.IsAutoTestDelayIntervalErrorVisible);
+        Assert.False(dialog.IsAutoUpdateIntervalErrorVisible);
+        dialog.ConfirmCommand.Execute(null);
+
+        Assert.NotNull(requested);
+    }
+
+    [Fact(DisplayName = "Add dialog keeps confirm enabled for invalid input")]
+    public void AddDialogKeepsConfirmEnabledForInvalidInput()
+    {
+        var dialog = new SubscriptionAddDialogViewModel();
+        dialog.Open();
+
+        Assert.True(dialog.ConfirmCommand.CanExecute(null));
+        dialog.Name = "Remote";
+        dialog.Url = "invalid";
+
+        Assert.True(dialog.ConfirmCommand.CanExecute(null));
+    }
+
+    [Fact(DisplayName = "Add dialog revalidates remote URL after switching import modes")]
+    public void AddDialogRevalidatesRemoteUrlAfterSwitchingImportModes()
+    {
+        var dialog = new SubscriptionAddDialogViewModel();
+        dialog.Open();
+        dialog.Name = "Remote";
+        dialog.Url = "ftp://invalid";
+        dialog.ConfirmCommand.Execute(null);
+
+        Assert.True(dialog.IsUrlErrorVisible);
+        dialog.SelectLocalImportCommand.Execute(null);
+        Assert.False(dialog.IsUrlErrorVisible);
+
+        dialog.SelectRemoteImportCommand.Execute(null);
+        Assert.True(dialog.IsUrlErrorVisible);
     }
 
     [Fact(DisplayName = "Edit dialog refreshes confirm command when opened")]
@@ -418,7 +451,7 @@ public sealed class SubscriptionBusinessTests
 
         Assert.True(dialog.IsAutoTestDelayIntervalErrorVisible);
         Assert.Equal("Subscriptions.Validation.Minutes", dialog.AutoTestDelayIntervalMinutesError);
-        Assert.False(dialog.CanSubmit);
+        Assert.True(dialog.CanSubmit);
         Assert.Null(requested);
 
         dialog.AutoTestDelayIntervalMinutesText = " ";
@@ -610,7 +643,7 @@ public sealed class SubscriptionBusinessTests
         dialog.DraftName = " JP via HK custom ";
         dialog.SelectCandidateCommand.Execute("HK");
         dialog.SaveDraftCommand.Execute(null);
-        Assert.True(dialog.IsDraftErrorVisible);
+        Assert.True(dialog.IsDraftNodesErrorVisible);
 
         dialog.SelectCandidateCommand.Execute("JP");
         dialog.SaveDraftCommand.Execute(null);
@@ -636,15 +669,17 @@ public sealed class SubscriptionBusinessTests
         dialog.DraftName = " ";
         dialog.SaveDraftCommand.Execute(null);
 
-        Assert.True(dialog.IsDraftErrorVisible);
+        Assert.True(dialog.IsDraftNameErrorVisible);
+        Assert.True(dialog.IsDraftNodesErrorVisible);
         Assert.Empty(dialog.CustomChainProxies);
 
         dialog.DraftName = "HK only";
         dialog.SelectCandidateCommand.Execute("HK");
-        Assert.False(dialog.IsDraftErrorVisible);
+        Assert.False(dialog.IsDraftNameErrorVisible);
+        Assert.True(dialog.IsDraftNodesErrorVisible);
         dialog.SaveDraftCommand.Execute(null);
 
-        Assert.True(dialog.IsDraftErrorVisible);
+        Assert.True(dialog.IsDraftNodesErrorVisible);
         Assert.Empty(dialog.CustomChainProxies);
 
         dialog.SelectCandidateCommand.Execute("JP");
@@ -653,7 +688,8 @@ public sealed class SubscriptionBusinessTests
         var custom = Assert.Single(dialog.CustomChainProxies);
         Assert.Equal("HK only", custom.DisplayName);
         Assert.Equal(["HK", "JP"], custom.NodeNames);
-        Assert.False(dialog.IsDraftErrorVisible);
+        Assert.False(dialog.IsDraftNameErrorVisible);
+        Assert.False(dialog.IsDraftNodesErrorVisible);
     }
 
     [Fact(DisplayName = "Chain proxy dialog candidate toggle removes selected node and keeps order")]
@@ -682,8 +718,8 @@ public sealed class SubscriptionBusinessTests
         Assert.False(selectedByName["JP"]);
     }
 
-    [Fact(DisplayName = "Chain proxy dialog replaces an existing custom item with the same name")]
-    public async Task ChainProxyDialogAddingSameNameCustomReplacesExistingItem()
+    [Fact(DisplayName = "Chain proxy dialog rejects a duplicate custom name")]
+    public async Task ChainProxyDialogRejectsDuplicateCustomName()
     {
         var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => new SubscriptionChainProxyContext(
             [],
@@ -704,11 +740,10 @@ public sealed class SubscriptionBusinessTests
         dialog.SelectCandidateCommand.Execute("JP");
         dialog.SaveDraftCommand.Execute(null);
 
+        Assert.True(dialog.IsDraftNameErrorVisible);
+        Assert.Equal("Subscriptions.ChainProxy.Error.DuplicateName", dialog.DraftNameError);
         Assert.Equal(2, dialog.CustomChainProxies.Count);
-        Assert.Contains(dialog.CustomChainProxies, custom => custom.Id == "keep");
-        var replacement = Assert.Single(dialog.CustomChainProxies, custom => custom.DisplayName == "JP via HK");
-        Assert.Equal(["HK", "JP"], replacement.NodeNames);
-        Assert.DoesNotContain(dialog.CustomChainProxies, custom => custom.NodeNames.Contains("OldHK", StringComparer.Ordinal));
+        Assert.Contains(dialog.CustomChainProxies, custom => custom.Id == "old" && custom.NodeNames.Contains("OldHK", StringComparer.Ordinal));
     }
 
     [Fact(DisplayName = "Chain proxy dialog ignores stale context after subscription switch")]

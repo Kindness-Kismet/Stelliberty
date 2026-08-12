@@ -83,6 +83,25 @@
     <Setter Property="Opacity" Value="0.45" />
   </Style>
 
+  <Style Selector="TextBox.dialog-input.error /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error /template/ Border#PART_ContentPresenterBorder">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:pointerover /template/ Border#PART_ContentPresenterBorder">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:focus /template/ Border#PART_ContentPresenterBorder">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+
   <Style Selector="Button.input-inline-icon">
     <Setter Property="Width" Value="38" />
     <Setter Property="Height" Value="38" />
@@ -493,6 +512,21 @@
         <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
       </Transitions>
     </Setter>
+  </Style>
+
+  <Style Selector="Border.chain-node-region">
+    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="10" />
+    <Setter Property="Padding" Value="10" />
+    <Setter Property="MinHeight" Value="54" />
+  </Style>
+  <Style Selector="Border.chain-node-region.error">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="Border.chain-node-region.error:focus">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
   </Style>
 
   <!-- 连接详情行 -->

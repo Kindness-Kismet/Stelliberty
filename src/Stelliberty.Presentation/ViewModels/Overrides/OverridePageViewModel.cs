@@ -54,7 +54,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         AddDialog.RemoteRequested += OnAddRemoteRequested;
         AddDialog.LocalRequested += OnAddLocalRequested;
         AddDialog.CreateBlankRequested += OnAddCreateBlankRequested;
-        AddDialog.ValidationFailed += OnAddDialogValidationFailed;
         AddDialog.DialogStateChanged += OnAddDialogStateChanged;
         SelectOverrideCommand = new RelayCommand<string>(SelectOverride);
         UpdateOverrideCommand = new RelayCommand<string>(overrideId => _ = UpdateOverrideAsync(overrideId));
@@ -233,11 +232,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
     private void ShowErrorToast(string localizationKey)
     {
         ShowToast(Localize(localizationKey));
-    }
-
-    private void OnAddDialogValidationFailed(object? sender, string message)
-    {
-        ShowToast(message);
     }
 
     private void OnAddDialogStateChanged(object? sender, EventArgs args)

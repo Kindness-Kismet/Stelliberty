@@ -204,6 +204,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CoreLogPage.LogsCleared += OnCoreLogsCleared;
         RulePage = rulePage ?? new RulePageViewModel(localization: localization);
         RulePage.RuntimeRefreshRequested += OnRuleRuntimeRefreshRequested;
+        RulePage.ToastRequested += OnToastRequested;
         SubscriptionPage = subscriptionPage;
         ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
         SyncHomeSubscriptionRuntimeStats();
@@ -279,6 +280,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         OverridePage.OverridesEdited -= OnOverridesEdited;
         OverridePage.OverrideDeleted -= OnOverrideDeleted;
         OverridePage.ToastRequested -= OnToastRequested;
+        RulePage.ToastRequested -= OnToastRequested;
         if (CoreManager is not null)
         {
             CoreManager.StateChanged -= OnCoreStateChanged;

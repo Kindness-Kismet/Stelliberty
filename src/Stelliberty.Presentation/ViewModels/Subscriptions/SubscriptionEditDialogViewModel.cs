@@ -41,10 +41,7 @@ public sealed class SubscriptionEditDialogViewModel : SubscriptionDialogBase
 
     public string SourcePlaceholder => Localize("Subscriptions.Placeholder.Url");
 
-    public override bool CanSubmit => _subscriptionId is not null
-        && !string.IsNullOrWhiteSpace(_name)
-        && !string.IsNullOrWhiteSpace(_url)
-        && HasValidMinuteInputs(_isLocalFile);
+    public override bool CanSubmit => _subscriptionId is not null;
 
     // 远程订阅编辑时才是远程语境；本地订阅无 URL 粘贴。
     protected override bool IsRemoteContext => IsForRemoteSubscription;
@@ -84,6 +81,12 @@ public sealed class SubscriptionEditDialogViewModel : SubscriptionDialogBase
     {
         if (!CanSubmit)
         {
+            return;
+        }
+
+        if (!ValidateSharedInputs(_isLocalFile))
+        {
+            FocusFirstInvalidInput();
             return;
         }
 
@@ -152,5 +155,28 @@ public sealed class SubscriptionEditDialogViewModel : SubscriptionDialogBase
         OnPropertyChanged(nameof(SourcePlaceholder));
         RaiseSharedStateChanged();
         NotifyDialogStateChanged();
+    }
+
+    private void FocusFirstInvalidInput()
+    {
+        if (IsNameErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.Name);
+            return;
+        }
+
+        if (IsUrlErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.Source);
+            return;
+        }
+
+        if (IsAutoTestDelayIntervalErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.AutoTestDelayInterval);
+            return;
+        }
+
+        RequestInputFocus(DialogInputField.AutoUpdateInterval);
     }
 }
