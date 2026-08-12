@@ -203,6 +203,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CoreLogPage = coreLogPage ?? new CoreLogPageViewModel(localization: localization);
         CoreLogPage.LogsCleared += OnCoreLogsCleared;
         RulePage = rulePage ?? new RulePageViewModel(localization: localization);
+        RulePage.RuntimeRefreshRequested += OnRuleRuntimeRefreshRequested;
         SubscriptionPage = subscriptionPage;
         ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
         SyncHomeSubscriptionRuntimeStats();
@@ -301,6 +302,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SubscriptionPage.Dispose();
         OverridePage.Dispose();
         ClearPendingCoreLogs();
+    }
+
+    private void OnRuleRuntimeRefreshRequested(object? sender, EventArgs args)
+    {
+        RefreshSelectedSubscriptionRuntime(
+            SubscriptionPage.CurrentSubscriptionId,
+            "Runtime config refreshed after rule update",
+            "Runtime config refresh failed after rule update");
     }
 
     public string Title => AppMetadata.DisplayName;

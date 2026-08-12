@@ -9,6 +9,8 @@ using Stelliberty.Infrastructure.Platform;
 using Stelliberty.Infrastructure.Runtime;
 using Stelliberty.Infrastructure.Settings;
 using Stelliberty.Infrastructure.Subscriptions;
+using Stelliberty.Infrastructure.Rules;
+using Stelliberty.Application.Rules;
 using Stelliberty.Native.Hub;
 
 namespace Stelliberty.Desktop;
@@ -100,6 +102,12 @@ internal static class HubStartupCoordinator
             var selectionStore = new FileSubscriptionSelectionStore(platformDirectories.AppDataDirectory);
             var subscriptionStore = new FileSubscriptionStore(platformDirectories.AppDataDirectory);
             var overrideStore = new FileOverrideStore(platformDirectories.AppDataDirectory);
+            var ruleOverrideStore = new FileRuleOverrideStore(platformDirectories.AppDataDirectory);
+            var ruleOverrideService = new RuleOverrideService(
+                subscriptionStore,
+                selectionStore,
+                ruleOverrideStore,
+                new RuleParser());
             var runtimeStore = new FileRuntimeConfigStore(platformDirectories.RuntimeDirectory);
             var builder = new StartupBootstrapConfigBuilder(
                 settingsStore,
@@ -112,7 +120,8 @@ internal static class HubStartupCoordinator
                         selectionStore,
                         new RuntimeConfigGenerator(new HubOverrideEngine()),
                         overrideStore,
-                        runtimeStore)),
+                        runtimeStore,
+                        ruleOverrideService: ruleOverrideService)),
                 new SubscriptionFailureRecorder(subscriptionStore));
             return builder.Build(CorePipe, canUseTun);
         }

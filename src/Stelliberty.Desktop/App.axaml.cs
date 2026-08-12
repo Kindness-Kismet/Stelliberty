@@ -120,6 +120,12 @@ public sealed partial class App : Avalonia.Application
             LocalizationManager.Initialize(localization);
             var subscriptionStore = new FileSubscriptionStore(platformDirectories.AppDataDirectory);
             var subscriptionSelectionStore = new FileSubscriptionSelectionStore(platformDirectories.AppDataDirectory);
+            var ruleOverrideStore = new FileRuleOverrideStore(platformDirectories.AppDataDirectory);
+            var ruleOverrideService = new RuleOverrideService(
+                subscriptionStore,
+                subscriptionSelectionStore,
+                ruleOverrideStore,
+                new RuleParser());
             var proxySelectionStore = new FileProxySelectionStore(platformDirectories.AppDataDirectory);
             var overrideStore = new FileOverrideStore(platformDirectories.AppDataDirectory);
 #if DEBUG
@@ -154,8 +160,9 @@ public sealed partial class App : Avalonia.Application
                 subscriptionSelectionStore,
                 new RuntimeConfigGenerator(new HubOverrideEngine()),
                 overrideStore,
-                runtimeStore);
-            var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore);
+                runtimeStore,
+                ruleOverrideService: ruleOverrideService);
+            var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore, ruleOverrideStore);
             // Provider 同步和状态读取始终走核心管道，保持 Debug 和 Release 路径一致。
             var coreProviderClient = new PipeCoreProviderClient(HubStartupCoordinator.CorePipe);
             var providerCatalogLoader = new SelectedSubscriptionProviderCatalogLoader(
@@ -287,10 +294,7 @@ public sealed partial class App : Avalonia.Application
                     settingsStore.Save(settings);
                 },
                 isPresentationActive: false);
-            var rulePage = new RulePageViewModel(new RuleListLoader(
-                new FileRuntimeRuleConfigSource(platformDirectories.RuntimeDirectory, subscriptionSelectionStore),
-                new RuleParser()),
-                localization);
+            var rulePage = new RulePageViewModel(ruleOverrideService, localization);
             var coreLogPage = new CoreLogPageViewModel(localization: localization);
             var dataBackupService = new FileDataBackupService(platformDirectories.AppDataDirectory);
             var webDavBackupStore = new WebDavBackupStore();
