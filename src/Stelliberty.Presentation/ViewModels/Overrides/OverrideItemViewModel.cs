@@ -86,10 +86,6 @@ public sealed class OverrideItemViewModel : ViewModelBase
 
     public string RowAutomationId => $"Overrides.Row.{Id}";
 
-    public string MoveUpAutomationId => $"Overrides.Row.{Id}.MoveUpButton";
-
-    public string MoveDownAutomationId => $"Overrides.Row.{Id}.MoveDownButton";
-
     public string UpdateAutomationId => $"Overrides.Row.{Id}.UpdateButton";
 
     public string MenuAutomationId => $"Overrides.Row.{Id}.MenuButton";

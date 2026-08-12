@@ -28,6 +28,18 @@ internal static partial class DebugCommands
             return Task.FromResult<string?>(RuleState(page));
         }
 
+        if (spec.StartsWith("move_up ", StringComparison.OrdinalIgnoreCase))
+        {
+            MoveRule(page, spec["move_up ".Length..].Trim(), -1);
+            return Task.FromResult<string?>(RuleOrder(page));
+        }
+
+        if (spec.StartsWith("move_down ", StringComparison.OrdinalIgnoreCase))
+        {
+            MoveRule(page, spec["move_down ".Length..].Trim(), 1);
+            return Task.FromResult<string?>(RuleOrder(page));
+        }
+
         if (string.Equals(spec, "list", StringComparison.OrdinalIgnoreCase))
         {
             return Task.FromResult<string?>(string.Join("|", page.FilteredRuleRows.Select(row =>
@@ -53,6 +65,26 @@ internal static partial class DebugCommands
             $"refresh={page.HasRequestedRefresh.ToString().ToLowerInvariant()}"
         ]);
     }
+
+    private static void MoveRule(RulePageViewModel page, string ruleId, int offset)
+    {
+        if (!string.IsNullOrWhiteSpace(page.SearchKeyword) || page.TypeBucket != RuleTypeBucket.All)
+        {
+            throw new InvalidOperationException("rules.move_up/move_down requires the all-rules view without search");
+        }
+
+        var row = page.VisibleRules.FirstOrDefault(item => item.Id == ruleId || item.OrderId == ruleId);
+        if (row is null)
+        {
+            return;
+        }
+
+        var sourceIndex = page.VisibleRules.IndexOf(row);
+        page.MoveRuleCommand.Execute(new RuleMoveRequest(row.OrderId, sourceIndex + offset));
+    }
+
+    private static string RuleOrder(RulePageViewModel page)
+        => $"order={string.Join(',', page.VisibleRules.Select(row => row.Id))}";
 
     private static RuleTypeBucket ParseRuleTypeBucket(string value)
     {

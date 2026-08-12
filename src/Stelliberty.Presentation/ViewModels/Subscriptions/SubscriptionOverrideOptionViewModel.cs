@@ -9,7 +9,4 @@ public sealed record SubscriptionOverrideOptionViewModel(string Id, string Name,
 
     public string ToggleAutomationId => $"Subscriptions.OverrideSelector.{Id}.Toggle";
 
-    public string MoveUpAutomationId => $"Subscriptions.OverrideSelector.{Id}.MoveUpButton";
-
-    public string MoveDownAutomationId => $"Subscriptions.OverrideSelector.{Id}.MoveDownButton";
 }

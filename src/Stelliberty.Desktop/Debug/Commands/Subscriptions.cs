@@ -115,6 +115,30 @@ internal static partial class DebugCommands
             return $"subscription={page.ChainProxy.DialogSubscriptionId ?? string.Empty};dialog={page.ChainProxy.IsDialogVisible.ToString().ToLowerInvariant()};builtins={page.ChainProxy.BuiltinItems.Count};customs={page.ChainProxy.CustomItems.Count}";
         }
 
+        if (spec.StartsWith("override_selector_move_up ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.OverrideSelector.MoveUpCommand.Execute(spec["override_selector_move_up ".Length..].Trim());
+            return OverrideSelectorOrder(page);
+        }
+
+        if (spec.StartsWith("override_selector_move_down ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.OverrideSelector.MoveDownCommand.Execute(spec["override_selector_move_down ".Length..].Trim());
+            return OverrideSelectorOrder(page);
+        }
+
+        if (spec.StartsWith("chain_proxy_move_up ", StringComparison.OrdinalIgnoreCase))
+        {
+            MoveChainProxyNode(page.ChainProxy, spec["chain_proxy_move_up ".Length..].Trim(), -1);
+            return ChainProxyNodeOrder(page.ChainProxy);
+        }
+
+        if (spec.StartsWith("chain_proxy_move_down ", StringComparison.OrdinalIgnoreCase))
+        {
+            MoveChainProxyNode(page.ChainProxy, spec["chain_proxy_move_down ".Length..].Trim(), 1);
+            return ChainProxyNodeOrder(page.ChainProxy);
+        }
+
         if (spec.StartsWith("open_external_editor ", StringComparison.OrdinalIgnoreCase))
         {
             page.OpenExternalEditorCommand.Execute(spec["open_external_editor ".Length..].Trim());
@@ -266,6 +290,23 @@ internal static partial class DebugCommands
             $"exists={Bool(exists)}"
         ]);
     }
+
+    private static string OverrideSelectorOrder(SubscriptionPageViewModel page)
+        => $"order={string.Join(',', page.OverrideSelector.OverrideSortPreference)}";
+
+    private static void MoveChainProxyNode(SubscriptionChainProxyDialogViewModel dialog, string nodeName, int offset)
+    {
+        var sourceIndex = dialog.Slots.ToList().FindIndex(slot => slot.NodeName == nodeName);
+        if (sourceIndex < 0)
+        {
+            return;
+        }
+
+        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest(nodeName, sourceIndex + offset));
+    }
+
+    private static string ChainProxyNodeOrder(SubscriptionChainProxyDialogViewModel dialog)
+        => $"order={string.Join(',', dialog.Slots.Select(slot => slot.NodeName))}";
 
     private static string ProviderRows(SubscriptionPageViewModel page)
     {
