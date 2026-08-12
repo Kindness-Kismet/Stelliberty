@@ -72,11 +72,11 @@
   </Style>
   <Style Selector="TextBox.dialog-input:focus /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{DynamicResource AppInputHoverBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBorderBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppInputFocusBrush}" />
   </Style>
   <Style Selector="TextBox.dialog-input:focus /template/ Border#PART_ContentPresenterBorder">
     <Setter Property="Background" Value="{DynamicResource AppInputHoverBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBorderBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppInputFocusBrush}" />
   </Style>
 
   <Style Selector="TextBox.dialog-input:disabled">

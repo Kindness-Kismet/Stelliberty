@@ -33,6 +33,7 @@
       <SolidColorBrush x:Key="AppDangerBrush" Color="#DC2626" />
       <SolidColorBrush x:Key="AppWarningBrush" Color="#B45309" />
       <SolidColorBrush x:Key="AppDangerHoverBrush" Color="#EF4444" />
+      <SolidColorBrush x:Key="AppInputFocusBrush" Color="#2563EB" />
 
       <SolidColorBrush x:Key="TitleBarButtonForegroundBrush" Color="#334155" />
       <SolidColorBrush x:Key="DebugBadgeBackgroundBrush" Color="#F1F5F9" />
@@ -81,6 +82,7 @@
       <SolidColorBrush x:Key="AppDangerBrush" Color="#F87171" />
       <SolidColorBrush x:Key="AppWarningBrush" Color="#FBBF24" />
       <SolidColorBrush x:Key="AppDangerHoverBrush" Color="#EF4444" />
+      <SolidColorBrush x:Key="AppInputFocusBrush" Color="#60A5FA" />
 
       <SolidColorBrush x:Key="TitleBarButtonForegroundBrush" Color="#CBD5E1" />
       <SolidColorBrush x:Key="DebugBadgeBackgroundBrush" Color="#334155" />
