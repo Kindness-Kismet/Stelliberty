@@ -108,7 +108,7 @@ public sealed class GridReorderController
 
     private void OnMoved(object? sender, PointerEventArgs args)
     {
-        if (_pressId is null || !_canDrag)
+        if (_pressId is null)
         {
             return;
         }
@@ -116,10 +116,21 @@ public sealed class GridReorderController
         var point = args.GetPosition(_list);
         var dx = point.X - _pressPoint.X;
         var dy = point.Y - _pressPoint.Y;
+        var distanceSquared = dx * dx + dy * dy;
+        if (!_canDrag)
+        {
+            if (distanceSquared >= DragThresholdSquared)
+            {
+                _longPressTimer.Stop();
+                ClearState();
+            }
+
+            return;
+        }
 
         if (!_isDragging)
         {
-            if (dx * dx + dy * dy < DragThresholdSquared)
+            if (distanceSquared < DragThresholdSquared)
             {
                 return;
             }
