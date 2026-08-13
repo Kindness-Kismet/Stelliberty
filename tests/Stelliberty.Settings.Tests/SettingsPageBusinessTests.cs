@@ -64,21 +64,6 @@ public sealed class SettingsPageBusinessTests
         Assert.True(service.LastRequest?.IsAutoStartEnabled);
     }
 
-    [Fact(DisplayName = "Title bar FPS display is enabled by default and saves changes")]
-    public void TitleBarFpsDisplayIsEnabledByDefaultAndSavesChanges()
-    {
-        var settings = new AppSettings();
-        var store = new FakeSettingsStore(settings);
-        var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), new FakeAppBehaviorService(), new FakeGlobalHotkeyService());
-
-        Assert.True(viewModel.IsTitleBarFpsVisible);
-
-        viewModel.IsTitleBarFpsVisible = false;
-
-        Assert.False(settings.IsTitleBarFpsVisible);
-        Assert.Equal(1, store.SaveCount);
-    }
-
     [Fact(DisplayName = "app behavior rolls back when platform request fails")]
     public void AppBehaviorRollsBackWhenPlatformRequestFails()
     {

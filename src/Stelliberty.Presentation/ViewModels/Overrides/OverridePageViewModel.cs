@@ -66,8 +66,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         CancelDeleteDialogCommand = new RelayCommand(CancelDeleteDialog);
         DeleteOverrideCommand = new RelayCommand<string>(DeleteOverride);
         MoveOverrideCommand = new RelayCommand<OverrideMoveRequest>(MoveOverride);
-        MoveOverrideUpCommand = new RelayCommand<string>(MoveOverrideUp);
-        MoveOverrideDownCommand = new RelayCommand<string>(MoveOverrideDown);
         RowMenuActionCommand = new RelayCommand<OverrideRowMenuSelection>(selection =>
         {
             if (selection is not null)
@@ -140,8 +138,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
     public ICommand CancelDeleteDialogCommand { get; }
     public ICommand DeleteOverrideCommand { get; }
     public ICommand MoveOverrideCommand { get; }
-    public ICommand MoveOverrideUpCommand { get; }
-    public ICommand MoveOverrideDownCommand { get; }
     public ICommand RowMenuActionCommand { get; }
 
     public void AddOverride(OverrideItemViewModel item)

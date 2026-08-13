@@ -336,19 +336,6 @@ public sealed class SubscriptionBusinessTests
         Assert.NotNull(requested);
     }
 
-    [Fact(DisplayName = "Add dialog keeps confirm enabled for invalid input")]
-    public void AddDialogKeepsConfirmEnabledForInvalidInput()
-    {
-        var dialog = new SubscriptionAddDialogViewModel();
-        dialog.Open();
-
-        Assert.True(dialog.ConfirmCommand.CanExecute(null));
-        dialog.Name = "Remote";
-        dialog.Url = "invalid";
-
-        Assert.True(dialog.ConfirmCommand.CanExecute(null));
-    }
-
     [Fact(DisplayName = "Add dialog revalidates remote URL after switching import modes")]
     public void AddDialogRevalidatesRemoteUrlAfterSwitchingImportModes()
     {

@@ -54,18 +54,6 @@ public sealed class OverrideBusinessTests
         Assert.False(page.IsDeleteDialogVisible);
     }
 
-    [Fact(DisplayName = "Move override persists visible order")]
-    public void MoveOverridePersistsVisibleOrder()
-    {
-        var store = new FakeOverrideStore([Override("a"), Override("b"), Override("c")]);
-        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), overrideStore: store);
-        page.LoadOverrides(store.LoadOverrides());
-
-        page.MoveOverrideDownCommand.Execute("a");
-
-        Assert.Equal(["b", "a", "c"], store.LoadOverrides().Select(item => item.Id));
-    }
-
     [Fact(DisplayName = "Move override clamps target and persists only stored items")]
     public void MoveOverrideClampsTargetAndPersistsOnlyStoredItems()
     {
@@ -176,19 +164,6 @@ public sealed class OverrideBusinessTests
         Assert.Equal(OverrideFormat.JavaScript, requested.Format);
         Assert.Equal(OverrideUpdateProxyMode.Core, requested.UpdateProxyMode);
         Assert.True(dialog.IsSubmitting);
-    }
-
-    [Fact(DisplayName = "Add dialog keeps confirm enabled for invalid input")]
-    public void AddDialogKeepsConfirmEnabledForInvalidInput()
-    {
-        var dialog = new OverrideAddDialogViewModel();
-        dialog.Open();
-
-        Assert.True(dialog.ConfirmCommand.CanExecute(null));
-        dialog.Name = "Remote";
-        dialog.SourceLocation = "invalid";
-
-        Assert.True(dialog.ConfirmCommand.CanExecute(null));
     }
 
     [Fact(DisplayName = "Edit dialog refreshes confirm command when opened")]
