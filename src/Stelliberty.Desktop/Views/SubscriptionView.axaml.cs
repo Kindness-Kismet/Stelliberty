@@ -29,16 +29,21 @@ public sealed partial class SubscriptionView : UserControl
         _subscriptionReorder = new GridReorderController(
             SubscriptionList,
             dataContext => (dataContext as SubscriptionItemViewModel)?.Id,
+            container => container,
             (id, targetIndex) => (SubscriptionList.DataContext as SubscriptionPageViewModel)?.MoveSubscriptionCommand
                 .Execute(new SubscriptionMoveRequest(id, targetIndex)));
         _overrideSelectorReorder = new GridReorderController(
             OverrideSelectorList,
             dataContext => (dataContext as SubscriptionOverrideOptionViewModel)?.Id,
+            container => container,
             (id, targetIndex) => (OverrideSelectorList.DataContext as SubscriptionPageViewModel)?.OverrideSelector.MoveCommand
                 .Execute(new SubscriptionOverrideMoveRequest(id, targetIndex)));
         _chainProxyReorder = new GridReorderController(
             ChainProxySlotList,
             dataContext => (dataContext as SubscriptionChainProxySlotViewModel)?.NodeName,
+            container => container.GetVisualDescendants()
+                .OfType<Border>()
+                .Single(border => border.Classes.Contains("chain-hop")),
             (nodeName, targetIndex) => (SubscriptionPageRoot.DataContext as SubscriptionPageViewModel)?.ChainProxy.MoveDraftNodeCommand
                 .Execute(new SubscriptionChainProxyMoveRequest(nodeName, targetIndex)));
 

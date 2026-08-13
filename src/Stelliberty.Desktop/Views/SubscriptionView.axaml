@@ -1059,7 +1059,7 @@
                               </ItemsControl.ItemsPanel>
                               <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
-                                  <!-- 首个跳点不带箭头；整项（含箭头）都是拖拽把手 -->
+                                  <!-- 首个跳点不带箭头；只有卡片参与拖拽命中 -->
                                   <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <TextBlock Classes="chain-hop-arrow" IsVisible="{Binding !IsFirst}" Text="→" />
                                     <Border Classes="chain-hop"

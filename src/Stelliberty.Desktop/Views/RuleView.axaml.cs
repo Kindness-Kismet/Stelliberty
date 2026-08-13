@@ -21,6 +21,7 @@ public sealed partial class RuleView : UserControl
         _reorder = new GridReorderController(
             RuleList,
             dataContext => (dataContext as RuleEditorRowViewModel)?.OrderId,
+            container => container,
             (id, targetIndex) => (RuleList.DataContext as RulePageViewModel)?.MoveRuleCommand
                 .Execute(new RuleMoveRequest(id, targetIndex)));
     }

@@ -24,6 +24,7 @@ public sealed partial class OverrideView : UserControl
         _reorder = new GridReorderController(
             OverrideList,
             dataContext => (dataContext as OverrideItemViewModel)?.Id,
+            container => container,
             (id, targetIndex) => (DataContext as OverridePageViewModel)?.MoveOverrideCommand
                 .Execute(new OverrideMoveRequest(id, targetIndex)));
     }

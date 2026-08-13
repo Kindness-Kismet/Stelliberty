@@ -7,6 +7,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 
 namespace Stelliberty.Desktop.Controls;
@@ -19,12 +20,13 @@ public sealed class GridReorderController
 
     private readonly ItemsControl _list;
     private readonly Func<object?, string?> _getId;
+    private readonly Func<Control, Control> _getDragControl;
     private readonly Action<string, int> _move;
     private readonly DispatcherTimer _longPressTimer;
 
     private readonly List<Slot> _slots = [];
     private string? _pressId;
-    private Control? _pressContainer;
+    private Control? _pressControl;
     private Point _pressPoint;
     private int _sourceIndex = -1;
     private int _targetIndex = -1;
@@ -32,14 +34,20 @@ public sealed class GridReorderController
     private bool _isDragging;
 
     private OverlayLayer? _overlay;
-    private Control? _ghost;
+    private Image? _ghost;
+    private RenderTargetBitmap? _ghostBitmap;
     private Point _ghostOrigin;
     private bool _isAttached;
 
-    public GridReorderController(ItemsControl list, Func<object?, string?> getId, Action<string, int> move)
+    public GridReorderController(
+        ItemsControl list,
+        Func<object?, string?> getId,
+        Func<Control, Control> getDragControl,
+        Action<string, int> move)
     {
         _list = list;
         _getId = getId;
+        _getDragControl = getDragControl;
         _move = move;
         _longPressTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(LongPressMilliseconds) };
         _longPressTimer.Tick += OnLongPressElapsed;
@@ -96,8 +104,14 @@ public sealed class GridReorderController
             return;
         }
 
+        var dragControl = _getDragControl(container);
+        if (!Contains(dragControl, point))
+        {
+            return;
+        }
+
         _pressId = id;
-        _pressContainer = container;
+        _pressControl = dragControl;
         _pressPoint = point;
         _sourceIndex = index;
         _targetIndex = index;
@@ -143,9 +157,9 @@ public sealed class GridReorderController
             Canvas.SetLeft(_ghost, _ghostOrigin.X + dx);
             Canvas.SetTop(_ghost, _ghostOrigin.Y + dy);
         }
-        else if (_pressContainer is not null)
+        else if (_pressControl is not null)
         {
-            _pressContainer.RenderTransform = new TranslateTransform(dx, dy);
+            _pressControl.RenderTransform = new TranslateTransform(dx, dy);
         }
 
         _targetIndex = ResolveTargetIndex(point);
@@ -190,51 +204,49 @@ public sealed class GridReorderController
         SnapshotSlots();
         args.Pointer.Capture(_list);
 
-        if (_pressContainer is null)
+        if (_pressControl is null)
         {
             return;
         }
 
-        // 克隆体放在 OverlayLayer，拖出 ScrollViewer 也不会被裁剪。
         _overlay = OverlayLayer.GetOverlayLayer(_list);
         if (_overlay is not null
-            && BuildGhost(_pressContainer) is { } ghost
-            && _pressContainer.TranslatePoint(default, _overlay) is { } origin)
+            && CreateGhost(_pressControl) is { } ghost
+            && _pressControl.TranslatePoint(default, _overlay) is { } origin)
         {
             _ghost = ghost;
             _ghostOrigin = origin;
             Canvas.SetLeft(ghost, origin.X);
             Canvas.SetTop(ghost, origin.Y);
             _overlay.Children.Add(ghost);
-            // 原卡片只保留布局空间；覆盖层克隆体负责视觉。
-            _pressContainer.Opacity = 0d;
+            _pressControl.Opacity = 0d;
             return;
         }
 
-        // 没有 OverlayLayer 时，只能移动原卡片，但会被裁剪。
-        _pressContainer.ZIndex = 1000;
-        _pressContainer.Opacity = 0.85;
+        _pressControl.ZIndex = 1000;
+        _pressControl.Opacity = 0.85;
     }
 
-    private Control? BuildGhost(Control source)
+    private Image? CreateGhost(Control source)
     {
         var size = source.Bounds.Size;
-        if (size.Width < 1 || size.Height < 1 || _list.ItemTemplate is not { } template)
+        if (size.Width < 1 || size.Height < 1)
         {
             return null;
         }
 
-        if (template.Build(source.DataContext) is not { } content)
+        _ghostBitmap = new RenderTargetBitmap(new PixelSize(
+            (int)Math.Ceiling(size.Width),
+            (int)Math.Ceiling(size.Height)));
+        _ghostBitmap.Render(source);
+        return new Image
         {
-            return null;
-        }
-
-        content.DataContext = source.DataContext;
-        content.Width = size.Width;
-        content.Height = size.Height;
-        content.Opacity = 0.92;
-        content.IsHitTestVisible = false;
-        return content;
+            Source = _ghostBitmap,
+            Width = size.Width,
+            Height = size.Height,
+            Opacity = 0.92,
+            IsHitTestVisible = false
+        };
     }
 
     private void SnapshotSlots()
@@ -252,7 +264,19 @@ public sealed class GridReorderController
                 continue;
             }
 
-            _slots.Add(new Slot(container, id, _list.IndexFromContainer(container), origin, container.Bounds.Size));
+            var dragControl = _getDragControl(container);
+            if (dragControl.TranslatePoint(default, _list) is not { } dragOrigin)
+            {
+                continue;
+            }
+
+            _slots.Add(new Slot(
+                dragControl,
+                id,
+                _list.IndexFromContainer(container),
+                origin,
+                dragOrigin,
+                container.Bounds.Size));
         }
 
         _slots.Sort((left, right) => left.Index.CompareTo(right.Index));
@@ -293,10 +317,10 @@ public sealed class GridReorderController
             }
 
             var finalIndex = ComputeFinalIndex(slot.Index, _sourceIndex, target);
-            var destination = SlotOrigin(finalIndex);
-            var dx = destination.X - slot.Origin.X;
-            var dy = destination.Y - slot.Origin.Y;
-            slot.Container.RenderTransform = Math.Abs(dx) < 0.1 && Math.Abs(dy) < 0.1
+            var destination = SlotDragOrigin(finalIndex);
+            var dx = destination.X - slot.DragOrigin.X;
+            var dy = destination.Y - slot.DragOrigin.Y;
+            slot.DragControl.RenderTransform = Math.Abs(dx) < 0.1 && Math.Abs(dy) < 0.1
                 ? null
                 : new TranslateTransform(dx, dy);
         }
@@ -309,9 +333,9 @@ public sealed class GridReorderController
         return positionAfterRemoval < target ? positionAfterRemoval : positionAfterRemoval + 1;
     }
 
-    private Point SlotOrigin(int index)
+    private Point SlotDragOrigin(int index)
     {
-        return _slots.FirstOrDefault(slot => slot.Index == index)?.Origin ?? default;
+        return _slots.FirstOrDefault(slot => slot.Index == index)?.DragOrigin ?? default;
     }
 
     private (Control? Container, string? Id, int Index) HitContainer(Point point)
@@ -332,20 +356,26 @@ public sealed class GridReorderController
         return (null, null, -1);
     }
 
+    private bool Contains(Control control, Point point)
+    {
+        return control.TranslatePoint(default, _list) is { } origin
+            && new Rect(origin, control.Bounds.Size).Contains(point);
+    }
+
     private void ResetVisuals()
     {
         foreach (var slot in _slots)
         {
-            slot.Container.RenderTransform = null;
-            slot.Container.Opacity = 1d;
-            slot.Container.ZIndex = 0;
+            slot.DragControl.RenderTransform = null;
+            slot.DragControl.Opacity = 1d;
+            slot.DragControl.ZIndex = 0;
         }
 
-        if (_pressContainer is not null)
+        if (_pressControl is not null)
         {
-            _pressContainer.RenderTransform = null;
-            _pressContainer.Opacity = 1d;
-            _pressContainer.ZIndex = 0;
+            _pressControl.RenderTransform = null;
+            _pressControl.Opacity = 1d;
+            _pressControl.ZIndex = 0;
         }
 
         if (_ghost is not null)
@@ -355,18 +385,26 @@ public sealed class GridReorderController
 
         _ghost = null;
         _overlay = null;
+        _ghostBitmap?.Dispose();
+        _ghostBitmap = null;
     }
 
     private void ClearState()
     {
         _slots.Clear();
         _pressId = null;
-        _pressContainer = null;
+        _pressControl = null;
         _sourceIndex = -1;
         _targetIndex = -1;
         _canDrag = false;
         _isDragging = false;
     }
 
-    private sealed record Slot(Control Container, string Id, int Index, Point Origin, Size Size);
+    private sealed record Slot(
+        Control DragControl,
+        string Id,
+        int Index,
+        Point Origin,
+        Point DragOrigin,
+        Size Size);
 }
