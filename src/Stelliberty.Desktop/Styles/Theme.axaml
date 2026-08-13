@@ -123,8 +123,6 @@
   <SolidColorBrush x:Key="AppWarningTintBrush" Color="#24FBBF24" />
   <SolidColorBrush x:Key="AppVioletTintBrush" Color="#24A78BFA" />
   <SolidColorBrush x:Key="AppCyanTintBrush" Color="#1F22D3EE" />
-  <SolidColorBrush x:Key="AppDownloadTintBrush" Color="#1F4ADE80" />
-  <SolidColorBrush x:Key="AppMemoryTintBrush" Color="#403B82F6" />
   <SolidColorBrush x:Key="AppDangerTintBrush" Color="#24F87171" />
 
   <SolidColorBrush x:Key="TagDebugBrush" Color="#25AB47BC" />
@@ -179,11 +177,6 @@
     <GradientStop Color="#40FCA5A5" Offset="0" />
     <GradientStop Color="#00FCA5A5" Offset="1" />
   </LinearGradientBrush>
-  <LinearGradientBrush x:Key="HomeHeaderCardBrush" StartPoint="0%,0%" EndPoint="100%,0%">
-    <GradientStop Color="#3360A5FA" Offset="0" />
-    <GradientStop Color="#0D60A5FA" Offset="1" />
-  </LinearGradientBrush>
-
   <!-- 扩散范围必须小于 DialogPanel 预留的 32px Margin，否则会被弹层图层裁剪 -->
   <BoxShadows x:Key="AppDialogShadow">0 8 24 -4 #40000000</BoxShadows>
   <BoxShadows x:Key="AppDropdownShadow">0 4 12 -2 #26000000</BoxShadows>

@@ -190,62 +190,6 @@
     <Setter Property="CornerRadius" Value="10" />
   </Style>
 
-  <Style Selector="ToggleButton.segmented">
-    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="12,8" />
-    <Setter Property="MinHeight" Value="38" />
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="HorizontalContentAlignment" Value="Center" />
-    <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="Template">
-      <ControlTemplate>
-        <Border x:Name="SegRoot"
-                Background="{TemplateBinding Background}"
-                BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="{TemplateBinding BorderThickness}"
-                CornerRadius="{TemplateBinding CornerRadius}"
-                Padding="{TemplateBinding Padding}">
-          <ContentPresenter HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Foreground="{TemplateBinding Foreground}"
-                            Content="{TemplateBinding Content}" />
-        </Border>
-      </ControlTemplate>
-    </Setter>
-  </Style>
-  <Style Selector="ToggleButton.segmented /template/ Border#SegRoot">
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.15" />
-        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="ToggleButton.segmented:pointerover">
-    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:pointerover /template/ Border#SegRoot">
-    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:checked">
-    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:checked /template/ Border#SegRoot">
-    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:checked:pointerover /template/ Border#SegRoot">
-    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
-  </Style>
-
   <Style Selector="Button.dialog-primary">
     <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
     <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
