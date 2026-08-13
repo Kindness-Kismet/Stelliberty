@@ -102,8 +102,6 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     public bool HasCustoms => _customChainProxies.Count > 0;
 
-    public bool IsEmptyVisible => IsListVisible && _builtinNames.Count == 0 && _customChainProxies.Count == 0;
-
     public bool CanAddDraft => IsContentVisible;
 
     public IReadOnlyList<string> DisabledBuiltinNames => _disabledBuiltinNames;
@@ -500,7 +498,6 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         OnPropertyChanged(nameof(HasBuiltins));
         OnPropertyChanged(nameof(CustomItems));
         OnPropertyChanged(nameof(HasCustoms));
-        OnPropertyChanged(nameof(IsEmptyVisible));
         OnPropertyChanged(nameof(CanAddDraft));
         OnPropertyChanged(nameof(DraftName));
         OnPropertyChanged(nameof(Slots));

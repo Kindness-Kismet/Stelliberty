@@ -1029,15 +1029,6 @@
                           </ItemsControl>
                         </StackPanel>
 
-                        <TextBlock Classes="dialog-subtitle"
-                                   IsVisible="{Binding ChainProxy.IsEmptyVisible}"
-                                   Text="{loc:Loc Subscriptions.ChainProxy.Empty}" />
-
-                        <Button Classes="dialog-secondary" HorizontalAlignment="Left"
-                                AutomationProperties.AutomationId="Subscriptions.ChainProxy.AddCustomButton"
-                                IsEnabled="{Binding ChainProxy.CanAddDraft}"
-                                Command="{Binding ChainProxy.StartAddDraftCommand}"
-                                Content="{loc:Loc Subscriptions.ChainProxy.AddCustom}" />
                       </StackPanel>
                     </ScrollViewer>
 
@@ -1063,8 +1054,10 @@
                           <Border Classes="chain-node-region" Classes.error="{Binding ChainProxy.IsDraftNodesErrorVisible}"
                                   AutomationProperties.AutomationId="Subscriptions.ChainProxy.SelectedNodesRegion"
                                   Focusable="True">
-                            <StackPanel>
+                            <!-- Panel 叠放：占位文字居中充当输入提示，选中节点后被列表覆盖 -->
+                            <Panel MinHeight="34">
                               <TextBlock Classes="dialog-subtitle"
+                                         HorizontalAlignment="Center" VerticalAlignment="Center"
                                          IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
                                          Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
                               <ItemsControl x:Name="ChainProxySlotList"
@@ -1090,7 +1083,7 @@
                                   </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                               </ItemsControl>
-                            </StackPanel>
+                            </Panel>
                           </Border>
                           <TextBlock Classes="dialog-error" TextWrapping="Wrap"
                                      AutomationProperties.AutomationId="Subscriptions.ChainProxy.NodesError"
@@ -1100,9 +1093,12 @@
 
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.Candidates}" />
-                          <TextBlock Classes="dialog-subtitle"
-                                     IsVisible="{Binding !ChainProxy.HasCandidates}"
-                                     Text="{loc:Loc Subscriptions.ChainProxy.NoCandidates}" />
+                          <!-- 与上方链路顺序区域同框体，空态视觉配对 -->
+                          <Border Classes="chain-node-region" IsVisible="{Binding !ChainProxy.HasCandidates}">
+                            <TextBlock Classes="dialog-subtitle"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{loc:Loc Subscriptions.ChainProxy.NoCandidates}" />
+                          </Border>
                           <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.CandidateList"
                                         ItemsSource="{Binding ChainProxy.Candidates}">
                             <ItemsControl.ItemsPanel>
@@ -1127,18 +1123,25 @@
                     </ScrollViewer>
                   </Panel>
 
+                  <!-- 页脚按列表/草稿互斥显隐；列表态左下角为新增入口，右侧为主操作 -->
                   <Panel Grid.Row="2" Margin="24,0,24,24">
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
-                                IsVisible="{Binding ChainProxy.IsListVisible}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding ChainProxy.IsListVisible}">
                       <Button Classes="dialog-secondary"
-                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.CancelButton"
-                              Command="{Binding ChainProxy.CancelCommand}"
-                              Content="{loc:Loc Dialog.Cancel}" />
-                      <Button Classes="dialog-primary"
-                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.SaveButton"
-                              Command="{Binding ChainProxy.SaveCommand}"
-                              Content="{loc:Loc Common.Save}" />
-                    </StackPanel>
+                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.AddCustomButton"
+                              IsEnabled="{Binding ChainProxy.CanAddDraft}"
+                              Command="{Binding ChainProxy.StartAddDraftCommand}"
+                              Content="{loc:Loc Common.Add}" />
+                      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <Button Classes="dialog-secondary"
+                                AutomationProperties.AutomationId="Subscriptions.ChainProxy.CancelButton"
+                                Command="{Binding ChainProxy.CancelCommand}"
+                                Content="{loc:Loc Dialog.Cancel}" />
+                        <Button Classes="dialog-primary"
+                                AutomationProperties.AutomationId="Subscriptions.ChainProxy.SaveButton"
+                                Command="{Binding ChainProxy.SaveCommand}"
+                                Content="{loc:Loc Common.Save}" />
+                      </StackPanel>
+                    </Grid>
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
                                 IsVisible="{Binding ChainProxy.IsDraftVisible}">
                       <Button Classes="dialog-secondary"
