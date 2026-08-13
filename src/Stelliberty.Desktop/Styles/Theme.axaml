@@ -184,8 +184,8 @@
     <GradientStop Color="#0D60A5FA" Offset="1" />
   </LinearGradientBrush>
 
-  <!-- 负 spread 让阴影矩形缩进不透明圆角面之下，规避 Avalonia 直角阴影在圆角外露出的黑角 -->
-  <BoxShadows x:Key="AppDialogShadow">0 10 36 -12 #4D000000</BoxShadows>
+  <!-- 扩散范围必须小于 DialogPanel 预留的 32px Margin，否则会被弹层图层裁剪 -->
+  <BoxShadows x:Key="AppDialogShadow">0 8 24 -4 #40000000</BoxShadows>
   <BoxShadows x:Key="AppDropdownShadow">0 4 12 -2 #26000000</BoxShadows>
   <BoxShadows x:Key="ToastShadow">0 4 16 -4 #38000000</BoxShadows>
 </ResourceDictionary>
