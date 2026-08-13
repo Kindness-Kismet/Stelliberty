@@ -14,7 +14,7 @@ public sealed class HubSubscriptionContentDecryptor : ISubscriptionContentDecryp
             return content;
         }
 
-        using var output = Interop.hub_age_decrypt_text(content.Utf8(), ageSecretKey.Utf8());
+        using var output = Interop.hub_age_text_decrypt(content.Utf8(), ageSecretKey.Utf8());
         var result = output.String;
         if (result.StartsWith(ErrorPrefix, StringComparison.Ordinal))
         {

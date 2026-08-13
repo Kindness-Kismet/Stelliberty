@@ -40,7 +40,7 @@ fn is_age_armor(content: &str) -> bool {
 }
 
 #[ffi]
-pub fn hub_age_decrypt_text(content: ffi::String, age_secret_key: ffi::String) -> ffi::String {
+pub fn hub_age_text_decrypt(content: ffi::String, age_secret_key: ffi::String) -> ffi::String {
     match decrypt_text(content.as_str(), age_secret_key.as_str()) {
         Ok(out) => ffi::String::from_string(out),
         Err(err) => ffi::String::from_string(format!("ERR:{err:#}")),
