@@ -129,14 +129,25 @@ internal static partial class DebugCommands
 
         if (spec.StartsWith("chain_proxy_move_up ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveChainProxyNode(page.ChainProxy, spec["chain_proxy_move_up ".Length..].Trim(), -1);
+            MoveChainProxyNode(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_up ".Length..]), -1);
             return ChainProxyNodeOrder(page.ChainProxy);
         }
 
         if (spec.StartsWith("chain_proxy_move_down ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveChainProxyNode(page.ChainProxy, spec["chain_proxy_move_down ".Length..].Trim(), 1);
+            MoveChainProxyNode(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_down ".Length..]), 1);
             return ChainProxyNodeOrder(page.ChainProxy);
+        }
+
+        if (string.Equals(spec, "chain_proxy_state", StringComparison.OrdinalIgnoreCase))
+        {
+            return ChainProxyState(page.ChainProxy);
+        }
+
+        if (spec.StartsWith("chain_proxy_toggle_builtin ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.ToggleBuiltinCommand.Execute(FirstCommandToken(spec["chain_proxy_toggle_builtin ".Length..]));
+            return ChainProxyState(page.ChainProxy);
         }
 
         if (spec.StartsWith("open_external_editor ", StringComparison.OrdinalIgnoreCase))
@@ -307,6 +318,16 @@ internal static partial class DebugCommands
 
     private static string ChainProxyNodeOrder(SubscriptionChainProxyDialogViewModel dialog)
         => $"order={string.Join(',', dialog.Slots.Select(slot => slot.NodeName))}";
+
+    // 内置项异步加载，chain_proxy 打开返回的计数可能为 0；用本命令在加载后读稳定状态。
+    private static string ChainProxyState(SubscriptionChainProxyDialogViewModel dialog)
+    {
+        return string.Join(";", [
+            $"dialog={Bool(dialog.IsDialogVisible)}",
+            $"builtins={string.Join(',', dialog.BuiltinItems.Select(item => $"{item.Name}:{(item.IsEnabled ? "on" : "off")}"))}",
+            $"customs={string.Join(',', dialog.CustomItems.Select(item => item.DisplayName))}"
+        ]);
+    }
 
     private static string ProviderRows(SubscriptionPageViewModel page)
     {

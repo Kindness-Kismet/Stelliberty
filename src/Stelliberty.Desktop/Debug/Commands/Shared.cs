@@ -139,6 +139,10 @@ internal static partial class DebugCommands
         return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result) ? result : 0;
     }
 
+    // cli 对含空格参数做 quote_arg 包裹，取值必须走 token 解析而非裸 Trim。
+    private static string FirstCommandToken(string spec)
+        => SplitCommandTokens(spec.Trim()).FirstOrDefault() ?? string.Empty;
+
     private static string NormalizeInputValue(string value)
     {
         return value == "__EMPTY__" ? string.Empty : value.Replace("\\n", Environment.NewLine);

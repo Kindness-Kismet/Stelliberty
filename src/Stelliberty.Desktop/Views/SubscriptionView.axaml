@@ -974,17 +974,13 @@
                               <DataTemplate x:DataType="vm:SubscriptionChainProxyBuiltinItemViewModel">
                                 <Border Classes="surface-panel list" Margin="0,0,0,8">
                                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                    <StackPanel Spacing="3">
-                                      <TextBlock Classes="settings-row-title" Text="{Binding Name}" />
-                                      <TextBlock Classes="settings-row-subtitle" Text="{Binding StatusText}" />
-                                    </StackPanel>
-                                    <ToggleButton Grid.Column="1"
-                                                  Classes="segmented"
+                                    <TextBlock Classes="settings-row-title" VerticalAlignment="Center"
+                                               Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
                                                   AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                                  IsChecked="{Binding IsEnabled, Mode=OneWay}"
                                                   Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.ToggleBuiltinCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                  CommandParameter="{Binding Name}"
-                                                  IsChecked="{Binding !IsEnabled}"
-                                                  Content="{loc:Loc Common.Disable}" />
+                                                  CommandParameter="{Binding Name}" />
                                   </Grid>
                                 </Border>
                               </DataTemplate>
@@ -1046,40 +1042,41 @@
 
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.SelectedPath}" />
-                          <Border Classes="chain-node-region" Classes.error="{Binding ChainProxy.IsDraftNodesErrorVisible}"
-                                  AutomationProperties.AutomationId="Subscriptions.ChainProxy.SelectedNodesRegion"
-                                  Focusable="True">
-                            <!-- Panel 叠放：占位文字居中充当输入提示，选中节点后被列表覆盖 -->
-                            <Panel MinHeight="34">
-                              <TextBlock Classes="dialog-subtitle"
-                                         HorizontalAlignment="Center" VerticalAlignment="Center"
-                                         IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
-                                         Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
-                              <ItemsControl x:Name="ChainProxySlotList"
-                                            AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
-                                            ItemsSource="{Binding ChainProxy.Slots}">
-                                <ItemsControl.ItemsPanel>
-                                  <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                  </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                  <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
-                                    <Border Classes="chain-slot" Margin="0,0,8,8"
-                                            AutomationProperties.AutomationId="{Binding AutomationId}">
-                                      <Grid RowDefinitions="Auto,Auto">
-                                        <TextBlock Classes="settings-row-subtitle" Text="{Binding PositionLabel}" />
-                                        <TextBlock Grid.Row="1" Classes="settings-row-title"
-                                                   Text="{Binding DisplayName}"
-                                                   TextTrimming="CharacterEllipsis"
-                                                   ToolTip.Tip="{Binding DisplayName}" />
-                                      </Grid>
+                          <!-- Panel 叠放：占位提示与链路 chips 互斥；保留校验聚焦目标 -->
+                          <Panel MinHeight="30"
+                                 Focusable="True"
+                                 AutomationProperties.AutomationId="Subscriptions.ChainProxy.SelectedNodesRegion">
+                            <TextBlock Classes="chain-placeholder"
+                                       IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
+                                       Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
+                            <ItemsControl x:Name="ChainProxySlotList"
+                                          AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
+                                          ItemsSource="{Binding ChainProxy.Slots}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                  <WrapPanel />
+                                </ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
+                                  <!-- 首个跳点不带箭头；整项（含箭头）都是拖拽把手 -->
+                                  <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Classes="chain-hop-arrow" IsVisible="{Binding !IsFirst}" Text="→" />
+                                    <Border Classes="chain-hop"
+                                            AutomationProperties.AutomationId="{Binding AutomationId}"
+                                            ToolTip.Tip="{Binding DisplayName}">
+                                      <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <Border Classes="chain-hop-index">
+                                          <TextBlock Text="{Binding PositionNumber}" />
+                                        </Border>
+                                        <TextBlock Classes="chain-hop-name" Text="{Binding DisplayName}" />
+                                      </StackPanel>
                                     </Border>
-                                  </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                              </ItemsControl>
-                            </Panel>
-                          </Border>
+                                  </StackPanel>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </Panel>
                           <TextBlock Classes="dialog-error" TextWrapping="Wrap"
                                      AutomationProperties.AutomationId="Subscriptions.ChainProxy.NodesError"
                                      IsVisible="{Binding ChainProxy.IsDraftNodesErrorVisible}"
@@ -1088,12 +1085,9 @@
 
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.Candidates}" />
-                          <!-- 与上方链路顺序区域同框体，空态视觉配对 -->
-                          <Border Classes="chain-node-region" IsVisible="{Binding !ChainProxy.HasCandidates}">
-                            <TextBlock Classes="dialog-subtitle"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Text="{loc:Loc Subscriptions.ChainProxy.NoCandidates}" />
-                          </Border>
+                          <TextBlock Classes="chain-placeholder" MinHeight="30"
+                                     IsVisible="{Binding !ChainProxy.HasCandidates}"
+                                     Text="{loc:Loc Subscriptions.ChainProxy.NoCandidates}" />
                           <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.CandidateList"
                                         ItemsSource="{Binding ChainProxy.Candidates}">
                             <ItemsControl.ItemsPanel>

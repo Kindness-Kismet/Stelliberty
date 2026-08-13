@@ -453,11 +453,11 @@
   </Style>
 
   <Style Selector="ToggleButton.chain-chip">
-    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="9" />
-    <Setter Property="Padding" Value="12,7" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,5" />
     <Setter Property="FontSize" Value="12.5" />
     <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
     <Setter Property="Cursor" Value="Hand" />
@@ -485,7 +485,8 @@
     </Setter>
   </Style>
   <Style Selector="ToggleButton.chain-chip:pointerover /template/ Border#ChipRoot">
-    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppOverlaySubtleBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBorderBrush}" />
   </Style>
   <Style Selector="ToggleButton.chain-chip:checked">
     <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
@@ -499,35 +500,46 @@
     <Setter Property="Opacity" Value="0.4" />
   </Style>
 
-  <Style Selector="Border.chain-slot">
-    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="12,8" />
-    <Setter Property="Width" Value="220" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.15" />
-        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-      </Transitions>
-    </Setter>
+  <Style Selector="TextBlock.chain-placeholder">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
   </Style>
 
-  <Style Selector="Border.chain-node-region">
-    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+  <Style Selector="TextBlock.chain-hop-arrow">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="8,0" />
+  </Style>
+
+  <Style Selector="Border.chain-hop">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="10" />
-    <Setter Property="MinHeight" Value="54" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Cursor" Value="Hand" />
   </Style>
-  <Style Selector="Border.chain-node-region.error">
-    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  <Style Selector="Border.chain-hop-index">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="{DynamicResource AppAccentTintBrush}" />
   </Style>
-  <Style Selector="Border.chain-node-region.error:focus">
-    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  <Style Selector="Border.chain-hop-index > TextBlock">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.chain-hop-name">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="MaxWidth" Value="180" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
 
   <!-- 连接详情行 -->

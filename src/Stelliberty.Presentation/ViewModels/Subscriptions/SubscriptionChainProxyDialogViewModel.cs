@@ -88,7 +88,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     public bool IsDraftVisible => IsContentVisible && _isEditingDraft;
 
     public IReadOnlyList<SubscriptionChainProxyBuiltinItemViewModel> BuiltinItems => _builtinNames
-        .Select(name => new SubscriptionChainProxyBuiltinItemViewModel(name, !_disabledBuiltinNames.Contains(name, StringComparer.Ordinal), _localization))
+        .Select(name => new SubscriptionChainProxyBuiltinItemViewModel(name, !_disabledBuiltinNames.Contains(name, StringComparer.Ordinal)))
         .ToList();
 
     public bool HasBuiltins => _builtinNames.Count > 0;
@@ -119,7 +119,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     public IReadOnlyList<SubscriptionChainProxySlotViewModel> Slots => _isEditingDraft
         ? _draftNodes
-            .Select((name, index) => new SubscriptionChainProxySlotViewModel(index, name, _localization))
+            .Select((name, index) => new SubscriptionChainProxySlotViewModel(index, name))
             .ToList()
         : [];
 
