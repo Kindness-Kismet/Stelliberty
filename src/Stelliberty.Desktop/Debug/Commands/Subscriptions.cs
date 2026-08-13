@@ -112,7 +112,7 @@ internal static partial class DebugCommands
         if (spec.StartsWith("chain_proxy ", StringComparison.OrdinalIgnoreCase))
         {
             page.ShowChainProxyDialogCommand.Execute(spec["chain_proxy ".Length..].Trim());
-            return $"subscription={page.ChainProxy.DialogSubscriptionId ?? string.Empty};dialog={page.ChainProxy.IsDialogVisible.ToString().ToLowerInvariant()};builtins={page.ChainProxy.BuiltinItems.Count};customs={page.ChainProxy.CustomItems.Count}";
+            return $"subscription={page.ChainProxy.DialogSubscriptionId ?? string.Empty};dialog={Bool(page.ChainProxy.IsDialogVisible)}";
         }
 
         if (spec.StartsWith("override_selector_move_up ", StringComparison.OrdinalIgnoreCase))
@@ -319,7 +319,7 @@ internal static partial class DebugCommands
     private static string ChainProxyNodeOrder(SubscriptionChainProxyDialogViewModel dialog)
         => $"order={string.Join(',', dialog.Slots.Select(slot => slot.NodeName))}";
 
-    // 内置项异步加载，chain_proxy 打开返回的计数可能为 0；用本命令在加载后读稳定状态。
+    // 内置项异步加载，打开弹窗后需经此命令读取稳定状态。
     private static string ChainProxyState(SubscriptionChainProxyDialogViewModel dialog)
     {
         return string.Join(";", [
