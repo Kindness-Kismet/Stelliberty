@@ -32,7 +32,6 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private bool _isDialogVisible;
     private bool _isLoading;
     private string _errorMessage = string.Empty;
-    private string _title = string.Empty;
 
     private bool _isEditingDraft;
     private string? _draftId;
@@ -71,8 +70,6 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     public event EventHandler<DialogInputField>? InputFocusRequested;
 
     public string? DialogSubscriptionId => _subscriptionId;
-
-    public string DialogTitle => _title;
 
     public bool IsDialogVisible => _isDialogVisible;
 
@@ -179,13 +176,11 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     public void Open(
         string subscriptionId,
-        string title,
         IReadOnlyList<string> disabledBuiltinNames,
         IReadOnlyList<SubscriptionCustomChainProxy> customChainProxies)
     {
         _closeReset.Cancel();
         _subscriptionId = subscriptionId;
-        _title = title;
         _isDialogVisible = true;
         _isLoading = true;
         _errorMessage = string.Empty;
@@ -459,7 +454,6 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     {
         _isDialogVisible = false;
         _subscriptionId = null;
-        _title = string.Empty;
         _isLoading = false;
         _errorMessage = string.Empty;
         _builtinNames.Clear();
@@ -485,7 +479,6 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private void RaiseStateChanged()
     {
         OnPropertyChanged(nameof(DialogSubscriptionId));
-        OnPropertyChanged(nameof(DialogTitle));
         OnPropertyChanged(nameof(IsDialogVisible));
         OnPropertyChanged(nameof(IsLoading));
         OnPropertyChanged(nameof(IsErrorVisible));

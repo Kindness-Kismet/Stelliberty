@@ -937,20 +937,15 @@
                                   IsOpen="{Binding ChainProxy.IsDialogVisible}">
               <controls:DialogPanel.DialogContent>
                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
-                  <StackPanel Grid.Row="0" Spacing="10" Margin="24,24,24,0">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                      <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.ChainProxy.Title}" VerticalAlignment="Center" />
-                      <Button Grid.Column="1"
-                              Classes="dialog-close"
-                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.CloseButton"
-                              Command="{Binding ChainProxy.CancelCommand}">
-                        <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
-                      </Button>
-                    </Grid>
-                    <TextBlock Classes="dialog-subtitle"
-                               AutomationProperties.AutomationId="Subscriptions.ChainProxy.TitleText"
-                               Text="{Binding ChainProxy.DialogTitle}" />
-                  </StackPanel>
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.ChainProxy.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.ChainProxy.CloseButton"
+                            Command="{Binding ChainProxy.CancelCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
 
                   <Panel Grid.Row="1">
                     <StackPanel MinHeight="160" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12"
@@ -1172,9 +1167,6 @@
                       <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
                     </Button>
                   </Grid>
-                  <TextBlock Classes="dialog-subtitle"
-                             AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.TitleText"
-                             Text="{Binding RuntimeConfigDialog.Title}" />
                   <controls:CodeEditor AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.ContentBox"
                                        Text="{Binding RuntimeConfigDialog.Content}"
                                        SyntaxLanguage="yaml"

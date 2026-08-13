@@ -623,7 +623,7 @@ public sealed class SubscriptionBusinessTests
         SubscriptionChainProxySaveEventArgs? saved = null;
         dialog.Saved += (_, args) => saved = args;
 
-        dialog.Open("sub-1", "Sub", [], []);
+        dialog.Open("sub-1", [], []);
         await WaitUntilAsync(() => !dialog.IsLoading);
         dialog.ToggleBuiltinCommand.Execute("JP via HK");
         dialog.StartAddDraftCommand.Execute(null);
@@ -649,7 +649,7 @@ public sealed class SubscriptionBusinessTests
         var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => new SubscriptionChainProxyContext(
             [],
             [new ChainProxyNodeOption("HK", "ss"), new ChainProxyNodeOption("JP", "trojan")]));
-        dialog.Open("sub-1", "Sub", [], []);
+        dialog.Open("sub-1", [], []);
         await WaitUntilAsync(() => !dialog.IsLoading);
 
         dialog.StartAddDraftCommand.Execute(null);
@@ -689,7 +689,7 @@ public sealed class SubscriptionBusinessTests
                 new ChainProxyNodeOption("TW", "ss"),
                 new ChainProxyNodeOption("JP", "trojan")
             ]));
-        dialog.Open("sub-1", "Sub", [], []);
+        dialog.Open("sub-1", [], []);
         await WaitUntilAsync(() => !dialog.IsLoading);
         dialog.StartAddDraftCommand.Execute(null);
 
@@ -713,7 +713,6 @@ public sealed class SubscriptionBusinessTests
             [new ChainProxyNodeOption("HK", "ss"), new ChainProxyNodeOption("JP", "trojan")]));
         dialog.Open(
             "sub-1",
-            "Sub",
             [],
             [
                 new SubscriptionCustomChainProxy("old", "JP via HK", ["OldHK", "OldJP"]),
@@ -743,7 +742,7 @@ public sealed class SubscriptionBusinessTests
                 new ChainProxyNodeOption("TW", "ss"),
                 new ChainProxyNodeOption("JP", "trojan")
             ]));
-        dialog.Open("sub-1", "Sub", [], []);
+        dialog.Open("sub-1", [], []);
         await WaitUntilAsync(() => !dialog.IsLoading);
         dialog.StartAddDraftCommand.Execute(null);
         dialog.SelectCandidateCommand.Execute("HK");
@@ -792,9 +791,9 @@ public sealed class SubscriptionBusinessTests
 
         try
         {
-            dialog.Open("sub-1", "Old", [], []);
+            dialog.Open("sub-1", [], []);
             await WaitUntilAsync(() => sub1Started.Task.IsCompleted);
-            dialog.Open("sub-2", "New", [], []);
+            dialog.Open("sub-2", [], []);
             await WaitUntilAsync(() => !dialog.IsLoading && dialog.BuiltinItems.Any(item => item.Name == "New chain"));
             sub1Release.TrySetResult();
             await WaitUntilAsync(() => sub1Completed.Task.IsCompleted);
@@ -821,9 +820,9 @@ public sealed class SubscriptionBusinessTests
         SubscriptionFileEditCompletedEventArgs? completed = null;
         editor.Confirmed += (_, args) => completed = args;
 
-        editor.Open("sub-1", "Sub 1", "old");
+        editor.Open("sub-1", "old");
         editor.Close();
-        editor.Open("sub-2", "Sub 2", "new");
+        editor.Open("sub-2", "new");
         await Task.Delay(250);
         editor.Content = "changed";
         editor.ConfirmCommand.Execute(null);
@@ -839,14 +838,13 @@ public sealed class SubscriptionBusinessTests
     {
         var dialog = new SubscriptionRuntimeConfigDialogViewModel();
 
-        dialog.Open("sub-1", "Sub 1", "mode: rule");
+        dialog.Open("sub-1", "mode: rule");
         dialog.Close();
-        dialog.Open("sub-2", "Sub 2", "mode: global");
+        dialog.Open("sub-2", "mode: global");
         await Task.Delay(250);
 
         Assert.True(dialog.IsDialogVisible);
         Assert.Equal("sub-2", dialog.DialogSubscriptionId);
-        Assert.Equal("Sub 2", dialog.Title);
         Assert.Equal("mode: global", dialog.Content);
 
         dialog.ClearForSubscription("sub-1");
