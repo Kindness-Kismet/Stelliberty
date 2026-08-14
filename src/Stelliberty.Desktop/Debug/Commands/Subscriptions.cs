@@ -14,23 +14,23 @@ internal static partial class DebugCommands
         var viewModel = RequireViewModel(window);
         var page = viewModel.SubscriptionPage;
         var spec = command["subscriptions.".Length..].Trim();
-        if (spec.StartsWith("add_remote ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("add remote ", StringComparison.OrdinalIgnoreCase))
         {
-            var item = await page.AddRemoteSubscriptionAsync(ParseSubscriptionRemoteArgs(spec["add_remote ".Length..].Trim()));
+            var item = await page.AddRemoteSubscriptionAsync(ParseSubscriptionRemoteArgs(spec["add remote ".Length..].Trim()));
             page.SelectSubscriptionCommand.Execute(item.Id);
             await WaitRuntimeRefreshAsync(viewModel);
             return $"id={item.Id};{SubscriptionState(page, viewModel)}";
         }
 
-        if (spec.StartsWith("add_local ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("add local ", StringComparison.OrdinalIgnoreCase))
         {
-            var item = page.AddLocalSubscription(ParseSubscriptionLocalArgs(spec["add_local ".Length..].Trim()));
+            var item = page.AddLocalSubscription(ParseSubscriptionLocalArgs(spec["add local ".Length..].Trim()));
             page.SelectSubscriptionCommand.Execute(item.Id);
             await WaitRuntimeRefreshAsync(viewModel);
             return $"id={item.Id};{SubscriptionState(page, viewModel)}";
         }
 
-        if (string.Equals(spec, "paste_url", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "paste url", StringComparison.OrdinalIgnoreCase))
         {
             return await PasteSubscriptionAddUrlAsync(window, page);
         }
@@ -42,16 +42,16 @@ internal static partial class DebugCommands
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("update ", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "update all", StringComparison.OrdinalIgnoreCase))
         {
-            await page.UpdateSubscriptionAsync(spec["update ".Length..].Trim());
+            await page.UpdateAllSubscriptionsAsync();
             await WaitRuntimeRefreshAsync(viewModel);
             return SubscriptionState(page, viewModel);
         }
 
-        if (string.Equals(spec, "update_all", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("update ", StringComparison.OrdinalIgnoreCase))
         {
-            await page.UpdateAllSubscriptionsAsync();
+            await page.UpdateSubscriptionAsync(spec["update ".Length..].Trim());
             await WaitRuntimeRefreshAsync(viewModel);
             return SubscriptionState(page, viewModel);
         }
@@ -67,12 +67,12 @@ internal static partial class DebugCommands
             return SubscriptionState(page, viewModel);
         }
 
-        if (string.Equals(spec, "store_state", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "state store", StringComparison.OrdinalIgnoreCase))
         {
             return SubscriptionStoreState(GetSubscriptionStore(window));
         }
 
-        if (string.Equals(spec, "selection_state", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "state selection", StringComparison.OrdinalIgnoreCase))
         {
             return SubscriptionSelectionState(GetSelectionStore(window), GetSubscriptionStore(window));
         }
@@ -85,97 +85,97 @@ internal static partial class DebugCommands
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("move_up ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("move up ", StringComparison.OrdinalIgnoreCase))
         {
-            page.MoveSubscriptionUpCommand.Execute(spec["move_up ".Length..].Trim());
+            page.MoveSubscriptionUpCommand.Execute(spec["move up ".Length..].Trim());
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("move_down ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("move down ", StringComparison.OrdinalIgnoreCase))
         {
-            page.MoveSubscriptionDownCommand.Execute(spec["move_down ".Length..].Trim());
+            page.MoveSubscriptionDownCommand.Execute(spec["move down ".Length..].Trim());
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("copy_link ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("copy link ", StringComparison.OrdinalIgnoreCase))
         {
-            page.CopyLinkCommand.Execute(spec["copy_link ".Length..].Trim());
+            page.CopyLinkCommand.Execute(spec["copy link ".Length..].Trim());
             return $"copied={page.CopiedLink ?? string.Empty};{SubscriptionState(page, viewModel)}";
         }
 
-        if (spec.StartsWith("show_qr ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("show qr ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ShowQrCodeCommand.Execute(spec["show_qr ".Length..].Trim());
+            page.ShowQrCodeCommand.Execute(spec["show qr ".Length..].Trim());
             return $"subscription={page.QrCodeSubscriptionId ?? string.Empty};dialog={page.IsQrCodeDialogVisible.ToString().ToLowerInvariant()}";
         }
 
-        if (spec.StartsWith("chain_proxy ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.open ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ShowChainProxyDialogCommand.Execute(spec["chain_proxy ".Length..].Trim());
+            page.ShowChainProxyDialogCommand.Execute(spec["chain-proxy.open ".Length..].Trim());
             return $"subscription={page.ChainProxy.DialogSubscriptionId ?? string.Empty};dialog={Bool(page.ChainProxy.IsDialogVisible)}";
         }
 
-        if (spec.StartsWith("override_selector_move_up ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("override-selector.move up ", StringComparison.OrdinalIgnoreCase))
         {
-            page.OverrideSelector.MoveUpCommand.Execute(spec["override_selector_move_up ".Length..].Trim());
+            page.OverrideSelector.MoveUpCommand.Execute(spec["override-selector.move up ".Length..].Trim());
             return OverrideSelectorOrder(page);
         }
 
-        if (spec.StartsWith("override_selector_move_down ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("override-selector.move down ", StringComparison.OrdinalIgnoreCase))
         {
-            page.OverrideSelector.MoveDownCommand.Execute(spec["override_selector_move_down ".Length..].Trim());
+            page.OverrideSelector.MoveDownCommand.Execute(spec["override-selector.move down ".Length..].Trim());
             return OverrideSelectorOrder(page);
         }
 
-        if (spec.StartsWith("chain_proxy_move_up ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.move up ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveChainProxyHop(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_up ".Length..]), -1);
+            MoveChainProxyHop(page.ChainProxy, FirstCommandToken(spec["chain-proxy.move up ".Length..]), -1);
             return ChainProxyHopOrder(page.ChainProxy);
         }
 
-        if (spec.StartsWith("chain_proxy_move_down ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.move down ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveChainProxyHop(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_down ".Length..]), 1);
+            MoveChainProxyHop(page.ChainProxy, FirstCommandToken(spec["chain-proxy.move down ".Length..]), 1);
             return ChainProxyHopOrder(page.ChainProxy);
         }
 
-        if (string.Equals(spec, "chain_proxy_state", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "chain-proxy.state", StringComparison.OrdinalIgnoreCase))
         {
             return ChainProxyState(page.ChainProxy);
         }
 
-        if (spec.StartsWith("chain_proxy_toggle_builtin ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.toggle builtin ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ChainProxy.ToggleBuiltinCommand.Execute(FirstCommandToken(spec["chain_proxy_toggle_builtin ".Length..]));
+            page.ChainProxy.ToggleBuiltinCommand.Execute(FirstCommandToken(spec["chain-proxy.toggle builtin ".Length..]));
             return ChainProxyState(page.ChainProxy);
         }
 
-        if (string.Equals(spec, "chain_proxy_start_add", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "chain-proxy.start add", StringComparison.OrdinalIgnoreCase))
         {
             page.ChainProxy.StartAddDraftCommand.Execute(null);
             return ChainProxyDraftState(page.ChainProxy);
         }
 
-        if (spec.StartsWith("chain_proxy_set_name ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.set name ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ChainProxy.DraftName = FirstCommandToken(spec["chain_proxy_set_name ".Length..]);
+            page.ChainProxy.DraftName = FirstCommandToken(spec["chain-proxy.set name ".Length..]);
             return ChainProxyDraftState(page.ChainProxy);
         }
 
-        if (spec.StartsWith("chain_proxy_set_group ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.set group ", StringComparison.OrdinalIgnoreCase))
         {
-            var groupName = FirstCommandToken(spec["chain_proxy_set_group ".Length..]);
+            var groupName = FirstCommandToken(spec["chain-proxy.set group ".Length..]);
             page.ChainProxy.DraftProxyGroup = page.ChainProxy.ProxyGroups.FirstOrDefault(group => group.Name == groupName)
                 ?? throw new InvalidOperationException($"Chain proxy group not found: {groupName}");
             return ChainProxyDraftState(page.ChainProxy);
         }
 
-        if (spec.StartsWith("chain_proxy_toggle_hop ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.toggle hop ", StringComparison.OrdinalIgnoreCase))
         {
-            var tokens = SplitCommandTokens(spec["chain_proxy_toggle_hop ".Length..]);
+            var tokens = SplitCommandTokens(spec["chain-proxy.toggle hop ".Length..]);
             if (tokens.Count < 2)
             {
-                throw new InvalidOperationException("subscriptions.chain_proxy_toggle_hop usage: subscriptions.chain_proxy_toggle_hop <proxy|group> <name>");
+                throw new InvalidOperationException("subscriptions.chain-proxy.toggle hop usage: subscriptions.chain-proxy.toggle hop <proxy|group> <name>");
             }
 
             var kind = tokens[0].ToLowerInvariant() switch
@@ -188,54 +188,54 @@ internal static partial class DebugCommands
             return ChainProxyDraftState(page.ChainProxy);
         }
 
-        if (string.Equals(spec, "chain_proxy_save_draft", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "chain-proxy.save draft", StringComparison.OrdinalIgnoreCase))
         {
             page.ChainProxy.SaveDraftCommand.Execute(null);
             return ChainProxyDraftState(page.ChainProxy);
         }
 
-        if (string.Equals(spec, "chain_proxy_save", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "chain-proxy.save", StringComparison.OrdinalIgnoreCase))
         {
             page.ChainProxy.SaveCommand.Execute(null);
             await WaitRuntimeRefreshAsync(viewModel);
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("chain_proxy_remove_custom ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.remove custom ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ChainProxy.RemoveCustomCommand.Execute(FirstCommandToken(spec["chain_proxy_remove_custom ".Length..]));
+            page.ChainProxy.RemoveCustomCommand.Execute(FirstCommandToken(spec["chain-proxy.remove custom ".Length..]));
             return ChainProxyState(page.ChainProxy);
         }
 
-        if (spec.StartsWith("chain_proxy_edit_custom ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("chain-proxy.edit custom ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ChainProxy.EditCustomCommand.Execute(FirstCommandToken(spec["chain_proxy_edit_custom ".Length..]));
+            page.ChainProxy.EditCustomCommand.Execute(FirstCommandToken(spec["chain-proxy.edit custom ".Length..]));
             return ChainProxyDraftState(page.ChainProxy);
         }
 
-        if (string.Equals(spec, "chain_proxy_draft_state", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "chain-proxy.state draft", StringComparison.OrdinalIgnoreCase))
         {
             return ChainProxyDraftState(page.ChainProxy);
         }
 
-        if (spec.StartsWith("open_external_editor ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("open external-editor ", StringComparison.OrdinalIgnoreCase))
         {
-            page.OpenExternalEditorCommand.Execute(spec["open_external_editor ".Length..].Trim());
+            page.OpenExternalEditorCommand.Execute(spec["open external-editor ".Length..].Trim());
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("runtime_config ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("get runtime-config ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ShowRuntimeConfigDialogCommand.Execute(spec["runtime_config ".Length..].Trim());
+            page.ShowRuntimeConfigDialogCommand.Execute(spec["get runtime-config ".Length..].Trim());
             return OutputValue(page.RuntimeConfigDialog.Content);
         }
 
-        if (spec.StartsWith("save_file ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("save file ", StringComparison.OrdinalIgnoreCase))
         {
-            var tokens = SplitCommandTokens(spec["save_file ".Length..].Trim());
+            var tokens = SplitCommandTokens(spec["save file ".Length..].Trim());
             if (tokens.Count < 2)
             {
-                throw new InvalidOperationException("subscriptions.save_file usage: subscriptions.save_file <subscription_id> <content>");
+                throw new InvalidOperationException("subscriptions.save file usage: subscriptions.save file <subscription_id> <content>");
             }
 
             page.EditFileCommand.Execute(tokens[0]);
@@ -245,19 +245,19 @@ internal static partial class DebugCommands
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("edit_metadata ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("edit metadata ", StringComparison.OrdinalIgnoreCase))
         {
-            EditSubscriptionMetadata(page, spec["edit_metadata ".Length..].Trim());
+            EditSubscriptionMetadata(page, spec["edit metadata ".Length..].Trim());
             await WaitRuntimeRefreshAsync(viewModel);
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("set_overrides ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set overrides ", StringComparison.OrdinalIgnoreCase))
         {
-            var tokens = SplitCommandTokens(spec["set_overrides ".Length..].Trim());
+            var tokens = SplitCommandTokens(spec["set overrides ".Length..].Trim());
             if (tokens.Count < 1)
             {
-                throw new InvalidOperationException("subscriptions.set_overrides usage: subscriptions.set_overrides <subscription_id> [override_id...]");
+                throw new InvalidOperationException("subscriptions.set overrides usage: subscriptions.set overrides <subscription_id> [override_id...]");
             }
 
             var overrideIds = tokens.Skip(1).Where(token => token != "__EMPTY__").ToList();
@@ -266,23 +266,24 @@ internal static partial class DebugCommands
             return SubscriptionState(page, viewModel);
         }
 
-        if (spec.StartsWith("provider_list ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("provider.list ", StringComparison.OrdinalIgnoreCase))
         {
-            await page.Provider.ShowAsync(spec["provider_list ".Length..].Trim());
+            await page.Provider.ShowAsync(spec["provider.list ".Length..].Trim());
             return ProviderRows(page);
         }
 
-        if (string.Equals(spec, "provider_rows", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "provider.rows", StringComparison.OrdinalIgnoreCase))
         {
             return ProviderRows(page);
         }
 
-        if (spec.StartsWith("provider_sync ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("provider.sync ", StringComparison.OrdinalIgnoreCase)
+            && !spec.StartsWith("provider.sync all ", StringComparison.OrdinalIgnoreCase))
         {
-            var tokens = SplitCommandTokens(spec["provider_sync ".Length..].Trim());
+            var tokens = SplitCommandTokens(spec["provider.sync ".Length..].Trim());
             if (tokens.Count < 2)
             {
-                throw new InvalidOperationException("subscriptions.provider_sync usage: subscriptions.provider_sync <subscription_id> <provider_name>");
+                throw new InvalidOperationException("subscriptions.provider.sync usage: subscriptions.provider.sync <subscription_id> <provider_name>");
             }
 
             await page.Provider.ShowAsync(tokens[0]);
@@ -290,19 +291,19 @@ internal static partial class DebugCommands
             return ProviderState(page);
         }
 
-        if (spec.StartsWith("provider_sync_all ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("provider.sync all ", StringComparison.OrdinalIgnoreCase))
         {
-            await page.Provider.ShowAsync(spec["provider_sync_all ".Length..].Trim());
+            await page.Provider.ShowAsync(spec["provider.sync all ".Length..].Trim());
             await page.Provider.SyncAllProvidersAsync();
             return ProviderState(page);
         }
 
-        if (spec.StartsWith("provider_upload ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("provider.upload ", StringComparison.OrdinalIgnoreCase))
         {
-            var tokens = SplitCommandTokens(spec["provider_upload ".Length..].Trim());
+            var tokens = SplitCommandTokens(spec["provider.upload ".Length..].Trim());
             if (tokens.Count < 3)
             {
-                throw new InvalidOperationException("subscriptions.provider_upload usage: subscriptions.provider_upload <subscription_id> <provider_name> <path>");
+                throw new InvalidOperationException("subscriptions.provider.upload usage: subscriptions.provider.upload <subscription_id> <provider_name> <path>");
             }
 
             page.Provider.Show(tokens[0]);
@@ -311,20 +312,20 @@ internal static partial class DebugCommands
             return ProviderState(page);
         }
 
-        if (string.Equals(spec, "auto_delay_tick", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "tick auto-delay", StringComparison.OrdinalIgnoreCase))
         {
             return await RunSubscriptionAutoDelayTestTickAsync(window);
         }
 
-        if (spec.StartsWith("set_update_delay ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set update-delay ", StringComparison.OrdinalIgnoreCase))
         {
-            SetSubscriptionUpdateDelay(spec["set_update_delay ".Length..].Trim());
+            SetSubscriptionUpdateDelay(spec["set update-delay ".Length..].Trim());
             return null;
         }
 
-        if (spec.StartsWith("edit_file ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("edit file ", StringComparison.OrdinalIgnoreCase))
         {
-            page.EditFileCommand.Execute(spec["edit_file ".Length..].Trim());
+            page.EditFileCommand.Execute(spec["edit file ".Length..].Trim());
             return null;
         }
 
@@ -458,7 +459,7 @@ internal static partial class DebugCommands
         if (tokens.Count < 2)
         {
             throw new InvalidOperationException(
-                "subscriptions.add_remote usage: subscriptions.add_remote <name> <url> [--ua <ua>] [--age-key <key>] [--auto disabled|startup|interval] [--interval <min>] [--proxy direct|system|core]");
+                "subscriptions.add remote usage: subscriptions.add remote <name> <url> [--ua <ua>] [--age-key <key>] [--auto disabled|startup|interval] [--interval <min>] [--proxy direct|system|core]");
         }
 
         return new SubscriptionAddRemoteRequestedEventArgs(
@@ -477,7 +478,7 @@ internal static partial class DebugCommands
         var tokens = SplitCommandTokens(spec);
         if (tokens.Count < 2)
         {
-            throw new InvalidOperationException("subscriptions.add_local usage: subscriptions.add_local <name> <path>");
+            throw new InvalidOperationException("subscriptions.add local usage: subscriptions.add local <name> <path>");
         }
 
         return new SubscriptionAddLocalRequestedEventArgs(tokens[0], tokens[1], 0);
@@ -489,7 +490,7 @@ internal static partial class DebugCommands
         if (tokens.Count < 1)
         {
             throw new InvalidOperationException(
-                "subscriptions.edit_metadata usage: subscriptions.edit_metadata <subscription_id> [--name <name>] [--url <url>] [--ua <ua>] [--age-key <key>] [--delay <min>] [--auto disabled|startup|interval] [--interval <min>] [--proxy direct|system|core]");
+                "subscriptions.edit metadata usage: subscriptions.edit metadata <subscription_id> [--name <name>] [--url <url>] [--ua <ua>] [--age-key <key>] [--delay <min>] [--auto disabled|startup|interval] [--interval <min>] [--proxy direct|system|core]");
         }
 
         page.ShowEditDialogCommand.Execute(tokens[0]);
@@ -579,7 +580,7 @@ internal static partial class DebugCommands
 #if DEBUG
         if (!int.TryParse(value, out var milliseconds) || milliseconds < 0)
         {
-            throw new InvalidOperationException("subscriptions.set_update_delay usage: subscriptions.set_update_delay <milliseconds>");
+            throw new InvalidOperationException("subscriptions.set update-delay usage: subscriptions.set update-delay <milliseconds>");
         }
 
         RemoteSubscriptionDownloader.DelayMilliseconds = milliseconds;

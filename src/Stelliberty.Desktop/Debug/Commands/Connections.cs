@@ -16,13 +16,13 @@ internal static partial class DebugCommands
             return ConnectionState(page);
         }
 
-        if (string.Equals(spec, "pause", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "toggle pause", StringComparison.OrdinalIgnoreCase))
         {
             page.TogglePause();
             return ConnectionState(page);
         }
 
-        if (string.Equals(spec, "close_all", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "close all", StringComparison.OrdinalIgnoreCase))
         {
             await page.CloseAllConnectionsAsync();
             return ConnectionState(page);
@@ -40,9 +40,9 @@ internal static partial class DebugCommands
             return ConnectionState(page);
         }
 
-        if (spec.StartsWith("detail ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("get detail ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ShowDetail(spec["detail ".Length..].Trim());
+            page.ShowDetail(spec["get detail ".Length..].Trim());
             return page.SelectedConnectionDetailText;
         }
 

@@ -13,32 +13,32 @@ internal static partial class DebugCommands
         var viewModel = RequireViewModel(window);
         var page = viewModel.OverridePage;
         var spec = command["overrides.".Length..].Trim();
-        if (spec.StartsWith("add_remote ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("add remote ", StringComparison.OrdinalIgnoreCase))
         {
-            var item = await page.AddRemoteOverrideAsync(ParseOverrideRemoteArgs(spec["add_remote ".Length..].Trim()));
+            var item = await page.AddRemoteOverrideAsync(ParseOverrideRemoteArgs(spec["add remote ".Length..].Trim()));
             return item is null ? OverrideState(page) : $"id={item.Id};{OverrideState(page)}";
         }
 
-        if (spec.StartsWith("add_local ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("add local ", StringComparison.OrdinalIgnoreCase))
         {
-            var item = await page.AddLocalOverrideAsync(ParseOverrideLocalArgs(spec["add_local ".Length..].Trim()));
+            var item = await page.AddLocalOverrideAsync(ParseOverrideLocalArgs(spec["add local ".Length..].Trim()));
             return item is null ? OverrideState(page) : $"id={item.Id};{OverrideState(page)}";
         }
 
-        if (string.Equals(spec, "paste_url", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "paste url", StringComparison.OrdinalIgnoreCase))
         {
             return await PasteOverrideAddUrlAsync(window, page);
         }
 
-        if (spec.StartsWith("create_blank ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("create blank ", StringComparison.OrdinalIgnoreCase))
         {
-            var item = await page.CreateBlankOverrideAsync(ParseOverrideBlankArgs(spec["create_blank ".Length..].Trim()));
+            var item = await page.CreateBlankOverrideAsync(ParseOverrideBlankArgs(spec["create blank ".Length..].Trim()));
             return item is null ? OverrideState(page) : $"id={item.Id};{OverrideState(page)}";
         }
 
-        if (spec.StartsWith("create_inline ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("create inline ", StringComparison.OrdinalIgnoreCase))
         {
-            var args = ParseOverrideInlineArgs(spec["create_inline ".Length..].Trim());
+            var args = ParseOverrideInlineArgs(spec["create inline ".Length..].Trim());
             var item = await page.CreateBlankOverrideAsync(new OverrideAddCreateBlankRequestedEventArgs(args.Name, args.Format));
             if (item is null)
             {
@@ -57,15 +57,15 @@ internal static partial class DebugCommands
             return OverrideState(page);
         }
 
-        if (spec.StartsWith("update ", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "update all", StringComparison.OrdinalIgnoreCase))
         {
-            await page.UpdateOverrideAsync(spec["update ".Length..].Trim());
+            await page.UpdateAllOverridesAsync();
             return OverrideState(page);
         }
 
-        if (string.Equals(spec, "update_all", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("update ", StringComparison.OrdinalIgnoreCase))
         {
-            await page.UpdateAllOverridesAsync();
+            await page.UpdateOverrideAsync(spec["update ".Length..].Trim());
             return OverrideState(page);
         }
 
@@ -75,42 +75,42 @@ internal static partial class DebugCommands
             return OverrideState(page);
         }
 
-        if (spec.StartsWith("move_up ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("move up ", StringComparison.OrdinalIgnoreCase))
         {
-            page.MoveOverrideUp(spec["move_up ".Length..].Trim());
+            page.MoveOverrideUp(spec["move up ".Length..].Trim());
             return OverrideState(page);
         }
 
-        if (spec.StartsWith("move_down ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("move down ", StringComparison.OrdinalIgnoreCase))
         {
-            page.MoveOverrideDown(spec["move_down ".Length..].Trim());
+            page.MoveOverrideDown(spec["move down ".Length..].Trim());
             return OverrideState(page);
         }
 
-        if (spec.StartsWith("edit_metadata ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("edit metadata ", StringComparison.OrdinalIgnoreCase))
         {
-            page.ShowEditDialog(spec["edit_metadata ".Length..].Trim());
+            page.ShowEditDialog(spec["edit metadata ".Length..].Trim());
             return OverrideState(page);
         }
 
-        if (spec.StartsWith("edit_file ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("edit file ", StringComparison.OrdinalIgnoreCase))
         {
-            page.EditFile(spec["edit_file ".Length..].Trim());
+            page.EditFile(spec["edit file ".Length..].Trim());
             return OverrideState(page);
         }
 
-        if (spec.StartsWith("open_external_editor ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("open external-editor ", StringComparison.OrdinalIgnoreCase))
         {
-            page.OpenExternalEditor(spec["open_external_editor ".Length..].Trim());
+            page.OpenExternalEditor(spec["open external-editor ".Length..].Trim());
             return OverrideState(page);
         }
 
-        if (spec.StartsWith("save_file ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("save file ", StringComparison.OrdinalIgnoreCase))
         {
-            var tokens = SplitCommandTokens(spec["save_file ".Length..].Trim());
+            var tokens = SplitCommandTokens(spec["save file ".Length..].Trim());
             if (tokens.Count < 2)
             {
-                throw new InvalidOperationException("overrides.save_file usage: overrides.save_file <override_id> <content>");
+                throw new InvalidOperationException("overrides.save file usage: overrides.save file <override_id> <content>");
             }
 
             page.EditFileCommand.Execute(tokens[0]);
@@ -168,7 +168,7 @@ internal static partial class DebugCommands
         var tokens = SplitCommandTokens(spec);
         if (tokens.Count < 2)
         {
-            throw new InvalidOperationException("overrides.add_remote usage: overrides.add_remote <name> <url> [--format yaml|javascript] [--proxy direct|system|core]");
+            throw new InvalidOperationException("overrides.add remote usage: overrides.add remote <name> <url> [--format yaml|javascript] [--proxy direct|system|core]");
         }
 
         return new OverrideAddRemoteRequestedEventArgs(
@@ -183,7 +183,7 @@ internal static partial class DebugCommands
         var tokens = SplitCommandTokens(spec);
         if (tokens.Count < 2)
         {
-            throw new InvalidOperationException("overrides.add_local usage: overrides.add_local <name> <path> [--format yaml|javascript]");
+            throw new InvalidOperationException("overrides.add local usage: overrides.add local <name> <path> [--format yaml|javascript]");
         }
 
         return new OverrideAddLocalRequestedEventArgs(tokens[0], tokens[1], ParseOverrideFormat(ExtractFlag(tokens, "--format")));
@@ -194,7 +194,7 @@ internal static partial class DebugCommands
         var tokens = SplitCommandTokens(spec);
         if (tokens.Count < 1)
         {
-            throw new InvalidOperationException("overrides.create_blank usage: overrides.create_blank <name> [--format yaml|javascript]");
+            throw new InvalidOperationException("overrides.create blank usage: overrides.create blank <name> [--format yaml|javascript]");
         }
 
         return new OverrideAddCreateBlankRequestedEventArgs(tokens[0], ParseOverrideFormat(ExtractFlag(tokens, "--format")));
@@ -205,7 +205,7 @@ internal static partial class DebugCommands
         var tokens = SplitCommandTokens(spec);
         if (tokens.Count < 2)
         {
-            throw new InvalidOperationException("overrides.create_inline usage: overrides.create_inline <name> <content> [--format yaml|javascript]");
+            throw new InvalidOperationException("overrides.create inline usage: overrides.create inline <name> <content> [--format yaml|javascript]");
         }
 
         return new OverrideInlineArgs(tokens[0], tokens[1], ParseOverrideFormat(ExtractFlag(tokens, "--format")));

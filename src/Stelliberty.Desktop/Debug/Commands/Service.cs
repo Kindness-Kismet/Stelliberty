@@ -10,7 +10,7 @@ internal static partial class DebugCommands
     {
         var page = RequireViewModel(window).HomePage;
         var spec = command["service.".Length..].Trim();
-        if (string.Equals(spec, "status", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "state", StringComparison.OrdinalIgnoreCase))
         {
             var status = await page.RefreshServiceModeAsync();
             return ServiceState(page, status);

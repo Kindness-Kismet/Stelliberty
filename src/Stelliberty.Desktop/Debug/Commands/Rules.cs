@@ -28,15 +28,15 @@ internal static partial class DebugCommands
             return Task.FromResult<string?>(RuleState(page));
         }
 
-        if (spec.StartsWith("move_up ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("move up ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveRule(page, spec["move_up ".Length..].Trim(), -1);
+            MoveRule(page, spec["move up ".Length..].Trim(), -1);
             return Task.FromResult<string?>(RuleOrder(page));
         }
 
-        if (spec.StartsWith("move_down ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("move down ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveRule(page, spec["move_down ".Length..].Trim(), 1);
+            MoveRule(page, spec["move down ".Length..].Trim(), 1);
             return Task.FromResult<string?>(RuleOrder(page));
         }
 
@@ -70,7 +70,7 @@ internal static partial class DebugCommands
     {
         if (!string.IsNullOrWhiteSpace(page.SearchKeyword) || page.TypeBucket != RuleTypeBucket.All)
         {
-            throw new InvalidOperationException("rules.move_up/move_down requires the all-rules view without search");
+            throw new InvalidOperationException("rules.move up/down requires the all-rules view without search");
         }
 
         var row = page.VisibleRules.FirstOrDefault(item => item.Id == ruleId || item.OrderId == ruleId);

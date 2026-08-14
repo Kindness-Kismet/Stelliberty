@@ -26,14 +26,14 @@ internal static partial class DebugCommands
             return Task.FromResult<string?>(ExecuteAccentSettingsCommand(viewModel, spec["accent.".Length..].Trim()));
         }
 
-        if (spec.StartsWith("window_effect.", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("window-effect.", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult<string?>(ExecuteWindowEffectSettingsCommand(viewModel, spec["window_effect.".Length..].Trim()));
+            return Task.FromResult<string?>(ExecuteWindowEffectSettingsCommand(viewModel, spec["window-effect.".Length..].Trim()));
         }
 
-        if (spec.StartsWith("app_behavior.", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("app-behavior.", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult<string?>(ExecuteAppBehaviorSettingsCommand(viewModel, spec["app_behavior.".Length..].Trim()));
+            return Task.FromResult<string?>(ExecuteAppBehaviorSettingsCommand(viewModel, spec["app-behavior.".Length..].Trim()));
         }
 
         if (spec.StartsWith("update.", StringComparison.OrdinalIgnoreCase))
@@ -41,19 +41,19 @@ internal static partial class DebugCommands
             return ExecuteUpdateSettingsCommandAsync(viewModel, spec["update.".Length..].Trim());
         }
 
-        if (spec.StartsWith("data_management.", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("data-management.", StringComparison.OrdinalIgnoreCase))
         {
-            return ExecuteDataManagementSettingsCommandAsync(viewModel, spec["data_management.".Length..].Trim());
+            return ExecuteDataManagementSettingsCommandAsync(viewModel, spec["data-management.".Length..].Trim());
         }
 
-        if (spec.StartsWith("app_log.", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("app-log.", StringComparison.OrdinalIgnoreCase))
         {
-            return ExecuteAppLogSettingsCommandAsync(viewModel, spec["app_log.".Length..].Trim());
+            return ExecuteAppLogSettingsCommandAsync(viewModel, spec["app-log.".Length..].Trim());
         }
 
-        if (spec.StartsWith("system_integration.", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("system-integration.", StringComparison.OrdinalIgnoreCase))
         {
-            return Task.FromResult<string?>(ExecuteSystemIntegrationSettingsCommand(viewModel, spec["system_integration.".Length..].Trim()));
+            return Task.FromResult<string?>(ExecuteSystemIntegrationSettingsCommand(viewModel, spec["system-integration.".Length..].Trim()));
         }
 
         if (string.Equals(spec, "state", StringComparison.OrdinalIgnoreCase))
@@ -267,16 +267,16 @@ internal static partial class DebugCommands
 
     private static string ExecuteAccentSettingsCommand(MainWindowViewModel viewModel, string spec)
     {
-        if (spec.StartsWith("set_mode ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set mode ", StringComparison.OrdinalIgnoreCase))
         {
-            var mode = ParseAccentColorMode(spec["set_mode ".Length..].Trim());
+            var mode = ParseAccentColorMode(spec["set mode ".Length..].Trim());
             viewModel.Theme.SelectedAccentModeOption = viewModel.Theme.AccentModeOptions.First(option => option.Value == mode);
             return ThemeState(viewModel);
         }
 
-        if (spec.StartsWith("set_color ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set color ", StringComparison.OrdinalIgnoreCase))
         {
-            viewModel.Theme.ConfirmCustomAccentColor(NormalizeInputValue(spec["set_color ".Length..].Trim()));
+            viewModel.Theme.ConfirmCustomAccentColor(NormalizeInputValue(spec["set color ".Length..].Trim()));
             return ThemeState(viewModel);
         }
 
@@ -292,12 +292,12 @@ internal static partial class DebugCommands
             return ThemeState(viewModel);
         }
 
-        throw new InvalidOperationException($"Unknown window effect settings command: settings.window_effect.{spec}");
+        throw new InvalidOperationException($"Unknown window effect settings command: settings.window-effect.{spec}");
     }
 
     private static string ExecuteAppBehaviorSettingsCommand(MainWindowViewModel viewModel, string spec)
     {
-        if (string.Equals(spec, "keys", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "list keys", StringComparison.OrdinalIgnoreCase))
         {
             return string.Join("|", AppBehaviorSettingKeys());
         }
@@ -312,14 +312,14 @@ internal static partial class DebugCommands
             var parts = SplitCommandTokens(spec["set ".Length..]);
             if (parts.Count < 2)
             {
-                throw new InvalidOperationException("settings.app_behavior.set usage: settings.app_behavior.set <key> <value>");
+                throw new InvalidOperationException("settings.app-behavior.set usage: settings.app-behavior.set <key> <value>");
             }
 
             SetAppBehaviorSetting(viewModel, parts[0], parts[1]);
             return AppBehaviorSettingsState(viewModel);
         }
 
-        throw new InvalidOperationException($"Unknown app behavior settings command: settings.app_behavior.{spec}");
+        throw new InvalidOperationException($"Unknown app behavior settings command: settings.app-behavior.{spec}");
     }
 
     private static async Task<string?> ExecuteUpdateSettingsCommandAsync(MainWindowViewModel viewModel, string spec)
@@ -330,22 +330,22 @@ internal static partial class DebugCommands
             return UpdateSettingsState(viewModel);
         }
 
-        if (spec.StartsWith("set_auto_check ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set auto-check ", StringComparison.OrdinalIgnoreCase))
         {
-            update.IsAutoCheckEnabled = ParseBool(spec["set_auto_check ".Length..].Trim());
+            update.IsAutoCheckEnabled = ParseBool(spec["set auto-check ".Length..].Trim());
             return UpdateSettingsState(viewModel);
         }
 
-        if (spec.StartsWith("set_interval ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set interval ", StringComparison.OrdinalIgnoreCase))
         {
-            var value = spec["set_interval ".Length..].Trim();
+            var value = spec["set interval ".Length..].Trim();
             update.SelectedCheckIntervalOption = update.CheckIntervalOptions.First(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase));
             return UpdateSettingsState(viewModel);
         }
 
-        if (spec.StartsWith("set_channel ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set channel ", StringComparison.OrdinalIgnoreCase))
         {
-            var value = spec["set_channel ".Length..].Trim();
+            var value = spec["set channel ".Length..].Trim();
             update.SelectedChannelOption = update.ChannelOptions.First(option => string.Equals(option.Value, value, StringComparison.OrdinalIgnoreCase));
             return UpdateSettingsState(viewModel);
         }
@@ -356,7 +356,7 @@ internal static partial class DebugCommands
             return UpdateSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "ignore_latest", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "ignore latest", StringComparison.OrdinalIgnoreCase))
         {
             update.IgnoreLatestVersionCommand.Execute(null);
             return UpdateSettingsState(viewModel);
@@ -378,13 +378,13 @@ internal static partial class DebugCommands
             var tokens = spec.Length > "backup".Length ? SplitCommandTokens(spec["backup ".Length..].Trim()) : [];
             if (tokens.Count != 1)
             {
-                throw new InvalidOperationException("settings.data_management.backup usage: settings.data_management.backup <path>");
+                throw new InvalidOperationException("settings.data-management.backup usage: settings.data-management.backup <path>");
             }
 
             var backupPath = NormalizeInputValue(tokens[0]);
             if (string.IsNullOrWhiteSpace(backupPath))
             {
-                throw new InvalidOperationException("settings.data_management.backup usage: settings.data_management.backup <path>");
+                throw new InvalidOperationException("settings.data-management.backup usage: settings.data-management.backup <path>");
             }
 
             data.CreateBackupToFile(backupPath);
@@ -396,13 +396,13 @@ internal static partial class DebugCommands
             var tokens = spec.Length > "restore".Length ? SplitCommandTokens(spec["restore ".Length..].Trim()) : [];
             if (tokens.Count != 2)
             {
-                throw new InvalidOperationException("settings.data_management.restore usage: settings.data_management.restore <path> <overwrite|merge>");
+                throw new InvalidOperationException("settings.data-management.restore usage: settings.data-management.restore <path> <overwrite|merge>");
             }
 
             var backupPath = NormalizeInputValue(tokens[0]);
             if (string.IsNullOrWhiteSpace(backupPath))
             {
-                throw new InvalidOperationException("settings.data_management.restore usage: settings.data_management.restore <path> <overwrite|merge>");
+                throw new InvalidOperationException("settings.data-management.restore usage: settings.data-management.restore <path> <overwrite|merge>");
             }
 
             var mode = ParseRestoreMode(tokens[1]);
@@ -412,83 +412,83 @@ internal static partial class DebugCommands
             return DataManagementSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "webdav_keys", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "webdav.list keys", StringComparison.OrdinalIgnoreCase))
         {
             return string.Join("|", WebDavSettingKeys());
         }
 
-        if (string.Equals(spec, "webdav_state", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "webdav.state", StringComparison.OrdinalIgnoreCase))
         {
             return DataManagementSettingsState(viewModel);
         }
 
-        if (spec.StartsWith("webdav_set ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("webdav.set ", StringComparison.OrdinalIgnoreCase))
         {
-            var parts = SplitCommandTokens(spec["webdav_set ".Length..]);
+            var parts = SplitCommandTokens(spec["webdav.set ".Length..]);
             if (parts.Count < 2)
             {
-                throw new InvalidOperationException("settings.data_management.webdav_set usage: settings.data_management.webdav_set <key> <value>");
+                throw new InvalidOperationException("settings.data-management.webdav.set usage: settings.data-management.webdav.set <key> <value>");
             }
 
             SetWebDavSetting(data, parts[0], parts[1]);
             return DataManagementSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "webdav_test", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "webdav.test", StringComparison.OrdinalIgnoreCase))
         {
             await data.TestWebDavConnectionAsync();
             return DataManagementSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "webdav_backup", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "webdav.backup", StringComparison.OrdinalIgnoreCase))
         {
             await data.CreateWebDavBackupAsync();
             return DataManagementSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "webdav_open_dialog", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "webdav.open dialog", StringComparison.OrdinalIgnoreCase))
         {
             await data.OpenWebDavBackupDialogAsync();
             return DataManagementSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "webdav_list", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "webdav.list", StringComparison.OrdinalIgnoreCase))
         {
             await data.RefreshWebDavBackupsAsync();
             return FormatWebDavBackupItems(data.WebDavBackupItems);
         }
 
-        if (spec.StartsWith("webdav_restore_backup ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("webdav.restore backup ", StringComparison.OrdinalIgnoreCase))
         {
-            var fileName = NormalizeInputValue(spec["webdav_restore_backup ".Length..].Trim());
+            var fileName = NormalizeInputValue(spec["webdav.restore backup ".Length..].Trim());
             if (string.IsNullOrWhiteSpace(fileName))
             {
-                throw new InvalidOperationException("settings.data_management.webdav_restore_backup usage: settings.data_management.webdav_restore_backup <fileName>");
+                throw new InvalidOperationException("settings.data-management.webdav.restore backup usage: settings.data-management.webdav.restore backup <fileName>");
             }
 
             await data.RestoreWebDavBackupAsync(fileName);
             return DataManagementSettingsState(viewModel);
         }
 
-        if (spec.StartsWith("webdav_delete_backup ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("webdav.delete backup ", StringComparison.OrdinalIgnoreCase))
         {
-            var fileName = NormalizeInputValue(spec["webdav_delete_backup ".Length..].Trim());
+            var fileName = NormalizeInputValue(spec["webdav.delete backup ".Length..].Trim());
             if (string.IsNullOrWhiteSpace(fileName))
             {
-                throw new InvalidOperationException("settings.data_management.webdav_delete_backup usage: settings.data_management.webdav_delete_backup <fileName>");
+                throw new InvalidOperationException("settings.data-management.webdav.delete backup usage: settings.data-management.webdav.delete backup <fileName>");
             }
 
             await data.DeleteWebDavBackupAsync(fileName);
             return FormatWebDavBackupItems(data.WebDavBackupItems);
         }
 
-        if (string.Equals(spec, "webdav_restore", StringComparison.OrdinalIgnoreCase)
-            || spec.StartsWith("webdav_restore ", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "webdav.restore", StringComparison.OrdinalIgnoreCase)
+            || spec.StartsWith("webdav.restore ", StringComparison.OrdinalIgnoreCase))
         {
-            var tokens = spec.Length > "webdav_restore".Length ? SplitCommandTokens(spec["webdav_restore ".Length..].Trim()) : [];
+            var tokens = spec.Length > "webdav.restore".Length ? SplitCommandTokens(spec["webdav.restore ".Length..].Trim()) : [];
             if (tokens.Count != 1)
             {
-                throw new InvalidOperationException("settings.data_management.webdav_restore usage: settings.data_management.webdav_restore <overwrite|merge>");
+                throw new InvalidOperationException("settings.data-management.webdav.restore usage: settings.data-management.webdav.restore <overwrite|merge>");
             }
 
             data.ShowWebDavRestoreLatestDialogCommand.Execute(null);
@@ -497,7 +497,7 @@ internal static partial class DebugCommands
             return DataManagementSettingsState(viewModel);
         }
 
-        throw new InvalidOperationException($"Unknown data management settings command: settings.data_management.{spec}");
+        throw new InvalidOperationException($"Unknown data management settings command: settings.data-management.{spec}");
     }
 
     private static IReadOnlyList<string> WebDavSettingKeys()
@@ -564,26 +564,26 @@ internal static partial class DebugCommands
             var tokens = spec.Length > "export".Length ? SplitCommandTokens(spec["export ".Length..].Trim()) : [];
             if (tokens.Count != 1)
             {
-                throw new InvalidOperationException("settings.app_log.export usage: settings.app_log.export <path>");
+                throw new InvalidOperationException("settings.app-log.export usage: settings.app-log.export <path>");
             }
 
             var exportPath = NormalizeInputValue(tokens[0]);
             if (string.IsNullOrWhiteSpace(exportPath))
             {
-                throw new InvalidOperationException("settings.app_log.export usage: settings.app_log.export <path>");
+                throw new InvalidOperationException("settings.app-log.export usage: settings.app-log.export <path>");
             }
 
             await appLog.ExportToFileAsync(exportPath);
             return AppLogSettingsState(viewModel);
         }
 
-        throw new InvalidOperationException($"Unknown app log settings command: settings.app_log.{spec}");
+        throw new InvalidOperationException($"Unknown app log settings command: settings.app-log.{spec}");
     }
 
     private static string ExecuteSystemIntegrationSettingsCommand(MainWindowViewModel viewModel, string spec)
     {
         var system = viewModel.SystemIntegration;
-        if (string.Equals(spec, "keys", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "list keys", StringComparison.OrdinalIgnoreCase))
         {
             return string.Join("|", SystemIntegrationSettingKeys());
         }
@@ -598,49 +598,49 @@ internal static partial class DebugCommands
             var parts = SplitCommandTokens(spec["set ".Length..]);
             if (parts.Count < 2)
             {
-                throw new InvalidOperationException("settings.system_integration.set usage: settings.system_integration.set <key> <value>");
+                throw new InvalidOperationException("settings.system-integration.set usage: settings.system-integration.set <key> <value>");
             }
 
             SetSystemIntegrationSetting(viewModel, parts[0], parts[1]);
             return SystemIntegrationSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "refresh_proxy_host", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "refresh proxy-host", StringComparison.OrdinalIgnoreCase))
         {
             system.RefreshSystemProxyHostCandidatesCommand.Execute(null);
             return SystemIntegrationSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "uwp_list", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "uwp.list", StringComparison.OrdinalIgnoreCase))
         {
             system.ShowUwpLoopbackDialogCommand.Execute(null);
             return FormatUwpItems(system.AllUwpItems);
         }
 
-        if (spec.StartsWith("uwp_search ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("uwp.search ", StringComparison.OrdinalIgnoreCase))
         {
-            system.UwpSearchText = NormalizeInputValue(spec["uwp_search ".Length..].Trim());
+            system.UwpSearchText = NormalizeInputValue(spec["uwp.search ".Length..].Trim());
             return FormatUwpItems(system.UwpLoopbackItems);
         }
 
-        if (string.Equals(spec, "uwp_select_all", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "uwp.select all", StringComparison.OrdinalIgnoreCase))
         {
             system.SelectAllUwpCommand.Execute(null);
             return FormatUwpItems(system.UwpLoopbackItems);
         }
 
-        if (string.Equals(spec, "uwp_invert", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "uwp.invert", StringComparison.OrdinalIgnoreCase))
         {
             system.InvertUwpSelectionCommand.Execute(null);
             return FormatUwpItems(system.UwpLoopbackItems);
         }
 
-        if (spec.StartsWith("uwp_set ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("uwp.set ", StringComparison.OrdinalIgnoreCase))
         {
-            var parts = SplitCommandTokens(spec["uwp_set ".Length..]);
+            var parts = SplitCommandTokens(spec["uwp.set ".Length..]);
             if (parts.Count < 2)
             {
-                throw new InvalidOperationException("settings.system_integration.uwp_set usage: settings.system_integration.uwp_set <package_family_name> <true|false>");
+                throw new InvalidOperationException("settings.system-integration.uwp.set usage: settings.system-integration.uwp.set <package_family_name> <true|false>");
             }
 
             if (!system.SetUwpItemSelected(parts[0], ParseBool(parts[1])))
@@ -651,19 +651,19 @@ internal static partial class DebugCommands
             return FormatUwpItems(system.AllUwpItems);
         }
 
-        if (string.Equals(spec, "uwp_save", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "uwp.save", StringComparison.OrdinalIgnoreCase))
         {
             system.SaveUwpLoopbackCommand.Execute(null);
             return SystemIntegrationSettingsState(viewModel);
         }
 
-        if (string.Equals(spec, "uwp_cancel", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "uwp.cancel", StringComparison.OrdinalIgnoreCase))
         {
             system.CloseUwpLoopbackDialogCommand.Execute(null);
             return SystemIntegrationSettingsState(viewModel);
         }
 
-        throw new InvalidOperationException($"Unknown system integration settings command: settings.system_integration.{spec}");
+        throw new InvalidOperationException($"Unknown system integration settings command: settings.system-integration.{spec}");
     }
 
     private static IReadOnlyList<string> AppBehaviorSettingKeys()

@@ -106,11 +106,11 @@ class SimulationTests:
         if self.os_family != "windows":
             return
 
-        state = self.require("settings.app_behavior.state")
+        state = self.require("settings.app-behavior.state")
         self.original_window_hotkey = self.state_value(state, "windowToggleHotkey")
         temporary_hotkey = "Ctrl+Shift+F12"
         self.require(
-            f"settings.app_behavior.set window-toggle-hotkey {temporary_hotkey}",
+            f"settings.app-behavior.set window-toggle-hotkey {temporary_hotkey}",
             contains=[f"windowToggleHotkey={temporary_hotkey}"],
         )
         self.window_hotkey_changed = self.original_window_hotkey != temporary_hotkey
@@ -121,7 +121,7 @@ class SimulationTests:
 
         value = self.original_window_hotkey or "__EMPTY__"
         self.require(
-            f"settings.app_behavior.set window-toggle-hotkey {value}",
+            f"settings.app-behavior.set window-toggle-hotkey {value}",
             contains=[f"windowToggleHotkey={self.original_window_hotkey or ''}"],
         )
         self.window_hotkey_changed = False
@@ -146,21 +146,21 @@ class SimulationTests:
             self.require("page.open home"),
             self.wait_for("home.state", contains=["core=true", "coreHost=process", "serviceMode=NotInstalled", "restarting=false"]),
         ))
-        self.step("Core status API", lambda: self.require("core.status", contains=['"state"']))
-        self.step("Refresh home runtime metrics", lambda: self.require("home.refresh_runtime", contains=["core=true", "uptime=", "connections="]))
-        self.step("Refresh home network state", lambda: self.require("home.refresh_network", contains=["network="]))
-        self.step("Switch outbound mode to global", lambda: self.require("home.set_outbound global", contains=["outbound=Global"]))
-        self.step("Switch outbound mode to direct", lambda: self.require("home.set_outbound direct", contains=["outbound=Direct"]))
-        self.step("Restore outbound mode to rule", lambda: self.require("home.set_outbound rule", contains=["outbound=Rule"]))
-        self.step("Switch takeover tab to system proxy", lambda: self.require("home.select_takeover proxy", contains=["takeover=proxy"]))
-        self.step("Switch takeover tab to TUN", lambda: self.require("home.select_takeover tun", contains=["takeover=tun"]))
+        self.step("Core status API", lambda: self.require("core.state", contains=['"state"']))
+        self.step("Refresh home runtime metrics", lambda: self.require("home.refresh runtime", contains=["core=true", "uptime=", "connections="]))
+        self.step("Refresh home network state", lambda: self.require("home.refresh network", contains=["network="]))
+        self.step("Switch outbound mode to global", lambda: self.require("home.set outbound global", contains=["outbound=Global"]))
+        self.step("Switch outbound mode to direct", lambda: self.require("home.set outbound direct", contains=["outbound=Direct"]))
+        self.step("Restore outbound mode to rule", lambda: self.require("home.set outbound rule", contains=["outbound=Rule"]))
+        self.step("Switch takeover tab to system proxy", lambda: self.require("home.select takeover proxy", contains=["takeover=proxy"]))
+        self.step("Switch takeover tab to TUN", lambda: self.require("home.select takeover tun", contains=["takeover=tun"]))
         self.step("Verify TUN boolean input", lambda: (
-            self.require_error("home.set_tun off", contains=["Invalid boolean value: off"]),
-            self.require("home.set_tun false", contains=["tun=false"]),
+            self.require_error("home.set tun off", contains=["Invalid boolean value: off"]),
+            self.require("home.set tun false", contains=["tun=false"]),
         ))
-        self.step("Reset traffic statistics", lambda: self.require("home.reset_traffic", contains=["upload=", "download="]))
+        self.step("Reset traffic statistics", lambda: self.require("home.reset traffic", contains=["upload=", "download="]))
         self.step("Restart core and wait for recovery", lambda: (
-            self.require("home.restart_core"),
+            self.require("home.restart core"),
             self.wait_for("home.state", contains=["core=true", "restarting=false"]),
         ))
 
@@ -168,13 +168,13 @@ class SimulationTests:
         self.step("Verify service core after restart", lambda: (
             self.restart_app(),
             self.wait_for("home.state", contains=["core=true", "coreHost=service", "serviceMode=Running"]),
-            self.wait_for("service.status", contains=["state=Running", "core=running"]),
-            self.require("core.status", contains=['"state"']),
+            self.wait_for("service.state", contains=["state=Running", "core=running"]),
+            self.require("core.state", contains=['"state"']),
         ))
         self.step("Restart service core and wait for recovery", lambda: (
-            self.require("home.restart_core"),
+            self.require("home.restart core"),
             self.wait_for("home.state", contains=["core=true", "coreHost=service", "serviceMode=Running", "restarting=false"]),
-            self.wait_for("service.status", contains=["state=Running", "core=running"]),
+            self.wait_for("service.state", contains=["state=Running", "core=running"]),
         ))
         self.step("Uninstall service mode and return to process core", self.uninstall_service_mode)
 
@@ -191,19 +191,19 @@ class SimulationTests:
         self.step("Filter direct connections", lambda: self.require("connections.filter direct", contains=["filter=Direct"]))
         self.step("Filter proxy connections", lambda: self.require("connections.filter proxy", contains=["filter=Proxy"]))
         self.step("Restore all connection filter", lambda: self.require("connections.filter all", contains=["filter=All"]))
-        self.step("Pause connection monitoring", lambda: self.require("connections.pause", contains=["paused=true"]))
-        self.step("Resume connection monitoring", lambda: self.require("connections.pause", contains=["paused=false"]))
-        self.step("Close all connections", lambda: self.require("connections.close_all", contains=["closedAll=true"]))
+        self.step("Pause connection monitoring", lambda: self.require("connections.toggle pause", contains=["paused=true"]))
+        self.step("Resume connection monitoring", lambda: self.require("connections.toggle pause", contains=["paused=false"]))
+        self.step("Close all connections", lambda: self.require("connections.close all", contains=["closedAll=true"]))
         self.step("Core logs page initial state", lambda: (
             self.open_page("core-logs", "CoreLogs.Toolbar"),
-            self.require("core_logs.state", contains=["running=true", "filter=All"]),
+            self.require("core-logs.state", contains=["running=true", "filter=All"]),
         ))
-        self.step("Filter core logs by info", lambda: self.require("core_logs.filter info", contains=["filter=Info"]))
-        self.step("Filter core logs by error", lambda: self.require("core_logs.filter error", contains=["filter=Error"]))
-        self.step("Restore all core log filter", lambda: self.require("core_logs.filter all", contains=["filter=All"]))
-        self.step("Pause core log monitoring", lambda: self.require("core_logs.pause", contains=["paused=true"]))
-        self.step("Resume core log monitoring", lambda: self.require("core_logs.pause", contains=["paused=false"]))
-        self.step("Clear core logs", lambda: self.require("core_logs.clear", contains=["running=true"]))
+        self.step("Filter core logs by info", lambda: self.require("core-logs.filter info", contains=["filter=Info"]))
+        self.step("Filter core logs by error", lambda: self.require("core-logs.filter error", contains=["filter=Error"]))
+        self.step("Restore all core log filter", lambda: self.require("core-logs.filter all", contains=["filter=All"]))
+        self.step("Pause core log monitoring", lambda: self.require("core-logs.toggle pause", contains=["paused=true"]))
+        self.step("Resume core log monitoring", lambda: self.require("core-logs.toggle pause", contains=["paused=false"]))
+        self.step("Clear core logs", lambda: self.require("core-logs.clear", contains=["running=true"]))
         self.step("Rules page initial state", lambda: (
             self.open_page("rules", "Rules.Toolbar"),
             self.require("rules.state", contains=["running=true", "bucket=All"]),
@@ -225,8 +225,8 @@ class SimulationTests:
             self.require("subscriptions.state", contains=["total=0", "dialog=true"]),
             self.require("control.click Subscriptions.Dialog.CancelButton"),
             self.require("subscriptions.state", contains=["total=0", "dialog=false"]),
-            self.require("subscriptions.store_state", contains=["total=0", "remote=0", "local=0"]),
-            self.require("subscriptions.selection_state", contains=["exists=false"]),
+            self.require("subscriptions.state store", contains=["total=0", "remote=0", "local=0"]),
+            self.require("subscriptions.state selection", contains=["exists=false"]),
             self.require("subscriptions.list", equals=""),
         ))
         self.step("Override page remains empty", lambda: (
@@ -240,16 +240,16 @@ class SimulationTests:
             self.require("settings.state", contains=["language=", "theme=", "proxyHost="]),
             self.require("settings.language.state", contains=["language="]),
             self.require("settings.theme.state", contains=["theme=", "windowEffect="]),
-            self.require("settings.app_behavior.keys", contains=["lazy-mode", "auto-start"]),
-            self.require("settings.app_behavior.state", contains=["lazyMode=", "windowToggleHotkey=", "systemProxyToggleHotkey=", "tunToggleHotkey="]),
+            self.require("settings.app-behavior.list keys", contains=["lazy-mode", "auto-start"]),
+            self.require("settings.app-behavior.state", contains=["lazyMode=", "windowToggleHotkey=", "systemProxyToggleHotkey=", "tunToggleHotkey="]),
             self.require("settings.update.state", contains=["autoCheck=", "interval="]),
         ))
         self.step("Settings data management and WebDAV state", self.verify_webdav_settings)
         self.step("System integration and Clash settings state", lambda: (
             self.open_page("settings/system-integration", "Settings.PacModeToggle"),
-            self.require("settings.system_integration.keys", contains=["proxy-host", "pac-script"]),
-            self.require("settings.system_integration.state", contains=["proxyHost=", "pacMode="]),
-            self.require("clash.keys", contains=["network.unified-delay", "core-log.level"]),
+            self.require("settings.system-integration.list keys", contains=["proxy-host", "pac-script"]),
+            self.require("settings.system-integration.state", contains=["proxyHost=", "pacMode="]),
+            self.require("clash.list keys", contains=["network.unified-delay", "core-log.level"]),
             self.require("clash.state", contains=["areas=", "apply=", "error="]),
         ))
         self.step("Close app and verify exit", self.stop_app_step)
@@ -265,24 +265,24 @@ class SimulationTests:
         self.require("service.uninstall", contains=["result=Succeeded", "requiresRestart=false", "state=NotInstalled"])
         self.service_touched = False
         self.wait_for("home.state", contains=["core=true", "coreHost=process", "serviceMode=NotInstalled"])
-        self.wait_for("service.status", contains=["state=NotInstalled", "core=unknown"])
+        self.wait_for("service.state", contains=["state=NotInstalled", "core=unknown"])
 
     def verify_webdav_settings(self) -> None:
         self.open_page("settings/data-management", "Settings.WebDavEnableToggle")
-        self.require("settings.data_management.webdav_keys", contains=["enabled", "url", "retention-count"])
-        self.require("settings.data_management.webdav_state", contains=["webdavEnabled=", "webdavBusy=false"])
-        self.require("settings.data_management.webdav_set enabled false", contains=["webdavEnabled=false"])
-        self.require("settings.data_management.webdav_set url https://webdav.example/dav", contains=["webdavUrlSet=true"])
-        self.require("settings.data_management.webdav_set username ci-user", contains=["webdavUserSet=true"])
-        self.require("settings.data_management.webdav_set password ci-password", contains=["webdavUserSet=true"])
-        self.require("settings.data_management.webdav_set remote-directory backups", contains=["webdavRemoteDirectory=backups"])
-        self.require("settings.data_management.webdav_set interval-hours 24", contains=["webdavIntervalHours=24"])
-        self.require("settings.data_management.webdav_set retention-count 3", contains=["webdavRetentionCount=3"])
-        self.require("settings.data_management.webdav_set password __EMPTY__", contains=["webdavBusy=false"])
-        self.require("settings.data_management.webdav_set username __EMPTY__", contains=["webdavUserSet=false"])
-        self.require("settings.data_management.webdav_set url __EMPTY__", contains=["webdavUrlSet=false"])
-        self.require("settings.data_management.webdav_set remote-directory stelliberty-backups", contains=["webdavRemoteDirectory=stelliberty-backups"])
-        self.require("settings.data_management.webdav_set retention-count 5", contains=["webdavRetentionCount=5"])
+        self.require("settings.data-management.webdav.list keys", contains=["enabled", "url", "retention-count"])
+        self.require("settings.data-management.webdav.state", contains=["webdavEnabled=", "webdavBusy=false"])
+        self.require("settings.data-management.webdav.set enabled false", contains=["webdavEnabled=false"])
+        self.require("settings.data-management.webdav.set url https://webdav.example/dav", contains=["webdavUrlSet=true"])
+        self.require("settings.data-management.webdav.set username ci-user", contains=["webdavUserSet=true"])
+        self.require("settings.data-management.webdav.set password ci-password", contains=["webdavUserSet=true"])
+        self.require("settings.data-management.webdav.set remote-directory backups", contains=["webdavRemoteDirectory=backups"])
+        self.require("settings.data-management.webdav.set interval-hours 24", contains=["webdavIntervalHours=24"])
+        self.require("settings.data-management.webdav.set retention-count 3", contains=["webdavRetentionCount=3"])
+        self.require("settings.data-management.webdav.set password __EMPTY__", contains=["webdavBusy=false"])
+        self.require("settings.data-management.webdav.set username __EMPTY__", contains=["webdavUserSet=false"])
+        self.require("settings.data-management.webdav.set url __EMPTY__", contains=["webdavUrlSet=false"])
+        self.require("settings.data-management.webdav.set remote-directory stelliberty-backups", contains=["webdavRemoteDirectory=stelliberty-backups"])
+        self.require("settings.data-management.webdav.set retention-count 5", contains=["webdavRetentionCount=5"])
 
     def stop_app_step(self) -> None:
         self.command("app.quit", allow_disconnect=True)
