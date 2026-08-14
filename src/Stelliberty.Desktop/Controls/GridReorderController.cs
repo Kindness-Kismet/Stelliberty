@@ -9,6 +9,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 namespace Stelliberty.Desktop.Controls;
 
@@ -17,17 +18,23 @@ public sealed class GridReorderController
     // 长按加 6 px 移动才开始拖拽，避免卡片点击误触。
     private const double LongPressMilliseconds = 200;
     private const double DragThresholdSquared = 36;
+    // 拖到可视区边缘继续向外时自动滚；越靠边越快。
+    private const double AutoScrollEdge = 56;
+    private const double AutoScrollMaxPixels = 16;
+    private const int AutoScrollIntervalMilliseconds = 16;
 
     private readonly ItemsControl _list;
     private readonly Func<object?, string?> _getId;
     private readonly Func<Control, Control> _getDragControl;
     private readonly Action<string, int> _move;
     private readonly DispatcherTimer _longPressTimer;
+    private readonly DispatcherTimer _autoScrollTimer;
 
     private readonly List<Slot> _slots = [];
     private string? _pressId;
     private Control? _pressControl;
     private Point _pressPoint;
+    private Point _lastListPoint;
     private int _sourceIndex = -1;
     private int _targetIndex = -1;
     private bool _canDrag;
@@ -37,6 +44,7 @@ public sealed class GridReorderController
     private Image? _ghost;
     private RenderTargetBitmap? _ghostBitmap;
     private Point _ghostOrigin;
+    private ScrollViewer? _scrollViewer;
     private bool _isAttached;
 
     public GridReorderController(
@@ -51,6 +59,8 @@ public sealed class GridReorderController
         _move = move;
         _longPressTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(LongPressMilliseconds) };
         _longPressTimer.Tick += OnLongPressElapsed;
+        _autoScrollTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(AutoScrollIntervalMilliseconds) };
+        _autoScrollTimer.Tick += OnAutoScrollTick;
     }
 
     public void Attach()
@@ -71,6 +81,7 @@ public sealed class GridReorderController
     public void Detach()
     {
         _longPressTimer.Stop();
+        StopAutoScroll();
         if (_isAttached)
         {
             _list.RemoveHandler(InputElement.PointerPressedEvent, OnPressed);
@@ -128,12 +139,11 @@ public sealed class GridReorderController
         }
 
         var point = args.GetPosition(_list);
-        var dx = point.X - _pressPoint.X;
-        var dy = point.Y - _pressPoint.Y;
-        var distanceSquared = dx * dx + dy * dy;
         if (!_canDrag)
         {
-            if (distanceSquared >= DragThresholdSquared)
+            var dx = point.X - _pressPoint.X;
+            var dy = point.Y - _pressPoint.Y;
+            if (dx * dx + dy * dy >= DragThresholdSquared)
             {
                 _longPressTimer.Stop();
                 ClearState();
@@ -144,7 +154,9 @@ public sealed class GridReorderController
 
         if (!_isDragging)
         {
-            if (distanceSquared < DragThresholdSquared)
+            var dx = point.X - _pressPoint.X;
+            var dy = point.Y - _pressPoint.Y;
+            if (dx * dx + dy * dy < DragThresholdSquared)
             {
                 return;
             }
@@ -152,24 +164,15 @@ public sealed class GridReorderController
             BeginDrag(args);
         }
 
-        if (_ghost is not null)
-        {
-            Canvas.SetLeft(_ghost, _ghostOrigin.X + dx);
-            Canvas.SetTop(_ghost, _ghostOrigin.Y + dy);
-        }
-        else if (_pressControl is not null)
-        {
-            _pressControl.RenderTransform = new TranslateTransform(dx, dy);
-        }
-
-        _targetIndex = ResolveTargetIndex(point);
-        ApplyPreview(_targetIndex);
+        ApplyDragVisual(point);
+        UpdateAutoScroll(point);
         args.Handled = true;
     }
 
     private void OnReleased(object? sender, PointerReleasedEventArgs args)
     {
         _longPressTimer.Stop();
+        StopAutoScroll();
         var moved = _isDragging;
         if (_isDragging && _pressId is not null)
         {
@@ -194,6 +197,7 @@ public sealed class GridReorderController
 
     private void OnCaptureLost(object? sender, PointerCaptureLostEventArgs args)
     {
+        StopAutoScroll();
         ResetVisuals();
         ClearState();
     }
@@ -225,6 +229,125 @@ public sealed class GridReorderController
 
         _pressControl.ZIndex = 1000;
         _pressControl.Opacity = 0.85;
+    }
+
+    private void ApplyDragVisual(Point point)
+    {
+        _lastListPoint = point;
+        var dx = point.X - _pressPoint.X;
+        var dy = point.Y - _pressPoint.Y;
+        if (_ghost is not null)
+        {
+            Canvas.SetLeft(_ghost, _ghostOrigin.X + dx);
+            Canvas.SetTop(_ghost, _ghostOrigin.Y + dy);
+        }
+        else if (_pressControl is not null)
+        {
+            _pressControl.RenderTransform = new TranslateTransform(dx, dy);
+        }
+
+        _targetIndex = ResolveTargetIndex(point);
+        ApplyPreview(_targetIndex);
+    }
+
+    private void UpdateAutoScroll(Point listPoint)
+    {
+        _lastListPoint = listPoint;
+        _scrollViewer ??= _list.FindAncestorOfType<ScrollViewer>();
+        if (_scrollViewer is null || ResolveAutoScrollDelta(_scrollViewer, listPoint) == default)
+        {
+            StopAutoScroll();
+            return;
+        }
+
+        if (!_autoScrollTimer.IsEnabled)
+        {
+            _autoScrollTimer.Start();
+        }
+    }
+
+    private void OnAutoScrollTick(object? sender, EventArgs args)
+    {
+        if (!_isDragging || _scrollViewer is null)
+        {
+            StopAutoScroll();
+            return;
+        }
+
+        var delta = ResolveAutoScrollDelta(_scrollViewer, _lastListPoint);
+        if (delta == default)
+        {
+            StopAutoScroll();
+            return;
+        }
+
+        var next = new Vector(
+            Math.Clamp(_scrollViewer.Offset.X + delta.X, 0, Math.Max(0, _scrollViewer.Extent.Width - _scrollViewer.Viewport.Width)),
+            Math.Clamp(_scrollViewer.Offset.Y + delta.Y, 0, Math.Max(0, _scrollViewer.Extent.Height - _scrollViewer.Viewport.Height)));
+        if (next == _scrollViewer.Offset)
+        {
+            StopAutoScroll();
+            return;
+        }
+
+        // 内容跟着滚，列表坐标整体平移；按压点和指针一起补，幽灵留在手指下。
+        var scrolled = next - _scrollViewer.Offset;
+        var shift = new Point(scrolled.X, scrolled.Y);
+        _pressPoint += shift;
+        _lastListPoint += shift;
+        foreach (var slot in _slots)
+        {
+            if (slot.Id != _pressId)
+            {
+                slot.DragControl.RenderTransform = null;
+            }
+        }
+
+        _scrollViewer.Offset = next;
+        _scrollViewer.UpdateLayout();
+        _list.UpdateLayout();
+        SnapshotSlots();
+        ApplyDragVisual(_lastListPoint);
+    }
+
+    // 指针落在滚动视口边缘带内才滚；越靠边越快。
+    private Vector ResolveAutoScrollDelta(ScrollViewer scrollViewer, Point listPoint)
+    {
+        if (_list.TranslatePoint(listPoint, scrollViewer) is not { } local)
+        {
+            return default;
+        }
+
+        var viewport = scrollViewer.Viewport;
+        var x = ComputeAxisDelta(local.X, viewport.Width, scrollViewer.Offset.X, scrollViewer.Extent.Width);
+        var y = ComputeAxisDelta(local.Y, viewport.Height, scrollViewer.Offset.Y, scrollViewer.Extent.Height);
+        return x == 0 && y == 0 ? default : new Vector(x, y);
+    }
+
+    private static double ComputeAxisDelta(double pointer, double viewport, double offset, double extent)
+    {
+        if (viewport <= 0 || extent <= viewport)
+        {
+            return 0;
+        }
+
+        if (pointer < AutoScrollEdge && offset > 0)
+        {
+            return -AutoScrollMaxPixels * (1 - Math.Clamp(pointer / AutoScrollEdge, 0, 1));
+        }
+
+        if (pointer > viewport - AutoScrollEdge && offset < extent - viewport)
+        {
+            var depth = Math.Clamp((pointer - (viewport - AutoScrollEdge)) / AutoScrollEdge, 0, 1);
+            return AutoScrollMaxPixels * depth;
+        }
+
+        return 0;
+    }
+
+    private void StopAutoScroll()
+    {
+        _autoScrollTimer.Stop();
     }
 
     private Image? CreateGhost(Control source)
@@ -398,6 +521,7 @@ public sealed class GridReorderController
         _targetIndex = -1;
         _canDrag = false;
         _isDragging = false;
+        _scrollViewer = null;
     }
 
     private sealed record Slot(
