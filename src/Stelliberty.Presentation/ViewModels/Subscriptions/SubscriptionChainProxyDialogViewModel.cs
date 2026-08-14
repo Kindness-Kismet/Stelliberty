@@ -14,8 +14,8 @@ public sealed record SubscriptionChainProxySaveEventArgs(
 
 public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisposable
 {
-    // 中继链至少需要两个节点；点击顺序决定跳点顺序。
-    private const int MinNodeCount = 2;
+    // 中继链至少需要两个跳点；代理组只能作为首个上游跳点。
+    private const int MinHopCount = 2;
 
     private readonly DialogCloseResetScheduler _closeReset = new();
     private readonly ILocalizationService? _localization;
@@ -25,8 +25,9 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private readonly List<string> _builtinNames = [];
     private readonly List<string> _disabledBuiltinNames = [];
     private readonly List<SubscriptionCustomChainProxy> _customChainProxies = [];
-    private readonly List<ChainProxyNodeOption> _candidates = [];
-    private readonly List<string> _draftNodes = [];
+    private readonly List<ChainProxyGroupOption> _proxyGroups = [];
+    private readonly List<ChainProxyHopOption> _candidates = [];
+    private readonly List<SubscriptionChainProxyHop> _draftHops = [];
 
     private string? _subscriptionId;
     private bool _isDialogVisible;
@@ -36,9 +37,15 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private bool _isEditingDraft;
     private string? _draftId;
     private string _draftName = string.Empty;
+    private ChainProxyGroupOption? _draftProxyGroup;
     private bool _hasAttemptedDraftSubmit;
     private string _draftNameErrorKey = string.Empty;
     private string _draftNodesErrorKey = string.Empty;
+    private string _draftProxyGroupErrorKey = string.Empty;
+
+    private IEnumerable<ChainProxyHopOption> AvailableCandidates
+        => _candidates.Where(candidate => candidate.Hop.Kind == SubscriptionChainProxyHopKind.Proxy
+            || candidate.IsAvailableFor(_draftProxyGroup?.Name));
 
     public SubscriptionChainProxyDialogViewModel(
         ILocalizationService? localization = null,
@@ -93,13 +100,15 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     public bool HasBuiltins => _builtinNames.Count > 0;
 
+    public IReadOnlyList<ChainProxyGroupOption> ProxyGroups => _proxyGroups;
+
     public IReadOnlyList<SubscriptionChainProxyCustomItemViewModel> CustomItems => _customChainProxies
         .Select(ToCustomItem)
         .ToList();
 
     public bool HasCustoms => _customChainProxies.Count > 0;
 
-    public bool CanAddDraft => IsContentVisible;
+    public bool CanAddDraft => IsContentVisible && _proxyGroups.Count > 0;
 
     public IReadOnlyList<string> DisabledBuiltinNames => _disabledBuiltinNames;
 
@@ -117,24 +126,47 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         }
     }
 
+    public ChainProxyGroupOption? DraftProxyGroup
+    {
+        get => _draftProxyGroup;
+        set
+        {
+            if (!SetProperty(ref _draftProxyGroup, value))
+            {
+                return;
+            }
+
+            RemoveUnavailableGroupHops();
+            if (_hasAttemptedDraftSubmit)
+            {
+                ValidateDraftProxyGroup();
+                ValidateDraftNodes();
+            }
+
+            RaiseDraftGroupChanged();
+        }
+    }
+
     public IReadOnlyList<SubscriptionChainProxySlotViewModel> Slots => _isEditingDraft
-        ? _draftNodes
-            .Select((name, index) => new SubscriptionChainProxySlotViewModel(index, name))
+        ? _draftHops
+            .Select((hop, index) => new SubscriptionChainProxySlotViewModel(index, hop))
             .ToList()
         : [];
 
-    public bool HasSelectedNodes => _isEditingDraft && _draftNodes.Count > 0;
+    public bool HasSelectedNodes => _isEditingDraft && _draftHops.Count > 0;
 
     public IReadOnlyList<SubscriptionChainProxyCandidateViewModel> Candidates => _isEditingDraft
-        ? _candidates
+        ? AvailableCandidates
             .Select(candidate => new SubscriptionChainProxyCandidateViewModel(
+                candidate.Key,
+                candidate.Hop.Kind,
                 candidate.Name,
                 candidate.Type,
-                _draftNodes.Contains(candidate.Name, StringComparer.Ordinal)))
+                _draftHops.Contains(candidate.Hop)))
             .ToList()
         : [];
 
-    public bool HasCandidates => _candidates.Count > 0;
+    public bool HasCandidates => AvailableCandidates.Any();
 
     public string DraftNameError => LocalizeError(_draftNameErrorKey);
 
@@ -143,6 +175,10 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     public string DraftNodesError => LocalizeError(_draftNodesErrorKey);
 
     public bool IsDraftNodesErrorVisible => !string.IsNullOrEmpty(_draftNodesErrorKey);
+
+    public string DraftProxyGroupError => LocalizeError(_draftProxyGroupErrorKey);
+
+    public bool IsDraftProxyGroupErrorVisible => !string.IsNullOrEmpty(_draftProxyGroupErrorKey);
 
     public ICommand ToggleBuiltinCommand { get; }
 
@@ -185,6 +221,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _isLoading = true;
         _errorMessage = string.Empty;
         _builtinNames.Clear();
+        _proxyGroups.Clear();
         _candidates.Clear();
         _disabledBuiltinNames.Clear();
         _disabledBuiltinNames.AddRange(disabledBuiltinNames);
@@ -211,7 +248,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         try
         {
             var context = _contextLoader is null
-                ? new SubscriptionChainProxyContext([], [])
+                ? new SubscriptionChainProxyContext([], [], [])
                 : await Task.Run(() => _contextLoader(subscriptionId));
             if (_subscriptionId != subscriptionId || !_isDialogVisible)
             {
@@ -220,6 +257,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
             _builtinNames.Clear();
             _builtinNames.AddRange(context.BuiltinChainProxyNames);
+            _proxyGroups.Clear();
+            _proxyGroups.AddRange(context.ProxyGroups);
             _candidates.Clear();
             _candidates.AddRange(context.Candidates);
             _isLoading = false;
@@ -264,7 +303,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
         _draftId = Guid.NewGuid().ToString("N");
         _draftName = string.Empty;
-        _draftNodes.Clear();
+        _draftHops.Clear();
+        _draftProxyGroup = _proxyGroups.FirstOrDefault();
         _isEditingDraft = true;
         ResetDraftValidation();
         RaiseStateChanged();
@@ -280,8 +320,10 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
         _draftId = custom.Id;
         _draftName = custom.DisplayName;
-        _draftNodes.Clear();
-        _draftNodes.AddRange(custom.NodeNames.Where(name => !string.IsNullOrWhiteSpace(name)));
+        _draftHops.Clear();
+        _draftHops.AddRange(custom.Hops.Where(hop => !string.IsNullOrWhiteSpace(hop.Name)));
+        _draftProxyGroup = _proxyGroups.FirstOrDefault(group => string.Equals(group.Name, custom.ProxyGroupName, StringComparison.Ordinal));
+        RemoveUnavailableGroupHops();
         _isEditingDraft = true;
         ResetDraftValidation();
         RaiseStateChanged();
@@ -295,17 +337,35 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         }
     }
 
-    private void SelectCandidate(string? name)
+    private void SelectCandidate(string? key)
     {
-        if (string.IsNullOrWhiteSpace(name) || !_isEditingDraft)
+        if (string.IsNullOrWhiteSpace(key) || !_isEditingDraft)
         {
             return;
         }
 
-        // 点击已选节点会移除；新节点追加到链尾。
-        if (!_draftNodes.Remove(name))
+        var candidate = AvailableCandidates.FirstOrDefault(item => item.Key == key);
+        if (candidate is null)
         {
-            _draftNodes.Add(name);
+            return;
+        }
+
+        if (candidate.Hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup)
+        {
+            var selectedGroup = _draftHops.FirstOrDefault(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup);
+            if (selectedGroup is not null)
+            {
+                _draftHops.Remove(selectedGroup);
+            }
+
+            if (selectedGroup?.Name != candidate.Name)
+            {
+                _draftHops.Insert(0, candidate.Hop);
+            }
+        }
+        else if (!_draftHops.Remove(candidate.Hop))
+        {
+            _draftHops.Add(candidate.Hop);
         }
 
         if (_hasAttemptedDraftSubmit)
@@ -322,21 +382,30 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
             return;
         }
 
-        var sourceIndex = _draftNodes.IndexOf(request.NodeName);
+        var sourceIndex = _draftHops.FindIndex(hop => HopKey(hop) == request.HopKey);
         if (sourceIndex < 0)
         {
             return;
         }
 
-        var targetIndex = Math.Clamp(request.TargetIndex, 0, _draftNodes.Count - 1);
+        if (_draftHops[sourceIndex].Kind == SubscriptionChainProxyHopKind.ProxyGroup)
+        {
+            return;
+        }
+
+        var targetIndex = Math.Clamp(request.TargetIndex, 0, _draftHops.Count - 1);
+        if (_draftHops.Any(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup))
+        {
+            targetIndex = Math.Max(1, targetIndex);
+        }
         if (sourceIndex == targetIndex)
         {
             return;
         }
 
-        var nodeName = _draftNodes[sourceIndex];
-        _draftNodes.RemoveAt(sourceIndex);
-        _draftNodes.Insert(targetIndex, nodeName);
+        var hop = _draftHops[sourceIndex];
+        _draftHops.RemoveAt(sourceIndex);
+        _draftHops.Insert(targetIndex, hop);
         RaiseStateChanged();
     }
 
@@ -344,18 +413,19 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     {
         _hasAttemptedDraftSubmit = true;
         ValidateDraftName();
+        ValidateDraftProxyGroup();
         ValidateDraftNodes();
-        if (IsDraftNameErrorVisible || IsDraftNodesErrorVisible)
+        if (IsDraftNameErrorVisible || IsDraftProxyGroupErrorVisible || IsDraftNodesErrorVisible)
         {
             FocusFirstInvalidDraftInput();
             return;
         }
 
         var name = _draftName.Trim();
-        var nodes = _draftNodes.Where(node => !string.IsNullOrWhiteSpace(node)).ToList();
+        var hops = _draftHops.Where(hop => !string.IsNullOrWhiteSpace(hop.Name)).ToList();
         var draftId = _draftId ?? Guid.NewGuid().ToString("N");
         _customChainProxies.RemoveAll(item => item.Id == draftId);
-        _customChainProxies.Add(new SubscriptionCustomChainProxy(draftId, name, nodes));
+        _customChainProxies.Add(new SubscriptionCustomChainProxy(draftId, name, _draftProxyGroup!.Name, hops));
         ExitDraftState();
         RaiseStateChanged();
     }
@@ -383,12 +453,21 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     private SubscriptionChainProxyCustomItemViewModel ToCustomItem(SubscriptionCustomChainProxy custom)
     {
-        var candidateNames = _candidates.Select(candidate => candidate.Name).ToHashSet(StringComparer.Ordinal);
-        var missing = custom.NodeNames.Where(node => !candidateNames.Contains(node)).ToList();
+        var candidateKeys = _candidates.Select(candidate => candidate.Key).ToHashSet(StringComparer.Ordinal);
+        var missing = new List<string>();
+        if (!_proxyGroups.Any(group => string.Equals(group.Name, custom.ProxyGroupName, StringComparison.Ordinal)))
+        {
+            missing.Add(custom.ProxyGroupName);
+        }
+
+        missing.AddRange(custom.Hops
+            .Where(hop => !candidateKeys.Contains(HopKey(hop)))
+            .Select(hop => hop.Name));
         return new SubscriptionChainProxyCustomItemViewModel(
             custom.Id,
             custom.DisplayName,
-            string.Join(" → ", custom.NodeNames),
+            custom.ProxyGroupName,
+            string.Join(" → ", custom.Hops.Select(hop => hop.Name)),
             missing.Count > 0,
             missing.Count > 0 ? string.Format(Localize("Subscriptions.ChainProxy.MissingNodes"), string.Join(", ", missing)) : string.Empty);
     }
@@ -398,7 +477,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _isEditingDraft = false;
         _draftId = null;
         _draftName = string.Empty;
-        _draftNodes.Clear();
+        _draftProxyGroup = null;
+        _draftHops.Clear();
         ResetDraftValidation();
     }
 
@@ -407,6 +487,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _hasAttemptedDraftSubmit = false;
         _draftNameErrorKey = string.Empty;
         _draftNodesErrorKey = string.Empty;
+        _draftProxyGroupErrorKey = string.Empty;
     }
 
     private void ValidateDraftName()
@@ -422,6 +503,12 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         {
             _draftNameErrorKey = "Subscriptions.ChainProxy.Error.DuplicateName";
         }
+        else if (_builtinNames.Contains(name, StringComparer.Ordinal)
+            || _proxyGroups.Any(group => string.Equals(group.Name, name, StringComparison.Ordinal))
+            || _candidates.Any(candidate => string.Equals(candidate.Name, name, StringComparison.Ordinal)))
+        {
+            _draftNameErrorKey = "Subscriptions.ChainProxy.Error.DuplicateName";
+        }
 
         OnPropertyChanged(nameof(DraftNameError));
         OnPropertyChanged(nameof(IsDraftNameErrorVisible));
@@ -429,11 +516,22 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     private void ValidateDraftNodes()
     {
-        _draftNodesErrorKey = _draftNodes.Count(node => !string.IsNullOrWhiteSpace(node)) < MinNodeCount
+        _draftNodesErrorKey = _draftHops.Count(hop => !string.IsNullOrWhiteSpace(hop.Name)) < MinHopCount
             ? "Subscriptions.ChainProxy.Error.Nodes"
-            : string.Empty;
+            : _draftHops.Skip(1).Any(hop => hop.Kind != SubscriptionChainProxyHopKind.Proxy)
+                ? "Subscriptions.ChainProxy.Error.GroupPosition"
+                : string.Empty;
         OnPropertyChanged(nameof(DraftNodesError));
         OnPropertyChanged(nameof(IsDraftNodesErrorVisible));
+    }
+
+    private void ValidateDraftProxyGroup()
+    {
+        _draftProxyGroupErrorKey = _draftProxyGroup is null
+            ? "Subscriptions.ChainProxy.Error.ProxyGroup"
+            : string.Empty;
+        OnPropertyChanged(nameof(DraftProxyGroupError));
+        OnPropertyChanged(nameof(IsDraftProxyGroupErrorVisible));
     }
 
     private void FocusFirstInvalidDraftInput()
@@ -441,6 +539,12 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         if (IsDraftNameErrorVisible)
         {
             InputFocusRequested?.Invoke(this, DialogInputField.Name);
+            return;
+        }
+
+        if (IsDraftProxyGroupErrorVisible)
+        {
+            InputFocusRequested?.Invoke(this, DialogInputField.ProxyGroup);
             return;
         }
 
@@ -457,6 +561,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _isLoading = false;
         _errorMessage = string.Empty;
         _builtinNames.Clear();
+        _proxyGroups.Clear();
         _disabledBuiltinNames.Clear();
         _customChainProxies.Clear();
         _candidates.Clear();
@@ -489,10 +594,12 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         OnPropertyChanged(nameof(IsDraftVisible));
         OnPropertyChanged(nameof(BuiltinItems));
         OnPropertyChanged(nameof(HasBuiltins));
+        OnPropertyChanged(nameof(ProxyGroups));
         OnPropertyChanged(nameof(CustomItems));
         OnPropertyChanged(nameof(HasCustoms));
         OnPropertyChanged(nameof(CanAddDraft));
         OnPropertyChanged(nameof(DraftName));
+        OnPropertyChanged(nameof(DraftProxyGroup));
         OnPropertyChanged(nameof(Slots));
         OnPropertyChanged(nameof(HasSelectedNodes));
         OnPropertyChanged(nameof(Candidates));
@@ -501,6 +608,17 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         OnPropertyChanged(nameof(IsDraftNameErrorVisible));
         OnPropertyChanged(nameof(DraftNodesError));
         OnPropertyChanged(nameof(IsDraftNodesErrorVisible));
+        OnPropertyChanged(nameof(DraftProxyGroupError));
+        OnPropertyChanged(nameof(IsDraftProxyGroupErrorVisible));
+        DialogStateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RaiseDraftGroupChanged()
+    {
+        OnPropertyChanged(nameof(Slots));
+        OnPropertyChanged(nameof(HasSelectedNodes));
+        OnPropertyChanged(nameof(Candidates));
+        OnPropertyChanged(nameof(HasCandidates));
         DialogStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -509,4 +627,18 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private string Localize(string key) => _localization?.GetString(key) ?? key;
 
     private string LocalizeError(string key) => string.IsNullOrEmpty(key) ? string.Empty : Localize(key);
+
+    private void RemoveUnavailableGroupHops()
+    {
+        if (_draftProxyGroup is null)
+        {
+            _draftHops.RemoveAll(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup);
+            return;
+        }
+
+        _draftHops.RemoveAll(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup
+            && !_candidates.Any(candidate => candidate.Hop == hop && candidate.IsAvailableFor(_draftProxyGroup.Name)));
+    }
+
+    private static string HopKey(SubscriptionChainProxyHop hop) => $"{hop.Kind}:{hop.Name}";
 }

@@ -13,6 +13,10 @@
     <Setter Property="ShouldUseOverlayLayer" Value="True" />
     <Setter Property="Topmost" Value="False" />
   </Style>
+  <!-- 模态层内的特定下拉框改用平台弹窗，避免 Overlay 弹层截断鼠标路由。 -->
+  <Style Selector="ComboBox.platform-popup /template/ Popup#PART_Popup">
+    <Setter Property="ShouldUseOverlayLayer" Value="False" />
+  </Style>
 
   <Style Selector="ComboBox">
     <!-- 拦截 BringIntoView，避免 ScrollViewer 表单打开时跳动。 -->

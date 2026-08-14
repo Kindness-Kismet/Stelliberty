@@ -11,4 +11,5 @@ public enum DialogInputField
     Payload,
     TemplateName,
     Nodes,
+    ProxyGroup,
 }

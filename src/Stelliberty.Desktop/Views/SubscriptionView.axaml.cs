@@ -40,12 +40,12 @@ public sealed partial class SubscriptionView : UserControl
                 .Execute(new SubscriptionOverrideMoveRequest(id, targetIndex)));
         _chainProxyReorder = new GridReorderController(
             ChainProxySlotList,
-            dataContext => (dataContext as SubscriptionChainProxySlotViewModel)?.NodeName,
+            dataContext => (dataContext as SubscriptionChainProxySlotViewModel)?.Key,
             container => container.GetVisualDescendants()
                 .OfType<Border>()
                 .Single(border => border.Classes.Contains("chain-hop")),
-            (nodeName, targetIndex) => (SubscriptionPageRoot.DataContext as SubscriptionPageViewModel)?.ChainProxy.MoveDraftNodeCommand
-                .Execute(new SubscriptionChainProxyMoveRequest(nodeName, targetIndex)));
+            (hopKey, targetIndex) => (SubscriptionPageRoot.DataContext as SubscriptionPageViewModel)?.ChainProxy.MoveDraftNodeCommand
+                .Execute(new SubscriptionChainProxyMoveRequest(hopKey, targetIndex)));
 
         // Overlay 对话框必须沿按钮绑定链解析自己的 VM。
         ChooseLocalFileButton.Command = new Presentation.Commands.RelayCommand(async () => await ChooseLocalFileAsync());
@@ -180,6 +180,7 @@ public sealed partial class SubscriptionView : UserControl
             {
                 DialogInputField.Name => "Subscriptions.ChainProxy.NameBox",
                 DialogInputField.Nodes => "Subscriptions.ChainProxy.SelectedNodesRegion",
+                DialogInputField.ProxyGroup => "Subscriptions.ChainProxy.ProxyGroupBox",
                 _ => string.Empty,
             };
         }

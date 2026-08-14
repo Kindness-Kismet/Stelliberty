@@ -998,9 +998,10 @@
                                   <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                     <StackPanel Spacing="3">
                                       <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
+                                      <TextBlock Classes="settings-row-subtitle" Text="{Binding ProxyGroupText}" TextTrimming="CharacterEllipsis" />
                                       <TextBlock Classes="settings-row-subtitle" Text="{Binding PathText}" TextWrapping="Wrap" />
                                       <TextBlock Classes="dialog-error" FontSize="11" TextWrapping="Wrap"
-                                                 IsVisible="{Binding HasMissingNodes}"
+                                                 IsVisible="{Binding HasMissingReferences}"
                                                  Text="{Binding MissingText}" />
                                     </StackPanel>
                                     <Button Grid.Column="1" Classes="dialog-secondary" MinWidth="0" Padding="14,0"
@@ -1028,17 +1029,33 @@
                                   VerticalScrollBarVisibility="Auto"
                                   IsVisible="{Binding ChainProxy.IsDraftVisible}">
                       <StackPanel Margin="24,0,22,0" Spacing="14">
-                        <StackPanel Spacing="6">
-                          <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
-                          <TextBox Classes="dialog-input" Classes.error="{Binding ChainProxy.IsDraftNameErrorVisible}"
-                                   AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameBox"
-                                   PlaceholderText="{loc:Loc Subscriptions.ChainProxy.Placeholder.Name}"
-                                   Text="{Binding ChainProxy.DraftName, Mode=TwoWay}" />
-                          <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                     AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameError"
-                                     IsVisible="{Binding ChainProxy.IsDraftNameErrorVisible}"
-                                     Text="{Binding ChainProxy.DraftNameError}" />
-                        </StackPanel>
+                        <Grid ColumnDefinitions="*,260" ColumnSpacing="12">
+                          <StackPanel Spacing="6">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
+                            <TextBox Classes="dialog-input" Classes.error="{Binding ChainProxy.IsDraftNameErrorVisible}"
+                                     AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameBox"
+                                     PlaceholderText="{loc:Loc Subscriptions.ChainProxy.Placeholder.Name}"
+                                     Text="{Binding ChainProxy.DraftName, Mode=TwoWay}" />
+                            <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameError"
+                                       IsVisible="{Binding ChainProxy.IsDraftNameErrorVisible}"
+                                       Text="{Binding ChainProxy.DraftNameError}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.ProxyGroup}" />
+                            <ComboBox Classes="dialog-input platform-popup"
+                                      AutomationProperties.AutomationId="Subscriptions.ChainProxy.ProxyGroupBox"
+                                      ItemsSource="{Binding ChainProxy.ProxyGroups}"
+                                      SelectedItem="{Binding ChainProxy.DraftProxyGroup, Mode=TwoWay}"
+                                      DisplayMemberBinding="{Binding Name}"
+                                      Width="260"
+                                      HorizontalContentAlignment="Left" />
+                            <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Subscriptions.ChainProxy.ProxyGroupError"
+                                       IsVisible="{Binding ChainProxy.IsDraftProxyGroupErrorVisible}"
+                                       Text="{Binding ChainProxy.DraftProxyGroupError}" />
+                          </StackPanel>
+                        </Grid>
 
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.SelectedPath}" />
@@ -1101,8 +1118,12 @@
                                               AutomationProperties.AutomationId="{Binding AutomationId}"
                                               IsChecked="{Binding IsSelected, Mode=OneWay}"
                                               Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.SelectCandidateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                              CommandParameter="{Binding Name}"
-                                              Content="{Binding Name}" />
+                                              CommandParameter="{Binding Key}">
+                                  <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <TextBlock Text="{loc:Loc Subscriptions.ChainProxy.ProxyGroupType}" FontSize="10.5" Opacity="0.68" IsVisible="{Binding IsProxyGroup}" />
+                                  </StackPanel>
+                                </ToggleButton>
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>

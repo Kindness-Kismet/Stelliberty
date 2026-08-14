@@ -129,14 +129,14 @@ internal static partial class DebugCommands
 
         if (spec.StartsWith("chain_proxy_move_up ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveChainProxyNode(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_up ".Length..]), -1);
-            return ChainProxyNodeOrder(page.ChainProxy);
+            MoveChainProxyHop(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_up ".Length..]), -1);
+            return ChainProxyHopOrder(page.ChainProxy);
         }
 
         if (spec.StartsWith("chain_proxy_move_down ", StringComparison.OrdinalIgnoreCase))
         {
-            MoveChainProxyNode(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_down ".Length..]), 1);
-            return ChainProxyNodeOrder(page.ChainProxy);
+            MoveChainProxyHop(page.ChainProxy, FirstCommandToken(spec["chain_proxy_move_down ".Length..]), 1);
+            return ChainProxyHopOrder(page.ChainProxy);
         }
 
         if (string.Equals(spec, "chain_proxy_state", StringComparison.OrdinalIgnoreCase))
@@ -148,6 +148,74 @@ internal static partial class DebugCommands
         {
             page.ChainProxy.ToggleBuiltinCommand.Execute(FirstCommandToken(spec["chain_proxy_toggle_builtin ".Length..]));
             return ChainProxyState(page.ChainProxy);
+        }
+
+        if (string.Equals(spec, "chain_proxy_start_add", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.StartAddDraftCommand.Execute(null);
+            return ChainProxyDraftState(page.ChainProxy);
+        }
+
+        if (spec.StartsWith("chain_proxy_set_name ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.DraftName = FirstCommandToken(spec["chain_proxy_set_name ".Length..]);
+            return ChainProxyDraftState(page.ChainProxy);
+        }
+
+        if (spec.StartsWith("chain_proxy_set_group ", StringComparison.OrdinalIgnoreCase))
+        {
+            var groupName = FirstCommandToken(spec["chain_proxy_set_group ".Length..]);
+            page.ChainProxy.DraftProxyGroup = page.ChainProxy.ProxyGroups.FirstOrDefault(group => group.Name == groupName)
+                ?? throw new InvalidOperationException($"Chain proxy group not found: {groupName}");
+            return ChainProxyDraftState(page.ChainProxy);
+        }
+
+        if (spec.StartsWith("chain_proxy_toggle_hop ", StringComparison.OrdinalIgnoreCase))
+        {
+            var tokens = SplitCommandTokens(spec["chain_proxy_toggle_hop ".Length..]);
+            if (tokens.Count < 2)
+            {
+                throw new InvalidOperationException("subscriptions.chain_proxy_toggle_hop usage: subscriptions.chain_proxy_toggle_hop <proxy|group> <name>");
+            }
+
+            var kind = tokens[0].ToLowerInvariant() switch
+            {
+                "proxy" => SubscriptionChainProxyHopKind.Proxy,
+                "group" => SubscriptionChainProxyHopKind.ProxyGroup,
+                _ => throw new InvalidOperationException($"Unknown chain proxy hop kind: {tokens[0]}")
+            };
+            page.ChainProxy.SelectCandidateCommand.Execute($"{kind}:{tokens[1]}");
+            return ChainProxyDraftState(page.ChainProxy);
+        }
+
+        if (string.Equals(spec, "chain_proxy_save_draft", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.SaveDraftCommand.Execute(null);
+            return ChainProxyDraftState(page.ChainProxy);
+        }
+
+        if (string.Equals(spec, "chain_proxy_save", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.SaveCommand.Execute(null);
+            await WaitRuntimeRefreshAsync(viewModel);
+            return SubscriptionState(page, viewModel);
+        }
+
+        if (spec.StartsWith("chain_proxy_remove_custom ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.RemoveCustomCommand.Execute(FirstCommandToken(spec["chain_proxy_remove_custom ".Length..]));
+            return ChainProxyState(page.ChainProxy);
+        }
+
+        if (spec.StartsWith("chain_proxy_edit_custom ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.EditCustomCommand.Execute(FirstCommandToken(spec["chain_proxy_edit_custom ".Length..]));
+            return ChainProxyDraftState(page.ChainProxy);
+        }
+
+        if (string.Equals(spec, "chain_proxy_draft_state", StringComparison.OrdinalIgnoreCase))
+        {
+            return ChainProxyDraftState(page.ChainProxy);
         }
 
         if (spec.StartsWith("open_external_editor ", StringComparison.OrdinalIgnoreCase))
@@ -305,19 +373,19 @@ internal static partial class DebugCommands
     private static string OverrideSelectorOrder(SubscriptionPageViewModel page)
         => $"order={string.Join(',', page.OverrideSelector.OverrideSortPreference)}";
 
-    private static void MoveChainProxyNode(SubscriptionChainProxyDialogViewModel dialog, string nodeName, int offset)
+    private static void MoveChainProxyHop(SubscriptionChainProxyDialogViewModel dialog, string hopName, int offset)
     {
-        var sourceIndex = dialog.Slots.ToList().FindIndex(slot => slot.NodeName == nodeName);
+        var sourceIndex = dialog.Slots.ToList().FindIndex(slot => slot.DisplayName == hopName);
         if (sourceIndex < 0)
         {
             return;
         }
 
-        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest(nodeName, sourceIndex + offset));
+        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest(dialog.Slots[sourceIndex].Key, sourceIndex + offset));
     }
 
-    private static string ChainProxyNodeOrder(SubscriptionChainProxyDialogViewModel dialog)
-        => $"order={string.Join(',', dialog.Slots.Select(slot => slot.NodeName))}";
+    private static string ChainProxyHopOrder(SubscriptionChainProxyDialogViewModel dialog)
+        => $"order={string.Join(',', dialog.Slots.Select(slot => slot.Key))}";
 
     // 内置项异步加载，打开弹窗后需经此命令读取稳定状态。
     private static string ChainProxyState(SubscriptionChainProxyDialogViewModel dialog)
@@ -325,7 +393,22 @@ internal static partial class DebugCommands
         return string.Join(";", [
             $"dialog={Bool(dialog.IsDialogVisible)}",
             $"builtins={string.Join(',', dialog.BuiltinItems.Select(item => $"{item.Name}:{(item.IsEnabled ? "on" : "off")}"))}",
-            $"customs={string.Join(',', dialog.CustomItems.Select(item => item.DisplayName))}"
+            $"customs={string.Join(',', dialog.CustomChainProxies.Select(item => $"{item.Id}:{OutputValue(item.DisplayName)}@{item.ProxyGroupName}[{string.Join('>', item.Hops.Select(hop => $"{hop.Kind}:{hop.Name}"))}]"))}"
+        ]);
+    }
+
+    private static string ChainProxyDraftState(SubscriptionChainProxyDialogViewModel dialog)
+    {
+        return string.Join(";", [
+            $"draft={Bool(dialog.IsEditingDraft)}",
+            $"name={OutputValue(dialog.DraftName)}",
+            $"group={dialog.DraftProxyGroup?.Name ?? string.Empty}",
+            $"groups={string.Join(',', dialog.ProxyGroups.Select(group => group.Name))}",
+            $"candidates={string.Join(',', dialog.Candidates.Select(candidate => $"{candidate.Kind}:{candidate.Name}"))}",
+            $"order={string.Join(',', dialog.Slots.Select(slot => slot.Key))}",
+            $"nameError={Bool(dialog.IsDraftNameErrorVisible)}",
+            $"groupError={Bool(dialog.IsDraftProxyGroupErrorVisible)}",
+            $"hopsError={Bool(dialog.IsDraftNodesErrorVisible)}"
         ]);
     }
 

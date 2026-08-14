@@ -52,15 +52,25 @@ public sealed class ChainProxyRuntimeTests
               - name: EmptyChain
                 type: ss
                 dialer-proxy: ''
-            proxy-groups: []
+            proxy-groups:
+              - name: GLOBAL
+                type: select
+                proxies: [HK, JP]
+              - name: Upstream
+                type: select
+                proxies: [GLOBAL]
             """);
         var loader = new SubscriptionChainProxyContextLoader(store, new PassthroughOverrideEngine());
 
         var context = loader.Load("sub-1");
 
         Assert.Equal(["JP via HK"], context.BuiltinChainProxyNames);
-        Assert.Equal(["HK", "JP", "EmptyChain"], context.Candidates.Select(candidate => candidate.Name));
+        Assert.Equal(["GLOBAL", "Upstream"], context.ProxyGroups.Select(group => group.Name));
+        Assert.Equal(["HK", "JP", "EmptyChain", "GLOBAL", "Upstream"], context.Candidates.Select(candidate => candidate.Name));
         Assert.DoesNotContain(context.Candidates, candidate => candidate.Name == "JP via HK");
+        var upstream = context.Candidates.Single(candidate => candidate.Name == "Upstream");
+        Assert.Contains("GLOBAL", upstream.BlockedProxyGroupNames);
+        Assert.Contains("Upstream", upstream.BlockedProxyGroupNames);
     }
 
     [Fact(DisplayName = "Runtime applier removes disabled builtin chain proxy only")]
@@ -104,7 +114,7 @@ public sealed class ChainProxyRuntimeTests
         {
             CustomChainProxies =
             [
-                new SubscriptionCustomChainProxy("chain-a", "JP via TW via HK", ["HK", "TW", "JP"])
+                Chain("chain-a", "JP via TW via HK", "GLOBAL", "HK", "TW", "JP")
             ]
         });
         var proxies = Proxies(output);
@@ -116,8 +126,8 @@ public sealed class ChainProxyRuntimeTests
         Assert.Equal("jp.example", Scalar(display, "server"));
     }
 
-    [Fact(DisplayName = "Runtime applier adds custom chain display to leaf groups")]
-    public void RuntimeApplierAddsCustomChainDisplayToLeafGroups()
+    [Fact(DisplayName = "Runtime applier adds custom chain only to its owning group")]
+    public void RuntimeApplierAddsCustomChainOnlyToItsOwningGroup()
     {
         var output = new SubscriptionChainProxyRuntimeApplier().Apply(
             """
@@ -144,12 +154,41 @@ public sealed class ChainProxyRuntimeTests
             {
                 CustomChainProxies =
                 [
-                    new SubscriptionCustomChainProxy("chain-a", "JP via HK", ["HK", "JP"])
+                    Chain("chain-a", "JP via HK", "Regional", "HK", "JP")
                 ]
             });
 
-        Assert.Equal(["HK", "JP", "JP via HK"], ProxyGroupEntries(output, "GLOBAL"));
-        Assert.Equal(["HK", "TW"], ProxyGroupEntries(output, "Regional"));
+        Assert.Equal(["HK", "JP"], ProxyGroupEntries(output, "GLOBAL"));
+        Assert.Equal(["HK", "TW", "JP via HK"], ProxyGroupEntries(output, "Regional"));
+    }
+
+    [Fact(DisplayName = "Runtime applier creates proxies in an owning provider group")]
+    public void RuntimeApplierCreatesProxiesInOwningProviderGroup()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: HK
+                type: ss
+                server: hk.example
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Provider Group
+                type: select
+                use: [remote]
+            rules: []
+            """,
+            Subscription("sub-1") with
+            {
+                CustomChainProxies =
+                [
+                    Chain("chain-a", "JP via HK", "Provider Group", "HK", "JP")
+                ]
+            });
+
+        Assert.Equal(["JP via HK"], ProxyGroupEntries(output, "Provider Group"));
     }
 
     [Fact(DisplayName = "Runtime applier overrides leaf dialer proxy")]
@@ -175,7 +214,7 @@ public sealed class ChainProxyRuntimeTests
             {
                 CustomChainProxies =
                 [
-                    new SubscriptionCustomChainProxy("chain-a", "JP via HK", ["HK", "JP"])
+                    Chain("chain-a", "JP via HK", "GLOBAL", "HK", "JP")
                 ]
             });
 
@@ -192,8 +231,8 @@ public sealed class ChainProxyRuntimeTests
         {
             CustomChainProxies =
             [
-                new SubscriptionCustomChainProxy("conflict-node", "JP", ["HK", "TW"]),
-                new SubscriptionCustomChainProxy("conflict-group", "GLOBAL", ["HK", "TW"])
+                Chain("conflict-node", "JP", "GLOBAL", "HK", "TW"),
+                Chain("conflict-group", "GLOBAL", "GLOBAL", "HK", "TW")
             ]
         });
 
@@ -207,8 +246,8 @@ public sealed class ChainProxyRuntimeTests
         {
             CustomChainProxies =
             [
-                new SubscriptionCustomChainProxy("missing", "Missing chain", ["HK", "Missing"]),
-                new SubscriptionCustomChainProxy("single", "Single chain", ["HK"])
+                Chain("missing", "Missing chain", "GLOBAL", "HK", "Missing"),
+                Chain("single", "Single chain", "GLOBAL", "HK")
             ]
         });
 
@@ -243,11 +282,224 @@ public sealed class ChainProxyRuntimeTests
             {
                 CustomChainProxies =
                 [
-                    new SubscriptionCustomChainProxy("chain-a", "JP via TW via HK", ["HK", "TW", "JP"])
+                    Chain("chain-a", "JP via TW via HK", "GLOBAL", "HK", "TW", "JP")
                 ]
             });
 
         Assert.Contains(Proxies(output), proxy => Scalar(proxy, "name") == "__stelliberty_chain_chain-a_1_2");
+    }
+
+    [Fact(DisplayName = "Runtime applier supports a proxy group as the first hop")]
+    public void RuntimeApplierSupportsProxyGroupAsFirstHop()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(BaseConfig(), Subscription("sub-1") with
+        {
+            CustomChainProxies =
+            [
+                new SubscriptionCustomChainProxy(
+                    "chain-group",
+                    "JP via regional entry",
+                    "GLOBAL",
+                    [GroupHop("Regional Entry"), ProxyHop("JP")])
+            ]
+        });
+        var display = Proxies(output).Single(proxy => Scalar(proxy, "name") == "JP via regional entry");
+
+        Assert.Equal("Regional Entry", Scalar(display, "dialer-proxy"));
+        Assert.Contains("JP via regional entry", ProxyGroupEntries(output, "GLOBAL"));
+    }
+
+    [Fact(DisplayName = "Runtime applier skips a mixed proxy group cycle")]
+    public void RuntimeApplierSkipsMixedProxyGroupCycle()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: HK
+                type: ss
+                server: hk.example
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [JP]
+              - name: Upstream
+                type: select
+                proxies: [Owner, HK]
+            rules: []
+            """,
+            Subscription("sub-1") with
+            {
+                CustomChainProxies =
+                [
+                    new SubscriptionCustomChainProxy(
+                        "cycle",
+                        "Cyclic chain",
+                        "Owner",
+                        [GroupHop("Upstream"), ProxyHop("JP")])
+                ]
+            });
+
+        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "Cyclic chain");
+        Assert.Equal(["JP"], ProxyGroupEntries(output, "Owner"));
+    }
+
+    [Fact(DisplayName = "Runtime applier skips a cycle through a group member dialer proxy")]
+    public void RuntimeApplierSkipsCycleThroughGroupMemberDialerProxy()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: Bridge
+                type: ss
+                server: bridge.example
+                dialer-proxy: Owner
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [JP]
+              - name: Upstream
+                type: select
+                proxies: [Bridge]
+            rules: []
+            """,
+            Subscription("sub-1") with
+            {
+                CustomChainProxies =
+                [
+                    new SubscriptionCustomChainProxy(
+                        "cycle",
+                        "Cyclic chain",
+                        "Owner",
+                        [GroupHop("Upstream"), ProxyHop("JP")])
+                ]
+            });
+
+        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "Cyclic chain");
+        Assert.Equal(["JP"], ProxyGroupEntries(output, "Owner"));
+    }
+
+    [Fact(DisplayName = "Runtime applier skips a cycle through an include-all proxy group")]
+    public void RuntimeApplierSkipsCycleThroughIncludeAllProxyGroup()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: HK
+                type: ss
+                server: hk.example
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [HK]
+              - name: Auto Entry
+                type: select
+                include-all-proxies: true
+            rules: []
+            """,
+            Subscription("sub-1") with
+            {
+                CustomChainProxies =
+                [
+                    new SubscriptionCustomChainProxy(
+                        "cycle",
+                        "Cyclic chain",
+                        "Owner",
+                        [GroupHop("Auto Entry"), ProxyHop("JP")])
+                ]
+            });
+
+        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "Cyclic chain");
+        Assert.Equal(["HK"], ProxyGroupEntries(output, "Owner"));
+    }
+
+    [Fact(DisplayName = "Runtime applier allows an include-all group when its filter excludes generated proxies")]
+    public void RuntimeApplierAllowsFilteredIncludeAllProxyGroup()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: HK
+                type: ss
+                server: hk.example
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [HK]
+              - name: Auto Entry
+                type: select
+                include-all-proxies: true
+                filter: ^HK$
+            rules: []
+            """,
+            Subscription("sub-1") with
+            {
+                CustomChainProxies =
+                [
+                    new SubscriptionCustomChainProxy(
+                        "filtered",
+                        "JP through Auto Entry",
+                        "Owner",
+                        [GroupHop("Auto Entry"), ProxyHop("JP")])
+                ]
+            });
+
+        Assert.Contains(Proxies(output), proxy => Scalar(proxy, "name") == "JP through Auto Entry");
+        Assert.Equal(["HK", "JP through Auto Entry"], ProxyGroupEntries(output, "Owner"));
+    }
+
+    [Fact(DisplayName = "Runtime applier detects include-all cycles through generated internal proxies")]
+    public void RuntimeApplierDetectsIncludeAllCycleThroughInternalProxy()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: HK
+                type: ss
+                server: hk.example
+              - name: TW
+                type: ss
+                server: tw.example
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [HK]
+              - name: Auto Entry
+                type: select
+                include-all-proxies: true
+                filter: ^__stelliberty_chain_
+            rules: []
+            """,
+            Subscription("sub-1") with
+            {
+                CustomChainProxies =
+                [
+                    new SubscriptionCustomChainProxy(
+                        "internal-cycle",
+                        "JP through TW through Auto Entry",
+                        "Owner",
+                        [GroupHop("Auto Entry"), ProxyHop("TW"), ProxyHop("JP")])
+                ]
+            });
+
+        Assert.DoesNotContain(Proxies(output), proxy =>
+            Scalar(proxy, "name").StartsWith("__stelliberty_chain_", StringComparison.Ordinal));
+        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "JP through TW through Auto Entry");
+        Assert.Equal(["HK"], ProxyGroupEntries(output, "Owner"));
     }
 
     [Fact(DisplayName = "Runtime applier returns original content when no work can be done")]
@@ -285,9 +537,31 @@ public sealed class ChainProxyRuntimeTests
           - name: GLOBAL
             type: select
             proxies: [HK, TW, JP]
+          - name: Regional Entry
+            type: select
+            proxies: [HK, TW]
         rules: []
         """;
     }
+
+    private static SubscriptionCustomChainProxy Chain(
+        string id,
+        string displayName,
+        string proxyGroupName,
+        params string[] proxyNames)
+    {
+        return new SubscriptionCustomChainProxy(
+            id,
+            displayName,
+            proxyGroupName,
+            proxyNames.Select(ProxyHop).ToList());
+    }
+
+    private static SubscriptionChainProxyHop ProxyHop(string name)
+        => new(SubscriptionChainProxyHopKind.Proxy, name);
+
+    private static SubscriptionChainProxyHop GroupHop(string name)
+        => new(SubscriptionChainProxyHopKind.ProxyGroup, name);
 
     private static Subscription Subscription(string id)
     {

@@ -69,6 +69,48 @@ public sealed class FileSubscriptionStoreTests
         }
     }
 
+    [Fact(DisplayName = "Subscription store round-trips typed chain proxy hops and owning group")]
+    public void SubscriptionStoreRoundTripsTypedChainProxyHopsAndOwningGroup()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"stelliberty-subscriptions-{Guid.NewGuid():N}");
+
+        try
+        {
+            var store = new FileSubscriptionStore(root);
+            var subscription = new Subscription(
+                "demo",
+                "Demo",
+                "https://example.test/subscription",
+                IsLocalFile: false,
+                CreatedAt: DateTimeOffset.UnixEpoch,
+                CustomChainProxies:
+                [
+                    new SubscriptionCustomChainProxy(
+                        "chain-a",
+                        "JP via Entry",
+                        "Regional",
+                        [
+                            new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, "Entry"),
+                            new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, "JP")
+                        ])
+                ]);
+
+            store.Save(subscription, "proxies: []");
+
+            var restored = Assert.Single(store.LoadSubscriptions());
+            var chain = Assert.Single(restored.CustomChainProxies);
+            Assert.Equal("Regional", chain.ProxyGroupName);
+            Assert.Equal(
+                [SubscriptionChainProxyHopKind.ProxyGroup, SubscriptionChainProxyHopKind.Proxy],
+                chain.Hops.Select(hop => hop.Kind));
+            Assert.Equal(["Entry", "JP"], chain.Hops.Select(hop => hop.Name));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     [Fact(DisplayName = "Subscription save preserves the index when the existing file cannot be read")]
     public void SubscriptionSavePreservesIndexWhenExistingFileCannotBeRead()
     {

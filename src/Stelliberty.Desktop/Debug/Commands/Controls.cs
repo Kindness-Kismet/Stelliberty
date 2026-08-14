@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Stelliberty.Application.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 
 namespace Stelliberty.Desktop.Debug;
@@ -158,7 +159,7 @@ internal static partial class DebugCommands
             throw new InvalidOperationException($"Not a dropdown: {parts[0]}");
         }
 
-        if (index < 0 || index >= comboBox.ItemCount)
+        if (index < 0 || index >= comboBox.Items.Count())
         {
             throw new InvalidOperationException($"Dropdown item index is out of range: {index}");
         }
@@ -248,6 +249,7 @@ internal static partial class DebugCommands
             .Select(item => item switch
             {
                 SubscriptionRowMenuSelection selection => selection.DisplayName,
+                ChainProxyGroupOption group => group.Name,
                 _ => item?.ToString() ?? string.Empty
             })
             .Where(text => !string.IsNullOrWhiteSpace(text));
