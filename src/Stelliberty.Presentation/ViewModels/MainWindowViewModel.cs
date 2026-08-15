@@ -848,6 +848,14 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             ShowToast(Localize("RuntimeConfig.Toast.OverridesDisabled"), ToastType.Warning);
         }
 
+        if (result.DisabledChainProxyNames.Count > 0)
+        {
+            SubscriptionPage.RefreshChainProxyStateFromStore(subscriptionId);
+            ShowToast(string.Format(
+                Localize("RuntimeConfig.Toast.ChainProxiesDisabled"),
+                string.Join("、", result.DisabledChainProxyNames)), ToastType.Warning);
+        }
+
         return result.Runtime;
     }
 

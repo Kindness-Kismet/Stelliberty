@@ -89,6 +89,9 @@ internal sealed class SubscriptionChainProxyTopology
                 generatedProxyNames.Any(name => IncludesProxy(entry.Value, name))
                 && CanReach(firstHopName, entry.Key));
 
+    public bool HasDialerProxyCycle(string proxyName, string dialerProxyName)
+        => CanReach(dialerProxyName, proxyName);
+
     public void AddCustomChain(
         string proxyGroupName,
         string displayName,

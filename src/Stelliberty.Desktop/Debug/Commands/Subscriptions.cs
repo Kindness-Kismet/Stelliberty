@@ -150,6 +150,12 @@ internal static partial class DebugCommands
             return ChainProxyState(page.ChainProxy);
         }
 
+        if (spec.StartsWith("chain-proxy.toggle custom ", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ChainProxy.ToggleCustomCommand.Execute(FirstCommandToken(spec["chain-proxy.toggle custom ".Length..]));
+            return ChainProxyState(page.ChainProxy);
+        }
+
         if (string.Equals(spec, "chain-proxy.start add", StringComparison.OrdinalIgnoreCase))
         {
             page.ChainProxy.StartAddDraftCommand.Execute(null);
@@ -198,7 +204,7 @@ internal static partial class DebugCommands
         {
             page.ChainProxy.SaveCommand.Execute(null);
             await WaitRuntimeRefreshAsync(viewModel);
-            return SubscriptionState(page, viewModel);
+            return $"dialog={Bool(page.ChainProxy.IsDialogVisible)};{SubscriptionState(page, viewModel)}";
         }
 
         if (spec.StartsWith("chain-proxy.remove custom ", StringComparison.OrdinalIgnoreCase))
@@ -394,7 +400,7 @@ internal static partial class DebugCommands
         return string.Join(";", [
             $"dialog={Bool(dialog.IsDialogVisible)}",
             $"builtins={string.Join(',', dialog.BuiltinItems.Select(item => $"{item.Name}:{(item.IsEnabled ? "on" : "off")}"))}",
-            $"customs={string.Join(',', dialog.CustomChainProxies.Select(item => $"{item.Id}:{OutputValue(item.DisplayName)}@{item.ProxyGroupName}[{string.Join('>', item.Hops.Select(hop => $"{hop.Kind}:{hop.Name}"))}]"))}"
+            $"customs={string.Join(',', dialog.CustomChainProxies.Select(item => $"{item.Id}:{OutputValue(item.DisplayName)}:{(item.IsEnabled ? "on" : "off")}@{item.ProxyGroupName}[{string.Join('>', item.Hops.Select(hop => $"{hop.Kind}:{hop.Name}"))}]"))}"
         ]);
     }
 

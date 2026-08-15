@@ -13,6 +13,7 @@ public sealed class SubscriptionChainProxyContextLoader(
     IOverrideStore? overrideStore = null)
 {
     private readonly SubscriptionOverrideResolver _overrideResolver = new(overrideStore);
+    private readonly SubscriptionChainProxyRuntimeApplier _runtimeApplier = new();
 
     public SubscriptionChainProxyContext Load(string subscriptionId)
     {
@@ -20,6 +21,21 @@ public sealed class SubscriptionChainProxyContextLoader(
             ?? throw new InvalidOperationException($"Selected subscription not found: {subscriptionId}");
         var resolvedConfig = ApplyOverrides(subscriptionStore.ReadContent(subscription.Id), _overrideResolver.Resolve(subscription));
         return Parse(resolvedConfig);
+    }
+
+    public SubscriptionChainProxyValidationResult ValidateConfiguration(
+        string subscriptionId,
+        IReadOnlyList<string> disabledBuiltinNames,
+        IReadOnlyList<SubscriptionCustomChainProxy> customChainProxies)
+    {
+        var subscription = subscriptionStore.LoadSubscriptions().FirstOrDefault(item => item.Id == subscriptionId)
+            ?? throw new InvalidOperationException($"Selected subscription not found: {subscriptionId}");
+        var resolvedConfig = ApplyOverrides(subscriptionStore.ReadContent(subscription.Id), _overrideResolver.Resolve(subscription));
+        return _runtimeApplier.ValidateCycles(resolvedConfig, subscription with
+        {
+            DisabledBuiltinChainProxyNames = disabledBuiltinNames.ToList(),
+            CustomChainProxies = customChainProxies.ToList()
+        });
     }
 
     private string ApplyOverrides(string content, IReadOnlyList<RuntimeOverride> overrides)

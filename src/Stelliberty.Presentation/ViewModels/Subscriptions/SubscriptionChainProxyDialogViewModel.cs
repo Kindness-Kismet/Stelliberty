@@ -21,6 +21,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private readonly ILocalizationService? _localization;
     // 覆写后上下文返回内置链和候选；null 表示无覆写。
     private readonly Func<string, SubscriptionChainProxyContext>? _contextLoader;
+    private readonly Func<string, IReadOnlyList<string>, IReadOnlyList<SubscriptionCustomChainProxy>, SubscriptionChainProxyValidationResult>? _validator;
 
     private readonly List<string> _builtinNames = [];
     private readonly List<string> _disabledBuiltinNames = [];
@@ -49,16 +50,19 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     public SubscriptionChainProxyDialogViewModel(
         ILocalizationService? localization = null,
-        Func<string, SubscriptionChainProxyContext>? contextLoader = null)
+        Func<string, SubscriptionChainProxyContext>? contextLoader = null,
+        Func<string, IReadOnlyList<string>, IReadOnlyList<SubscriptionCustomChainProxy>, SubscriptionChainProxyValidationResult>? validator = null)
     {
         _localization = localization;
         _contextLoader = contextLoader;
+        _validator = validator;
         if (_localization is not null)
         {
             _localization.LanguageChanged += OnLanguageChanged;
         }
 
         ToggleBuiltinCommand = new RelayCommand<string>(ToggleBuiltin);
+        ToggleCustomCommand = new RelayCommand<string>(ToggleCustom);
         StartAddDraftCommand = new RelayCommand(StartAddDraft);
         EditCustomCommand = new RelayCommand<string>(EditCustom);
         RemoveCustomCommand = new RelayCommand<string>(RemoveCustom);
@@ -71,6 +75,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     }
 
     public event EventHandler<SubscriptionChainProxySaveEventArgs>? Saved;
+
+    public event EventHandler<string>? CycleDetected;
 
     public event EventHandler? DialogStateChanged;
 
@@ -182,6 +188,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
 
     public ICommand ToggleBuiltinCommand { get; }
 
+    public ICommand ToggleCustomCommand { get; }
+
     public ICommand StartAddDraftCommand { get; }
 
     public ICommand EditCustomCommand { get; }
@@ -242,6 +250,36 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         }
     }
 
+    public void ApplyRuntimeDisabledState(
+        string subscriptionId,
+        IReadOnlyList<string> disabledBuiltinNames,
+        IReadOnlyList<SubscriptionCustomChainProxy> customChainProxies)
+    {
+        if (_subscriptionId != subscriptionId || !_isDialogVisible)
+        {
+            return;
+        }
+
+        foreach (var name in disabledBuiltinNames.Where(name => !_disabledBuiltinNames.Contains(name, StringComparer.Ordinal)))
+        {
+            _disabledBuiltinNames.Add(name);
+        }
+
+        var disabledCustomIds = customChainProxies
+            .Where(item => !item.IsEnabled)
+            .Select(item => item.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        for (var index = 0; index < _customChainProxies.Count; index++)
+        {
+            if (disabledCustomIds.Contains(_customChainProxies[index].Id))
+            {
+                _customChainProxies[index] = _customChainProxies[index] with { IsEnabled = false };
+            }
+        }
+
+        RaiseStateChanged();
+    }
+
     // 后台覆写预览在订阅或对话框变化时丢弃。
     private async Task LoadContextAsync(string subscriptionId)
     {
@@ -286,11 +324,54 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
             return;
         }
 
-        if (!_disabledBuiltinNames.Remove(name))
+        if (!_disabledBuiltinNames.Contains(name, StringComparer.Ordinal))
         {
             _disabledBuiltinNames.Add(name);
+            RaiseStateChanged();
+            return;
         }
 
+        var proposedDisabledNames = _disabledBuiltinNames
+            .Where(item => !string.Equals(item, name, StringComparison.Ordinal))
+            .ToList();
+        var validation = ValidateConfiguration(proposedDisabledNames, _customChainProxies);
+        if (validation.CyclicBuiltinNames.Contains(name, StringComparer.Ordinal))
+        {
+            CycleDetected?.Invoke(this, name);
+            return;
+        }
+
+        _disabledBuiltinNames.Remove(name);
+        RaiseStateChanged();
+    }
+
+    private void ToggleCustom(string? id)
+    {
+        var index = _customChainProxies.FindIndex(item => item.Id == id);
+        if (index < 0)
+        {
+            return;
+        }
+
+        var current = _customChainProxies[index];
+        if (current.IsEnabled)
+        {
+            _customChainProxies[index] = current with { IsEnabled = false };
+            RaiseStateChanged();
+            return;
+        }
+
+        var enabled = current with { IsEnabled = true };
+        var proposed = _customChainProxies.ToList();
+        proposed[index] = enabled;
+        var validation = ValidateConfiguration(_disabledBuiltinNames, proposed);
+        if (validation.CyclicCustomChains.Any(item => item.Id == id))
+        {
+            CycleDetected?.Invoke(this, current.DisplayName);
+            return;
+        }
+
+        _customChainProxies[index] = enabled;
         RaiseStateChanged();
     }
 
@@ -424,8 +505,24 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         var name = _draftName.Trim();
         var hops = _draftHops.Where(hop => !string.IsNullOrWhiteSpace(hop.Name)).ToList();
         var draftId = _draftId ?? Guid.NewGuid().ToString("N");
+        var existing = _customChainProxies.FirstOrDefault(item => item.Id == draftId);
+        var draft = new SubscriptionCustomChainProxy(
+            draftId,
+            name,
+            _draftProxyGroup!.Name,
+            hops,
+            existing?.IsEnabled ?? true);
+        var proposed = _customChainProxies.Where(item => item.Id != draftId).ToList();
+        proposed.Add(draft);
+        var validation = ValidateConfiguration(_disabledBuiltinNames, proposed);
+        if (validation.CyclicCustomChains.Any(item => item.Id == draftId))
+        {
+            CycleDetected?.Invoke(this, name);
+            return;
+        }
+
         _customChainProxies.RemoveAll(item => item.Id == draftId);
-        _customChainProxies.Add(new SubscriptionCustomChainProxy(draftId, name, _draftProxyGroup!.Name, hops));
+        _customChainProxies.Add(draft);
         ExitDraftState();
         RaiseStateChanged();
     }
@@ -444,10 +541,11 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         }
 
         var args = new SubscriptionChainProxySaveEventArgs(_subscriptionId, _disabledBuiltinNames.ToList(), _customChainProxies.ToList());
-        BeginClose();
         Saved?.Invoke(this, args);
         AppLogger.Info($"Subscription chain proxy save event fired: {args.SubscriptionId}");
     }
+
+    internal void CompleteSave() => BeginClose();
 
     private void Cancel() => BeginClose();
 
@@ -468,8 +566,18 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
             custom.DisplayName,
             custom.ProxyGroupName,
             string.Join(" → ", custom.Hops.Select(hop => hop.Name)),
+            custom.IsEnabled,
             missing.Count > 0,
             missing.Count > 0 ? string.Format(Localize("Subscriptions.ChainProxy.MissingNodes"), string.Join(", ", missing)) : string.Empty);
+    }
+
+    private SubscriptionChainProxyValidationResult ValidateConfiguration(
+        IReadOnlyList<string> disabledBuiltinNames,
+        IReadOnlyList<SubscriptionCustomChainProxy> customChainProxies)
+    {
+        return _subscriptionId is null || _validator is null
+            ? SubscriptionChainProxyValidationResult.Valid
+            : _validator(_subscriptionId, disabledBuiltinNames, customChainProxies);
     }
 
     private void ExitDraftState()

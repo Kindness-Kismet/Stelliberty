@@ -219,8 +219,14 @@ public sealed partial class SubscriptionPageViewModel
             return;
         }
 
+        ChainProxy.CompleteSave();
         SubscriptionChainProxySaved?.Invoke(this, updated.Id);
         RaiseMenuStateChanged();
+    }
+
+    private void OnChainProxyCycleDetected(object? sender, string displayName)
+    {
+        ShowToast(string.Format(Localize("Subscriptions.Toast.ChainProxyCycle"), displayName));
     }
 
     private void ShowEditDialog(string? subscriptionId)

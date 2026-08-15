@@ -995,7 +995,7 @@
                             <ItemsControl.ItemTemplate>
                               <DataTemplate x:DataType="vm:SubscriptionChainProxyCustomItemViewModel">
                                 <Border Classes="surface-panel list" Margin="0,0,0,8">
-                                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                  <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                                     <StackPanel Spacing="3">
                                       <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
                                       <TextBlock Classes="settings-row-subtitle" Text="{Binding ProxyGroupText}" TextTrimming="CharacterEllipsis" />
@@ -1004,16 +1004,25 @@
                                                  IsVisible="{Binding HasMissingReferences}"
                                                  Text="{Binding MissingText}" />
                                     </StackPanel>
-                                    <Button Grid.Column="1" Classes="dialog-secondary" MinWidth="0" Padding="14,0"
+                                    <Button Grid.Column="1" Classes="toolbar-icon card-toolbar-icon"
+                                            ToolTip.Tip="{loc:Loc Common.Edit}"
                                             AutomationProperties.AutomationId="{Binding EditAutomationId}"
                                             Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.EditCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding Id}"
-                                            Content="{loc:Loc Common.Edit}" />
-                                    <Button Grid.Column="2" Classes="dialog-secondary" MinWidth="0" Padding="14,0"
+                                            CommandParameter="{Binding Id}">
+                                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="EditLine" />
+                                    </Button>
+                                    <Button Grid.Column="2" Classes="toolbar-icon card-toolbar-icon"
+                                            ToolTip.Tip="{loc:Loc Common.Delete}"
                                             AutomationProperties.AutomationId="{Binding DeleteAutomationId}"
                                             Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.RemoveCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding Id}"
-                                            Content="{loc:Loc Common.Delete}" />
+                                            CommandParameter="{Binding Id}">
+                                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="DeleteLine" />
+                                    </Button>
+                                    <ToggleSwitch Grid.Column="3" VerticalAlignment="Center"
+                                                  AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                                  IsChecked="{Binding IsEnabled, Mode=OneWay}"
+                                                  Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.ToggleCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                  CommandParameter="{Binding Id}" />
                                   </Grid>
                                 </Border>
                               </DataTemplate>

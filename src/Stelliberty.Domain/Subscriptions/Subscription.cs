@@ -14,7 +14,8 @@ public sealed record SubscriptionCustomChainProxy(
     string Id,
     string DisplayName,
     string ProxyGroupName,
-    IReadOnlyList<SubscriptionChainProxyHop>? Hops = null)
+    IReadOnlyList<SubscriptionChainProxyHop>? Hops = null,
+    bool IsEnabled = true)
 {
     public IReadOnlyList<SubscriptionChainProxyHop> Hops { get; init; } = Hops ?? [];
 }

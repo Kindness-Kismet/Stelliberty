@@ -191,7 +191,8 @@ public sealed partial class App : Avalonia.Application
                 subscriptionSelectionStore,
                 runtimeStore,
                 localization,
-                chainProxyContextLoader.Load);
+                chainProxyContextLoader.Load,
+                chainProxyContextLoader.ValidateConfiguration);
             var overridePage = new OverridePageViewModel(
                 overrideDeleter,
                 overrideStore,

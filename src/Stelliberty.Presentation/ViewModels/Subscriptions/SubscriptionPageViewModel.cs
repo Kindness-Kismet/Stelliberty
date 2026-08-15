@@ -61,7 +61,8 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
         ISubscriptionSelectionStore? subscriptionSelectionStore = null,
         ISelectedSubscriptionRuntimeStore? runtimeStore = null,
         ILocalizationService? localization = null,
-        Func<string, SubscriptionChainProxyContext>? chainProxyContextLoader = null)
+        Func<string, SubscriptionChainProxyContext>? chainProxyContextLoader = null,
+        Func<string, IReadOnlyList<string>, IReadOnlyList<SubscriptionCustomChainProxy>, SubscriptionChainProxyValidationResult>? chainProxyValidator = null)
     {
         _localFileImporter = localFileImporter;
         _remoteSubscriptionImporter = remoteSubscriptionImporter;
@@ -83,8 +84,9 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
         Provider.ProvidersSynced += (sender, args) => ProvidersSynced?.Invoke(sender, args);
         Provider.DialogStateChanged += (_, _) => OnPropertyChanged(nameof(IsDialogOverlayVisible));
         Provider.ToastRequested += (_, toast) => ShowToast(toast.Message, toast.Type);
-        ChainProxy = new SubscriptionChainProxyDialogViewModel(localization, chainProxyContextLoader);
+        ChainProxy = new SubscriptionChainProxyDialogViewModel(localization, chainProxyContextLoader, chainProxyValidator);
         ChainProxy.Saved += OnChainProxySaved;
+        ChainProxy.CycleDetected += OnChainProxyCycleDetected;
         ChainProxy.DialogStateChanged += (_, _) => OnPropertyChanged(nameof(IsDialogOverlayVisible));
         OverrideSelector = new SubscriptionOverrideSelectorViewModel();
         OverrideSelector.SaveRequested += OnOverrideSelectionSaveRequested;
@@ -333,6 +335,26 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
         if (subscription is not null && string.Equals(_currentSubscriptionId, subscriptionId, StringComparison.Ordinal))
         {
             OverrideSelector.ApplySaved(subscription);
+        }
+
+        LoadSubscriptions(subscriptions);
+    }
+
+    public void RefreshChainProxyStateFromStore(string subscriptionId)
+    {
+        if (_subscriptionStore is null)
+        {
+            return;
+        }
+
+        var subscriptions = _subscriptionStore.LoadSubscriptions();
+        var subscription = subscriptions.FirstOrDefault(item => item.Id == subscriptionId);
+        if (subscription is not null)
+        {
+            ChainProxy.ApplyRuntimeDisabledState(
+                subscription.Id,
+                subscription.DisabledBuiltinChainProxyNames,
+                subscription.CustomChainProxies);
         }
 
         LoadSubscriptions(subscriptions);

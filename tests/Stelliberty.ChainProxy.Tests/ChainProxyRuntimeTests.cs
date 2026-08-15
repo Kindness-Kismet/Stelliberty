@@ -309,10 +309,11 @@ public sealed class ChainProxyRuntimeTests
         Assert.Contains("JP via regional entry", ProxyGroupEntries(output, "GLOBAL"));
     }
 
-    [Fact(DisplayName = "Runtime applier skips a mixed proxy group cycle")]
-    public void RuntimeApplierSkipsMixedProxyGroupCycle()
+    [Fact(DisplayName = "Runtime applier rejects a mixed proxy group cycle")]
+    public void RuntimeApplierRejectsMixedProxyGroupCycle()
     {
-        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+        var exception = Assert.Throws<SubscriptionChainProxyCycleException>(() =>
+            new SubscriptionChainProxyRuntimeApplier().Apply(
             """
             proxies:
               - name: HK
@@ -340,16 +341,16 @@ public sealed class ChainProxyRuntimeTests
                         "Owner",
                         [GroupHop("Upstream"), ProxyHop("JP")])
                 ]
-            });
+            }));
 
-        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "Cyclic chain");
-        Assert.Equal(["JP"], ProxyGroupEntries(output, "Owner"));
+        Assert.Equal(["cycle"], exception.Validation.CyclicCustomChains.Select(item => item.Id));
     }
 
-    [Fact(DisplayName = "Runtime applier skips a cycle through a group member dialer proxy")]
-    public void RuntimeApplierSkipsCycleThroughGroupMemberDialerProxy()
+    [Fact(DisplayName = "Runtime applier rejects a cycle through a group member dialer proxy")]
+    public void RuntimeApplierRejectsCycleThroughGroupMemberDialerProxy()
     {
-        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+        var exception = Assert.Throws<SubscriptionChainProxyCycleException>(() =>
+            new SubscriptionChainProxyRuntimeApplier().Apply(
             """
             proxies:
               - name: Bridge
@@ -378,16 +379,16 @@ public sealed class ChainProxyRuntimeTests
                         "Owner",
                         [GroupHop("Upstream"), ProxyHop("JP")])
                 ]
-            });
+            }));
 
-        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "Cyclic chain");
-        Assert.Equal(["JP"], ProxyGroupEntries(output, "Owner"));
+        Assert.Equal(["cycle"], exception.Validation.CyclicCustomChains.Select(item => item.Id));
     }
 
-    [Fact(DisplayName = "Runtime applier skips a cycle through an include-all proxy group")]
-    public void RuntimeApplierSkipsCycleThroughIncludeAllProxyGroup()
+    [Fact(DisplayName = "Runtime applier rejects a cycle through an include-all proxy group")]
+    public void RuntimeApplierRejectsCycleThroughIncludeAllProxyGroup()
     {
-        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+        var exception = Assert.Throws<SubscriptionChainProxyCycleException>(() =>
+            new SubscriptionChainProxyRuntimeApplier().Apply(
             """
             proxies:
               - name: HK
@@ -415,10 +416,9 @@ public sealed class ChainProxyRuntimeTests
                         "Owner",
                         [GroupHop("Auto Entry"), ProxyHop("JP")])
                 ]
-            });
+            }));
 
-        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "Cyclic chain");
-        Assert.Equal(["HK"], ProxyGroupEntries(output, "Owner"));
+        Assert.Equal(["cycle"], exception.Validation.CyclicCustomChains.Select(item => item.Id));
     }
 
     [Fact(DisplayName = "Runtime applier allows an include-all group when its filter excludes generated proxies")]
@@ -459,10 +459,11 @@ public sealed class ChainProxyRuntimeTests
         Assert.Equal(["HK", "JP through Auto Entry"], ProxyGroupEntries(output, "Owner"));
     }
 
-    [Fact(DisplayName = "Runtime applier detects include-all cycles through generated internal proxies")]
-    public void RuntimeApplierDetectsIncludeAllCycleThroughInternalProxy()
+    [Fact(DisplayName = "Runtime applier rejects include-all cycles through generated internal proxies")]
+    public void RuntimeApplierRejectsIncludeAllCycleThroughInternalProxy()
     {
-        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+        var exception = Assert.Throws<SubscriptionChainProxyCycleException>(() =>
+            new SubscriptionChainProxyRuntimeApplier().Apply(
             """
             proxies:
               - name: HK
@@ -494,12 +495,110 @@ public sealed class ChainProxyRuntimeTests
                         "Owner",
                         [GroupHop("Auto Entry"), ProxyHop("TW"), ProxyHop("JP")])
                 ]
+            }));
+
+        Assert.Equal(["internal-cycle"], exception.Validation.CyclicCustomChains.Select(item => item.Id));
+    }
+
+    [Fact(DisplayName = "Runtime applier reports builtin include-all dialer cycles")]
+    public void RuntimeApplierReportsBuiltinIncludeAllDialerCycle()
+    {
+        var exception = Assert.Throws<SubscriptionChainProxyCycleException>(() =>
+            new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: Bridge
+                type: ss
+                server: bridge.example
+                dialer-proxy: Auto Entry
+            proxy-groups:
+              - name: Auto Entry
+                type: select
+                include-all-proxies: true
+            rules: []
+            """,
+            Subscription("sub-1")));
+
+        Assert.Equal(["Bridge"], exception.Validation.CyclicBuiltinNames);
+    }
+
+    [Fact(DisplayName = "Runtime applier ignores disabled custom cycles")]
+    public void RuntimeApplierIgnoresDisabledCustomCycle()
+    {
+        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
+            """
+            proxies:
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [JP]
+              - name: Auto Entry
+                type: select
+                include-all-proxies: true
+            rules: []
+            """,
+            Subscription("sub-1") with
+            {
+                CustomChainProxies =
+                [
+                    new SubscriptionCustomChainProxy(
+                        "cycle",
+                        "Cyclic chain",
+                        "Owner",
+                        [GroupHop("Auto Entry"), ProxyHop("JP")],
+                        IsEnabled: false)
+                ]
             });
 
-        Assert.DoesNotContain(Proxies(output), proxy =>
-            Scalar(proxy, "name").StartsWith("__stelliberty_chain_", StringComparison.Ordinal));
-        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "JP through TW through Auto Entry");
-        Assert.Equal(["HK"], ProxyGroupEntries(output, "Owner"));
+        Assert.DoesNotContain(Proxies(output), proxy => Scalar(proxy, "name") == "Cyclic chain");
+    }
+
+    [Fact(DisplayName = "Cycle validation reports only include-all chains selected by the filter")]
+    public void CycleValidationRespectsIncludeAllFilter()
+    {
+        var content = """
+            proxies:
+              - name: HK
+                type: ss
+                server: hk.example
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [HK]
+              - name: Auto Entry
+                type: select
+                include-all-proxies: true
+                filter: ^Dangerous
+            rules: []
+            """;
+        var applier = new SubscriptionChainProxyRuntimeApplier();
+        var subscription = Subscription("sub-1") with
+        {
+            CustomChainProxies =
+            [
+                new SubscriptionCustomChainProxy(
+                    "safe",
+                    "Safe chain",
+                    "Owner",
+                    [GroupHop("Auto Entry"), ProxyHop("JP")]),
+                new SubscriptionCustomChainProxy(
+                    "dangerous",
+                    "Dangerous chain",
+                    "Owner",
+                    [GroupHop("Auto Entry"), ProxyHop("JP")])
+            ]
+        };
+
+        var result = applier.ValidateCycles(content, subscription);
+
+        Assert.False(result.IsValid);
+        Assert.Equal(["Dangerous chain"], result.CyclicChainNames);
     }
 
     [Fact(DisplayName = "Runtime applier returns original content when no work can be done")]

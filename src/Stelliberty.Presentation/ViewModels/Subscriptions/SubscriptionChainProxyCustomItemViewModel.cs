@@ -6,10 +6,13 @@ public sealed record SubscriptionChainProxyCustomItemViewModel(
     string DisplayName,
     string ProxyGroupName,
     string PathText,
+    bool IsEnabled,
     bool HasMissingReferences,
     string MissingText)
 {
     public string ProxyGroupText => ProxyGroupName;
+
+    public string ToggleAutomationId => $"Subscriptions.ChainProxy.Custom.{Id}.Toggle";
 
     public string EditAutomationId => $"Subscriptions.ChainProxy.Custom.{Id}.EditButton";
 

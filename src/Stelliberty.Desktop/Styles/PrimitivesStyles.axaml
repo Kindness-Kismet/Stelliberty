@@ -69,11 +69,11 @@
     <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
   </Style>
   <Style Selector="Button.toolbar-icon.card-toolbar-icon">
-    <Setter Property="Width" Value="26" />
-    <Setter Property="Height" Value="26" />
-    <Setter Property="MinWidth" Value="26" />
-    <Setter Property="MinHeight" Value="26" />
-    <Setter Property="CornerRadius" Value="13" />
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="MinWidth" Value="36" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="CornerRadius" Value="18" />
   </Style>
   <Style Selector="controls|CardMenuButton.toolbar-icon">
     <Setter Property="Width" Value="34" />
@@ -102,11 +102,11 @@
     <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
   </Style>
   <Style Selector="controls|CardMenuButton.toolbar-icon.card-toolbar-icon">
-    <Setter Property="Width" Value="26" />
-    <Setter Property="Height" Value="26" />
-    <Setter Property="MinWidth" Value="26" />
-    <Setter Property="MinHeight" Value="26" />
-    <Setter Property="CornerRadius" Value="13" />
+    <Setter Property="Width" Value="36" />
+    <Setter Property="Height" Value="36" />
+    <Setter Property="MinWidth" Value="36" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="CornerRadius" Value="18" />
   </Style>
 
   <Style Selector="Button.soft-action">
