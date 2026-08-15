@@ -292,7 +292,7 @@
                     <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.Add.Title}" VerticalAlignment="Center" />
                     <Button Grid.Column="1"
                             Classes="dialog-close"
-                            AutomationProperties.AutomationId="Subscriptions.Dialog.CloseButton"
+                            AutomationProperties.AutomationId="Subscriptions.AddDialog.CloseButton"
                             IsEnabled="{Binding !AddDialog.IsSubmitting}"
                             Command="{Binding AddDialog.CancelCommand}">
                       <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
@@ -301,7 +301,7 @@
 
                   <ScrollViewer Grid.Row="1"
                                 VerticalScrollBarVisibility="Auto"
-                                AutomationProperties.AutomationId="Subscriptions.Dialog.FormScroll"
+                                AutomationProperties.AutomationId="Subscriptions.AddDialog.FormScroll"
                                 IsEnabled="{Binding !AddDialog.IsSubmitting}">
                     <StackPanel Spacing="16" Margin="24,0,22,0">
                       <Border Classes="dialog-section">
@@ -314,7 +314,7 @@
                           </StackPanel>
                           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <ToggleButton Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Import.RemoteButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Import.RemoteButton"
                                           Command="{Binding AddDialog.SelectRemoteImportCommand}"
                                           IsChecked="{Binding AddDialog.IsRemoteImportSelected}">
                               <StackPanel Spacing="2">
@@ -324,7 +324,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="1"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Import.LocalButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Import.LocalButton"
                                           Command="{Binding AddDialog.SelectLocalImportCommand}"
                                           IsChecked="{Binding AddDialog.IsLocalImportSelected}">
                               <StackPanel Spacing="2">
@@ -339,7 +339,7 @@
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Name}" />
                         <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsNameErrorVisible}"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.NameBox"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.NameBox"
                                  PlaceholderText="{loc:Loc Subscriptions.Placeholder.Name}"
                                  Text="{Binding AddDialog.Name, Mode=TwoWay}">
                           <TextBox.InnerLeftContent>
@@ -349,7 +349,7 @@
                           </TextBox.InnerLeftContent>
                         </TextBox>
                         <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.NameError"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.NameError"
                                    IsVisible="{Binding AddDialog.IsNameErrorVisible}"
                                    Text="{Binding AddDialog.NameError}" />
                       </StackPanel>
@@ -359,7 +359,7 @@
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Url}" />
                         <Grid>
                           <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsUrlErrorVisible}"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.UrlBox"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.UrlBox"
                                    PlaceholderText="{loc:Loc Subscriptions.Placeholder.Url}"
                                    GotFocus="OnSubscriptionUrlBoxGotFocus"
                                    TextChanged="OnSubscriptionUrlBoxTextChanged"
@@ -372,7 +372,7 @@
                             </TextBox.InnerLeftContent>
                           </TextBox>
                           <Button Classes="input-inline-icon"
-                                  AutomationProperties.AutomationId="Subscriptions.Dialog.UrlPasteButton"
+                                  AutomationProperties.AutomationId="Subscriptions.AddDialog.UrlPasteButton"
                                   IsVisible="{Binding AddDialog.IsUrlPasteButtonVisible}"
                                   IsEnabled="{Binding AddDialog.CanPasteUrlFromClipboard}"
                                   HorizontalAlignment="Right"
@@ -386,7 +386,7 @@
                           </Button>
                         </Grid>
                         <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.UrlError"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.UrlError"
                                    IsVisible="{Binding AddDialog.IsUrlErrorVisible}"
                                    Text="{Binding AddDialog.UrlError}" />
                       </StackPanel>
@@ -396,7 +396,7 @@
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.LocalPath}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                           <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsLocalFilePathErrorVisible}"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.LocalFilePathBox"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.LocalFilePathBox"
                                    Focusable="False"
                                    IsHitTestVisible="False"
                                    IsReadOnly="True"
@@ -411,11 +411,11 @@
                           <Button Grid.Column="1"
                                   x:Name="ChooseLocalFileButton"
                                   Classes="dialog-secondary"
-                                  AutomationProperties.AutomationId="Subscriptions.Dialog.ChooseLocalFileButton"
+                                  AutomationProperties.AutomationId="Subscriptions.AddDialog.ChooseLocalFileButton"
                                   Content="{loc:Loc Common.ChooseFile}" />
                         </Grid>
                         <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.LocalFilePathError"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.LocalFilePathError"
                                    IsVisible="{Binding AddDialog.IsLocalFilePathErrorVisible}"
                                    Text="{Binding AddDialog.LocalFilePathError}" />
                       </StackPanel>
@@ -425,7 +425,7 @@
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.UserAgent}" />
                         <TextBox Classes="dialog-input"
                                  x:Name="AddUserAgentBox"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.UserAgentBox"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.UserAgentBox"
                                  GotFocus="OnUserAgentBoxGotFocus"
                                  LostFocus="OnUserAgentBoxLostFocus"
                                  Text="{Binding AddDialog.UserAgentText, Mode=TwoWay}">
@@ -441,7 +441,7 @@
                                   IsVisible="{Binding AddDialog.IsRemoteFieldsVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AgeSecretKey}" />
                         <TextBox Classes="dialog-input"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.AgeSecretKeyBox"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.AgeSecretKeyBox"
                                  PasswordChar="•"
                                  PlaceholderText="{loc:Loc Subscriptions.Placeholder.AgeSecretKey}"
                                  Text="{Binding AddDialog.AgeSecretKey, Mode=TwoWay}">
@@ -457,7 +457,7 @@
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoDelay}" />
                         <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsAutoTestDelayIntervalErrorVisible}"
                                  x:Name="AddAutoTestDelayIntervalBox"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.AutoTestDelayIntervalBox"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoTestDelayIntervalBox"
                                  GotFocus="OnAutoTestDelayIntervalBoxGotFocus"
                                  LostFocus="OnAutoTestDelayIntervalBoxLostFocus"
                                  PlaceholderText="0"
@@ -469,7 +469,7 @@
                           </TextBox.InnerLeftContent>
                         </TextBox>
                         <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.AutoTestDelayIntervalError"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoTestDelayIntervalError"
                                    IsVisible="{Binding AddDialog.IsAutoTestDelayIntervalErrorVisible}"
                                    Text="{Binding AddDialog.AutoTestDelayIntervalMinutesError}" />
                       </StackPanel>
@@ -488,7 +488,7 @@
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
                               <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
                                        IsEnabled="{Binding AddDialog.IsAutoUpdateIntervalEnabled}"
-                                       AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateIntervalBox"
+                                       AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoUpdateIntervalBox"
                                        PlaceholderText="{loc:Loc Subscriptions.Placeholder.Interval}"
                                        Text="{Binding AddDialog.AutoUpdateIntervalMinutesText, Mode=TwoWay}">
                                 <TextBox.InnerLeftContent>
@@ -498,7 +498,7 @@
                                 </TextBox.InnerLeftContent>
                               </TextBox>
                               <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                         AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateIntervalError"
+                                         AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoUpdateIntervalError"
                                          IsVisible="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
                                          Text="{Binding AddDialog.AutoUpdateIntervalMinutesError}" />
                             </StackPanel>
@@ -506,7 +506,7 @@
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateMode}" />
                               <ComboBox Classes="dialog-input"
                                         HorizontalAlignment="Stretch"
-                                        AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateModeBox"
+                                        AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoUpdateModeBox"
                                         ItemsSource="{Binding AddDialog.AutoUpdateModeOptions}"
                                         SelectedItem="{Binding AddDialog.SelectedAutoUpdateModeOption, Mode=TwoWay}">
                                 <ComboBox.ItemTemplate>
@@ -531,7 +531,7 @@
                           </StackPanel>
                           <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                             <ToggleButton Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.DirectButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Proxy.DirectButton"
                                           Command="{Binding AddDialog.SelectDirectProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsDirectProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -540,7 +540,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="1"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.SystemButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Proxy.SystemButton"
                                           Command="{Binding AddDialog.SelectSystemProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsSystemProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -549,7 +549,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="2"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.CoreButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Proxy.CoreButton"
                                           Command="{Binding AddDialog.SelectCoreProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsCoreProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -564,12 +564,12 @@
 
                   <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
                     <Button Classes="dialog-secondary"
-                            AutomationProperties.AutomationId="Subscriptions.Dialog.CancelButton"
+                            AutomationProperties.AutomationId="Subscriptions.AddDialog.CancelButton"
                             Command="{Binding AddDialog.CancelCommand}"
                             IsEnabled="{Binding !AddDialog.IsSubmitting}"
                             Content="{loc:Loc Dialog.Cancel}" />
                     <Button Classes="dialog-primary"
-                            AutomationProperties.AutomationId="Subscriptions.Dialog.ConfirmButton"
+                            AutomationProperties.AutomationId="Subscriptions.AddDialog.SaveButton"
                             Command="{Binding AddDialog.ConfirmCommand}"
                             IsEnabled="{Binding AddDialog.CanSubmit}">
                       <StackPanel Orientation="Horizontal" Spacing="8">
