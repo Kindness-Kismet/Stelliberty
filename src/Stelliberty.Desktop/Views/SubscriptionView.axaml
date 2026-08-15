@@ -1169,6 +1169,7 @@
                               Content="{loc:Loc Subscriptions.ChainProxy.Back}" />
                       <Button Classes="dialog-primary"
                               AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftSaveButton"
+                              IsEnabled="{Binding ChainProxy.CanSaveDraft}"
                               Command="{Binding ChainProxy.SaveDraftCommand}"
                               Content="{loc:Loc Subscriptions.ChainProxy.SaveChain}" />
                     </StackPanel>

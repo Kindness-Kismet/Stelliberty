@@ -10,4 +10,5 @@ public sealed record ProxyRuntimeEntry(
     string? Fixed,
     IReadOnlyList<string> All,
     bool IsHidden,
-    string? ProviderName = null);
+    string? ProviderName = null,
+    string? DialerProxy = null);

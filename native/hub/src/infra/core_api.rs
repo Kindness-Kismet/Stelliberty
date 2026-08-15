@@ -65,9 +65,8 @@ impl CoreApiClient {
         if (200..300).contains(&status) {
             return Ok(());
         }
-        // mihomo 4xx 响应是纯文本；parse/yaml 关键词在这里转成类型化配置错误。
-        let parse_hint = body.contains("parse") || body.contains("yaml") || body.contains("YAML");
-        if (400..500).contains(&status) && parse_hint {
+        // 配置接口的 4xx 都表示候选配置被拒绝，不能继续走重启回退。
+        if (400..500).contains(&status) {
             return Err(ApiError::YamlInvalid(body).into());
         }
         Err(ApiError::Status(status, body).into())

@@ -9,8 +9,10 @@ public sealed class StoredProxySelectionConfigProvider(
     ISubscriptionSelectionStore subscriptionSelectionStore,
     ProxySelectionSyncState? syncState = null,
     bool importCoreSelections = false,
-    bool pruneInvalidSelections = true) : IProxyConfigProvider
+    bool pruneInvalidSelections = true) : IProxyConfigProvider, IProxyRuntimeSnapshotSource
 {
+    public ProxyRuntimeSnapshot? LastSnapshot => (inner as IProxyRuntimeSnapshotSource)?.LastSnapshot;
+
     public async Task<ProxyConfig> LoadAsync(CancellationToken cancellationToken = default)
     {
         var config = await inner.LoadAsync(cancellationToken);

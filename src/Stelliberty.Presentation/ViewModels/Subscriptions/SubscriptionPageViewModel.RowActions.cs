@@ -224,11 +224,6 @@ public sealed partial class SubscriptionPageViewModel
         RaiseMenuStateChanged();
     }
 
-    private void OnChainProxyCycleDetected(object? sender, string displayName)
-    {
-        ShowToast(string.Format(Localize("Subscriptions.Toast.ChainProxyCycle"), displayName));
-    }
-
     private void ShowEditDialog(string? subscriptionId)
     {
         var subscription = _subscriptions.FirstOrDefault(item => item.Id == subscriptionId);

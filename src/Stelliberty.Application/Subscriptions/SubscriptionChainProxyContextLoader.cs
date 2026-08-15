@@ -13,29 +13,12 @@ public sealed class SubscriptionChainProxyContextLoader(
     IOverrideStore? overrideStore = null)
 {
     private readonly SubscriptionOverrideResolver _overrideResolver = new(overrideStore);
-    private readonly SubscriptionChainProxyRuntimeApplier _runtimeApplier = new();
-
     public SubscriptionChainProxyContext Load(string subscriptionId)
     {
         var subscription = subscriptionStore.LoadSubscriptions().FirstOrDefault(item => item.Id == subscriptionId)
             ?? throw new InvalidOperationException($"Selected subscription not found: {subscriptionId}");
         var resolvedConfig = ApplyOverrides(subscriptionStore.ReadContent(subscription.Id), _overrideResolver.Resolve(subscription));
         return Parse(resolvedConfig);
-    }
-
-    public SubscriptionChainProxyValidationResult ValidateConfiguration(
-        string subscriptionId,
-        IReadOnlyList<string> disabledBuiltinNames,
-        IReadOnlyList<SubscriptionCustomChainProxy> customChainProxies)
-    {
-        var subscription = subscriptionStore.LoadSubscriptions().FirstOrDefault(item => item.Id == subscriptionId)
-            ?? throw new InvalidOperationException($"Selected subscription not found: {subscriptionId}");
-        var resolvedConfig = ApplyOverrides(subscriptionStore.ReadContent(subscription.Id), _overrideResolver.Resolve(subscription));
-        return _runtimeApplier.ValidateCycles(resolvedConfig, subscription with
-        {
-            DisabledBuiltinChainProxyNames = disabledBuiltinNames.ToList(),
-            CustomChainProxies = customChainProxies.ToList()
-        });
     }
 
     private string ApplyOverrides(string content, IReadOnlyList<RuntimeOverride> overrides)
@@ -65,7 +48,6 @@ public sealed class SubscriptionChainProxyContextLoader(
 
             var proxyMappings = proxies.Children.OfType<YamlMappingNode>().ToList();
             var groupMappings = ReadMappingSequence(root, "proxy-groups");
-            var topology = SubscriptionChainProxyTopology.Create(proxyMappings, groupMappings);
             var builtinNames = new List<string>();
             var candidates = new List<ChainProxyHopOption>();
             foreach (var proxy in proxyMappings)
@@ -100,8 +82,7 @@ public sealed class SubscriptionChainProxyContextLoader(
             {
                 candidates.Add(new ChainProxyHopOption(
                     new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, proxyGroup.Name),
-                    proxyGroup.Type,
-                    topology.ReachableProxyGroupNames(proxyGroup.Name)));
+                    proxyGroup.Type));
             }
 
             return new SubscriptionChainProxyContext(

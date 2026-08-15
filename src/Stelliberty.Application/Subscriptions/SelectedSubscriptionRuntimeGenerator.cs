@@ -26,12 +26,6 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
     }
 
     public SelectedSubscriptionRuntimeResult Generate(string subscriptionId, SelectedSubscriptionRuntimeRequest request)
-        => Generate(subscriptionId, request, includeSelectedOverrides: true);
-
-    public SelectedSubscriptionRuntimeResult Generate(
-        string subscriptionId,
-        SelectedSubscriptionRuntimeRequest request,
-        bool includeSelectedOverrides)
     {
         var subscription = subscriptionStore.LoadSubscriptions().FirstOrDefault(item => item.Id == subscriptionId)
             ?? throw new InvalidOperationException($"Selected subscription not found: {subscriptionId}");
@@ -39,11 +33,9 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
 
         var runtimeConfig = runtimeConfigGenerator.Generate(new RuntimeConfigGenerationRequest(
             BaseConfigContent: originalContent,
-            Overrides: (includeSelectedOverrides ? _overrideResolver.Resolve(subscription) : [])
-                .Concat(request.Overrides)
-                .ToList(),
+            Overrides: _overrideResolver.Resolve(subscription).Concat(request.Overrides).ToList(),
             RuntimeParams: request.RuntimeParams,
-        // 本地规则最后定稿，避免订阅覆写改写用户编辑结果。
+            // 本地规则最后定稿，避免订阅覆写改写用户编辑结果。
             PostOverrideTransform: content => ApplyRuntimeRuleOverrides(subscription.Id, content)));
         var paths = runtimeStore?.Save(subscription, originalContent, runtimeConfig.RuntimeConfigContent);
 

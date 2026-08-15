@@ -413,6 +413,7 @@ internal static partial class DebugCommands
             $"groups={string.Join(',', dialog.ProxyGroups.Select(group => group.Name))}",
             $"candidates={string.Join(',', dialog.Candidates.Select(candidate => $"{candidate.Kind}:{candidate.Name}"))}",
             $"order={string.Join(',', dialog.Slots.Select(slot => slot.Key))}",
+            $"canSave={Bool(dialog.CanSaveDraft)}",
             $"nameError={Bool(dialog.IsDraftNameErrorVisible)}",
             $"groupError={Bool(dialog.IsDraftProxyGroupErrorVisible)}",
             $"hopsError={Bool(dialog.IsDraftNodesErrorVisible)}"

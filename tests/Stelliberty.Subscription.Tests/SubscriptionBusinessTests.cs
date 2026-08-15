@@ -629,10 +629,12 @@ public sealed class SubscriptionBusinessTests
         dialog.StartAddDraftCommand.Execute(null);
         dialog.DraftName = " JP via HK custom ";
         dialog.SelectCandidateCommand.Execute("Proxy:HK");
+        Assert.False(dialog.CanSaveDraft);
         dialog.SaveDraftCommand.Execute(null);
-        Assert.True(dialog.IsDraftNodesErrorVisible);
+        Assert.False(dialog.IsDraftNodesErrorVisible);
 
         dialog.SelectCandidateCommand.Execute("Proxy:JP");
+        Assert.True(dialog.CanSaveDraft);
         dialog.SaveDraftCommand.Execute(null);
         dialog.ToggleCustomCommand.Execute(dialog.CustomChainProxies.Single().Id);
         dialog.SaveCommand.Execute(null);
@@ -646,78 +648,28 @@ public sealed class SubscriptionBusinessTests
         Assert.False(custom.IsEnabled);
     }
 
-    [Fact(DisplayName = "Chain proxy draft save rejects a cycle and shows a toast")]
-    public async Task ChainProxyDraftSaveRejectsCycleWithToast()
+    [Fact(DisplayName = "Chain proxy draft save leaves cycle validation to runtime")]
+    public async Task ChainProxyDraftSaveLeavesCycleValidationToRuntime()
     {
-        var store = new FakeSubscriptionStore([Subscription("sub-1")]);
-        var page = new SubscriptionPageViewModel(
-            subscriptionDeleter: new SubscriptionDeleter(store, new FakeSubscriptionSelectionStore()),
-            subscriptionStore: store,
-            localization: new FakeLocalizationService(),
-            chainProxyContextLoader: _ => ChainContext(
-                [],
-                [ProxyCandidate("JP", "trojan"), GroupCandidate("Auto Entry", ["Auto Entry"])]),
-            chainProxyValidator: (_, _, customChains) => new SubscriptionChainProxyValidationResult(
-                [],
-                customChains
-                    .Where(item => item.IsEnabled && item.DisplayName == "Dangerous chain")
-                    .Select(item => new SubscriptionCustomChainProxyCycle(item.Id, item.DisplayName))
-                    .ToList()));
-        page.LoadSubscriptions(store.LoadSubscriptions());
-        (string Message, ToastType Type)? toast = null;
-        page.ToastRequested += (_, args) => toast = args;
-        page.ShowChainProxyDialogCommand.Execute("sub-1");
-        await WaitUntilAsync(() => !page.ChainProxy.IsLoading);
-        page.ChainProxy.StartAddDraftCommand.Execute(null);
-        page.ChainProxy.DraftName = "Dangerous chain";
-        page.ChainProxy.SelectCandidateCommand.Execute("ProxyGroup:Auto Entry");
-        page.ChainProxy.SelectCandidateCommand.Execute("Proxy:JP");
-        page.ChainProxy.SaveDraftCommand.Execute(null);
-
-        Assert.True(page.ChainProxy.IsDialogVisible);
-        Assert.True(page.ChainProxy.IsEditingDraft);
-        Assert.Empty(page.ChainProxy.CustomChainProxies);
-        Assert.Empty(store.LoadSubscriptions().Single().CustomChainProxies);
-        Assert.Equal(("“Dangerous chain”会形成循环引用，未保存", ToastType.Error), toast);
-    }
-
-    [Fact(DisplayName = "Disabled chain proxy can be edited without re-enabling it")]
-    public async Task DisabledChainProxyCanBeEditedWithoutReenabling()
-    {
-        var disabled = new SubscriptionCustomChainProxy(
-            "cycle",
-            "Dangerous chain",
-            "GLOBAL",
-            [
-                new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, "Auto Entry"),
-                new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, "JP")
-            ],
-            IsEnabled: false);
-        var dialog = new SubscriptionChainProxyDialogViewModel(
-            contextLoader: _ => ChainContext(
-                [],
-                [ProxyCandidate("JP", "trojan"), GroupCandidate("Auto Entry", ["Auto Entry"])]),
-            validator: (_, _, customChains) => new SubscriptionChainProxyValidationResult(
-                [],
-                customChains
-                    .Where(item => item.IsEnabled && item.DisplayName == "Dangerous chain")
-                    .Select(item => new SubscriptionCustomChainProxyCycle(item.Id, item.DisplayName))
-                    .ToList()));
-        dialog.Open("sub-1", [], [disabled]);
+        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
+            [],
+            [ProxyCandidate("JP", "trojan"), GroupCandidate("Auto Entry")]));
+        dialog.Open("sub-1", [], []);
         await WaitUntilAsync(() => !dialog.IsLoading);
+        dialog.StartAddDraftCommand.Execute(null);
+        dialog.DraftName = "Dangerous chain";
+        dialog.SelectCandidateCommand.Execute("ProxyGroup:Auto Entry");
+        dialog.SelectCandidateCommand.Execute("Proxy:JP");
 
-        dialog.EditCustomCommand.Execute("cycle");
-        dialog.DraftName = "Dangerous chain fixed";
         dialog.SaveDraftCommand.Execute(null);
 
-        var updated = Assert.Single(dialog.CustomChainProxies);
-        Assert.Equal("Dangerous chain fixed", updated.DisplayName);
-        Assert.False(updated.IsEnabled);
         Assert.False(dialog.IsEditingDraft);
+        var custom = Assert.Single(dialog.CustomChainProxies);
+        Assert.Equal("Dangerous chain", custom.DisplayName);
     }
 
-    [Fact(DisplayName = "Chain proxy dialog rejects blank name and single node draft")]
-    public async Task ChainProxyDialogRejectsBlankNameAndSingleNodeDraft()
+    [Fact(DisplayName = "Chain proxy dialog disables draft save until two hops are selected")]
+    public async Task ChainProxyDialogDisablesDraftSaveUntilTwoHopsAreSelected()
     {
         var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
             [],
@@ -729,20 +681,21 @@ public sealed class SubscriptionBusinessTests
         dialog.DraftName = " ";
         dialog.SaveDraftCommand.Execute(null);
 
-        Assert.True(dialog.IsDraftNameErrorVisible);
-        Assert.True(dialog.IsDraftNodesErrorVisible);
+        Assert.False(dialog.CanSaveDraft);
+        Assert.False(dialog.IsDraftNameErrorVisible);
+        Assert.False(dialog.IsDraftNodesErrorVisible);
         Assert.Empty(dialog.CustomChainProxies);
 
         dialog.DraftName = "HK only";
         dialog.SelectCandidateCommand.Execute("Proxy:HK");
-        Assert.False(dialog.IsDraftNameErrorVisible);
-        Assert.True(dialog.IsDraftNodesErrorVisible);
+        Assert.False(dialog.CanSaveDraft);
         dialog.SaveDraftCommand.Execute(null);
 
-        Assert.True(dialog.IsDraftNodesErrorVisible);
+        Assert.False(dialog.IsDraftNodesErrorVisible);
         Assert.Empty(dialog.CustomChainProxies);
 
         dialog.SelectCandidateCommand.Execute("Proxy:JP");
+        Assert.True(dialog.CanSaveDraft);
         dialog.SaveDraftCommand.Execute(null);
 
         var custom = Assert.Single(dialog.CustomChainProxies);
@@ -855,37 +808,37 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal(["HK", "TW", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
     }
 
-    [Fact(DisplayName = "Chain proxy dialog excludes owning and indirect cycle groups")]
-    public async Task ChainProxyDialogExcludesOwningAndIndirectCycleGroups()
+    [Fact(DisplayName = "Chain proxy dialog keeps all proxy group candidates until save")]
+    public async Task ChainProxyDialogKeepsAllProxyGroupCandidatesUntilSave()
     {
         var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => new SubscriptionChainProxyContext(
             [],
             [new ChainProxyGroupOption("Owner", "select"), new ChainProxyGroupOption("Safe", "select"), new ChainProxyGroupOption("Parent", "select")],
             [
                 ProxyCandidate("JP", "trojan"),
-                GroupCandidate("Owner", ["Owner"]),
-                GroupCandidate("Safe", ["Safe"]),
-                GroupCandidate("Parent", ["Parent", "Owner"])
+                GroupCandidate("Owner"),
+                GroupCandidate("Safe"),
+                GroupCandidate("Parent")
             ]));
         dialog.Open("sub-1", [], []);
         await WaitUntilAsync(() => !dialog.IsLoading);
         dialog.StartAddDraftCommand.Execute(null);
 
         Assert.Equal("Owner", dialog.DraftProxyGroup?.Name);
-        Assert.DoesNotContain(dialog.Candidates, candidate => candidate.Name is "Owner" or "Parent");
-        Assert.Contains(dialog.Candidates, candidate => candidate.Name == "Safe" && candidate.IsProxyGroup);
+        Assert.Contains(dialog.Candidates, candidate => candidate.Name == "Owner" && candidate.IsProxyGroup);
+        Assert.Contains(dialog.Candidates, candidate => candidate.Name == "Parent" && candidate.IsProxyGroup);
 
         dialog.SelectCandidateCommand.Execute("ProxyGroup:Safe");
         dialog.SelectCandidateCommand.Execute("Proxy:JP");
         Assert.Equal(["Safe", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
 
         dialog.DraftProxyGroup = dialog.ProxyGroups.Single(group => group.Name == "Safe");
-        Assert.Equal(["JP"], dialog.Slots.Select(slot => slot.DisplayName));
-        Assert.DoesNotContain(dialog.Candidates, candidate => candidate.Name == "Safe");
+        Assert.Equal(["Safe", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
+        Assert.Contains(dialog.Candidates, candidate => candidate.Name == "Safe");
     }
 
-    [Fact(DisplayName = "Chain proxy dialog edits the owning group and removes an invalid group hop")]
-    public async Task ChainProxyDialogEditsOwningGroupAndRemovesInvalidGroupHop()
+    [Fact(DisplayName = "Chain proxy dialog keeps the group hop when its owning group changes")]
+    public async Task ChainProxyDialogKeepsGroupHopWhenOwningGroupChanges()
     {
         var existing = new SubscriptionCustomChainProxy(
             "chain-a",
@@ -901,8 +854,8 @@ public sealed class SubscriptionBusinessTests
             [
                 ProxyCandidate("HK", "ss"),
                 ProxyCandidate("JP", "trojan"),
-                GroupCandidate("Owner", ["Owner"]),
-                GroupCandidate("Safe", ["Safe"])
+                GroupCandidate("Owner"),
+                GroupCandidate("Safe")
             ]));
         dialog.Open("sub-1", [], [existing]);
         await WaitUntilAsync(() => !dialog.IsLoading);
@@ -910,13 +863,12 @@ public sealed class SubscriptionBusinessTests
         dialog.EditCustomCommand.Execute("chain-a");
         dialog.DraftProxyGroup = dialog.ProxyGroups.Single(group => group.Name == "Safe");
 
-        Assert.Equal(["JP"], dialog.Slots.Select(slot => slot.DisplayName));
-        dialog.SelectCandidateCommand.Execute("Proxy:HK");
+        Assert.Equal(["Safe", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
         dialog.SaveDraftCommand.Execute(null);
 
         var edited = Assert.Single(dialog.CustomChainProxies);
         Assert.Equal("Safe", edited.ProxyGroupName);
-        Assert.Equal(["JP", "HK"], edited.Hops.Select(hop => hop.Name));
+        Assert.Equal(["Safe", "JP"], edited.Hops.Select(hop => hop.Name));
     }
 
     [Fact(DisplayName = "Chain proxy dialog ignores stale context after subscription switch")]
@@ -1663,11 +1615,10 @@ public sealed class SubscriptionBusinessTests
     private static ChainProxyHopOption ProxyCandidate(string name, string type)
         => new(new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, name), type);
 
-    private static ChainProxyHopOption GroupCandidate(string name, IReadOnlyList<string> blockedProxyGroupNames)
+    private static ChainProxyHopOption GroupCandidate(string name)
         => new(
             new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, name),
-            "select",
-            blockedProxyGroupNames);
+            "select");
 
     private static SubscriptionCustomChainProxy Chain(
         string id,
@@ -1897,7 +1848,6 @@ public sealed class SubscriptionBusinessTests
                 "Subscriptions.Toast.ImportRemoteFailed" => "远程订阅导入失败，请稍后重试",
                 "Subscriptions.Toast.ImportLocalFailed" => "本地订阅导入失败，请稍后重试",
                 "Subscriptions.Toast.LinkCopied" => "订阅链接已复制",
-                "Subscriptions.Toast.ChainProxyCycle" => "“{0}”会形成循环引用，未保存",
                 _ => key,
             };
         }

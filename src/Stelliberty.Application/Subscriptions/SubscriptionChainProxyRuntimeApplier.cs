@@ -27,10 +27,6 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             }
 
             var result = BuildRuntimeConfig(proxies, proxyGroups, subscription);
-            if (!result.Validation.IsValid)
-            {
-                throw new SubscriptionChainProxyCycleException(result.Validation);
-            }
             if (subscription.DisabledBuiltinChainProxyNames.Count == 0
                 && subscription.CustomChainProxies.All(item => !item.IsEnabled))
             {
@@ -53,37 +49,12 @@ public sealed class SubscriptionChainProxyRuntimeApplier
         }
     }
 
-    public SubscriptionChainProxyValidationResult ValidateCycles(string content, Subscription subscription)
-    {
-        try
-        {
-            var stream = new YamlStream();
-            stream.Load(new StringReader(content));
-            if (stream.Documents.Count == 0 || stream.Documents[0].RootNode is not YamlMappingNode root)
-            {
-                return SubscriptionChainProxyValidationResult.Valid;
-            }
-
-            var result = BuildRuntimeConfig(
-                ReadMappingSequence(root, "proxies"),
-                ReadMappingSequence(root, "proxy-groups"),
-                subscription);
-            return result.Validation;
-        }
-        catch (YamlException)
-        {
-            return SubscriptionChainProxyValidationResult.Valid;
-        }
-    }
-
     private sealed record RuntimeConfigBuildResult(
         YamlSequenceNode Proxies,
-        YamlSequenceNode ProxyGroups,
-        SubscriptionChainProxyValidationResult Validation);
+        YamlSequenceNode ProxyGroups);
 
     private sealed record RuntimeDialerProxyBuildResult(
-        IReadOnlyList<YamlMappingNode> Proxies,
-        bool HasCycle);
+        IReadOnlyList<YamlMappingNode> Proxies);
 
     private sealed record CustomProxyGroupEntry(string ProxyGroupName, string DisplayName);
 
@@ -107,47 +78,20 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             .ToHashSet(StringComparer.Ordinal);
         var runtimeProxies = activeProxies.Select(Clone).ToList();
         var customGroupEntries = new List<CustomProxyGroupEntry>();
-        var topology = SubscriptionChainProxyTopology.Create(activeProxies, proxyGroups, disabledNames);
-        var cyclicBuiltinNames = activeProxies
-            .Select(proxy => new
-            {
-                Name = Scalar(proxy, "name"),
-                DialerProxy = Scalar(proxy, "dialer-proxy")
-            })
-            .Where(proxy => !string.IsNullOrWhiteSpace(proxy.Name)
-                && !string.IsNullOrWhiteSpace(proxy.DialerProxy)
-                && topology.HasDialerProxyCycle(proxy.Name, proxy.DialerProxy))
-            .Select(proxy => proxy.Name)
-            .Distinct(StringComparer.Ordinal)
-            .ToList();
-        var cyclicCustomChains = new List<SubscriptionCustomChainProxyCycle>();
-
         foreach (var customProxy in subscription.CustomChainProxies.Where(item => item.IsEnabled))
         {
             var customBuild = BuildRuntimeDialerProxies(
                 proxyByName,
                 proxyGroups,
                 occupiedNames,
-                topology,
                 customProxy);
             var runtimeDialerProxies = customBuild.Proxies;
-            if (customBuild.HasCycle)
-            {
-                cyclicCustomChains.Add(new SubscriptionCustomChainProxyCycle(
-                    customProxy.Id,
-                    customProxy.DisplayName.Trim()));
-            }
 
             if (runtimeDialerProxies.Count > 0)
             {
                 customGroupEntries.Add(new CustomProxyGroupEntry(
                     customProxy.ProxyGroupName.Trim(),
                     customProxy.DisplayName.Trim()));
-                topology.AddCustomChain(
-                    customProxy.ProxyGroupName.Trim(),
-                    customProxy.DisplayName.Trim(),
-                    FirstValidHopName(customProxy),
-                    runtimeDialerProxies.Select(proxy => Scalar(proxy, "name")).ToList());
             }
 
             foreach (var runtimeProxy in runtimeDialerProxies)
@@ -164,15 +108,13 @@ public sealed class SubscriptionChainProxyRuntimeApplier
 
         return new RuntimeConfigBuildResult(
             new YamlSequenceNode(runtimeProxies),
-            BuildProxyGroups(proxyGroups, disabledBuiltinNames, customGroupEntries),
-            new SubscriptionChainProxyValidationResult(cyclicBuiltinNames, cyclicCustomChains));
+            BuildProxyGroups(proxyGroups, disabledBuiltinNames, customGroupEntries));
     }
 
     private static RuntimeDialerProxyBuildResult BuildRuntimeDialerProxies(
         IReadOnlyDictionary<string, YamlMappingNode> proxyByName,
         IReadOnlyList<YamlMappingNode> proxyGroups,
         HashSet<string> occupiedNames,
-        SubscriptionChainProxyTopology topology,
         SubscriptionCustomChainProxy customProxy)
     {
         var hops = customProxy.Hops
@@ -189,7 +131,7 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             || hops.Skip(1).Any(hop => hop.Kind != SubscriptionChainProxyHopKind.Proxy)
             || hops.Count(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup) > 1)
         {
-            return new RuntimeDialerProxyBuildResult([], false);
+            return new RuntimeDialerProxyBuildResult([]);
         }
 
         var firstHop = hops[0];
@@ -198,12 +140,12 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             || (firstHop.Kind == SubscriptionChainProxyHopKind.Proxy
                 && !proxyByName.ContainsKey(firstHop.Name)))
         {
-            return new RuntimeDialerProxyBuildResult([], false);
+            return new RuntimeDialerProxyBuildResult([]);
         }
 
         if (hops.Skip(1).Any(hop => !proxyByName.ContainsKey(hop.Name)))
         {
-            return new RuntimeDialerProxyBuildResult([], false);
+            return new RuntimeDialerProxyBuildResult([]);
         }
 
         var plannedOccupiedNames = occupiedNames.ToHashSet(StringComparer.Ordinal);
@@ -214,11 +156,6 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             runtimeNames.Add(index == hops.Count - 1
                 ? displayName
                 : ReserveInternalProxyName(customProxy, index, plannedOccupiedNames));
-        }
-
-        if (topology.WouldCreateCustomChainCycle(proxyGroupName, firstHop.Name, runtimeNames))
-        {
-            return new RuntimeDialerProxyBuildResult([], true);
         }
 
         occupiedNames.UnionWith(runtimeNames);
@@ -235,7 +172,7 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             previousName = runtimeName;
         }
 
-        return new RuntimeDialerProxyBuildResult(result, false);
+        return new RuntimeDialerProxyBuildResult(result);
     }
 
     private static YamlSequenceNode BuildProxyGroups(
@@ -337,13 +274,6 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             .Select(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' ? ch : '_')
             .ToArray();
         return chars.Length == 0 ? "custom" : new string(chars);
-    }
-
-    private static string FirstValidHopName(SubscriptionCustomChainProxy customProxy)
-    {
-        return customProxy.Hops
-            .Select(hop => hop.Name.Trim())
-            .First(name => !string.IsNullOrWhiteSpace(name));
     }
 
     private static IReadOnlyList<YamlMappingNode> ReadMappingSequence(YamlMappingNode root, string key)

@@ -457,6 +457,107 @@ public sealed class MainWindowShellTests
         Assert.Equal(["current"], runtimeStore.SavedSubscriptionIds);
     }
 
+    [Fact(DisplayName = "Runtime cycle warning keeps the user chain enabled and generated")]
+    public async Task RuntimeCycleWarningKeepsUserChainEnabledAndGenerated()
+    {
+        var subscription = Subscription("current") with
+        {
+            CustomChainProxies =
+            [
+                new SubscriptionCustomChainProxy(
+                    "cycle",
+                    "Cyclic chain",
+                    "Owner",
+                    [
+                        new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, "Auto Entry"),
+                        new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, "JP")
+                    ])
+            ]
+        };
+        var subscriptionStore = new FakeSubscriptionStore([subscription]);
+        subscriptionStore.SaveContent("current",
+            """
+            proxies:
+              - name: JP
+                type: ss
+                server: jp.example
+            proxy-groups:
+              - name: Owner
+                type: select
+                proxies: [JP]
+              - name: Auto Entry
+                type: select
+                include-all-proxies: true
+            rules: []
+            """);
+        var selectionStore = new FakeSubscriptionSelectionStore("current");
+        var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
+        var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: CreateSubscriptionDeleter(),
+            subscriptionStore: subscriptionStore,
+            subscriptionSelectionStore: selectionStore);
+        subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
+        var snapshot = new ProxyRuntimeSnapshot(
+        [
+            new ProxyRuntimeEntry("Cyclic chain", "Shadowsocks", null, null, [], false, DialerProxy: "Auto Entry"),
+            new ProxyRuntimeEntry("Owner", "Selector", "Cyclic chain", null, ["Cyclic chain"], false),
+            new ProxyRuntimeEntry("Auto Entry", "Selector", "Cyclic chain", null, ["Cyclic chain"], false)
+        ]);
+        var proxyPage = new ProxyPageViewModel(primaryConfigProvider: new FakeProxyConfigProvider(
+            new ProxyConfig(
+                [
+                    new ProxyGroup("Owner", "Selector", "Cyclic chain", ["Cyclic chain"]),
+                    new ProxyGroup("Auto Entry", "Selector", "Cyclic chain", ["Cyclic chain"])
+                ],
+                new Dictionary<string, ProxyNode> { ["Cyclic chain"] = new("Cyclic chain", "Shadowsocks") }),
+            snapshot));
+        using var viewModel = CreateViewModel(
+            proxyPage: proxyPage,
+            subscriptionPage: subscriptionPage,
+            runtimeFallbackGenerator: CreateRuntimeFallbackGenerator(subscriptionStore, selectionStore, runtimeStore),
+            runtimeStore: runtimeStore,
+            coreManager: new FakeCoreManager());
+
+        subscriptionPage.ApplySubscriptionUpdateResult(new SubscriptionUpdateResult(["current"], []));
+        await WaitUntilAsync(() => runtimeStore.SaveCount == 1 && viewModel.IsToastVisible);
+
+        Assert.Equal(ToastType.Warning, viewModel.ToastType);
+        Assert.Equal("检测到链式代理循环引用", viewModel.ToastMessage);
+        Assert.True(subscriptionStore.LoadSubscriptions().Single().CustomChainProxies.Single().IsEnabled);
+        Assert.Contains("name: Cyclic chain", runtimeStore.SavedRuntimeConfigContents.Single(), StringComparison.Ordinal);
+    }
+
+    [Fact(DisplayName = "Core rejected cycle warns before reverting to empty runtime")]
+    public async Task CoreRejectedCycleWarnsBeforeRevertingToEmptyRuntime()
+    {
+        var subscriptionStore = new FakeSubscriptionStore([Subscription("current")]);
+        var selectionStore = new FakeSubscriptionSelectionStore("current");
+        var runtimeStore = new FakeSelectedSubscriptionRuntimeStore();
+        var subscriptionPage = new SubscriptionPageViewModel(
+            subscriptionDeleter: CreateSubscriptionDeleter(),
+            subscriptionStore: subscriptionStore,
+            subscriptionSelectionStore: selectionStore);
+        subscriptionPage.LoadSubscriptions(subscriptionStore.LoadSubscriptions());
+        var coreManager = new FakeCoreManager
+        {
+            ApplyHandler = request => request.SubscriptionId.Length > 0
+                ? Task.FromException<CoreApplyConfigResult>(new InvalidOperationException("loop is detected in ProxyGroup"))
+                : Task.FromResult(new CoreApplyConfigResult(CoreApplyMode.Reload, 100))
+        };
+        using var viewModel = CreateViewModel(
+            subscriptionPage: subscriptionPage,
+            runtimeFallbackGenerator: CreateRuntimeFallbackGenerator(subscriptionStore, selectionStore, runtimeStore),
+            runtimeStore: runtimeStore,
+            coreManager: coreManager);
+
+        subscriptionPage.ApplySubscriptionUpdateResult(new SubscriptionUpdateResult(["current"], []));
+        await WaitUntilAsync(() => runtimeStore.SaveEmptyCount == 1 && viewModel.IsToastVisible);
+
+        Assert.Equal(ToastType.Warning, viewModel.ToastType);
+        Assert.Equal("检测到链式代理循环引用", viewModel.ToastMessage);
+        Assert.Equal(new CoreApplyConfigRequest("empty.runtime.yaml", string.Empty), coreManager.ApplyRequests.Last());
+    }
+
     [Fact(DisplayName = "Mixed port runtime apply reapplies enabled system proxy after core accepts config")]
     public async Task MixedPortRuntimeApplyReappliesEnabledSystemProxyAfterCoreAcceptsConfig()
     {
@@ -951,13 +1052,19 @@ public sealed class MainWindowShellTests
 
         public string GetString(string key)
         {
-            return $"{key}:{CurrentLanguage}";
+            return key == "RuntimeConfig.Toast.ChainProxyCycleWarning"
+                ? "检测到链式代理循环引用"
+                : $"{key}:{CurrentLanguage}";
         }
     }
 
-    private sealed class FakeProxyConfigProvider(ProxyConfig config) : IProxyConfigProvider
+    private sealed class FakeProxyConfigProvider(
+        ProxyConfig config,
+        ProxyRuntimeSnapshot? snapshot = null) : IProxyConfigProvider, IProxyRuntimeSnapshotSource
     {
         public int LoadCount { get; private set; }
+
+        public ProxyRuntimeSnapshot? LastSnapshot => snapshot;
 
         public Task<ProxyConfig> LoadAsync(CancellationToken cancellationToken = default)
         {
