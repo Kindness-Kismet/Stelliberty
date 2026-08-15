@@ -402,3 +402,24 @@ jobs:
             "repos/Kindness-Kismet/stelliberty/releases/${RELEASE_ID}" \
             -F draft=false \
             -F prerelease=true
+
+      - name: Discard unpublished beta release
+        if: ${{ failure() || cancelled() }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+
+          release_id="$(
+            gh api --paginate --slurp 'repos/Kindness-Kismet/stelliberty/releases?per_page=100' |
+              jq -r --arg tag "${TAG}" '[.[][] | select(.draft and .tag_name == $tag) | .id] | first // empty'
+          )"
+          if [ -z "${release_id}" ]; then
+            echo 'No unpublished beta release to discard.'
+            exit 0
+          fi
+
+          gh api --method DELETE "repos/Kindness-Kismet/stelliberty/releases/${release_id}"
+          echo "::notice::Discarded unpublished beta release ${TAG}."

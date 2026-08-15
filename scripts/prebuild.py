@@ -70,6 +70,7 @@ def main() -> None:
     print(f"  Architecture   {arch}")
     print(f"  Configuration  {', '.join(c.capitalize() for c in args.configurations)}")
     print(f"  Proxy          {describe_proxy()}")
+    print()
 
     if args.clean:
         with timed_step("Clean workspace"):
