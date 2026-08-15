@@ -1,6 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+        xmlns:controls="using:Stelliberty.Desktop.Controls"
         xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
         x:CompileBindings="True">
   <!-- 跨页复用的原子基元: 图标/文本/按钮/标签/加载指示, 不含页面专属外观 -->

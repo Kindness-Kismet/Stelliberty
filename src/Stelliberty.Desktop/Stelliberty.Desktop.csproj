@@ -10,6 +10,7 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <OutputType>Exe</OutputType>
+    <HotAvaloniaMode>Aggressive</HotAvaloniaMode>
   </PropertyGroup>
 
   <ItemGroup>

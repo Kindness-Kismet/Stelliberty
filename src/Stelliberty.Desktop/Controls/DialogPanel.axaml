@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
              x:Class="Stelliberty.Desktop.Controls.DialogPanel"
              x:CompileBindings="True">
 
