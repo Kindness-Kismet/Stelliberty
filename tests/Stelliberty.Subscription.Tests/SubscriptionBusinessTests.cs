@@ -157,7 +157,7 @@ public sealed class SubscriptionBusinessTests
         page.CopyLinkCommand.Execute("missing");
 
         Assert.Equal(["https://sub.example/config.yaml"], clipboard.Texts);
-        Assert.Equal([("订阅链接已复制", ToastType.Success)], toasts);
+        Assert.Equal([("订阅链接复制成功", ToastType.Success)], toasts);
     }
 
     [Fact(DisplayName = "Page move subscription with transient item updates view but skips persisting order")]
@@ -1566,7 +1566,7 @@ public sealed class SubscriptionBusinessTests
                 "Subscriptions.Toast.ImportLocalSucceeded" => "本地订阅导入成功：{0}",
                 "Subscriptions.Toast.ImportRemoteFailed" => "远程订阅导入失败，请稍后重试",
                 "Subscriptions.Toast.ImportLocalFailed" => "本地订阅导入失败，请稍后重试",
-                "Subscriptions.Toast.LinkCopied" => "订阅链接已复制",
+                "Subscriptions.Toast.LinkCopied" => "订阅链接复制成功",
                 _ => key,
             };
         }
