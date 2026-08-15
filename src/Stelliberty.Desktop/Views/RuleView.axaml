@@ -129,9 +129,10 @@
                       <TextBlock Text="{Binding DuplicateText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AppWarningBrush}" />
                     </StackPanel>
                   </Grid>
-                  <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
-                    <ToggleSwitch Classes="rule-toggle" AutomationProperties.AutomationId="{Binding ToggleAutomationId}" ToolTip.Tip="{loc:Loc Rules.Tooltip.ToggleRule}" IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
-                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                ToolTip.Tip="{loc:Loc Rules.Tooltip.ToggleRule}"
+                                IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
                 </Grid>
               </Border>
             </DataTemplate>
@@ -157,7 +158,7 @@
                         <ComboBox Classes="dialog-input" Width="260" HorizontalAlignment="Left" HorizontalContentAlignment="Left" AutomationProperties.AutomationId="Rules.EditorDialog.TypeBox" ItemsSource="{Binding RuleTypes}" SelectedItem="{Binding SelectedRuleType, Mode=TwoWay}" DisplayMemberBinding="{Binding Name}" />
                       </StackPanel>
                       <!-- 左输入框仅在右侧下拉选中自定义代理组时可编辑，其余选项直接取下拉值 -->
-                      <Grid ColumnDefinitions="*,260" ColumnSpacing="12">
+                      <Grid ColumnDefinitions="*,260" ColumnSpacing="10">
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.CustomProxyName}" />
                           <TextBox Classes="dialog-input" Classes.error="{Binding IsProxyErrorVisible}" AutomationProperties.AutomationId="Rules.EditorDialog.ProxyBox" Text="{Binding Proxy, Mode=TwoWay}" IsEnabled="{Binding IsCustomOutboundTarget}" PlaceholderText="{loc:Loc Rules.Field.CustomProxyHint}" />

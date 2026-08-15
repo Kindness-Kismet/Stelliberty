@@ -483,7 +483,7 @@
                                                              VerticalAlignment="Center" />
                             <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.AutoUpdate.Title}" />
                           </StackPanel>
-                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <StackPanel Spacing="6">
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
                               <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
@@ -717,7 +717,7 @@
                                                              VerticalAlignment="Center" />
                             <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.AutoUpdate.Title}" />
                           </StackPanel>
-                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <StackPanel Spacing="6">
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
                               <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsAutoUpdateIntervalErrorVisible}"
@@ -1038,7 +1038,7 @@
                                   VerticalScrollBarVisibility="Auto"
                                   IsVisible="{Binding ChainProxy.IsDraftVisible}">
                       <StackPanel Margin="24,0,22,0" Spacing="14">
-                        <Grid ColumnDefinitions="*,260" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="*,260" ColumnSpacing="10">
                           <StackPanel Spacing="6">
                             <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
                             <TextBox Classes="dialog-input" Classes.error="{Binding ChainProxy.IsDraftNameErrorVisible}"
