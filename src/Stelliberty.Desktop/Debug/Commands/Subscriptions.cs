@@ -318,7 +318,7 @@ internal static partial class DebugCommands
             return ProviderState(page);
         }
 
-        if (string.Equals(spec, "tick auto-delay", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "trigger auto-delay", StringComparison.OrdinalIgnoreCase))
         {
             return await RunSubscriptionAutoDelayTestTickAsync(window);
         }

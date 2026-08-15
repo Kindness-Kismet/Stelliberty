@@ -92,7 +92,7 @@ internal static partial class DebugCommands
         {
             "domain" => RuleTypeBucket.Domain,
             "ip" => RuleTypeBucket.Ip,
-            "rule-set" or "ruleset" => RuleTypeBucket.RuleSet,
+            "rule-set" => RuleTypeBucket.RuleSet,
             "other" => RuleTypeBucket.Other,
             _ => RuleTypeBucket.All
         };
