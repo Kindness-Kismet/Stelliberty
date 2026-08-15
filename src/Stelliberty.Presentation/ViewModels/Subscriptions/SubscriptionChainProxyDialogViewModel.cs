@@ -133,6 +133,8 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
                 return;
             }
 
+            _draftHops.RemoveAll(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup
+                && string.Equals(hop.Name, value?.Name, StringComparison.Ordinal));
             if (_hasAttemptedDraftSubmit)
             {
                 ValidateDraftProxyGroup();
@@ -152,7 +154,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     public bool HasSelectedNodes => _isEditingDraft && _draftHops.Count > 0;
 
     public IReadOnlyList<SubscriptionChainProxyCandidateViewModel> Candidates => _isEditingDraft
-        ? _candidates
+        ? AvailableCandidates()
             .Select(candidate => new SubscriptionChainProxyCandidateViewModel(
                 candidate.Key,
                 candidate.Hop.Kind,
@@ -162,7 +164,7 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
             .ToList()
         : [];
 
-    public bool HasCandidates => _candidates.Count > 0;
+    public bool HasCandidates => AvailableCandidates().Any();
 
     public bool CanSaveDraft => _draftHops.Count(hop => !string.IsNullOrWhiteSpace(hop.Name)) >= MinHopCount;
 
@@ -338,7 +340,9 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         _draftId = custom.Id;
         _draftName = custom.DisplayName;
         _draftHops.Clear();
-        _draftHops.AddRange(custom.Hops.Where(hop => !string.IsNullOrWhiteSpace(hop.Name)));
+        _draftHops.AddRange(custom.Hops.Where(hop => !string.IsNullOrWhiteSpace(hop.Name)
+            && !(hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup
+                && string.Equals(hop.Name, custom.ProxyGroupName, StringComparison.Ordinal))));
         _draftProxyGroup = _proxyGroups.FirstOrDefault(group => string.Equals(group.Name, custom.ProxyGroupName, StringComparison.Ordinal));
         _isEditingDraft = true;
         ResetDraftValidation();
@@ -361,7 +365,9 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
         }
 
         var candidate = _candidates.FirstOrDefault(item => item.Key == key);
-        if (candidate is null)
+        if (candidate is null
+            || (candidate.Hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup
+                && string.Equals(candidate.Name, _draftProxyGroup?.Name, StringComparison.Ordinal)))
         {
             return;
         }
@@ -452,9 +458,6 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
             _draftProxyGroup!.Name,
             hops,
             existing?.IsEnabled ?? true);
-        var proposed = _customChainProxies.Where(item => item.Id != draftId).ToList();
-        proposed.Add(draft);
-
         _customChainProxies.RemoveAll(item => item.Id == draftId);
         _customChainProxies.Add(draft);
         ExitDraftState();
@@ -660,6 +663,12 @@ public sealed class SubscriptionChainProxyDialogViewModel : ViewModelBase, IDisp
     private string Localize(string key) => _localization?.GetString(key) ?? key;
 
     private string LocalizeError(string key) => string.IsNullOrEmpty(key) ? string.Empty : Localize(key);
+
+    private IEnumerable<ChainProxyHopOption> AvailableCandidates()
+    {
+        return _candidates.Where(candidate => candidate.Hop.Kind != SubscriptionChainProxyHopKind.ProxyGroup
+            || !string.Equals(candidate.Name, _draftProxyGroup?.Name, StringComparison.Ordinal));
+    }
 
     private static string HopKey(SubscriptionChainProxyHop hop) => $"{hop.Kind}:{hop.Name}";
 }

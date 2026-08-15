@@ -429,8 +429,8 @@ impl CoreRuntime {
                     return Ok(serde_json::json!({ "mode": "reload", "pid": pid }));
                 }
                 Err(e) => {
-                    // mihomo 配置解析错误不能回退重启，否则会保留坏配置。
-                    if let Some(ApiError::YamlInvalid(_)) = e.downcast_ref::<ApiError>() {
+                    // mihomo 拒绝候选配置时不能回退重启，否则会保留坏配置。
+                    if let Some(ApiError::ConfigRejected(_)) = e.downcast_ref::<ApiError>() {
                         let mut inner = self.state.lock().await;
                         replace_log_stream(
                             &mut inner,

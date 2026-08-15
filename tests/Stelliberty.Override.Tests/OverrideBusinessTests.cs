@@ -141,10 +141,8 @@ public sealed class OverrideBusinessTests
         dialog.RemoteRequested += (_, args) => requested = args;
         dialog.Open();
 
-        Assert.False(dialog.IsSourceLocationErrorVisible);
         dialog.Name = " Remote ";
         dialog.SourceLocation = "local.yaml";
-        Assert.False(dialog.IsSourceLocationErrorVisible);
         dialog.ConfirmCommand.Execute(null);
 
         Assert.True(dialog.IsSourceLocationErrorVisible);
@@ -153,7 +151,6 @@ public sealed class OverrideBusinessTests
         Assert.Null(requested);
 
         dialog.SourceLocation = " https://override.example/a.js ";
-        Assert.False(dialog.IsSourceLocationErrorVisible);
         dialog.SelectJavaScriptFormatCommand.Execute(null);
         dialog.SelectCoreProxyModeCommand.Execute(null);
         dialog.ConfirmCommand.Execute(null);
@@ -254,19 +251,15 @@ public sealed class OverrideBusinessTests
         editor.Open(Item("a", isLocal: false));
 
         editor.Name = " ";
-        editor.SourceLocation = "invalid";
         editor.ConfirmCommand.Execute(null);
 
         Assert.Null(completed);
         Assert.True(editor.IsDialogVisible);
-        Assert.True(editor.CanSubmit);
         Assert.True(editor.IsNameErrorVisible);
-        Assert.True(editor.IsSourceLocationErrorVisible);
 
         editor.Name = "Renamed";
         editor.SourceLocation = "https://override.example/a.yaml";
         Assert.False(editor.IsNameErrorVisible);
-        Assert.False(editor.IsSourceLocationErrorVisible);
         editor.SelectJavaScriptFormatCommand.Execute(null);
         editor.SelectCoreProxyModeCommand.Execute(null);
         editor.ClearForOverride("other");

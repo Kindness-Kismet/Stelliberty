@@ -53,9 +53,6 @@ public sealed class SubscriptionChainProxyRuntimeApplier
         YamlSequenceNode Proxies,
         YamlSequenceNode ProxyGroups);
 
-    private sealed record RuntimeDialerProxyBuildResult(
-        IReadOnlyList<YamlMappingNode> Proxies);
-
     private sealed record CustomProxyGroupEntry(string ProxyGroupName, string DisplayName);
 
     private static RuntimeConfigBuildResult BuildRuntimeConfig(
@@ -80,12 +77,11 @@ public sealed class SubscriptionChainProxyRuntimeApplier
         var customGroupEntries = new List<CustomProxyGroupEntry>();
         foreach (var customProxy in subscription.CustomChainProxies.Where(item => item.IsEnabled))
         {
-            var customBuild = BuildRuntimeDialerProxies(
+            var runtimeDialerProxies = BuildRuntimeDialerProxies(
                 proxyByName,
                 proxyGroups,
                 occupiedNames,
                 customProxy);
-            var runtimeDialerProxies = customBuild.Proxies;
 
             if (runtimeDialerProxies.Count > 0)
             {
@@ -111,7 +107,7 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             BuildProxyGroups(proxyGroups, disabledBuiltinNames, customGroupEntries));
     }
 
-    private static RuntimeDialerProxyBuildResult BuildRuntimeDialerProxies(
+    private static IReadOnlyList<YamlMappingNode> BuildRuntimeDialerProxies(
         IReadOnlyDictionary<string, YamlMappingNode> proxyByName,
         IReadOnlyList<YamlMappingNode> proxyGroups,
         HashSet<string> occupiedNames,
@@ -131,7 +127,7 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             || hops.Skip(1).Any(hop => hop.Kind != SubscriptionChainProxyHopKind.Proxy)
             || hops.Count(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup) > 1)
         {
-            return new RuntimeDialerProxyBuildResult([]);
+            return [];
         }
 
         var firstHop = hops[0];
@@ -140,12 +136,12 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             || (firstHop.Kind == SubscriptionChainProxyHopKind.Proxy
                 && !proxyByName.ContainsKey(firstHop.Name)))
         {
-            return new RuntimeDialerProxyBuildResult([]);
+            return [];
         }
 
         if (hops.Skip(1).Any(hop => !proxyByName.ContainsKey(hop.Name)))
         {
-            return new RuntimeDialerProxyBuildResult([]);
+            return [];
         }
 
         var plannedOccupiedNames = occupiedNames.ToHashSet(StringComparer.Ordinal);
@@ -172,7 +168,7 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             previousName = runtimeName;
         }
 
-        return new RuntimeDialerProxyBuildResult(result);
+        return result;
     }
 
     private static YamlSequenceNode BuildProxyGroups(

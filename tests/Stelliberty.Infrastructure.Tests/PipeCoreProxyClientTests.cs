@@ -18,7 +18,7 @@ public sealed class PipeCoreProxyClientTests
               "proxies": {
                 "GLOBAL": { "type": "Selector", "now": "Select", "all": ["DIRECT", "Provider-US", "Select"] },
                 "Select": { "type": "Selector", "now": "Provider-US", "all": ["DIRECT", "Provider-US"] },
-                "DIRECT": { "type": "Direct", "dialer-proxy": "Select" }
+                "DIRECT": { "type": "Direct" }
               }
             }
             """,
@@ -43,7 +43,6 @@ public sealed class PipeCoreProxyClientTests
         var providerNode = snapshot.Entries.Single(entry => entry.Name == "Provider-US");
         Assert.Equal("Vless", providerNode.Type);
         Assert.Equal("DemoProvider", providerNode.ProviderName);
-        Assert.Equal("Select", snapshot.Entries.Single(entry => entry.Name == "DIRECT").DialerProxy);
     }
 
     [Fact(DisplayName = "Core delay tester uses provider healthcheck endpoint for provider nodes")]

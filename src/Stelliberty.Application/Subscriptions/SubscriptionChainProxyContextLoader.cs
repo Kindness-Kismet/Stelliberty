@@ -13,6 +13,7 @@ public sealed class SubscriptionChainProxyContextLoader(
     IOverrideStore? overrideStore = null)
 {
     private readonly SubscriptionOverrideResolver _overrideResolver = new(overrideStore);
+
     public SubscriptionChainProxyContext Load(string subscriptionId)
     {
         var subscription = subscriptionStore.LoadSubscriptions().FirstOrDefault(item => item.Id == subscriptionId)

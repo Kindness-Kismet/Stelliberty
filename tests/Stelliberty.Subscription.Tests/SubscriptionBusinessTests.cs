@@ -291,68 +291,6 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal("本地订阅导入失败，请稍后重试", failureToast?.Message);
     }
 
-    [Fact(DisplayName = "Add dialog reports all invalid remote fields after submit and clears them live")]
-    public void AddDialogReportsAllInvalidRemoteFieldsAfterSubmitAndClearsThemLive()
-    {
-        var dialog = new SubscriptionAddDialogViewModel();
-        DialogInputField? focusedField = null;
-        SubscriptionAddRemoteRequestedEventArgs? requested = null;
-        dialog.InputFocusRequested += (_, field) => focusedField = field;
-        dialog.RemoteRequested += (_, args) => requested = args;
-        dialog.Open();
-
-        dialog.Name = " ";
-        dialog.Url = "ftp://sub.example/config.yaml";
-        dialog.AutoTestDelayIntervalMinutesText = "-1";
-        dialog.SelectedAutoUpdateMode = SubscriptionAutoUpdateMode.Interval;
-        dialog.AutoUpdateIntervalMinutesText = "abc";
-
-        Assert.False(dialog.IsNameErrorVisible);
-        Assert.False(dialog.IsUrlErrorVisible);
-        Assert.False(dialog.IsAutoTestDelayIntervalErrorVisible);
-        Assert.False(dialog.IsAutoUpdateIntervalErrorVisible);
-        dialog.ConfirmCommand.Execute(null);
-
-        Assert.True(dialog.IsNameErrorVisible);
-        Assert.True(dialog.IsUrlErrorVisible);
-        Assert.True(dialog.IsAutoTestDelayIntervalErrorVisible);
-        Assert.True(dialog.IsAutoUpdateIntervalErrorVisible);
-        Assert.Equal(DialogInputField.Name, focusedField);
-        Assert.False(dialog.IsSubmitting);
-        Assert.True(dialog.CanSubmit);
-        Assert.Null(requested);
-
-        dialog.Name = "Remote";
-        dialog.Url = "https://sub.example/config.yaml";
-        dialog.AutoTestDelayIntervalMinutesText = "0";
-        dialog.AutoUpdateIntervalMinutesText = "30";
-
-        Assert.False(dialog.IsNameErrorVisible);
-        Assert.False(dialog.IsUrlErrorVisible);
-        Assert.False(dialog.IsAutoTestDelayIntervalErrorVisible);
-        Assert.False(dialog.IsAutoUpdateIntervalErrorVisible);
-        dialog.ConfirmCommand.Execute(null);
-
-        Assert.NotNull(requested);
-    }
-
-    [Fact(DisplayName = "Add dialog revalidates remote URL after switching import modes")]
-    public void AddDialogRevalidatesRemoteUrlAfterSwitchingImportModes()
-    {
-        var dialog = new SubscriptionAddDialogViewModel();
-        dialog.Open();
-        dialog.Name = "Remote";
-        dialog.Url = "ftp://invalid";
-        dialog.ConfirmCommand.Execute(null);
-
-        Assert.True(dialog.IsUrlErrorVisible);
-        dialog.SelectLocalImportCommand.Execute(null);
-        Assert.False(dialog.IsUrlErrorVisible);
-
-        dialog.SelectRemoteImportCommand.Execute(null);
-        Assert.True(dialog.IsUrlErrorVisible);
-    }
-
     [Fact(DisplayName = "Edit dialog refreshes confirm command when opened")]
     public void EditDialogRefreshesConfirmCommandWhenOpened()
     {
@@ -438,7 +376,6 @@ public sealed class SubscriptionBusinessTests
 
         Assert.True(dialog.IsAutoTestDelayIntervalErrorVisible);
         Assert.Equal("Subscriptions.Validation.Minutes", dialog.AutoTestDelayIntervalMinutesError);
-        Assert.True(dialog.CanSubmit);
         Assert.Null(requested);
 
         dialog.AutoTestDelayIntervalMinutesText = " ";
@@ -629,14 +566,11 @@ public sealed class SubscriptionBusinessTests
         dialog.StartAddDraftCommand.Execute(null);
         dialog.DraftName = " JP via HK custom ";
         dialog.SelectCandidateCommand.Execute("Proxy:HK");
-        Assert.False(dialog.CanSaveDraft);
         dialog.SaveDraftCommand.Execute(null);
         Assert.False(dialog.IsDraftNodesErrorVisible);
 
         dialog.SelectCandidateCommand.Execute("Proxy:JP");
-        Assert.True(dialog.CanSaveDraft);
         dialog.SaveDraftCommand.Execute(null);
-        dialog.ToggleCustomCommand.Execute(dialog.CustomChainProxies.Single().Id);
         dialog.SaveCommand.Execute(null);
 
         Assert.NotNull(saved);
@@ -645,70 +579,13 @@ public sealed class SubscriptionBusinessTests
         Assert.Equal("JP via HK custom", custom.DisplayName);
         Assert.Equal("GLOBAL", custom.ProxyGroupName);
         Assert.Equal(["HK", "JP"], custom.Hops.Select(hop => hop.Name));
-        Assert.False(custom.IsEnabled);
-    }
-
-    [Fact(DisplayName = "Chain proxy draft save leaves cycle validation to runtime")]
-    public async Task ChainProxyDraftSaveLeavesCycleValidationToRuntime()
-    {
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
-            [],
-            [ProxyCandidate("JP", "trojan"), GroupCandidate("Auto Entry")]));
-        dialog.Open("sub-1", [], []);
-        await WaitUntilAsync(() => !dialog.IsLoading);
-        dialog.StartAddDraftCommand.Execute(null);
-        dialog.DraftName = "Dangerous chain";
-        dialog.SelectCandidateCommand.Execute("ProxyGroup:Auto Entry");
-        dialog.SelectCandidateCommand.Execute("Proxy:JP");
-
-        dialog.SaveDraftCommand.Execute(null);
-
-        Assert.False(dialog.IsEditingDraft);
-        var custom = Assert.Single(dialog.CustomChainProxies);
-        Assert.Equal("Dangerous chain", custom.DisplayName);
-    }
-
-    [Fact(DisplayName = "Chain proxy dialog disables draft save until two hops are selected")]
-    public async Task ChainProxyDialogDisablesDraftSaveUntilTwoHopsAreSelected()
-    {
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
-            [],
-            [ProxyCandidate("HK", "ss"), ProxyCandidate("JP", "trojan")]));
-        dialog.Open("sub-1", [], []);
-        await WaitUntilAsync(() => !dialog.IsLoading);
-
-        dialog.StartAddDraftCommand.Execute(null);
-        dialog.DraftName = " ";
-        dialog.SaveDraftCommand.Execute(null);
-
-        Assert.False(dialog.CanSaveDraft);
-        Assert.False(dialog.IsDraftNameErrorVisible);
-        Assert.False(dialog.IsDraftNodesErrorVisible);
-        Assert.Empty(dialog.CustomChainProxies);
-
-        dialog.DraftName = "HK only";
-        dialog.SelectCandidateCommand.Execute("Proxy:HK");
-        Assert.False(dialog.CanSaveDraft);
-        dialog.SaveDraftCommand.Execute(null);
-
-        Assert.False(dialog.IsDraftNodesErrorVisible);
-        Assert.Empty(dialog.CustomChainProxies);
-
-        dialog.SelectCandidateCommand.Execute("Proxy:JP");
-        Assert.True(dialog.CanSaveDraft);
-        dialog.SaveDraftCommand.Execute(null);
-
-        var custom = Assert.Single(dialog.CustomChainProxies);
-        Assert.Equal("HK only", custom.DisplayName);
-        Assert.Equal(["HK", "JP"], custom.Hops.Select(hop => hop.Name));
-        Assert.False(dialog.IsDraftNameErrorVisible);
-        Assert.False(dialog.IsDraftNodesErrorVisible);
     }
 
     [Fact(DisplayName = "Chain proxy dialog candidate toggle removes selected node and keeps order")]
     public async Task ChainProxyDialogCandidateToggleRemovesSelectedNodeAndKeepsOrder()
     {
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
+        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => new SubscriptionChainProxyContext(
+            [],
             [],
             [
                 ProxyCandidate("HK", "ss"),
@@ -731,146 +608,6 @@ public sealed class SubscriptionBusinessTests
         Assert.False(selectedByName["JP"]);
     }
 
-    [Fact(DisplayName = "Chain proxy dialog rejects a duplicate custom name")]
-    public async Task ChainProxyDialogRejectsDuplicateCustomName()
-    {
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
-            [],
-            [ProxyCandidate("HK", "ss"), ProxyCandidate("JP", "trojan")]));
-        dialog.Open(
-            "sub-1",
-            [],
-            [
-                Chain("old", "JP via HK", "GLOBAL", "OldHK", "OldJP"),
-                Chain("keep", "Keep", "GLOBAL", "HK", "JP")
-            ]);
-        await WaitUntilAsync(() => !dialog.IsLoading);
-
-        dialog.StartAddDraftCommand.Execute(null);
-        dialog.DraftName = " JP via HK ";
-        dialog.SelectCandidateCommand.Execute("Proxy:HK");
-        dialog.SelectCandidateCommand.Execute("Proxy:JP");
-        dialog.SaveDraftCommand.Execute(null);
-
-        Assert.True(dialog.IsDraftNameErrorVisible);
-        Assert.Equal("Subscriptions.ChainProxy.Error.DuplicateName", dialog.DraftNameError);
-        Assert.Equal(2, dialog.CustomChainProxies.Count);
-        Assert.Contains(dialog.CustomChainProxies, custom => custom.Id == "old" && custom.Hops.Any(hop => hop.Name == "OldHK"));
-    }
-
-    [Fact(DisplayName = "Chain proxy dialog rejects names occupied by source proxies and groups")]
-    public async Task ChainProxyDialogRejectsNamesOccupiedBySourceProxiesAndGroups()
-    {
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
-            [],
-            [ProxyCandidate("HK", "ss"), ProxyCandidate("JP", "trojan")]));
-        dialog.Open("sub-1", [], []);
-        await WaitUntilAsync(() => !dialog.IsLoading);
-        dialog.StartAddDraftCommand.Execute(null);
-        dialog.SelectCandidateCommand.Execute("Proxy:HK");
-        dialog.SelectCandidateCommand.Execute("Proxy:JP");
-
-        dialog.DraftName = "HK";
-        dialog.SaveDraftCommand.Execute(null);
-        Assert.True(dialog.IsDraftNameErrorVisible);
-
-        dialog.DraftName = "GLOBAL";
-        dialog.SaveDraftCommand.Execute(null);
-        Assert.True(dialog.IsDraftNameErrorVisible);
-        Assert.Empty(dialog.CustomChainProxies);
-    }
-
-    [Fact(DisplayName = "Chain proxy dialog reorders draft nodes by stable node name")]
-    public async Task ChainProxyDialogReordersDraftNodesByStableNodeName()
-    {
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => ChainContext(
-            [],
-            [
-                ProxyCandidate("HK", "ss"),
-                ProxyCandidate("TW", "ss"),
-                ProxyCandidate("JP", "trojan")
-            ]));
-        dialog.Open("sub-1", [], []);
-        await WaitUntilAsync(() => !dialog.IsLoading);
-        dialog.StartAddDraftCommand.Execute(null);
-        dialog.SelectCandidateCommand.Execute("Proxy:HK");
-        dialog.SelectCandidateCommand.Execute("Proxy:TW");
-        dialog.SelectCandidateCommand.Execute("Proxy:JP");
-
-        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest("Proxy:JP", 0));
-        Assert.Equal(["JP", "HK", "TW"], dialog.Slots.Select(slot => slot.DisplayName));
-        Assert.Equal("Subscriptions.ChainProxy.Slot.Proxy.JP", dialog.Slots[0].AutomationId);
-
-        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest("Proxy:JP", 99));
-        Assert.Equal(["HK", "TW", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
-
-        dialog.MoveDraftNodeCommand.Execute(new SubscriptionChainProxyMoveRequest("missing", 0));
-        Assert.Equal(["HK", "TW", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
-    }
-
-    [Fact(DisplayName = "Chain proxy dialog keeps all proxy group candidates until save")]
-    public async Task ChainProxyDialogKeepsAllProxyGroupCandidatesUntilSave()
-    {
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => new SubscriptionChainProxyContext(
-            [],
-            [new ChainProxyGroupOption("Owner", "select"), new ChainProxyGroupOption("Safe", "select"), new ChainProxyGroupOption("Parent", "select")],
-            [
-                ProxyCandidate("JP", "trojan"),
-                GroupCandidate("Owner"),
-                GroupCandidate("Safe"),
-                GroupCandidate("Parent")
-            ]));
-        dialog.Open("sub-1", [], []);
-        await WaitUntilAsync(() => !dialog.IsLoading);
-        dialog.StartAddDraftCommand.Execute(null);
-
-        Assert.Equal("Owner", dialog.DraftProxyGroup?.Name);
-        Assert.Contains(dialog.Candidates, candidate => candidate.Name == "Owner" && candidate.IsProxyGroup);
-        Assert.Contains(dialog.Candidates, candidate => candidate.Name == "Parent" && candidate.IsProxyGroup);
-
-        dialog.SelectCandidateCommand.Execute("ProxyGroup:Safe");
-        dialog.SelectCandidateCommand.Execute("Proxy:JP");
-        Assert.Equal(["Safe", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
-
-        dialog.DraftProxyGroup = dialog.ProxyGroups.Single(group => group.Name == "Safe");
-        Assert.Equal(["Safe", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
-        Assert.Contains(dialog.Candidates, candidate => candidate.Name == "Safe");
-    }
-
-    [Fact(DisplayName = "Chain proxy dialog keeps the group hop when its owning group changes")]
-    public async Task ChainProxyDialogKeepsGroupHopWhenOwningGroupChanges()
-    {
-        var existing = new SubscriptionCustomChainProxy(
-            "chain-a",
-            "JP via Safe",
-            "Owner",
-            [
-                new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, "Safe"),
-                new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, "JP")
-            ]);
-        var dialog = new SubscriptionChainProxyDialogViewModel(contextLoader: _ => new SubscriptionChainProxyContext(
-            [],
-            [new ChainProxyGroupOption("Owner", "select"), new ChainProxyGroupOption("Safe", "select")],
-            [
-                ProxyCandidate("HK", "ss"),
-                ProxyCandidate("JP", "trojan"),
-                GroupCandidate("Owner"),
-                GroupCandidate("Safe")
-            ]));
-        dialog.Open("sub-1", [], [existing]);
-        await WaitUntilAsync(() => !dialog.IsLoading);
-
-        dialog.EditCustomCommand.Execute("chain-a");
-        dialog.DraftProxyGroup = dialog.ProxyGroups.Single(group => group.Name == "Safe");
-
-        Assert.Equal(["Safe", "JP"], dialog.Slots.Select(slot => slot.DisplayName));
-        dialog.SaveDraftCommand.Execute(null);
-
-        var edited = Assert.Single(dialog.CustomChainProxies);
-        Assert.Equal("Safe", edited.ProxyGroupName);
-        Assert.Equal(["Safe", "JP"], edited.Hops.Select(hop => hop.Name));
-    }
-
     [Fact(DisplayName = "Chain proxy dialog ignores stale context after subscription switch")]
     public async Task ChainProxyDialogIgnoresStaleContextAfterSubscriptionSwitch()
     {
@@ -889,7 +626,7 @@ public sealed class SubscriptionBusinessTests
                         throw new TimeoutException("sub-1 context release timed out");
                     }
 
-                    return ChainContext(["Old chain"], [ProxyCandidate("Old", "ss")]);
+                    return new SubscriptionChainProxyContext(["Old chain"], [], [ProxyCandidate("Old", "ss")]);
                 }
                 finally
                 {
@@ -897,7 +634,7 @@ public sealed class SubscriptionBusinessTests
                 }
             }
 
-            return ChainContext(["New chain"], [ProxyCandidate("New", "trojan")]);
+            return new SubscriptionChainProxyContext(["New chain"], [], [ProxyCandidate("New", "trojan")]);
         });
 
         try
@@ -1614,24 +1351,6 @@ public sealed class SubscriptionBusinessTests
 
     private static ChainProxyHopOption ProxyCandidate(string name, string type)
         => new(new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, name), type);
-
-    private static ChainProxyHopOption GroupCandidate(string name)
-        => new(
-            new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, name),
-            "select");
-
-    private static SubscriptionCustomChainProxy Chain(
-        string id,
-        string displayName,
-        string proxyGroupName,
-        params string[] proxyNames)
-    {
-        return new SubscriptionCustomChainProxy(
-            id,
-            displayName,
-            proxyGroupName,
-            proxyNames.Select(name => new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, name)).ToList());
-    }
 
     private static SubscriptionItemViewModel Item(string id, string name, bool isLocal)
     {

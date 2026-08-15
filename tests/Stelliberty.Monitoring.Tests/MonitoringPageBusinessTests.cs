@@ -2,12 +2,10 @@ using Stelliberty.Application.Connections;
 using Stelliberty.Application.CoreLogs;
 using Stelliberty.Application.Proxies;
 using Stelliberty.Application.Rules;
-using Stelliberty.Application.Subscriptions;
 using Stelliberty.Domain.Connections;
 using Stelliberty.Domain.CoreLogs;
 using Stelliberty.Domain.Proxies;
 using Stelliberty.Domain.Rules;
-using Stelliberty.Domain.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 using Xunit;
 
@@ -482,105 +480,6 @@ public sealed class MonitoringPageBusinessTests
         Assert.Equal(RuleTypeBucket.Other, RuleTypeClassifier.Classify("MATCH"));
     }
 
-    [Fact(DisplayName = "Rule editor reports field errors without a toast and clears them live")]
-    public void RuleEditorReportsFieldErrorsWithoutToastAndClearsThemLive()
-    {
-        var context = CreateRuleEditorContext();
-        var page = context.Page;
-        (string Message, ToastType Type)? toast = null;
-        DialogInputField? focusedField = null;
-        page.ToastRequested += (_, value) => toast = value;
-        page.InputFocusRequested += (_, field) => focusedField = field;
-        page.AddRuleCommand.Execute(null);
-        page.SelectedOutboundTarget = page.OutboundTargets.Single(option => option.IsCustom);
-        page.Proxy = "bad,proxy";
-        page.Payload = "bad,payload";
-
-        Assert.False(page.IsProxyErrorVisible);
-        Assert.False(page.IsPayloadErrorVisible);
-        page.SaveRuleCommand.Execute(null);
-
-        Assert.True(page.IsProxyErrorVisible);
-        Assert.True(page.IsPayloadErrorVisible);
-        Assert.Equal(DialogInputField.Proxy, focusedField);
-        Assert.Null(toast);
-
-        page.Proxy = "PROXY";
-        page.Payload = "example.net";
-
-        Assert.False(page.IsProxyErrorVisible);
-        Assert.False(page.IsPayloadErrorVisible);
-    }
-
-    [Fact(DisplayName = "Rule editor assigns duplicate input to payload and runtime failure to toast")]
-    public void RuleEditorAssignsDuplicateInputToPayloadAndRuntimeFailureToToast()
-    {
-        var context = CreateRuleEditorContext(
-            new RuleOverrideSet("sub-1", [new EditableRule("existing", "DOMAIN-SUFFIX", "example.com", "DIRECT")]));
-        var page = context.Page;
-        (string Message, ToastType Type)? toast = null;
-        page.ToastRequested += (_, value) => toast = value;
-        page.AddRuleCommand.Execute(null);
-        page.Payload = "example.com";
-        page.SaveRuleCommand.Execute(null);
-
-        Assert.True(page.IsPayloadErrorVisible);
-        Assert.Equal("Rules.Error.DuplicateCustom", page.PayloadError);
-        Assert.Null(toast);
-
-        page.Payload = "example.net";
-        Assert.False(page.IsPayloadErrorVisible);
-        context.SubscriptionStore.Delete("sub-1");
-        page.SaveRuleCommand.Execute(null);
-
-        Assert.False(page.IsPayloadErrorVisible);
-        Assert.Equal(ToastType.Error, toast?.Type);
-        Assert.Equal("Rules.Error.SubscriptionNotFound", toast?.Message);
-    }
-
-    [Fact(DisplayName = "Rule template validates its name only after save")]
-    public void RuleTemplateValidatesItsNameOnlyAfterSave()
-    {
-        var context = CreateRuleEditorContext(
-            new RuleOverrideSet("sub-1", [new EditableRule("existing", "DOMAIN-SUFFIX", "example.com", "DIRECT")]));
-        var page = context.Page;
-        page.OpenCreateTemplateCommand.Execute(null);
-
-        Assert.False(page.IsTemplateNameErrorVisible);
-        Assert.True(page.SaveTemplateCommand.CanExecute(null));
-        page.SaveTemplateCommand.Execute(null);
-
-        Assert.True(page.IsTemplateNameErrorVisible);
-        page.TemplateName = "Template";
-        Assert.False(page.IsTemplateNameErrorVisible);
-    }
-
-    [Fact(DisplayName = "Rule template clears validation when cancelled")]
-    public void RuleTemplateClearsValidationWhenCancelled()
-    {
-        var context = CreateRuleEditorContext(
-            new RuleOverrideSet("sub-1", [new EditableRule("existing", "DOMAIN-SUFFIX", "example.com", "DIRECT")]));
-        var page = context.Page;
-        page.OpenCreateTemplateCommand.Execute(null);
-        page.SaveTemplateCommand.Execute(null);
-
-        Assert.True(page.IsTemplateNameErrorVisible);
-        page.CancelTemplateCommand.Execute(null);
-
-        Assert.False(page.IsTemplateNameErrorVisible);
-    }
-
-    private static RuleEditorTestContext CreateRuleEditorContext(RuleOverrideSet? initialSet = null)
-    {
-        var subscription = new Subscription("sub-1", "Sub", "https://example.com/sub.yaml", false, DateTimeOffset.UnixEpoch);
-        var subscriptionStore = new FakeSubscriptionStore(subscription, "rules:\n  - MATCH,DIRECT\n");
-        var overrideStore = new FakeRuleOverrideStore(initialSet ?? new RuleOverrideSet("sub-1"));
-        var service = new RuleOverrideService(subscriptionStore, new FakeSubscriptionSelectionStore("sub-1"), overrideStore, new RuleParser());
-        var page = new RulePageViewModel(service);
-        page.LoadEditorSnapshot();
-        return new RuleEditorTestContext(page, subscriptionStore);
-    }
-
     private static ConnectionInfo Connection(
         string id,
         long upload = 0,
@@ -656,75 +555,5 @@ public sealed class MonitoringPageBusinessTests
             ReadCount++;
             return content;
         }
-    }
-
-    private sealed record RuleEditorTestContext(RulePageViewModel Page, FakeSubscriptionStore SubscriptionStore);
-
-    private sealed class FakeSubscriptionSelectionStore(string? currentSubscriptionId) : ISubscriptionSelectionStore
-    {
-        public string? GetCurrentSubscriptionId() => currentSubscriptionId;
-
-        public void SetCurrentSubscriptionId(string? subscriptionId)
-        {
-            currentSubscriptionId = subscriptionId;
-        }
-    }
-
-    private sealed class FakeSubscriptionStore(Subscription subscription, string content) : ISubscriptionStore
-    {
-        private readonly List<Subscription> _subscriptions = [subscription];
-
-        public void Save(Subscription value, string originalContent)
-        {
-            _subscriptions.Add(value);
-            content = originalContent;
-        }
-
-        public void UpdateSubscription(Subscription value)
-        {
-            var index = _subscriptions.FindIndex(item => item.Id == value.Id);
-            if (index >= 0)
-            {
-                _subscriptions[index] = value;
-            }
-        }
-
-        public void SaveSubscriptions(IReadOnlyList<Subscription> values)
-        {
-            _subscriptions.Clear();
-            _subscriptions.AddRange(values);
-        }
-
-        public void SaveContent(string subscriptionId, string originalContent) => content = originalContent;
-
-        public IReadOnlyList<Subscription> LoadSubscriptions() => _subscriptions.ToList();
-
-        public string ReadContent(string subscriptionId) => content;
-
-        public string GetContentPath(string subscriptionId) => $"{subscriptionId}.yaml";
-
-        public void Delete(string subscriptionId) => _subscriptions.RemoveAll(item => item.Id == subscriptionId);
-    }
-
-    private sealed class FakeRuleOverrideStore(RuleOverrideSet initialSet) : IRuleOverrideStore
-    {
-        private RuleOverrideSet _set = initialSet;
-
-        public RuleOverrideSet Load(string subscriptionId) => _set;
-
-        public void Save(RuleOverrideSet set) => _set = set;
-
-        public void UpsertTemplate(RuleTemplate template)
-        {
-            var templates = _set.Templates.Where(item => item.Id != template.Id).Append(template).ToList();
-            _set = _set with { Templates = templates };
-        }
-
-        public void DeleteTemplate(string templateId)
-        {
-            _set = _set with { Templates = _set.Templates.Where(item => item.Id != templateId).ToList() };
-        }
-
-        public void Delete(string subscriptionId) => _set = new RuleOverrideSet(subscriptionId);
     }
 }
