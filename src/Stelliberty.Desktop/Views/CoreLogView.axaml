@@ -123,7 +123,6 @@
 
     <Grid Grid.Row="1">
       <Border Classes="list-empty"
-              AutomationProperties.AutomationId="CoreLogs.EmptyText"
               IsVisible="{Binding IsEmptyVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
@@ -131,7 +130,7 @@
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="FileLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="CoreLogs.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc CoreLogs.Empty.Hint}" />
           </StackPanel>
         </StackPanel>

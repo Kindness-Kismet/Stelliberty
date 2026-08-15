@@ -117,7 +117,6 @@
 
     <Grid Grid.Row="1">
       <Border Classes="list-empty"
-              AutomationProperties.AutomationId="Subscriptions.EmptyText"
               IsVisible="{Binding IsEmptyTextVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
@@ -125,7 +124,7 @@
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="ServerLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="Subscriptions.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Subscriptions.Empty.Hint}" />
           </StackPanel>
         </StackPanel>

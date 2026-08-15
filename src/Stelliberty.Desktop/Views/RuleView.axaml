@@ -86,14 +86,14 @@
     </Border>
 
     <Grid Grid.Row="1">
-      <Border Classes="list-empty" IsVisible="{Binding IsEmptyVisible}" AutomationProperties.AutomationId="Rules.EmptyText">
+      <Border Classes="list-empty" IsVisible="{Binding IsEmptyVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
             <Border Classes="list-empty-halo" />
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="PencilRulerLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="Rules.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Rules.Empty.Hint}" />
           </StackPanel>
         </StackPanel>

@@ -65,7 +65,6 @@
 
     <Grid Grid.Row="1">
       <Border Classes="list-empty"
-              AutomationProperties.AutomationId="Overrides.EmptyText"
               IsVisible="{Binding IsEmptyTextVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
@@ -73,7 +72,7 @@
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="EditLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="Overrides.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Overrides.Empty.Hint}" />
           </StackPanel>
         </StackPanel>
@@ -270,7 +269,7 @@
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.Url}" />
                         <Grid>
                           <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsSourceLocationErrorVisible}"
-                                   AutomationProperties.AutomationId="Overrides.AddDialog.PathBox"
+                                   AutomationProperties.AutomationId="Overrides.AddDialog.SourceBox"
                                    PlaceholderText="{loc:Loc Overrides.Placeholder.Url}"
                                    GotFocus="OnOverrideUrlBoxGotFocus"
                                    TextChanged="OnOverrideUrlBoxTextChanged"
@@ -454,7 +453,7 @@
                       <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteOverride}">
                         <TextBlock Classes="dialog-label" Text="{Binding EditDialog.SourceLabel}" />
                         <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsSourceLocationErrorVisible}"
-                                 AutomationProperties.AutomationId="Overrides.EditDialog.PathBox"
+                                 AutomationProperties.AutomationId="Overrides.EditDialog.SourceBox"
                                  PlaceholderText="{Binding EditDialog.SourcePlaceholder}"
                                  Text="{Binding EditDialog.SourceLocation, Mode=TwoWay}" />
                         <TextBlock Classes="dialog-error" TextWrapping="Wrap"
