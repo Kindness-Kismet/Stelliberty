@@ -86,6 +86,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         ConfirmDeleteRuleCommand = new RelayCommand(ConfirmDeleteRule);
         DeleteEditingRuleCommand = new RelayCommand(DeleteEditingRule);
         CancelDeleteRuleCommand = new RelayCommand(() => DeleteCandidate = null);
+        ResetRuleOrderCommand = new RelayCommand(ResetRuleOrder, () => CanResetRuleOrder);
         RebuildOutboundTargets();
     }
 
@@ -143,6 +144,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public bool IsNoMatchesVisible => HasSubscription && IsVisibleRulesEmpty;
     public bool HasSelectedTemplate => SelectedTemplate is not null;
     public bool CanSaveTemplate => HasCustomRules;
+    public bool CanResetRuleOrder => HasSubscription && _snapshot.HasCustomOrder;
     public string EmptyText => _overrideService is null
         ? !_isCoreRunning
             ? Localize("Rules.Empty.CoreStopped")
@@ -279,6 +281,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public ICommand ConfirmDeleteRuleCommand { get; }
     public ICommand DeleteEditingRuleCommand { get; }
     public ICommand CancelDeleteRuleCommand { get; }
+    public ICommand ResetRuleOrderCommand { get; }
 
     private void OpenTemplateSelector()
     {
@@ -353,7 +356,9 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasCustomRules));
         OnPropertyChanged(nameof(IsNoMatchesVisible));
         OnPropertyChanged(nameof(CanSaveTemplate));
+        OnPropertyChanged(nameof(CanResetRuleOrder));
         ((RelayCommand)SaveTemplateCommand).RaiseCanExecuteChanged();
+        ((RelayCommand)ResetRuleOrderCommand).RaiseCanExecuteChanged();
         RebuildVisibleRules();
     }
 
@@ -507,6 +512,27 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     }
 
     public void EditRule(RuleEditorRowViewModel row) => OpenEditor(row);
+
+    // 传空 ruleOrder 即清除自定义排序，落库后按订阅原文顺序重建。
+    private void ResetRuleOrder()
+    {
+        if (_overrideService is null || string.IsNullOrWhiteSpace(_snapshot.SubscriptionId))
+        {
+            return;
+        }
+
+        try
+        {
+            SaveCurrentRules(CustomRules.Select(row => row.ToEditableRule()).ToList(), []);
+            LoadEditorSnapshot();
+            RuntimeRefreshRequested?.Invoke(this, EventArgs.Empty);
+            ToastRequested?.Invoke(this, (Localize("Rules.Toast.OrderReset"), ToastType.Success));
+        }
+        catch (RuleOverrideException exception)
+        {
+            ShowRuleSaveToast(exception.Error);
+        }
+    }
 
     private void MoveRuleToIndex(RuleMoveRequest? request)
     {

@@ -76,6 +76,12 @@
                     Command="{Binding OpenTemplateCommand}" ToolTip.Tip="{loc:Loc Rules.Action.SelectTemplate}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="FolderOpenLine" />
             </Button>
+            <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.ResetOrderButton"
+                    Command="{Binding ResetRuleOrderCommand}"
+                    IsEnabled="{Binding CanResetRuleOrder}"
+                    ToolTip.Tip="{loc:Loc Rules.Action.ResetOrder}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="EraserAiLine" />
+            </Button>
             <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.RefreshButton"
                     Command="{Binding RefreshRulesCommand}" ToolTip.Tip="{loc:Loc Rules.Action.Refresh}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="Refresh1Line" />

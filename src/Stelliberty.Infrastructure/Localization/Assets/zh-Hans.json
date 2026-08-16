@@ -247,6 +247,8 @@
   "Rules.Action.Add": "添加规则",
   "Rules.Action.CreateTemplate": "创建模板",
   "Rules.Action.SelectTemplate": "选择模板",
+  "Rules.Action.ResetOrder": "重置排序",
+  "Rules.Toast.OrderReset": "已恢复默认排序",
   "Rules.Action.SaveTemplate": "保存模板",
   "Rules.Empty.NoSubscription": "请先选择一个订阅。",
   "Rules.Section.MixedHint": "订阅规则保持原顺序，本地规则在首个 MATCH 前优先匹配；长按卡片可拖动调整本地规则顺序。",

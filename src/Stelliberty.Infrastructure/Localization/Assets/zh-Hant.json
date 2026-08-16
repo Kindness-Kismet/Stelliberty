@@ -247,6 +247,8 @@
   "Rules.Action.Add": "新增規則",
   "Rules.Action.CreateTemplate": "建立範本",
   "Rules.Action.SelectTemplate": "選擇範本",
+  "Rules.Action.ResetOrder": "重設排序",
+  "Rules.Toast.OrderReset": "已恢復預設排序",
   "Rules.Action.SaveTemplate": "儲存範本",
   "Rules.Empty.NoSubscription": "請先選擇一個訂閱。",
   "Rules.Section.MixedHint": "訂閱規則保持原順序，本機規則在第一個 MATCH 前優先比對；長按卡片可拖動調整本機規則順序。",

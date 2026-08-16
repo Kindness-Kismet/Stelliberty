@@ -28,7 +28,8 @@ public sealed record RuleEditorSnapshot(
     IReadOnlyList<RuleEditorItem> Items,
     IReadOnlyList<RuleTemplate> Templates,
     bool HasSubscription,
-    IReadOnlyList<string>? ProxyOptions = null)
+    IReadOnlyList<string>? ProxyOptions = null,
+    bool HasCustomOrder = false)
 {
     public IReadOnlyList<string> ProxyOptions { get; init; } = ProxyOptions ?? [];
 }
@@ -100,7 +101,13 @@ public sealed class RuleOverrideService(
                 .ToList();
         var items = MergeRuleOrder(builtinItems, customItems, set.RuleOrder);
 
-        return new RuleEditorSnapshot(subscriptionId, items, set.Templates, true, BuildProxyOptions(content));
+        return new RuleEditorSnapshot(
+            subscriptionId,
+            items,
+            set.Templates,
+            true,
+            BuildProxyOptions(content),
+            set.RuleOrder.Count > 0);
     }
 
     public void Save(

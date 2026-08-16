@@ -247,6 +247,8 @@
   "Rules.Action.Add": "Add Rule",
   "Rules.Action.CreateTemplate": "Create Template",
   "Rules.Action.SelectTemplate": "Select Template",
+  "Rules.Action.ResetOrder": "Reset order",
+  "Rules.Toast.OrderReset": "Default rule order restored",
   "Rules.Action.SaveTemplate": "Save Template",
   "Rules.Empty.NoSubscription": "Select a subscription first.",
   "Rules.Section.MixedHint": "Subscription rules keep their order; local rules run before the first MATCH. Long-press a card to reorder local rules.",

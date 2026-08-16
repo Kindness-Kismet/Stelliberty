@@ -16,6 +16,12 @@ internal static partial class DebugCommands
             return Task.FromResult<string?>(RuleState(page));
         }
 
+        if (string.Equals(spec, "reset-order", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ResetRuleOrderCommand.Execute(null);
+            return Task.FromResult<string?>(RuleOrder(page));
+        }
+
         if (spec.StartsWith("filter ", StringComparison.OrdinalIgnoreCase))
         {
             page.SetTypeBucket(ParseRuleTypeBucket(spec["filter ".Length..].Trim()));
@@ -62,7 +68,8 @@ internal static partial class DebugCommands
             $"bucket={page.TypeBucket}",
             $"search={page.SearchKeyword}",
             $"running={page.IsCoreRunning.ToString().ToLowerInvariant()}",
-            $"refresh={page.HasRequestedRefresh.ToString().ToLowerInvariant()}"
+            $"refresh={page.HasRequestedRefresh.ToString().ToLowerInvariant()}",
+            $"can-reset-order={page.CanResetRuleOrder.ToString().ToLowerInvariant()}"
         ]);
     }
 
