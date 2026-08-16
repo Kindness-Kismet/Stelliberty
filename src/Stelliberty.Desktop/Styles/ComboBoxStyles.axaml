@@ -1,6 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls">
+        xmlns:controls="using:Stelliberty.Desktop.Controls">
   <Styles.Resources>
     <Thickness x:Key="ComboBoxPopupBorderPadding">0</Thickness>
     <Thickness x:Key="ComboBoxPopupBorderMargin">12</Thickness>
@@ -12,6 +12,10 @@
   <Style Selector="ComboBox /template/ Popup#PART_Popup">
     <Setter Property="ShouldUseOverlayLayer" Value="True" />
     <Setter Property="Topmost" Value="False" />
+  </Style>
+  <!-- 模态层内的特定下拉框改用平台弹窗，避免 Overlay 弹层截断鼠标路由。 -->
+  <Style Selector="ComboBox.platform-popup /template/ Popup#PART_Popup">
+    <Setter Property="ShouldUseOverlayLayer" Value="False" />
   </Style>
 
   <Style Selector="ComboBox">

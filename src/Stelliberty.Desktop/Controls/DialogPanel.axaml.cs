@@ -74,11 +74,7 @@ public sealed partial class DialogPanel : UserControl
             return;
         }
 
-        if (source.FindAncestorOfType<TextBox>(includeSelf: true) is not null
-            || source.FindAncestorOfType<CodeEditor>(includeSelf: true) is not null
-            || source.FindAncestorOfType<Button>(includeSelf: true) is not null
-            || source.FindAncestorOfType<ToggleButton>(includeSelf: true) is not null
-            || source.FindAncestorOfType<ComboBox>(includeSelf: true) is not null)
+        if (InputDefocusBehavior.IsInsideInteractiveControl(source))
         {
             return;
         }

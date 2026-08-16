@@ -7,8 +7,8 @@ internal static partial class DebugCommands
     {
         var spec = command.StartsWith("core.", StringComparison.OrdinalIgnoreCase)
             ? command["core.".Length..].Trim()
-            : "status";
-        if (string.Equals(spec, "status", StringComparison.OrdinalIgnoreCase))
+            : "state";
+        if (string.Equals(spec, "state", StringComparison.OrdinalIgnoreCase))
         {
             var viewModel = RequireViewModel(window);
             var coreManager = viewModel.CoreManager ?? throw new InvalidOperationException("CoreManager is not injected");

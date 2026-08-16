@@ -9,8 +9,8 @@ internal static partial class DebugCommands
     private static Task<string?> ExecuteCoreLogsCommandAsync(MainWindow window, string command)
     {
         var page = RequireViewModel(window).CoreLogPage;
-        var spec = command["core_logs.".Length..].Trim();
-        if (string.Equals(spec, "pause", StringComparison.OrdinalIgnoreCase))
+        var spec = command["core-logs.".Length..].Trim();
+        if (string.Equals(spec, "toggle pause", StringComparison.OrdinalIgnoreCase))
         {
             page.TogglePause();
             return Task.FromResult<string?>(LogState(page));

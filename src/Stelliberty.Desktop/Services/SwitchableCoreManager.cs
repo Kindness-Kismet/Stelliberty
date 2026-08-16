@@ -60,6 +60,7 @@ internal sealed class SwitchableCoreManager : ICoreManager, IDisposable, IAsyncD
 
     public void Dispose()
     {
+        // 进程退出路径只有同步 Dispose，此处有意阻塞桥接异步释放。
         DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 

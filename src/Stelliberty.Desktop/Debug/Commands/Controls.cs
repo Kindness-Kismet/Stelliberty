@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
+using Stelliberty.Application.Subscriptions;
 using Stelliberty.Presentation.ViewModels;
 
 namespace Stelliberty.Desktop.Debug;
@@ -13,7 +14,8 @@ internal static partial class DebugCommands
 {
     private static string? ExecuteControlCommand(MainWindow window, string command)
     {
-        if (command.StartsWith("control.list", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(command, "control.list", StringComparison.OrdinalIgnoreCase)
+            || command.StartsWith("control.list --", StringComparison.OrdinalIgnoreCase))
         {
             return ReadWindowControls(window, command["control.list".Length..].Trim());
         }
@@ -48,39 +50,39 @@ internal static partial class DebugCommands
             return null;
         }
 
-        if (command.StartsWith("control.read_text ", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("control.get text ", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadControlText(window, command["control.read_text ".Length..].Trim());
+            return ReadControlText(window, command["control.get text ".Length..].Trim());
         }
 
-        if (command.StartsWith("dropdown.items ", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("dropdown.list items ", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadComboBoxItems(window, command["dropdown.items ".Length..].Trim());
+            return ReadComboBoxItems(window, command["dropdown.list items ".Length..].Trim());
         }
 
-        if (command.StartsWith("control.visible_nodes ", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("control.list nodes ", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadVisibleNodeNames(window, command["control.visible_nodes ".Length..].Trim());
+            return ReadVisibleNodeNames(window, command["control.list nodes ".Length..].Trim());
         }
 
-        if (command.StartsWith("control.visible_rules ", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("control.list rules ", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadVisibleRulePayloads(window, command["control.visible_rules ".Length..].Trim());
+            return ReadVisibleRulePayloads(window, command["control.list rules ".Length..].Trim());
         }
 
-        if (command.StartsWith("control.visible_connections ", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("control.list connections ", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadVisibleConnectionIds(window, command["control.visible_connections ".Length..].Trim());
+            return ReadVisibleConnectionIds(window, command["control.list connections ".Length..].Trim());
         }
 
-        if (command.StartsWith("control.visible_core_logs ", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("control.list core-logs ", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadVisibleCoreLogPayloads(window, command["control.visible_core_logs ".Length..].Trim());
+            return ReadVisibleCoreLogPayloads(window, command["control.list core-logs ".Length..].Trim());
         }
 
-        if (command.StartsWith("control.scroll_y ", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("control.scroll y ", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadOrSetScrollViewerY(window, command["control.scroll_y ".Length..].Trim()).ToString("0.###", CultureInfo.InvariantCulture);
+            return ReadOrSetScrollViewerY(window, command["control.scroll y ".Length..].Trim()).ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         throw new InvalidOperationException($"Unknown control command: {command}");
@@ -158,7 +160,7 @@ internal static partial class DebugCommands
             throw new InvalidOperationException($"Not a dropdown: {parts[0]}");
         }
 
-        if (index < 0 || index >= comboBox.ItemCount)
+        if (index < 0 || index >= comboBox.Items.Count())
         {
             throw new InvalidOperationException($"Dropdown item index is out of range: {index}");
         }
@@ -248,6 +250,7 @@ internal static partial class DebugCommands
             .Select(item => item switch
             {
                 SubscriptionRowMenuSelection selection => selection.DisplayName,
+                ChainProxyGroupOption group => group.Name,
                 _ => item?.ToString() ?? string.Empty
             })
             .Where(text => !string.IsNullOrWhiteSpace(text));
@@ -321,7 +324,7 @@ internal static partial class DebugCommands
 
         if (parts.Length != 2 || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
         {
-            throw new InvalidOperationException("control.scroll_y usage: control.scroll_y <automation_id> [y]");
+            throw new InvalidOperationException("control.scroll y usage: control.scroll y <automation_id> [y]");
         }
 
         var scrollViewer = FindScrollViewer(window, parts[0]);

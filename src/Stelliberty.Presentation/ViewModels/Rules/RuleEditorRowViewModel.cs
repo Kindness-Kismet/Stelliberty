@@ -31,8 +31,6 @@ public sealed class RuleEditorRowViewModel : ViewModelBase
     public string ToggleAutomationId => $"{AutomationId}.Toggle";
     public string EditAutomationId => $"{AutomationId}.Edit";
     public string DeleteAutomationId => $"{AutomationId}.Delete";
-    public string MoveUpAutomationId => $"{AutomationId}.MoveUp";
-    public string MoveDownAutomationId => $"{AutomationId}.MoveDown";
     public string DuplicateText => Item.RuleCount > 1 ? $"x{Item.RuleCount}" : string.Empty;
     public int SequenceNumber
     {

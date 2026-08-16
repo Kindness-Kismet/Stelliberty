@@ -1,11 +1,23 @@
 namespace Stelliberty.Domain.Subscriptions;
 
+public enum SubscriptionChainProxyHopKind
+{
+    Proxy,
+    ProxyGroup
+}
+
+public sealed record SubscriptionChainProxyHop(
+    SubscriptionChainProxyHopKind Kind,
+    string Name);
+
 public sealed record SubscriptionCustomChainProxy(
     string Id,
     string DisplayName,
-    IReadOnlyList<string>? NodeNames = null)
+    string ProxyGroupName,
+    IReadOnlyList<SubscriptionChainProxyHop>? Hops = null,
+    bool IsEnabled = true)
 {
-    public IReadOnlyList<string> NodeNames { get; init; } = NodeNames ?? [];
+    public IReadOnlyList<SubscriptionChainProxyHop> Hops { get; init; } = Hops ?? [];
 }
 
 public sealed record Subscription(

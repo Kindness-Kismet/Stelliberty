@@ -54,18 +54,6 @@ public sealed class OverrideBusinessTests
         Assert.False(page.IsDeleteDialogVisible);
     }
 
-    [Fact(DisplayName = "Move override persists visible order")]
-    public void MoveOverridePersistsVisibleOrder()
-    {
-        var store = new FakeOverrideStore([Override("a"), Override("b"), Override("c")]);
-        var page = new OverridePageViewModel(overrideDeleter: CreateDeleter(), overrideStore: store);
-        page.LoadOverrides(store.LoadOverrides());
-
-        page.MoveOverrideDownCommand.Execute("a");
-
-        Assert.Equal(["b", "a", "c"], store.LoadOverrides().Select(item => item.Id));
-    }
-
     [Fact(DisplayName = "Move override clamps target and persists only stored items")]
     public void MoveOverrideClampsTargetAndPersistsOnlyStoredItems()
     {
@@ -149,9 +137,7 @@ public sealed class OverrideBusinessTests
     public void AddDialogValidatesRemoteUrlAndSubmitsTrimmedRemoteRequest()
     {
         var dialog = new OverrideAddDialogViewModel();
-        string? validation = null;
         OverrideAddRemoteRequestedEventArgs? requested = null;
-        dialog.ValidationFailed += (_, message) => validation = message;
         dialog.RemoteRequested += (_, args) => requested = args;
         dialog.Open();
 
@@ -159,7 +145,8 @@ public sealed class OverrideBusinessTests
         dialog.SourceLocation = "local.yaml";
         dialog.ConfirmCommand.Execute(null);
 
-        Assert.Equal("Overrides.Validation.Url", validation);
+        Assert.True(dialog.IsSourceLocationErrorVisible);
+        Assert.Equal("Overrides.Validation.Url", dialog.SourceLocationError);
         Assert.False(dialog.IsSubmitting);
         Assert.Null(requested);
 
@@ -174,21 +161,6 @@ public sealed class OverrideBusinessTests
         Assert.Equal(OverrideFormat.JavaScript, requested.Format);
         Assert.Equal(OverrideUpdateProxyMode.Core, requested.UpdateProxyMode);
         Assert.True(dialog.IsSubmitting);
-    }
-
-    [Fact(DisplayName = "Add dialog refreshes confirm command when required fields change")]
-    public void AddDialogRefreshesConfirmCommandWhenRequiredFieldsChange()
-    {
-        var dialog = new OverrideAddDialogViewModel();
-        var canExecuteStates = new List<bool>();
-        dialog.Open();
-        dialog.ConfirmCommand.CanExecuteChanged += (_, _) =>
-            canExecuteStates.Add(dialog.ConfirmCommand.CanExecute(null));
-
-        dialog.Name = "Remote";
-        dialog.SourceLocation = "https://override.example/a.yaml";
-
-        Assert.Equal([false, true], canExecuteStates);
     }
 
     [Fact(DisplayName = "Edit dialog refreshes confirm command when opened")]
@@ -283,9 +255,11 @@ public sealed class OverrideBusinessTests
 
         Assert.Null(completed);
         Assert.True(editor.IsDialogVisible);
-        Assert.False(editor.CanSubmit);
+        Assert.True(editor.IsNameErrorVisible);
 
         editor.Name = "Renamed";
+        editor.SourceLocation = "https://override.example/a.yaml";
+        Assert.False(editor.IsNameErrorVisible);
         editor.SelectJavaScriptFormatCommand.Execute(null);
         editor.SelectCoreProxyModeCommand.Execute(null);
         editor.ClearForOverride("other");

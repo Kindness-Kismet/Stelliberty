@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
              xmlns:loc="using:Stelliberty.Desktop.Localization"
              xmlns:vm="using:Stelliberty.Presentation.ViewModels"
              xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
@@ -105,26 +105,26 @@
 
   <Border Classes="surface-panel"
           MinHeight="150"
-          AutomationProperties.AutomationId="AppLogs.LoadingText"
           IsVisible="{Binding IsLoading}">
     <StackPanel Spacing="10" HorizontalAlignment="Center" VerticalAlignment="Center">
       <iconPacks:PackIconMingCuteIcons Width="26" Height="26" Kind="Refresh1Line"
                                        Foreground="{DynamicResource AppAccentBrush}"
                                        HorizontalAlignment="Center" />
       <TextBlock Classes="settings-row-subtitle" HorizontalAlignment="Center"
+                 AutomationProperties.AutomationId="AppLogs.LoadingText"
                  Text="{loc:Loc Common.Refreshing}" />
     </StackPanel>
   </Border>
 
   <Border Classes="surface-panel"
           MinHeight="150"
-          AutomationProperties.AutomationId="AppLogs.EmptyText"
           IsVisible="{Binding IsEmptyVisible}">
     <StackPanel Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
       <iconPacks:PackIconMingCuteIcons Width="26" Height="26" Kind="FileLine"
                                        Foreground="{DynamicResource AppTextTertiaryBrush}"
                                        HorizontalAlignment="Center" />
       <TextBlock Classes="settings-row-subtitle" HorizontalAlignment="Center"
+                 AutomationProperties.AutomationId="AppLogs.EmptyText"
                  Text="{Binding EmptyText}" />
       <TextBlock Classes="settings-row-subtitle" HorizontalAlignment="Center"
                  Opacity="0.7"

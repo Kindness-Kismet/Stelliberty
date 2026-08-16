@@ -1,5 +1,6 @@
 using Stelliberty.Application.Overrides;
 using Stelliberty.Application.Runtime;
+using Stelliberty.Domain.Subscriptions;
 using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
@@ -43,12 +44,14 @@ public sealed class SubscriptionChainProxyContextLoader(
                 || !root.Children.TryGetValue(new YamlScalarNode("proxies"), out var proxiesNode)
                 || proxiesNode is not YamlSequenceNode proxies)
             {
-                return new SubscriptionChainProxyContext([], []);
+                return new SubscriptionChainProxyContext([], [], []);
             }
 
+            var proxyMappings = proxies.Children.OfType<YamlMappingNode>().ToList();
+            var groupMappings = ReadMappingSequence(root, "proxy-groups");
             var builtinNames = new List<string>();
-            var candidates = new List<ChainProxyNodeOption>();
-            foreach (var proxy in proxies.OfType<YamlMappingNode>())
+            var candidates = new List<ChainProxyHopOption>();
+            foreach (var proxy in proxyMappings)
             {
                 var name = Scalar(proxy, "name");
                 if (string.IsNullOrWhiteSpace(name))
@@ -66,18 +69,42 @@ public sealed class SubscriptionChainProxyContextLoader(
                 var type = Scalar(proxy, "type");
                 if (!string.IsNullOrWhiteSpace(type))
                 {
-                    candidates.Add(new ChainProxyNodeOption(name, type));
+                    candidates.Add(new ChainProxyHopOption(
+                        new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.Proxy, name),
+                        type));
                 }
+            }
+
+            var proxyGroups = groupMappings
+                .Select(group => new ChainProxyGroupOption(Scalar(group, "name"), Scalar(group, "type")))
+                .Where(group => !string.IsNullOrWhiteSpace(group.Name))
+                .ToList();
+            foreach (var proxyGroup in proxyGroups)
+            {
+                candidates.Add(new ChainProxyHopOption(
+                    new SubscriptionChainProxyHop(SubscriptionChainProxyHopKind.ProxyGroup, proxyGroup.Name),
+                    proxyGroup.Type));
             }
 
             return new SubscriptionChainProxyContext(
                 builtinNames.Distinct(StringComparer.Ordinal).ToList(),
+                proxyGroups,
                 candidates);
         }
         catch (YamlException)
         {
-            return new SubscriptionChainProxyContext([], []);
+            return new SubscriptionChainProxyContext([], [], []);
         }
+    }
+
+    private static IReadOnlyList<YamlMappingNode> ReadMappingSequence(YamlMappingNode root, string key)
+    {
+        if (!root.Children.TryGetValue(new YamlScalarNode(key), out var value) || value is not YamlSequenceNode sequence)
+        {
+            return [];
+        }
+
+        return sequence.Children.OfType<YamlMappingNode>().ToList();
     }
 
     private static string Scalar(YamlMappingNode mapping, string key)

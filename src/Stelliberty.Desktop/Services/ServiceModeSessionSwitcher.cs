@@ -102,6 +102,7 @@ internal sealed class ServiceModeSessionSwitcher(
             _lifetimeCancellation.Cancel();
         }
 
+        // 同步等待在途操作释放信号量，确保取消令牌不被使用中释放。
         _operationGate.Wait();
         _lifetimeCancellation.Dispose();
     }

@@ -1,14 +1,18 @@
-using Stelliberty.Application.Localization;
-
 namespace Stelliberty.Presentation.ViewModels;
 
-public sealed record SubscriptionChainProxySlotViewModel(int Index, string NodeName, ILocalizationService? Localization = null)
+using Stelliberty.Domain.Subscriptions;
+
+public sealed record SubscriptionChainProxySlotViewModel(int Index, SubscriptionChainProxyHop Hop)
 {
-    public string PositionLabel => string.Format(Localize("Subscriptions.ChainProxy.SlotLabel"), Index + 1);
+    public string PositionNumber => (Index + 1).ToString();
 
-    public string DisplayName => NodeName;
+    public bool IsFirst => Index == 0;
 
-    public string AutomationId => $"Subscriptions.ChainProxy.Slot.{Index}";
+    public string DisplayName => Hop.Name;
 
-    private string Localize(string key) => Localization?.GetString(key) ?? key;
+    public bool IsProxyGroup => Hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup;
+
+    public string Key => $"{Hop.Kind}:{Hop.Name}";
+
+    public string AutomationId => $"Subscriptions.ChainProxy.Slot.{Hop.Kind}.{Hop.Name}";
 }

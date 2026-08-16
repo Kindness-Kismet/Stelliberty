@@ -1,11 +1,13 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
              x:Class="Stelliberty.Desktop.Controls.DialogPanel"
-             x:CompileBindings="True"
-             Width="{Binding PanelWidth, RelativeSource={RelativeSource Self}}">
+             x:CompileBindings="True">
 
-  <Border Background="{DynamicResource AppDialogSurfaceBrush}"
+  <!-- 弹层图层会把越界绘制裁剪到面板边界，外圈 Margin 为阴影预留渲染空间 -->
+  <Border Width="{Binding PanelWidth, RelativeSource={RelativeSource AncestorType=controls:DialogPanel}}"
+          Margin="32"
+          Background="{DynamicResource AppDialogSurfaceBrush}"
           BorderBrush="{DynamicResource AppBorderBrush}"
           BorderThickness="1"
           CornerRadius="15"

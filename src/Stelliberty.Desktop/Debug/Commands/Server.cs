@@ -87,7 +87,7 @@ internal static partial class DebugCommands
             return ExecuteConnectionsCommandAsync(window, command);
         }
 
-        if (command.StartsWith("core_logs.", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("core-logs.", StringComparison.OrdinalIgnoreCase))
         {
             return ExecuteCoreLogsCommandAsync(window, command);
         }

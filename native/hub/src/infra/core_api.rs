@@ -25,8 +25,8 @@ pub enum ApiError {
     Timeout(u32),
     #[error("mihomo API returned error status {0}: {1}")]
     Status(u16, String),
-    #[error("mihomo rejected the config because parsing failed: {0}")]
-    YamlInvalid(String),
+    #[error("mihomo rejected the candidate config: {0}")]
+    ConfigRejected(String),
 }
 
 impl CoreApiClient {
@@ -65,10 +65,9 @@ impl CoreApiClient {
         if (200..300).contains(&status) {
             return Ok(());
         }
-        // mihomo 4xx 响应是纯文本；parse/yaml 关键词在这里转成类型化配置错误。
-        let parse_hint = body.contains("parse") || body.contains("yaml") || body.contains("YAML");
-        if (400..500).contains(&status) && parse_hint {
-            return Err(ApiError::YamlInvalid(body).into());
+        // 配置接口的 4xx 都表示候选配置被拒绝，不能继续走重启回退。
+        if (400..500).contains(&status) {
+            return Err(ApiError::ConfigRejected(body).into());
         }
         Err(ApiError::Status(status, body).into())
     }

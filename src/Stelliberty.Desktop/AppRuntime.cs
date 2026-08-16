@@ -2,6 +2,7 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Media;
 #if DEBUG
+using Avalonia.Logging;
 using HotAvalonia;
 #endif
 using Stelliberty.Application.Diagnostics;
@@ -43,8 +44,14 @@ internal static class AppRuntime
     {
         var builder = AppBuilder.Configure<App>()
             .UsePlatformDetect()
-            .With(CreateFontManagerOptions())
-            .LogToTrace();
+            .With(CreateFontManagerOptions());
+
+#if DEBUG
+        // HotAvalonia 只写 Avalonia 日志通道，接入应用日志后才能定位监听与重编译失败。
+        builder = builder.LogToDelegate(AppLogger.Debug, LogEventLevel.Information, nameof(HotAvalonia));
+#else
+        builder = builder.LogToTrace();
+#endif
 
         if (OperatingSystem.IsLinux())
         {
@@ -56,6 +63,7 @@ internal static class AppRuntime
 #pragma warning restore AVALONIA_X11_CSD
         }
 #if DEBUG
+        // 视图缓存由宿主维护，调试时必须整棵视觉树重载才能刷新旧页面实例。
         builder = builder.UseHotReload(ResolveProjectPath);
 #endif
         return builder;
@@ -81,7 +89,14 @@ internal static class AppRuntime
 #if DEBUG
     private static string? ResolveProjectPath(Assembly assembly)
     {
-        return assembly.GetName().Name == AppMetadata.Name ? FindDesktopProjectPath() : null;
+        if (assembly.GetName().Name != AppMetadata.Name)
+        {
+            return null;
+        }
+
+        var projectPath = FindDesktopProjectPath();
+        AppLogger.Info($"Hot reload source resolved: {projectPath ?? "not-found"}");
+        return projectPath;
     }
 
     private static string? FindDesktopProjectPath()

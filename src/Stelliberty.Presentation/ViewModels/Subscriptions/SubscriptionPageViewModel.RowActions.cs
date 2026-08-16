@@ -163,7 +163,7 @@ public sealed partial class SubscriptionPageViewModel
             return;
         }
 
-        RuntimeConfigDialog.Open(subscription.Id, subscription.Name, _runtimeStore.ReadRuntimeConfig(subscription.Id));
+        RuntimeConfigDialog.Open(subscription.Id, _runtimeStore.ReadRuntimeConfig(subscription.Id));
         RaiseMenuStateChanged();
     }
 
@@ -175,7 +175,7 @@ public sealed partial class SubscriptionPageViewModel
             return;
         }
 
-        FileEditor.Open(subscription.Id, subscription.Name, _subscriptionStore.ReadContent(subscription.Id));
+        FileEditor.Open(subscription.Id, _subscriptionStore.ReadContent(subscription.Id));
         RaiseMenuStateChanged();
     }
 
@@ -206,7 +206,6 @@ public sealed partial class SubscriptionPageViewModel
 
         ChainProxy.Open(
             subscription.Id,
-            subscription.Name,
             subscription.DisabledBuiltinChainProxyNames,
             subscription.CustomChainProxies);
         RaiseMenuStateChanged();
@@ -220,6 +219,7 @@ public sealed partial class SubscriptionPageViewModel
             return;
         }
 
+        ChainProxy.CompleteSave();
         SubscriptionChainProxySaved?.Invoke(this, updated.Id);
         RaiseMenuStateChanged();
     }

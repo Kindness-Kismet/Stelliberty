@@ -170,7 +170,7 @@ pub fn hub_bootstrap(
 }
 
 #[ffi]
-pub fn hub_start_core() -> BootstrapResult {
+pub fn hub_bootstrap_start_core() -> BootstrapResult {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let Some(inst) = INSTANCE.get() else {
             return BootstrapResult::err("Hub is not initialized");
@@ -190,7 +190,7 @@ pub fn hub_start_core() -> BootstrapResult {
 }
 
 #[ffi]
-pub fn hub_stop_core() -> BootstrapResult {
+pub fn hub_bootstrap_stop_core() -> BootstrapResult {
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let Some(inst) = INSTANCE.get() else {
             return BootstrapResult::err("Hub is not initialized");
@@ -211,7 +211,7 @@ pub fn hub_shutdown() {
     // 先停核心再停 IPC，避免特权子进程滞留。
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         if let Some(inst) = INSTANCE.get() {
-            let _ = hub_stop_core();
+            let _ = hub_bootstrap_stop_core();
 
             if let Ok(mut guard) = inst.shutdown_tx.lock()
                 && let Some(tx) = guard.take()

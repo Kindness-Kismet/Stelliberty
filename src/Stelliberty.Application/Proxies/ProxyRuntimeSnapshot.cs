@@ -1,4 +1,3 @@
-using Stelliberty.Domain.Proxies;
 namespace Stelliberty.Application.Proxies;
 
 public sealed record ProxyRuntimeSnapshot(IReadOnlyList<ProxyRuntimeEntry> Entries);
@@ -10,4 +9,5 @@ public sealed record ProxyRuntimeEntry(
     string? Fixed,
     IReadOnlyList<string> All,
     bool IsHidden,
-    string? ProviderName = null);
+    string? ProviderName = null,
+    string? DialerProxy = null);

@@ -14,61 +14,61 @@ internal static partial class DebugCommands
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (string.Equals(spec, "refresh_runtime", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "refresh runtime", StringComparison.OrdinalIgnoreCase))
         {
             page.RefreshRuntime();
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (string.Equals(spec, "refresh_network", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "refresh network", StringComparison.OrdinalIgnoreCase))
         {
             page.RefreshNetworkConnection();
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (spec.StartsWith("set_outbound ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set outbound ", StringComparison.OrdinalIgnoreCase))
         {
-            ExecuteOutboundCommand(page, spec["set_outbound ".Length..].Trim());
+            ExecuteOutboundCommand(page, spec["set outbound ".Length..].Trim());
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (spec.StartsWith("select_takeover ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("select takeover ", StringComparison.OrdinalIgnoreCase))
         {
-            ExecuteTakeoverCommand(page, spec["select_takeover ".Length..].Trim());
+            ExecuteTakeoverCommand(page, spec["select takeover ".Length..].Trim());
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (spec.StartsWith("copy_terminal_proxy ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("copy terminal-proxy ", StringComparison.OrdinalIgnoreCase))
         {
-            page.CopyTerminalProxyCommand(ParseTerminalShell(spec["copy_terminal_proxy ".Length..].Trim()));
+            page.CopyTerminalProxyCommand(ParseTerminalShell(spec["copy terminal-proxy ".Length..].Trim()));
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (string.Equals(spec, "toggle_system_proxy", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "toggle system-proxy", StringComparison.OrdinalIgnoreCase))
         {
             page.ToggleSystemProxyCommand.Execute(null);
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (spec.StartsWith("set_tun ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set tun ", StringComparison.OrdinalIgnoreCase))
         {
-            page.IsTunEnabled = ParseBool(spec["set_tun ".Length..].Trim());
+            page.IsTunEnabled = ParseBool(spec["set tun ".Length..].Trim());
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (string.Equals(spec, "reset_traffic", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "reset traffic", StringComparison.OrdinalIgnoreCase))
         {
             page.ResetTrafficCommand.Execute(null);
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (string.Equals(spec, "restart_core", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "restart core", StringComparison.OrdinalIgnoreCase))
         {
             page.RestartCoreCommand.Execute(null);
             return Task.FromResult<string?>(HomeState(page));
         }
 
-        if (string.Equals(spec, "update_core", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "update core", StringComparison.OrdinalIgnoreCase))
         {
             page.RefreshCoreCommand.Execute(null);
             return Task.FromResult<string?>(HomeState(page));

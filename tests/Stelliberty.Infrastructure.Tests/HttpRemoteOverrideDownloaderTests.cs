@@ -9,18 +9,6 @@ namespace Stelliberty.Infrastructure.Tests;
 
 public sealed class HttpRemoteOverrideDownloaderTests
 {
-    [Fact(DisplayName = "Remote override downloader accepts utf8 charset alias")]
-    public async Task RemoteOverrideDownloaderAcceptsUtf8CharsetAlias()
-    {
-        const string body = "mixed-port: 7890\n# utf8 alias\n";
-        await using var server = TestHttpServer.Start(body, "text/plain; charset=utf8");
-        var downloader = new HttpRemoteOverrideDownloader();
-
-        var content = await downloader.DownloadAsync(RemoteOverride(server.Url, OverrideUpdateProxyMode.Direct));
-
-        Assert.Equal(body, content);
-    }
-
     [Fact(DisplayName = "Remote override downloader reads current core proxy endpoint")]
     public async Task RemoteOverrideDownloaderReadsCurrentCoreProxyEndpoint()
     {

@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
              xmlns:loc="using:Stelliberty.Desktop.Localization"
              xmlns:vm="using:Stelliberty.Presentation.ViewModels"
              xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
@@ -65,7 +65,6 @@
 
     <Grid Grid.Row="1">
       <Border Classes="list-empty"
-              AutomationProperties.AutomationId="Overrides.EmptyText"
               IsVisible="{Binding IsEmptyTextVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
@@ -73,7 +72,7 @@
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="EditLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="Overrides.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Overrides.Empty.Hint}" />
           </StackPanel>
         </StackPanel>
@@ -193,7 +192,7 @@
                     <TextBlock Classes="dialog-title" Text="{loc:Loc Overrides.Dialog.Add.Title}" VerticalAlignment="Center" />
                     <Button Grid.Column="1"
                             Classes="dialog-close"
-                            AutomationProperties.AutomationId="Overrides.Dialog.CloseButton"
+                            AutomationProperties.AutomationId="Overrides.AddDialog.CloseButton"
                             IsEnabled="{Binding !AddDialog.IsSubmitting}"
                             Command="{Binding AddDialog.CancelCommand}">
                       <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
@@ -201,7 +200,7 @@
                   </Grid>
 
                   <ScrollViewer Grid.Row="1"
-                                AutomationProperties.AutomationId="Overrides.Dialog.FormScroll"
+                                AutomationProperties.AutomationId="Overrides.AddDialog.FormScroll"
                                 VerticalScrollBarVisibility="Auto"
                                 IsEnabled="{Binding !AddDialog.IsSubmitting}">
                     <StackPanel Spacing="16" Margin="24,0,22,0">
@@ -215,7 +214,7 @@
                           </StackPanel>
                           <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                             <ToggleButton Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.Method.RemoteButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.Method.RemoteButton"
                                           Command="{Binding AddDialog.SelectRemoteMethodCommand}"
                                           IsChecked="{Binding AddDialog.IsRemoteMethodSelected}">
                               <StackPanel Spacing="2">
@@ -225,7 +224,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="1"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.Method.BlankButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.Method.BlankButton"
                                           Command="{Binding AddDialog.SelectBlankMethodCommand}"
                                           IsChecked="{Binding AddDialog.IsBlankMethodSelected}">
                               <StackPanel Spacing="2">
@@ -235,7 +234,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="2"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.Method.LocalButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.Method.LocalButton"
                                           Command="{Binding AddDialog.SelectLocalMethodCommand}"
                                           IsChecked="{Binding AddDialog.IsLocalMethodSelected}">
                               <StackPanel Spacing="2">
@@ -249,8 +248,8 @@
 
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.Name}" />
-                        <TextBox Classes="dialog-input"
-                                 AutomationProperties.AutomationId="Overrides.Dialog.NameBox"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsNameErrorVisible}"
+                                 AutomationProperties.AutomationId="Overrides.AddDialog.NameBox"
                                  PlaceholderText="{loc:Loc Overrides.Placeholder.Name}"
                                  Text="{Binding AddDialog.Name, Mode=TwoWay}">
                           <TextBox.InnerLeftContent>
@@ -259,14 +258,18 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Overrides.AddDialog.NameError"
+                                   IsVisible="{Binding AddDialog.IsNameErrorVisible}"
+                                   Text="{Binding AddDialog.NameError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
                                   IsVisible="{Binding AddDialog.IsRemoteAddressFieldVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.Url}" />
                         <Grid>
-                          <TextBox Classes="dialog-input"
-                                   AutomationProperties.AutomationId="Overrides.Dialog.PathBox"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsSourceLocationErrorVisible}"
+                                   AutomationProperties.AutomationId="Overrides.AddDialog.SourceBox"
                                    PlaceholderText="{loc:Loc Overrides.Placeholder.Url}"
                                    GotFocus="OnOverrideUrlBoxGotFocus"
                                    TextChanged="OnOverrideUrlBoxTextChanged"
@@ -279,7 +282,7 @@
                             </TextBox.InnerLeftContent>
                           </TextBox>
                           <Button Classes="input-inline-icon"
-                                  AutomationProperties.AutomationId="Overrides.Dialog.UrlPasteButton"
+                                  AutomationProperties.AutomationId="Overrides.AddDialog.UrlPasteButton"
                                   IsVisible="{Binding AddDialog.IsUrlPasteButtonVisible}"
                                   IsEnabled="{Binding AddDialog.CanPasteUrlFromClipboard}"
                                   HorizontalAlignment="Right"
@@ -292,14 +295,18 @@
                                                              Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                           </Button>
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Overrides.AddDialog.UrlError"
+                                   IsVisible="{Binding AddDialog.IsSourceLocationErrorVisible}"
+                                   Text="{Binding AddDialog.SourceLocationError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
                                   IsVisible="{Binding AddDialog.IsLocalFileFieldVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.LocalPath}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                          <TextBox Classes="dialog-input"
-                                   AutomationProperties.AutomationId="Overrides.Dialog.LocalPathBox"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsSourceLocationErrorVisible}"
+                                   AutomationProperties.AutomationId="Overrides.AddDialog.LocalPathBox"
                                    Focusable="False"
                                    IsHitTestVisible="False"
                                    IsReadOnly="True"
@@ -313,10 +320,14 @@
                           </TextBox>
                           <Button Grid.Column="1"
                                   Classes="dialog-secondary"
-                                  AutomationProperties.AutomationId="Overrides.Dialog.ChooseLocalFileButton"
+                                  AutomationProperties.AutomationId="Overrides.AddDialog.ChooseLocalFileButton"
                                   Click="OnChooseLocalFileClicked"
                                   Content="{loc:Loc Common.ChooseFile}" />
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Overrides.AddDialog.LocalFileError"
+                                   IsVisible="{Binding AddDialog.IsSourceLocationErrorVisible}"
+                                   Text="{Binding AddDialog.SourceLocationError}" />
                       </StackPanel>
 
                       <Border Classes="dialog-section">
@@ -329,14 +340,14 @@
                           </StackPanel>
                           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <ToggleButton Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.FormatYamlButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.FormatYamlButton"
                                           Command="{Binding AddDialog.SelectYamlFormatCommand}"
                                           IsChecked="{Binding AddDialog.IsYamlFormatSelected}">
                               <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Format.Yaml}" />
                             </ToggleButton>
                             <ToggleButton Grid.Column="1"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.FormatJavaScriptButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.FormatJavaScriptButton"
                                           Command="{Binding AddDialog.SelectJavaScriptFormatCommand}"
                                           IsChecked="{Binding AddDialog.IsJavaScriptFormatSelected}">
                               <TextBlock Classes="rc-title" Text="{loc:Loc Overrides.Format.JavaScript}" />
@@ -356,7 +367,7 @@
                           </StackPanel>
                           <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                             <ToggleButton Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.Proxy.DirectButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.Proxy.DirectButton"
                                           Command="{Binding AddDialog.SelectDirectProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsDirectProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -365,7 +376,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="1"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.Proxy.SystemButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.Proxy.SystemButton"
                                           Command="{Binding AddDialog.SelectSystemProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsSystemProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -374,7 +385,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="2"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Overrides.Dialog.Proxy.CoreButton"
+                                          AutomationProperties.AutomationId="Overrides.AddDialog.Proxy.CoreButton"
                                           Command="{Binding AddDialog.SelectCoreProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsCoreProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -389,12 +400,12 @@
 
                   <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
                     <Button Classes="dialog-secondary"
-                            AutomationProperties.AutomationId="Overrides.Dialog.CancelButton"
+                            AutomationProperties.AutomationId="Overrides.AddDialog.CancelButton"
                             Command="{Binding AddDialog.CancelCommand}"
                             IsEnabled="{Binding !AddDialog.IsSubmitting}"
                             Content="{loc:Loc Dialog.Cancel}" />
                     <Button Classes="dialog-primary"
-                            AutomationProperties.AutomationId="Overrides.Dialog.ConfirmButton"
+                            AutomationProperties.AutomationId="Overrides.AddDialog.SaveButton"
                             Command="{Binding AddDialog.ConfirmCommand}"
                             IsEnabled="{Binding AddDialog.CanSubmit}">
                       <StackPanel Orientation="Horizontal" Spacing="8">
@@ -429,18 +440,26 @@
                     <StackPanel Spacing="16" Margin="24,0,22,0">
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Overrides.Field.Name}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsNameErrorVisible}"
                                  AutomationProperties.AutomationId="Overrides.EditDialog.NameBox"
                                  PlaceholderText="{loc:Loc Overrides.Placeholder.EditName}"
                                  Text="{Binding EditDialog.Name, Mode=TwoWay}" />
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Overrides.EditDialog.NameError"
+                                   IsVisible="{Binding EditDialog.IsNameErrorVisible}"
+                                   Text="{Binding EditDialog.NameError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteOverride}">
                         <TextBlock Classes="dialog-label" Text="{Binding EditDialog.SourceLabel}" />
-                        <TextBox Classes="dialog-input"
-                                 AutomationProperties.AutomationId="Overrides.EditDialog.PathBox"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsSourceLocationErrorVisible}"
+                                 AutomationProperties.AutomationId="Overrides.EditDialog.SourceBox"
                                  PlaceholderText="{Binding EditDialog.SourcePlaceholder}"
                                  Text="{Binding EditDialog.SourceLocation, Mode=TwoWay}" />
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Overrides.EditDialog.UrlError"
+                                   IsVisible="{Binding EditDialog.IsSourceLocationErrorVisible}"
+                                   Text="{Binding EditDialog.SourceLocationError}" />
                       </StackPanel>
 
                       <Border Classes="dialog-section"

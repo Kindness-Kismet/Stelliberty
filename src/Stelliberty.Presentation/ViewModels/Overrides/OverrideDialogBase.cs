@@ -2,6 +2,7 @@ using System.Windows.Input;
 using Stelliberty.Application.Localization;
 using Stelliberty.Domain.Overrides;
 using Stelliberty.Presentation.Commands;
+using Stelliberty.Presentation.Validation;
 
 namespace Stelliberty.Presentation.ViewModels;
 
@@ -16,6 +17,9 @@ public abstract class OverrideDialogBase : ViewModelBase, IDisposable
     protected string _sourceLocation = string.Empty;
     protected OverrideFormat _format = OverrideFormat.Yaml;
     protected OverrideUpdateProxyMode _proxyMode;
+    protected bool _hasAttemptedSubmit;
+    protected string _nameError = string.Empty;
+    protected string _sourceLocationError = string.Empty;
 
     protected OverrideDialogBase(ILocalizationService? localization)
     {
@@ -37,6 +41,8 @@ public abstract class OverrideDialogBase : ViewModelBase, IDisposable
 
     public event EventHandler? DialogStateChanged;
 
+    public event EventHandler<DialogInputField>? InputFocusRequested;
+
     public string Name
     {
         get => _name;
@@ -44,7 +50,10 @@ public abstract class OverrideDialogBase : ViewModelBase, IDisposable
         {
             if (SetProperty(ref _name, value))
             {
-                OnPropertyChanged(nameof(CanSubmit));
+                if (_hasAttemptedSubmit)
+                {
+                    ValidateName();
+                }
             }
         }
     }
@@ -56,8 +65,11 @@ public abstract class OverrideDialogBase : ViewModelBase, IDisposable
         {
             if (SetProperty(ref _sourceLocation, value))
             {
-                OnPropertyChanged(nameof(CanSubmit));
                 OnSourceLocationChanged();
+                if (_hasAttemptedSubmit)
+                {
+                    ValidateSourceLocation();
+                }
             }
         }
     }
@@ -84,7 +96,19 @@ public abstract class OverrideDialogBase : ViewModelBase, IDisposable
 
     public bool IsCoreProxyModeSelected => UpdateProxyMode == OverrideUpdateProxyMode.Core;
 
+    public string NameError => _nameError;
+
+    public bool IsNameErrorVisible => !string.IsNullOrEmpty(_nameError);
+
+    public string SourceLocationError => _sourceLocationError;
+
+    public bool IsSourceLocationErrorVisible => !string.IsNullOrEmpty(_sourceLocationError);
+
     public abstract bool CanSubmit { get; }
+
+    protected abstract bool IsRemoteSource { get; }
+
+    protected virtual bool IsLocalSourceRequired => false;
 
     public ICommand SelectYamlFormatCommand { get; }
 
@@ -138,6 +162,44 @@ public abstract class OverrideDialogBase : ViewModelBase, IDisposable
         DialogStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    protected void ResetValidation()
+    {
+        _hasAttemptedSubmit = false;
+        _nameError = string.Empty;
+        _sourceLocationError = string.Empty;
+    }
+
+    protected bool ValidateInputs()
+    {
+        _hasAttemptedSubmit = true;
+        ValidateName();
+        ValidateSourceLocation();
+        return !IsNameErrorVisible && !IsSourceLocationErrorVisible;
+    }
+
+    protected void RequestInputFocus(DialogInputField field) => InputFocusRequested?.Invoke(this, field);
+
+    protected void RefreshSourceLocationValidation()
+    {
+        if (_hasAttemptedSubmit)
+        {
+            ValidateSourceLocation();
+            return;
+        }
+
+        _sourceLocationError = string.Empty;
+        OnPropertyChanged(nameof(SourceLocationError));
+        OnPropertyChanged(nameof(IsSourceLocationErrorVisible));
+    }
+
+    protected void RaiseValidationStateChanged()
+    {
+        OnPropertyChanged(nameof(NameError));
+        OnPropertyChanged(nameof(IsNameErrorVisible));
+        OnPropertyChanged(nameof(SourceLocationError));
+        OnPropertyChanged(nameof(IsSourceLocationErrorVisible));
+    }
+
     // 来源变化的附加通知交给子类（粘贴按钮显隐等）。
     protected virtual void OnSourceLocationChanged()
     {
@@ -164,7 +226,41 @@ public abstract class OverrideDialogBase : ViewModelBase, IDisposable
 
     private void HandleLanguageChanged(object? sender, EventArgs args)
     {
+        if (_hasAttemptedSubmit)
+        {
+            ValidateName();
+            ValidateSourceLocation();
+        }
+
         OnLanguageChanged();
+    }
+
+    private void ValidateName()
+    {
+        _nameError = string.IsNullOrWhiteSpace(_name)
+            ? Localize("Overrides.Validation.NameRequired")
+            : string.Empty;
+        OnPropertyChanged(nameof(NameError));
+        OnPropertyChanged(nameof(IsNameErrorVisible));
+    }
+
+    private void ValidateSourceLocation()
+    {
+        if (IsRemoteSource && !HttpUrlValidator.IsHttpUrl(_sourceLocation))
+        {
+            _sourceLocationError = Localize("Overrides.Validation.Url");
+        }
+        else if (IsLocalSourceRequired && string.IsNullOrWhiteSpace(_sourceLocation))
+        {
+            _sourceLocationError = Localize("Overrides.Validation.LocalFileRequired");
+        }
+        else
+        {
+            _sourceLocationError = string.Empty;
+        }
+
+        OnPropertyChanged(nameof(SourceLocationError));
+        OnPropertyChanged(nameof(IsSourceLocationErrorVisible));
     }
 
     // Avalonia 仅在命令事件后重算可执行状态；属性通知需同步转发。

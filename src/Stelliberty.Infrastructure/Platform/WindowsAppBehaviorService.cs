@@ -135,6 +135,7 @@ public sealed class WindowsAppBehaviorService : IAppBehaviorService
                 return new SchtasksResult(false, "schtasks.exe timed out.");
             }
 
+            // WaitForExit 成功后管道已关闭，读取任务必然已完成，不会真阻塞。
             var output = outputTask.GetAwaiter().GetResult();
             var error = errorTask.GetAwaiter().GetResult();
             return new SchtasksResult(process.ExitCode == 0, string.IsNullOrWhiteSpace(error) ? output.Trim() : error.Trim());

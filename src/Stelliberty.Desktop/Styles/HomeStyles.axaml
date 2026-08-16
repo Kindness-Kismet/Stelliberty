@@ -76,9 +76,6 @@
     <Setter Property="FontWeight" Value="Bold" />
     <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
   </Style>
-  <Style Selector="TextBlock.subscription-stat-value.compact">
-    <Setter Property="FontSize" Value="16" />
-  </Style>
   <Style Selector="StackPanel.subscription-traffic">
     <Setter Property="Spacing" Value="5" />
   </Style>
@@ -146,17 +143,5 @@
   </Style>
   <Style Selector="Border.tile-icon.danger iconPacks|PackIconMingCuteIcons">
     <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
-  </Style>
-  <Style Selector="Border.tile-icon.download">
-    <Setter Property="Background" Value="{DynamicResource AppDownloadTintBrush}" />
-  </Style>
-  <Style Selector="Border.tile-icon.download iconPacks|PackIconMingCuteIcons">
-    <Setter Property="Foreground" Value="{DynamicResource AppDownloadBrush}" />
-  </Style>
-  <Style Selector="Border.tile-icon.memory">
-    <Setter Property="Background" Value="{DynamicResource AppMemoryTintBrush}" />
-  </Style>
-  <Style Selector="Border.tile-icon.memory iconPacks|PackIconMingCuteIcons">
-    <Setter Property="Foreground" Value="{DynamicResource AppMemoryBrush}" />
   </Style>
 </Styles>

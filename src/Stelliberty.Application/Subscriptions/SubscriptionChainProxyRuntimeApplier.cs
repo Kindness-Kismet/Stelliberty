@@ -8,11 +8,6 @@ public sealed class SubscriptionChainProxyRuntimeApplier
 {
     public string Apply(string content, Subscription subscription)
     {
-        if (subscription.DisabledBuiltinChainProxyNames.Count == 0 && subscription.CustomChainProxies.Count == 0)
-        {
-            return content;
-        }
-
         try
         {
             var stream = new YamlStream();
@@ -24,7 +19,20 @@ public sealed class SubscriptionChainProxyRuntimeApplier
 
             var proxies = ReadMappingSequence(root, "proxies");
             var proxyGroups = ReadMappingSequence(root, "proxy-groups");
+            if (subscription.DisabledBuiltinChainProxyNames.Count == 0
+                && subscription.CustomChainProxies.All(item => !item.IsEnabled)
+                && proxies.All(proxy => string.IsNullOrWhiteSpace(Scalar(proxy, "dialer-proxy"))))
+            {
+                return content;
+            }
+
             var result = BuildRuntimeConfig(proxies, proxyGroups, subscription);
+            if (subscription.DisabledBuiltinChainProxyNames.Count == 0
+                && subscription.CustomChainProxies.All(item => !item.IsEnabled))
+            {
+                return content;
+            }
+
             Set(root, "proxies", result.Proxies);
             if (HasMappingSequence(root, "proxy-groups"))
             {
@@ -41,9 +49,11 @@ public sealed class SubscriptionChainProxyRuntimeApplier
         }
     }
 
-    private sealed record RuntimeConfigBuildResult(YamlSequenceNode Proxies, YamlSequenceNode ProxyGroups);
+    private sealed record RuntimeConfigBuildResult(
+        YamlSequenceNode Proxies,
+        YamlSequenceNode ProxyGroups);
 
-    private sealed record CustomProxyGroupEntry(string LeafNodeName, string DisplayName);
+    private sealed record CustomProxyGroupEntry(string ProxyGroupName, string DisplayName);
 
     private static RuntimeConfigBuildResult BuildRuntimeConfig(
         IReadOnlyList<YamlMappingNode> proxies,
@@ -65,14 +75,18 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             .ToHashSet(StringComparer.Ordinal);
         var runtimeProxies = activeProxies.Select(Clone).ToList();
         var customGroupEntries = new List<CustomProxyGroupEntry>();
-
-        foreach (var customProxy in subscription.CustomChainProxies)
+        foreach (var customProxy in subscription.CustomChainProxies.Where(item => item.IsEnabled))
         {
-            var runtimeDialerProxies = BuildRuntimeDialerProxies(proxyByName, occupiedNames, customProxy);
+            var runtimeDialerProxies = BuildRuntimeDialerProxies(
+                proxyByName,
+                proxyGroups,
+                occupiedNames,
+                customProxy);
+
             if (runtimeDialerProxies.Count > 0)
             {
                 customGroupEntries.Add(new CustomProxyGroupEntry(
-                    LastValidNodeName(customProxy),
+                    customProxy.ProxyGroupName.Trim(),
                     customProxy.DisplayName.Trim()));
             }
 
@@ -95,41 +109,62 @@ public sealed class SubscriptionChainProxyRuntimeApplier
 
     private static IReadOnlyList<YamlMappingNode> BuildRuntimeDialerProxies(
         IReadOnlyDictionary<string, YamlMappingNode> proxyByName,
+        IReadOnlyList<YamlMappingNode> proxyGroups,
         HashSet<string> occupiedNames,
         SubscriptionCustomChainProxy customProxy)
     {
-        var nodeNames = customProxy.NodeNames
-            .Select(name => name.Trim())
-            .Where(name => !string.IsNullOrWhiteSpace(name))
+        var hops = customProxy.Hops
+            .Where(hop => !string.IsNullOrWhiteSpace(hop.Name))
+            .Select(hop => hop with { Name = hop.Name.Trim() })
             .ToList();
         var displayName = customProxy.DisplayName.Trim();
-        if (nodeNames.Count < 2 || string.IsNullOrWhiteSpace(displayName) || occupiedNames.Contains(displayName))
+        var proxyGroupName = customProxy.ProxyGroupName.Trim();
+        if (hops.Count < 2
+            || string.IsNullOrWhiteSpace(displayName)
+            || string.IsNullOrWhiteSpace(proxyGroupName)
+            || occupiedNames.Contains(displayName)
+            || !proxyGroups.Any(group => Scalar(group, "name") == proxyGroupName)
+            || hops.Skip(1).Any(hop => hop.Kind != SubscriptionChainProxyHopKind.Proxy)
+            || hops.Count(hop => hop.Kind == SubscriptionChainProxyHopKind.ProxyGroup) > 1)
         {
             return [];
         }
 
-        if (nodeNames.Any(name => !proxyByName.ContainsKey(name)))
+        var firstHop = hops[0];
+        if ((firstHop.Kind == SubscriptionChainProxyHopKind.ProxyGroup
+                && !proxyGroups.Any(group => Scalar(group, "name") == firstHop.Name))
+            || (firstHop.Kind == SubscriptionChainProxyHopKind.Proxy
+                && !proxyByName.ContainsKey(firstHop.Name)))
         {
             return [];
         }
 
-        var result = new List<YamlMappingNode>();
-        var previousName = nodeNames[0];
-        for (var index = 1; index < nodeNames.Count; index++)
+        if (hops.Skip(1).Any(hop => !proxyByName.ContainsKey(hop.Name)))
         {
-            var runtimeName = index == nodeNames.Count - 1
+            return [];
+        }
+
+        var plannedOccupiedNames = occupiedNames.ToHashSet(StringComparer.Ordinal);
+        plannedOccupiedNames.Add(displayName);
+        var runtimeNames = new List<string>();
+        for (var index = 1; index < hops.Count; index++)
+        {
+            runtimeNames.Add(index == hops.Count - 1
                 ? displayName
-                : ReserveInternalProxyName(customProxy, index, occupiedNames);
-            var runtimeProxy = Clone(proxyByName[nodeNames[index]]);
+                : ReserveInternalProxyName(customProxy, index, plannedOccupiedNames));
+        }
+
+        occupiedNames.UnionWith(runtimeNames);
+        var result = new List<YamlMappingNode>();
+        var previousName = firstHop.Name;
+        for (var index = 1; index < hops.Count; index++)
+        {
+            var runtimeName = runtimeNames[index - 1];
+            var runtimeProxy = Clone(proxyByName[hops[index].Name]);
             SetScalar(runtimeProxy, "name", runtimeName);
             SetScalar(runtimeProxy, "dialer-proxy", previousName);
 
             result.Add(runtimeProxy);
-            if (index == nodeNames.Count - 1)
-            {
-                occupiedNames.Add(runtimeName);
-            }
-
             previousName = runtimeName;
         }
 
@@ -148,7 +183,23 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             if (clone.Children.TryGetValue(new YamlScalarNode("proxies"), out var proxiesNode)
                 && proxiesNode is YamlSequenceNode proxies)
             {
-                clone.Children[new YamlScalarNode("proxies")] = BuildProxyGroupEntries(proxies, disabledBuiltinNames, customGroupEntries);
+                clone.Children[new YamlScalarNode("proxies")] = BuildProxyGroupEntries(
+                    Scalar(group, "name"),
+                    proxies,
+                    disabledBuiltinNames,
+                    customGroupEntries);
+            }
+            else
+            {
+                var entries = BuildProxyGroupEntries(
+                    Scalar(group, "name"),
+                    new YamlSequenceNode(),
+                    disabledBuiltinNames,
+                    customGroupEntries);
+                if (entries.Children.Count > 0)
+                {
+                    clone.Children[new YamlScalarNode("proxies")] = entries;
+                }
             }
 
             groups.Add(clone);
@@ -158,6 +209,7 @@ public sealed class SubscriptionChainProxyRuntimeApplier
     }
 
     private static YamlSequenceNode BuildProxyGroupEntries(
+        string proxyGroupName,
         YamlSequenceNode proxies,
         HashSet<string> disabledBuiltinNames,
         IReadOnlyList<CustomProxyGroupEntry> customGroupEntries)
@@ -172,13 +224,14 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             }
 
             entries.Add(entry);
-            foreach (var customEntry in customGroupEntries.Where(item => string.Equals(item.LeafNodeName, name, StringComparison.Ordinal)))
+        }
+
+        foreach (var customEntry in customGroupEntries.Where(item => string.Equals(item.ProxyGroupName, proxyGroupName, StringComparison.Ordinal)))
+        {
+            // 自定义链只挂到用户明确选择的代理组。
+            if (!ContainsScalar(entries, customEntry.DisplayName))
             {
-                // 自定义链加入最后一跳所在分组，保证仍可选择。
-                if (!ContainsScalar(entries, customEntry.DisplayName))
-                {
-                    entries.Add(new YamlScalarNode(customEntry.DisplayName));
-                }
+                entries.Add(new YamlScalarNode(customEntry.DisplayName));
             }
         }
 
@@ -217,14 +270,6 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             .Select(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' ? ch : '_')
             .ToArray();
         return chars.Length == 0 ? "custom" : new string(chars);
-    }
-
-    private static string LastValidNodeName(SubscriptionCustomChainProxy customProxy)
-    {
-        return customProxy.NodeNames
-            .Select(name => name.Trim())
-            .Where(name => !string.IsNullOrWhiteSpace(name))
-            .Last();
     }
 
     private static IReadOnlyList<YamlMappingNode> ReadMappingSequence(YamlMappingNode root, string key)

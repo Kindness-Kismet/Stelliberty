@@ -11,9 +11,9 @@ internal static partial class DebugCommands
 {
     private static async Task<string?> ExecuteNavigationCommandAsync(MainWindow window, string command)
     {
-        if (command.StartsWith("page.scroll_y", StringComparison.OrdinalIgnoreCase))
+        if (command.StartsWith("page.scroll y", StringComparison.OrdinalIgnoreCase))
         {
-            return ReadOrSetCurrentPageScrollViewerY(window, command["page.scroll_y".Length..].Trim()).ToString("0.###", CultureInfo.InvariantCulture);
+            return ReadOrSetCurrentPageScrollViewerY(window, command["page.scroll y".Length..].Trim()).ToString("0.###", CultureInfo.InvariantCulture);
         }
 
         if (command.StartsWith("page.open ", StringComparison.OrdinalIgnoreCase))
@@ -82,7 +82,7 @@ internal static partial class DebugCommands
 
         if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
         {
-            throw new InvalidOperationException("page.scroll_y usage: page.scroll_y [y]");
+            throw new InvalidOperationException("page.scroll y usage: page.scroll y [y]");
         }
 
         var scrollViewer = FindCurrentPageScrollViewer(window);

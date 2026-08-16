@@ -104,7 +104,7 @@ public sealed class ChainProxyRuntimeTests
         {
             CustomChainProxies =
             [
-                new SubscriptionCustomChainProxy("chain-a", "JP via TW via HK", ["HK", "TW", "JP"])
+                Chain("chain-a", "JP via TW via HK", "GLOBAL", "HK", "TW", "JP")
             ]
         });
         var proxies = Proxies(output);
@@ -114,42 +114,6 @@ public sealed class ChainProxyRuntimeTests
         Assert.Equal("HK", Scalar(internalHop, "dialer-proxy"));
         Assert.Equal("__stelliberty_chain_chain-a_1", Scalar(display, "dialer-proxy"));
         Assert.Equal("jp.example", Scalar(display, "server"));
-    }
-
-    [Fact(DisplayName = "Runtime applier adds custom chain display to leaf groups")]
-    public void RuntimeApplierAddsCustomChainDisplayToLeafGroups()
-    {
-        var output = new SubscriptionChainProxyRuntimeApplier().Apply(
-            """
-            proxies:
-              - name: HK
-                type: ss
-                server: hk.example
-              - name: TW
-                type: ss
-                server: tw.example
-              - name: JP
-                type: ss
-                server: jp.example
-            proxy-groups:
-              - name: GLOBAL
-                type: select
-                proxies: [HK, JP]
-              - name: Regional
-                type: select
-                proxies: [HK, TW]
-            rules: []
-            """,
-            Subscription("sub-1") with
-            {
-                CustomChainProxies =
-                [
-                    new SubscriptionCustomChainProxy("chain-a", "JP via HK", ["HK", "JP"])
-                ]
-            });
-
-        Assert.Equal(["HK", "JP", "JP via HK"], ProxyGroupEntries(output, "GLOBAL"));
-        Assert.Equal(["HK", "TW"], ProxyGroupEntries(output, "Regional"));
     }
 
     [Fact(DisplayName = "Runtime applier overrides leaf dialer proxy")]
@@ -175,7 +139,7 @@ public sealed class ChainProxyRuntimeTests
             {
                 CustomChainProxies =
                 [
-                    new SubscriptionCustomChainProxy("chain-a", "JP via HK", ["HK", "JP"])
+                    Chain("chain-a", "JP via HK", "GLOBAL", "HK", "JP")
                 ]
             });
 
@@ -192,8 +156,8 @@ public sealed class ChainProxyRuntimeTests
         {
             CustomChainProxies =
             [
-                new SubscriptionCustomChainProxy("conflict-node", "JP", ["HK", "TW"]),
-                new SubscriptionCustomChainProxy("conflict-group", "GLOBAL", ["HK", "TW"])
+                Chain("conflict-node", "JP", "GLOBAL", "HK", "TW"),
+                Chain("conflict-group", "GLOBAL", "GLOBAL", "HK", "TW")
             ]
         });
 
@@ -207,8 +171,8 @@ public sealed class ChainProxyRuntimeTests
         {
             CustomChainProxies =
             [
-                new SubscriptionCustomChainProxy("missing", "Missing chain", ["HK", "Missing"]),
-                new SubscriptionCustomChainProxy("single", "Single chain", ["HK"])
+                Chain("missing", "Missing chain", "GLOBAL", "HK", "Missing"),
+                Chain("single", "Single chain", "GLOBAL", "HK")
             ]
         });
 
@@ -243,7 +207,7 @@ public sealed class ChainProxyRuntimeTests
             {
                 CustomChainProxies =
                 [
-                    new SubscriptionCustomChainProxy("chain-a", "JP via TW via HK", ["HK", "TW", "JP"])
+                    Chain("chain-a", "JP via TW via HK", "GLOBAL", "HK", "TW", "JP")
                 ]
             });
 
@@ -288,6 +252,22 @@ public sealed class ChainProxyRuntimeTests
         rules: []
         """;
     }
+
+    private static SubscriptionCustomChainProxy Chain(
+        string id,
+        string displayName,
+        string proxyGroupName,
+        params string[] proxyNames)
+    {
+        return new SubscriptionCustomChainProxy(
+            id,
+            displayName,
+            proxyGroupName,
+            proxyNames.Select(ProxyHop).ToList());
+    }
+
+    private static SubscriptionChainProxyHop ProxyHop(string name)
+        => new(SubscriptionChainProxyHopKind.Proxy, name);
 
     private static Subscription Subscription(string id)
     {

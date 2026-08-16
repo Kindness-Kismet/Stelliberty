@@ -12,15 +12,15 @@ internal static partial class DebugCommands
         // 非当前页会释放行缓存，调试命令读取前按现有展示生命周期重建。
         page.WarmupPresentation();
         var spec = command["proxies.".Length..].Trim();
-        if (string.Equals(spec, "list_groups", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "list groups", StringComparison.OrdinalIgnoreCase))
         {
             return string.Join("|", page.VisibleGroupRows.Select(row =>
                 $"{row.Name}\t{row.Group.Type}\tnow={row.Group.Now ?? string.Empty}\tfixed={row.Group.Fixed ?? string.Empty}\tselectable={row.Group.IsManualSelectable.ToString().ToLowerInvariant()}\tselected={row.IsSelected.ToString().ToLowerInvariant()}"));
         }
 
-        if (spec.StartsWith("list_nodes", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("list nodes", StringComparison.OrdinalIgnoreCase))
         {
-            var groupName = spec["list_nodes".Length..].Trim();
+            var groupName = spec["list nodes".Length..].Trim();
             if (!string.IsNullOrWhiteSpace(groupName))
             {
                 page.SelectGroup(groupName);
@@ -30,9 +30,9 @@ internal static partial class DebugCommands
                 ProxyDelayRow(row)));
         }
 
-        if (spec.StartsWith("delay ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("get delay ", StringComparison.OrdinalIgnoreCase))
         {
-            var name = spec["delay ".Length..].Trim();
+            var name = spec["get delay ".Length..].Trim();
             var row = page.VisibleNodeRows.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
             if (row is null)
             {
@@ -42,37 +42,37 @@ internal static partial class DebugCommands
             return ProxyDelayRow(row);
         }
 
-        if (spec.StartsWith("select_group ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("select group ", StringComparison.OrdinalIgnoreCase))
         {
-            page.SelectGroup(spec["select_group ".Length..].Trim());
+            page.SelectGroup(spec["select group ".Length..].Trim());
             return ProxyState(page);
         }
 
-        if (spec.StartsWith("select_node ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("select node ", StringComparison.OrdinalIgnoreCase))
         {
-            await page.SelectNodeAsync(spec["select_node ".Length..].Trim());
+            await page.SelectNodeAsync(spec["select node ".Length..].Trim());
             return ProxyState(page);
         }
 
-        if (spec.StartsWith("test_node ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("test node ", StringComparison.OrdinalIgnoreCase))
         {
-            page.TestNodeDelay(spec["test_node ".Length..].Trim());
+            page.TestNodeDelay(spec["test node ".Length..].Trim());
             return ProxyState(page);
         }
 
-        if (spec.StartsWith("test_group ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("test group ", StringComparison.OrdinalIgnoreCase))
         {
-            page.TestGroupDelays(spec["test_group ".Length..].Trim());
+            page.TestGroupDelays(spec["test group ".Length..].Trim());
             return ProxyState(page);
         }
 
-        if (string.Equals(spec, "test_current_group", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "test current-group", StringComparison.OrdinalIgnoreCase))
         {
             page.TestCurrentGroupDelays();
             return ProxyState(page);
         }
 
-        if (string.Equals(spec, "test_all", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "test all", StringComparison.OrdinalIgnoreCase))
         {
             page.TestAllDelays();
             return ProxyState(page);
@@ -84,15 +84,15 @@ internal static partial class DebugCommands
             return ProxyState(page);
         }
 
-        if (string.Equals(spec, "cancel_delay", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "cancel delay", StringComparison.OrdinalIgnoreCase))
         {
             page.CancelDelayTests();
             return ProxyState(page);
         }
 
-        if (spec.StartsWith("set_layout ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("set layout ", StringComparison.OrdinalIgnoreCase))
         {
-            var mode = spec["set_layout ".Length..].Trim();
+            var mode = spec["set layout ".Length..].Trim();
             if (!Enum.TryParse<ProxyPageLayout>(mode, ignoreCase: true, out var layout))
             {
                 throw new InvalidOperationException($"Unknown layout: {mode}");
@@ -102,15 +102,15 @@ internal static partial class DebugCommands
             return ProxyState(page);
         }
 
-        if (string.Equals(spec, "toggle_layout", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "toggle layout", StringComparison.OrdinalIgnoreCase))
         {
             page.ToggleLayout();
             return ProxyState(page);
         }
 
-        if (spec.StartsWith("expand_group ", StringComparison.OrdinalIgnoreCase))
+        if (spec.StartsWith("expand group ", StringComparison.OrdinalIgnoreCase))
         {
-            var name = spec["expand_group ".Length..].Trim();
+            var name = spec["expand group ".Length..].Trim();
             if (!string.Equals(page.ExpandedGroupName, name, StringComparison.Ordinal))
             {
                 page.ToggleGroupExpand(name);
@@ -119,7 +119,7 @@ internal static partial class DebugCommands
             return ProxyState(page);
         }
 
-        if (string.Equals(spec, "collapse_group", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "collapse group", StringComparison.OrdinalIgnoreCase))
         {
             if (page.ExpandedGroupName is { } expanded)
             {

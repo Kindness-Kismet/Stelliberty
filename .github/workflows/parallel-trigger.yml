@@ -72,6 +72,12 @@ jobs:
             exit 0
           fi
 
+          if git log --format= --name-only "${BEFORE_SHA}..${AFTER_SHA}" -- .github/CHANGELOG.md | grep -q .; then
+            echo 'should_build=false' >> "$GITHUB_OUTPUT"
+            echo 'Changelog changed in this push; beta build is skipped.'
+            exit 0
+          fi
+
           props_version="$(sed -n 's:.*<AppVersion>\(.*\)</AppVersion>.*:\1:p' Directory.Build.props)"
           tags="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/releases?per_page=100" --jq '.[] | select(.draft | not) | .tag_name')"
           stable="${props_version}"

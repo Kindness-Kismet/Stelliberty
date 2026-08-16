@@ -100,7 +100,6 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
         AddDialog = new SubscriptionAddDialogViewModel(localization);
         AddDialog.RemoteRequested += OnAddRemoteRequested;
         AddDialog.LocalRequested += OnAddLocalRequested;
-        AddDialog.ValidationFailed += OnAddDialogValidationFailed;
         AddDialog.DialogStateChanged += OnAddDialogStateChanged;
 
         SubscriptionStore = subscriptionStore;
@@ -412,11 +411,6 @@ public sealed partial class SubscriptionPageViewModel : ViewModelBase, IDisposab
     private void ShowSuccessToast(string localizationKey, string value)
     {
         ShowToast(string.Format(Localize(localizationKey), value), ToastType.Success);
-    }
-
-    private void OnAddDialogValidationFailed(object? sender, string message)
-    {
-        ShowToast(message);
     }
 
     private void ShowErrorToast(string localizationKey)

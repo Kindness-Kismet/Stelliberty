@@ -3,6 +3,7 @@ using System.Windows.Input;
 using Stelliberty.Application.Localization;
 using Stelliberty.Domain.Subscriptions;
 using Stelliberty.Presentation.Commands;
+using Stelliberty.Presentation.Validation;
 
 namespace Stelliberty.Presentation.ViewModels;
 
@@ -28,6 +29,9 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
     protected string _autoUpdateIntervalMinutesError = string.Empty;
     protected SubscriptionUpdateProxyMode _selectedUpdateProxyMode;
     protected bool _hasClipboardText;
+    protected bool _hasAttemptedSubmit;
+    protected string _nameError = string.Empty;
+    protected string _urlError = string.Empty;
 
     protected SubscriptionDialogBase(ILocalizationService? localization)
     {
@@ -47,6 +51,8 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
 
     public event EventHandler? DialogStateChanged;
 
+    public event EventHandler<DialogInputField>? InputFocusRequested;
+
     public string Name
     {
         get => _name;
@@ -54,7 +60,10 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         {
             if (SetProperty(ref _name, value))
             {
-                OnPropertyChanged(nameof(CanSubmit));
+                if (_hasAttemptedSubmit)
+                {
+                    ValidateName();
+                }
             }
         }
     }
@@ -66,8 +75,11 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         {
             if (SetProperty(ref _url, value))
             {
-                OnPropertyChanged(nameof(CanSubmit));
                 OnUrlChanged();
+                if (_hasAttemptedSubmit)
+                {
+                    ValidateUrl();
+                }
             }
         }
     }
@@ -136,9 +148,13 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
                 _autoTestDelayIntervalMinutes = minutes;
                 _autoTestDelayIntervalMinutesError = string.Empty;
             }
-            else
+            else if (_hasAttemptedSubmit)
             {
                 _autoTestDelayIntervalMinutesError = Localize("Subscriptions.Validation.Minutes");
+            }
+            else
+            {
+                _autoTestDelayIntervalMinutesError = string.Empty;
             }
 
             NotifyAutoTestDelayIntervalChanged();
@@ -163,9 +179,18 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         {
             if (SetProperty(ref _selectedAutoUpdateMode, value))
             {
+                if (!IsAutoUpdateIntervalEnabled)
+                {
+                    _autoUpdateIntervalMinutesError = string.Empty;
+                }
+                else if (_hasAttemptedSubmit)
+                {
+                    ValidateAutoUpdateInterval();
+                }
+
                 OnPropertyChanged(nameof(IsAutoUpdateIntervalEnabled));
+                OnPropertyChanged(nameof(AutoUpdateIntervalMinutesError));
                 OnPropertyChanged(nameof(IsAutoUpdateIntervalErrorVisible));
-                OnPropertyChanged(nameof(CanSubmit));
             }
         }
     }
@@ -198,9 +223,13 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
                 _autoUpdateIntervalMinutes = minutes;
                 _autoUpdateIntervalMinutesError = string.Empty;
             }
-            else
+            else if (_hasAttemptedSubmit)
             {
                 _autoUpdateIntervalMinutesError = Localize("Subscriptions.Validation.Minutes");
+            }
+            else
+            {
+                _autoUpdateIntervalMinutesError = string.Empty;
             }
 
             NotifyAutoUpdateIntervalChanged();
@@ -215,6 +244,14 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
 
     // 间隔输入只在间隔模式可交互。
     public bool IsAutoUpdateIntervalEnabled => _selectedAutoUpdateMode == SubscriptionAutoUpdateMode.Interval;
+
+    public string NameError => _nameError;
+
+    public bool IsNameErrorVisible => !string.IsNullOrEmpty(_nameError);
+
+    public string UrlError => _urlError;
+
+    public bool IsUrlErrorVisible => !string.IsNullOrEmpty(_urlError);
 
     public SubscriptionUpdateProxyMode SelectedUpdateProxyMode
     {
@@ -355,6 +392,9 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         _autoUpdateIntervalMinutesText = _autoUpdateIntervalMinutes.ToString(CultureInfo.InvariantCulture);
         _autoUpdateIntervalMinutesError = string.Empty;
         _selectedUpdateProxyMode = updateProxyMode;
+        _hasAttemptedSubmit = false;
+        _nameError = string.Empty;
+        _urlError = string.Empty;
     }
 
     // 广播共享字段属性，不触发 DialogStateChanged。
@@ -384,6 +424,10 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(IsUrlPasteButtonVisible));
         OnPropertyChanged(nameof(CanPasteUrlFromClipboard));
         OnPropertyChanged(nameof(CanSubmit));
+        OnPropertyChanged(nameof(NameError));
+        OnPropertyChanged(nameof(IsNameErrorVisible));
+        OnPropertyChanged(nameof(UrlError));
+        OnPropertyChanged(nameof(IsUrlErrorVisible));
     }
 
     protected void NotifyDialogStateChanged()
@@ -391,11 +435,47 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         DialogStateChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // 间隔只在间隔模式有效；隐藏错误不能阻止提交。
-    protected bool HasValidMinuteInputs(bool isLocal) => string.IsNullOrEmpty(_autoTestDelayIntervalMinutesError)
-        && (isLocal
-            || _selectedAutoUpdateMode != SubscriptionAutoUpdateMode.Interval
-            || string.IsNullOrEmpty(_autoUpdateIntervalMinutesError));
+    protected bool ValidateSharedInputs(bool isLocal)
+    {
+        _hasAttemptedSubmit = true;
+        ValidateName();
+        ValidateUrl();
+        ValidateAutoTestDelayInterval();
+        if (isLocal || !IsAutoUpdateIntervalEnabled)
+        {
+            _autoUpdateIntervalMinutesError = string.Empty;
+            OnPropertyChanged(nameof(AutoUpdateIntervalMinutesError));
+            OnPropertyChanged(nameof(IsAutoUpdateIntervalErrorVisible));
+        }
+        else
+        {
+            ValidateAutoUpdateInterval();
+        }
+
+        return !IsNameErrorVisible
+            && !IsUrlErrorVisible
+            && !IsAutoTestDelayIntervalErrorVisible
+            && !IsAutoUpdateIntervalErrorVisible;
+    }
+
+    protected void RequestInputFocus(DialogInputField field)
+    {
+        InputFocusRequested?.Invoke(this, field);
+    }
+
+    protected void ClearUrlError()
+    {
+        if (string.IsNullOrEmpty(_urlError))
+        {
+            return;
+        }
+
+        _urlError = string.Empty;
+        OnPropertyChanged(nameof(UrlError));
+        OnPropertyChanged(nameof(IsUrlErrorVisible));
+    }
+
+    protected void RefreshUrlValidation() => ValidateUrl();
 
     protected string NormalizeUserAgent()
     {
@@ -463,12 +543,11 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(AutoTestDelayIntervalMinutesError));
         OnPropertyChanged(nameof(IsAutoTestDelayIntervalErrorVisible));
         OnPropertyChanged(nameof(IsAutoTestDelayEnabled));
-        OnPropertyChanged(nameof(CanSubmit));
     }
 
     private void RefreshAutoTestDelayIntervalDisplay()
     {
-        if (!string.IsNullOrEmpty(_autoTestDelayIntervalMinutesError))
+        if (!TryParseMinuteInput(_autoTestDelayIntervalMinutesText, out _))
         {
             return;
         }
@@ -499,7 +578,6 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(AutoUpdateIntervalMinutesText));
         OnPropertyChanged(nameof(AutoUpdateIntervalMinutesError));
         OnPropertyChanged(nameof(IsAutoUpdateIntervalErrorVisible));
-        OnPropertyChanged(nameof(CanSubmit));
     }
 
     private bool TryParseMinuteInput(string value, out int minutes)
@@ -512,6 +590,54 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
 
         return int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out minutes)
             && minutes >= 0;
+    }
+
+    private void ValidateName()
+    {
+        _nameError = string.IsNullOrWhiteSpace(_name)
+            ? Localize("Subscriptions.Validation.NameRequired")
+            : string.Empty;
+        OnPropertyChanged(nameof(NameError));
+        OnPropertyChanged(nameof(IsNameErrorVisible));
+    }
+
+    private void ValidateUrl()
+    {
+        _urlError = IsRemoteContext && !HttpUrlValidator.IsHttpUrl(_url)
+            ? Localize("Subscriptions.Validation.Url")
+            : string.Empty;
+        OnPropertyChanged(nameof(UrlError));
+        OnPropertyChanged(nameof(IsUrlErrorVisible));
+    }
+
+    private void ValidateAutoTestDelayInterval()
+    {
+        if (TryParseMinuteInput(_autoTestDelayIntervalMinutesText, out var minutes))
+        {
+            _autoTestDelayIntervalMinutes = minutes;
+            _autoTestDelayIntervalMinutesError = string.Empty;
+        }
+        else
+        {
+            _autoTestDelayIntervalMinutesError = Localize("Subscriptions.Validation.Minutes");
+        }
+
+        NotifyAutoTestDelayIntervalChanged();
+    }
+
+    private void ValidateAutoUpdateInterval()
+    {
+        if (TryParseMinuteInput(_autoUpdateIntervalMinutesText, out var minutes))
+        {
+            _autoUpdateIntervalMinutes = minutes;
+            _autoUpdateIntervalMinutesError = string.Empty;
+        }
+        else
+        {
+            _autoUpdateIntervalMinutesError = Localize("Subscriptions.Validation.Minutes");
+        }
+
+        NotifyAutoUpdateIntervalChanged();
     }
 
     private string FormatUserAgentText()
@@ -545,6 +671,17 @@ public abstract class SubscriptionDialogBase : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(UserAgentText));
         OnPropertyChanged(nameof(AutoUpdateModeOptions));
         OnPropertyChanged(nameof(SelectedAutoUpdateModeOption));
+        if (_hasAttemptedSubmit)
+        {
+            ValidateName();
+            ValidateUrl();
+            ValidateAutoTestDelayInterval();
+            if (IsAutoUpdateIntervalEnabled)
+            {
+                ValidateAutoUpdateInterval();
+            }
+        }
+
         OnLanguageChanged();
     }
 

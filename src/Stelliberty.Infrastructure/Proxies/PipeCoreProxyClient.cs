@@ -244,7 +244,11 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
             ? allNode.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToList()
             : [];
         var isHidden = node.TryGetProperty("hidden", out var hiddenNode) && hiddenNode.ValueKind == JsonValueKind.True;
-        return new ProxyRuntimeEntry(name, type, now, fixedSelection, all, isHidden, providerName);
+        var dialerProxy = node.TryGetProperty("dialer-proxy", out var dialerProxyNode)
+            && dialerProxyNode.ValueKind == JsonValueKind.String
+                ? dialerProxyNode.GetString()
+                : null;
+        return new ProxyRuntimeEntry(name, type, now, fixedSelection, all, isHidden, providerName, dialerProxy);
     }
 
     public async Task<OutboundMode?> GetOutboundModeAsync(CancellationToken cancellationToken = default)

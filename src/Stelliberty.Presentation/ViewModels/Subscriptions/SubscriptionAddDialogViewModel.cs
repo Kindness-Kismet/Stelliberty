@@ -1,7 +1,6 @@
 using Stelliberty.Application.Localization;
 using Stelliberty.Domain.Subscriptions;
 using Stelliberty.Presentation.Commands;
-using Stelliberty.Presentation.Validation;
 
 namespace Stelliberty.Presentation.ViewModels;
 
@@ -40,8 +39,6 @@ public sealed class SubscriptionAddDialogViewModel : SubscriptionDialogBase
 
     public event EventHandler<SubscriptionAddLocalRequestedEventArgs>? LocalRequested;
 
-    public event EventHandler<string>? ValidationFailed;
-
     public bool IsDialogVisible => _isDialogVisible;
 
     public bool IsSubmitting => _isSubmitting;
@@ -68,14 +65,19 @@ public sealed class SubscriptionAddDialogViewModel : SubscriptionDialogBase
         {
             if (SetProperty(ref _localFilePath, value))
             {
-                OnPropertyChanged(nameof(CanSubmit));
+                OnPropertyChanged(nameof(LocalFilePathError));
+                OnPropertyChanged(nameof(IsLocalFilePathErrorVisible));
             }
         }
     }
 
-    public override bool CanSubmit => (_isLocalImportSelected ? HasLocalSubmitInput : HasRemoteSubmitInput)
-        && HasValidMinuteInputs(_isLocalImportSelected)
-        && !_isSubmitting;
+    public override bool CanSubmit => !_isSubmitting;
+
+    public string LocalFilePathError => _hasAttemptedSubmit && _isLocalImportSelected && string.IsNullOrWhiteSpace(_localFilePath)
+        ? Localize("Subscriptions.Validation.LocalFileRequired")
+        : string.Empty;
+
+    public bool IsLocalFilePathErrorVisible => !string.IsNullOrEmpty(LocalFilePathError);
 
     public RelayCommand ShowCommand { get; }
 
@@ -142,8 +144,17 @@ public sealed class SubscriptionAddDialogViewModel : SubscriptionDialogBase
 
     protected override void Confirm()
     {
-        if (_isSubmitting || !CanSubmit)
+        if (_isSubmitting)
         {
+            return;
+        }
+
+        var sharedInputsValid = ValidateSharedInputs(_isLocalImportSelected);
+        OnPropertyChanged(nameof(LocalFilePathError));
+        OnPropertyChanged(nameof(IsLocalFilePathErrorVisible));
+        if (!sharedInputsValid || IsLocalFilePathErrorVisible)
+        {
+            FocusFirstInvalidInput();
             return;
         }
 
@@ -200,29 +211,18 @@ public sealed class SubscriptionAddDialogViewModel : SubscriptionDialogBase
             _autoUpdateIntervalMinutesError = string.Empty;
             _selectedUpdateProxyMode = SubscriptionUpdateProxyMode.Direct;
             _ageSecretKey = string.Empty;
+            ClearUrlError();
+        }
+        else if (_hasAttemptedSubmit)
+        {
+            RefreshUrlValidation();
         }
 
         RaiseStateChanged();
     }
 
-    private bool HasRemoteSubmitInput => !string.IsNullOrWhiteSpace(_name) && !string.IsNullOrWhiteSpace(_url);
-
-    private bool HasLocalSubmitInput => !string.IsNullOrWhiteSpace(_name) && !string.IsNullOrWhiteSpace(_localFilePath);
-
     private void ConfirmRemote()
     {
-        if (!HasRemoteSubmitInput)
-        {
-            return;
-        }
-
-        if (!HttpUrlValidator.IsHttpUrl(_url))
-        {
-            EndSubmit();
-            ValidationFailed?.Invoke(this, Localize("Subscriptions.Validation.Url"));
-            return;
-        }
-
         RemoteRequested?.Invoke(this, new SubscriptionAddRemoteRequestedEventArgs(
             _name.Trim(),
             _url.Trim(),
@@ -236,15 +236,39 @@ public sealed class SubscriptionAddDialogViewModel : SubscriptionDialogBase
 
     private void ConfirmLocal()
     {
-        if (!HasLocalSubmitInput)
-        {
-            return;
-        }
-
         LocalRequested?.Invoke(this, new SubscriptionAddLocalRequestedEventArgs(
             _name.Trim(),
             _localFilePath.Trim(),
             _autoTestDelayIntervalMinutes));
+    }
+
+    private void FocusFirstInvalidInput()
+    {
+        if (IsNameErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.Name);
+            return;
+        }
+
+        if (IsUrlErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.Source);
+            return;
+        }
+
+        if (IsLocalFilePathErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.LocalFile);
+            return;
+        }
+
+        if (IsAutoTestDelayIntervalErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.AutoTestDelayInterval);
+            return;
+        }
+
+        RequestInputFocus(DialogInputField.AutoUpdateInterval);
     }
 
     protected override void RaiseStateChanged()
@@ -259,6 +283,8 @@ public sealed class SubscriptionAddDialogViewModel : SubscriptionDialogBase
         OnPropertyChanged(nameof(IsUrlPasteButtonVisible));
         OnPropertyChanged(nameof(CanPasteUrlFromClipboard));
         OnPropertyChanged(nameof(LocalFilePath));
+        OnPropertyChanged(nameof(LocalFilePathError));
+        OnPropertyChanged(nameof(IsLocalFilePathErrorVisible));
         RaiseSharedStateChanged();
         NotifyDialogStateChanged();
     }

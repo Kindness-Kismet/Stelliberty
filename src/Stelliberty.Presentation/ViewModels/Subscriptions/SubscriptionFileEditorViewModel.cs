@@ -11,7 +11,6 @@ public sealed class SubscriptionFileEditorViewModel : ViewModelBase
 
     private string? _subscriptionId;
     private bool _isDialogVisible;
-    private string _title = string.Empty;
     private string _content = string.Empty;
 
     public SubscriptionFileEditorViewModel()
@@ -26,8 +25,6 @@ public sealed class SubscriptionFileEditorViewModel : ViewModelBase
 
     public string? DialogSubscriptionId => _subscriptionId;
 
-    public string Title => _title;
-
     public bool IsDialogVisible => _isDialogVisible;
 
     public string Content
@@ -40,12 +37,11 @@ public sealed class SubscriptionFileEditorViewModel : ViewModelBase
 
     public ICommand CancelCommand { get; }
 
-    public void Open(string subscriptionId, string title, string content)
+    public void Open(string subscriptionId, string content)
     {
         _closeReset.Cancel();
         _subscriptionId = subscriptionId;
         _isDialogVisible = true;
-        _title = title;
         Content = content;
         RaiseStateChanged();
     }
@@ -84,7 +80,6 @@ public sealed class SubscriptionFileEditorViewModel : ViewModelBase
     {
         _isDialogVisible = false;
         _subscriptionId = null;
-        _title = string.Empty;
         _content = string.Empty;
         RaiseStateChanged();
     }
@@ -104,7 +99,6 @@ public sealed class SubscriptionFileEditorViewModel : ViewModelBase
     private void RaiseStateChanged()
     {
         OnPropertyChanged(nameof(DialogSubscriptionId));
-        OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Content));
         OnPropertyChanged(nameof(IsDialogVisible));
         DialogStateChanged?.Invoke(this, EventArgs.Empty);

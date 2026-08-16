@@ -35,7 +35,7 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
             BaseConfigContent: originalContent,
             Overrides: _overrideResolver.Resolve(subscription).Concat(request.Overrides).ToList(),
             RuntimeParams: request.RuntimeParams,
-        // 本地规则最后定稿，避免订阅覆写改写用户编辑结果。
+            // 本地规则最后定稿，避免订阅覆写改写用户编辑结果。
             PostOverrideTransform: content => ApplyRuntimeRuleOverrides(subscription.Id, content)));
         var paths = runtimeStore?.Save(subscription, originalContent, runtimeConfig.RuntimeConfigContent);
 

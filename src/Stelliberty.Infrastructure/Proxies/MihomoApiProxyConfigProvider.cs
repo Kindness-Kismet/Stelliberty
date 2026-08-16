@@ -6,21 +6,25 @@ namespace Stelliberty.Infrastructure.Proxies;
 
 public sealed class MihomoApiProxyConfigProvider(
     IProxyCoreClient client,
-    IProxyGroupIconProvider? iconProvider = null) : IProxyConfigProvider
+    IProxyGroupIconProvider? iconProvider = null) : IProxyConfigProvider, IProxyRuntimeSnapshotSource
 {
     private static readonly HashSet<string> GroupTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "Selector", "URLTest", "Fallback", "LoadBalance", "Smart", "Relay",
     };
 
+    public ProxyRuntimeSnapshot? LastSnapshot { get; private set; }
+
     public async Task<ProxyConfig> LoadAsync(CancellationToken cancellationToken = default)
     {
+        LastSnapshot = null;
         // 代理列表和出站模式共同决定最终配置。
         var snapshotTask = client.GetProxiesAsync(cancellationToken);
         var modeTask = client.GetOutboundModeAsync(cancellationToken);
         await Task.WhenAll(snapshotTask, modeTask).ConfigureAwait(false);
         var snapshot = await snapshotTask.ConfigureAwait(false);
         var mode = await modeTask.ConfigureAwait(false);
+        LastSnapshot = snapshot;
 
         var groups = new List<ProxyGroup>();
         var nodes = new Dictionary<string, ProxyNode>(StringComparer.Ordinal);

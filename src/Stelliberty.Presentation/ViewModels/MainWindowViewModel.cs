@@ -52,6 +52,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private const long NavThrottleMs = 150;
     private const int CoreLogFlushBatchSize = 4;
     private const int ToastMessageMaxLength = 72;
+    private static readonly SubscriptionChainProxyCycleDetector ChainProxyCycleDetector = new();
     private static readonly TimeSpan ToastDisplayDuration = TimeSpan.FromMilliseconds(1500);
     // 与 ToastNotification.CloseDuration 联动，退场完成后再进下一条
     private static readonly TimeSpan ToastCloseDuration = TimeSpan.FromMilliseconds(500);
@@ -204,6 +205,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         CoreLogPage.LogsCleared += OnCoreLogsCleared;
         RulePage = rulePage ?? new RulePageViewModel(localization: localization);
         RulePage.RuntimeRefreshRequested += OnRuleRuntimeRefreshRequested;
+        RulePage.ToastRequested += OnToastRequested;
         SubscriptionPage = subscriptionPage;
         ProxyPage.PropertyChanged += OnProxyPagePropertyChanged;
         SyncHomeSubscriptionRuntimeStats();
@@ -279,6 +281,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         OverridePage.OverridesEdited -= OnOverridesEdited;
         OverridePage.OverrideDeleted -= OnOverrideDeleted;
         OverridePage.ToastRequested -= OnToastRequested;
+        RulePage.ToastRequested -= OnToastRequested;
         if (CoreManager is not null)
         {
             CoreManager.StateChanged -= OnCoreStateChanged;
@@ -774,6 +777,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         try
         {
             var shouldClearFailureNow = true;
+            var wasAppliedToCore = false;
             var result = GenerateSelectedSubscriptionRuntimeWithOverrideFallback(subscriptionId, runtimeFallbackGenerator);
             if (CoreManager is not null && !string.IsNullOrWhiteSpace(result.RuntimeConfigPath))
             {
@@ -790,6 +794,7 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
                 LastRuntimeApplyMode = applyResult.Mode.ToString();
                 LastRuntimeApplyPid = applyResult.Pid;
+                wasAppliedToCore = true;
                 if (applyResult.Mode == CoreApplyMode.Reload)
                 {
                     _pendingRuntimeSubscriptionId = null;
@@ -806,6 +811,13 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
 
             await ProxyPage.RefreshProxiesAsync();
             ProxyPage.BindLoadedConfigToSubscription(subscriptionId);
+            if (wasAppliedToCore
+                && ProxyPage.LastRuntimeSnapshot is { } snapshot
+                && ChainProxyCycleDetector.HasCycle(snapshot))
+            {
+                ShowToast(Localize("RuntimeConfig.Toast.ChainProxyCycleWarning"), ToastType.Warning);
+            }
+
             RulePage.RefreshRulesCommand.Execute(null);
             if (shouldClearFailureNow)
             {
@@ -819,12 +831,18 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             LastRuntimeApplyMode = "error";
             LastRuntimeApplyError = exception.Message;
             AppLogger.Error(exception, $"{failureMessage}: {subscriptionId}");
-            // 生成器负责覆写禁用和重试；此路径只回退到空配置。
+            var isCycleError = IsCoreCycleError(exception);
+            if (isCycleError)
+            {
+                ShowToast(Localize("RuntimeConfig.Toast.ChainProxyCycleWarning"), ToastType.Warning);
+            }
+
+            // 生成器只处理覆写失败回退；此路径收敛到空配置。
             try
             {
                 _pendingRuntimeSubscriptionId = null;
                 SubscriptionPage.RefreshOverrideSelectionFromStore(subscriptionId);
-                await RevertToEmptyRuntimeAsync(subscriptionId, refreshVersion, exception.Message);
+                await RevertToEmptyRuntimeAsync(subscriptionId, refreshVersion, exception.Message, suppressFailureToast: isCycleError);
             }
             catch (Exception revertException)
             {
@@ -849,13 +867,31 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         return result.Runtime;
     }
 
+    private static bool IsCoreCycleError(Exception exception)
+    {
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current.Message.Contains("loop is detected in ProxyGroup", StringComparison.OrdinalIgnoreCase)
+                || current.Message.Contains("circular dialer-proxy dependency", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private RuntimeConfigParams CurrentRuntimeConfigParams()
     {
         var parameters = RuntimeConfigParams.FromSettings(_settings);
         return parameters with { IsTunEnabled = parameters.IsTunEnabled && HomePage.IsTunEnabled && HomePage.CanToggleTun };
     }
 
-    private async Task RevertToEmptyRuntimeAsync(string subscriptionId, int refreshVersion, string? failureMessage = null)
+    private async Task RevertToEmptyRuntimeAsync(
+        string subscriptionId,
+        int refreshVersion,
+        string? failureMessage = null,
+        bool suppressFailureToast = false)
     {
         // 较早的刷新不能覆盖用户后来选择的订阅。
         if (refreshVersion != Volatile.Read(ref _runtimeRefreshVersion) || !string.Equals(CurrentRuntimeSubscriptionId(), subscriptionId, StringComparison.Ordinal))
@@ -868,7 +904,10 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
         SubscriptionAutoDelay.Reset();
         ProxyPage.CancelDelayTests();
         await ApplyEmptyRuntimeToCoreAsync();
-        ShowErrorToast(Localize("RuntimeConfig.Toast.LoadFailedReverted"));
+        if (!suppressFailureToast)
+        {
+            ShowErrorToast(Localize("RuntimeConfig.Toast.LoadFailedReverted"));
+        }
     }
 
     // 删除最后一个订阅后，带本地失败处理收敛到空配置。

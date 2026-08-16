@@ -1,7 +1,6 @@
 using Stelliberty.Application.Localization;
 using Stelliberty.Domain.Overrides;
 using Stelliberty.Presentation.Commands;
-using Stelliberty.Presentation.Validation;
 
 namespace Stelliberty.Presentation.ViewModels;
 
@@ -43,8 +42,6 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
 
     public event EventHandler<OverrideAddCreateBlankRequestedEventArgs>? CreateBlankRequested;
 
-    public event EventHandler<string>? ValidationFailed;
-
     public bool IsDialogVisible => _isDialogVisible;
 
     public bool IsSubmitting => _isSubmitting;
@@ -71,9 +68,11 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
 
     public bool CanPasteUrlFromClipboard => IsUrlPasteButtonVisible && _hasClipboardText && !IsSubmitting;
 
-    public override bool CanSubmit => !string.IsNullOrWhiteSpace(_name)
-        && (_selectedAddMethod == OverrideAddMethod.Blank || !string.IsNullOrWhiteSpace(_sourceLocation))
-        && !_isSubmitting;
+    public override bool CanSubmit => !_isSubmitting;
+
+    protected override bool IsRemoteSource => IsRemoteMethodSelected;
+
+    protected override bool IsLocalSourceRequired => IsLocalMethodSelected;
 
     public RelayCommand ShowCommand { get; }
 
@@ -93,6 +92,7 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
         _sourceLocation = string.Empty;
         _format = OverrideFormat.Yaml;
         _proxyMode = OverrideUpdateProxyMode.Direct;
+        ResetValidation();
         RaiseStateChanged();
     }
 
@@ -158,8 +158,14 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
 
     protected override void Confirm()
     {
-        if (_isSubmitting || !CanSubmit)
+        if (_isSubmitting)
         {
+            return;
+        }
+
+        if (!ValidateInputs())
+        {
+            FocusFirstInvalidInput();
             return;
         }
 
@@ -167,13 +173,6 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
         switch (_selectedAddMethod)
         {
             case OverrideAddMethod.Remote:
-                if (!HttpUrlValidator.IsHttpUrl(_sourceLocation))
-                {
-                    EndSubmit();
-                    ValidationFailed?.Invoke(this, Localize("Overrides.Validation.Url"));
-                    return;
-                }
-
                 RemoteRequested?.Invoke(this, new OverrideAddRemoteRequestedEventArgs(
                     _name.Trim(),
                     _sourceLocation.Trim(),
@@ -207,6 +206,7 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
         _sourceLocation = string.Empty;
         _format = OverrideFormat.Yaml;
         _proxyMode = OverrideUpdateProxyMode.Direct;
+        ResetValidation();
         RaiseStateChanged();
     }
 
@@ -224,6 +224,7 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
         _selectedAddMethod = method;
         // 来源变化会清空路径，避免远程 URL 和本地文件交叉污染。
         _sourceLocation = string.Empty;
+        RefreshSourceLocationValidation();
         RaiseStateChanged();
     }
 
@@ -252,6 +253,18 @@ public sealed class OverrideAddDialogViewModel : OverrideDialogBase
         RaiseFormatStateChanged();
         RaiseProxyModeStateChanged();
         OnPropertyChanged(nameof(CanSubmit));
+        RaiseValidationStateChanged();
         NotifyDialogStateChanged();
+    }
+
+    private void FocusFirstInvalidInput()
+    {
+        if (IsNameErrorVisible)
+        {
+            RequestInputFocus(DialogInputField.Name);
+            return;
+        }
+
+        RequestInputFocus(IsLocalMethodSelected ? DialogInputField.LocalFile : DialogInputField.Source);
     }
 }

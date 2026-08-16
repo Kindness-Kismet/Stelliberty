@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
              xmlns:loc="using:Stelliberty.Desktop.Localization"
              xmlns:vm="using:Stelliberty.Presentation.ViewModels"
              xmlns:domain="using:Stelliberty.Domain.Subscriptions"
@@ -117,7 +117,6 @@
 
     <Grid Grid.Row="1">
       <Border Classes="list-empty"
-              AutomationProperties.AutomationId="Subscriptions.EmptyText"
               IsVisible="{Binding IsEmptyTextVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
@@ -125,7 +124,7 @@
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="ServerLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="Subscriptions.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Subscriptions.Empty.Hint}" />
           </StackPanel>
         </StackPanel>
@@ -292,7 +291,7 @@
                     <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.Add.Title}" VerticalAlignment="Center" />
                     <Button Grid.Column="1"
                             Classes="dialog-close"
-                            AutomationProperties.AutomationId="Subscriptions.Dialog.CloseButton"
+                            AutomationProperties.AutomationId="Subscriptions.AddDialog.CloseButton"
                             IsEnabled="{Binding !AddDialog.IsSubmitting}"
                             Command="{Binding AddDialog.CancelCommand}">
                       <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
@@ -301,7 +300,7 @@
 
                   <ScrollViewer Grid.Row="1"
                                 VerticalScrollBarVisibility="Auto"
-                                AutomationProperties.AutomationId="Subscriptions.Dialog.FormScroll"
+                                AutomationProperties.AutomationId="Subscriptions.AddDialog.FormScroll"
                                 IsEnabled="{Binding !AddDialog.IsSubmitting}">
                     <StackPanel Spacing="16" Margin="24,0,22,0">
                       <Border Classes="dialog-section">
@@ -314,7 +313,7 @@
                           </StackPanel>
                           <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <ToggleButton Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Import.RemoteButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Import.RemoteButton"
                                           Command="{Binding AddDialog.SelectRemoteImportCommand}"
                                           IsChecked="{Binding AddDialog.IsRemoteImportSelected}">
                               <StackPanel Spacing="2">
@@ -324,7 +323,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="1"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Import.LocalButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Import.LocalButton"
                                           Command="{Binding AddDialog.SelectLocalImportCommand}"
                                           IsChecked="{Binding AddDialog.IsLocalImportSelected}">
                               <StackPanel Spacing="2">
@@ -338,8 +337,8 @@
 
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Name}" />
-                        <TextBox Classes="dialog-input"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.NameBox"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsNameErrorVisible}"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.NameBox"
                                  PlaceholderText="{loc:Loc Subscriptions.Placeholder.Name}"
                                  Text="{Binding AddDialog.Name, Mode=TwoWay}">
                           <TextBox.InnerLeftContent>
@@ -348,14 +347,18 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.NameError"
+                                   IsVisible="{Binding AddDialog.IsNameErrorVisible}"
+                                   Text="{Binding AddDialog.NameError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
                                   IsVisible="{Binding AddDialog.IsRemoteFieldsVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Url}" />
                         <Grid>
-                          <TextBox Classes="dialog-input"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.UrlBox"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsUrlErrorVisible}"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.UrlBox"
                                    PlaceholderText="{loc:Loc Subscriptions.Placeholder.Url}"
                                    GotFocus="OnSubscriptionUrlBoxGotFocus"
                                    TextChanged="OnSubscriptionUrlBoxTextChanged"
@@ -368,7 +371,7 @@
                             </TextBox.InnerLeftContent>
                           </TextBox>
                           <Button Classes="input-inline-icon"
-                                  AutomationProperties.AutomationId="Subscriptions.Dialog.UrlPasteButton"
+                                  AutomationProperties.AutomationId="Subscriptions.AddDialog.UrlPasteButton"
                                   IsVisible="{Binding AddDialog.IsUrlPasteButtonVisible}"
                                   IsEnabled="{Binding AddDialog.CanPasteUrlFromClipboard}"
                                   HorizontalAlignment="Right"
@@ -381,14 +384,18 @@
                                                              Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                           </Button>
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.UrlError"
+                                   IsVisible="{Binding AddDialog.IsUrlErrorVisible}"
+                                   Text="{Binding AddDialog.UrlError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
                                   IsVisible="{Binding AddDialog.IsLocalFieldsVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.LocalPath}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                          <TextBox Classes="dialog-input"
-                                   AutomationProperties.AutomationId="Subscriptions.Dialog.LocalFilePathBox"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsLocalFilePathErrorVisible}"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.LocalFilePathBox"
                                    Focusable="False"
                                    IsHitTestVisible="False"
                                    IsReadOnly="True"
@@ -403,9 +410,13 @@
                           <Button Grid.Column="1"
                                   x:Name="ChooseLocalFileButton"
                                   Classes="dialog-secondary"
-                                  AutomationProperties.AutomationId="Subscriptions.Dialog.ChooseLocalFileButton"
+                                  AutomationProperties.AutomationId="Subscriptions.AddDialog.ChooseLocalFileButton"
                                   Content="{loc:Loc Common.ChooseFile}" />
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.LocalFilePathError"
+                                   IsVisible="{Binding AddDialog.IsLocalFilePathErrorVisible}"
+                                   Text="{Binding AddDialog.LocalFilePathError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6"
@@ -413,7 +424,7 @@
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.UserAgent}" />
                         <TextBox Classes="dialog-input"
                                  x:Name="AddUserAgentBox"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.UserAgentBox"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.UserAgentBox"
                                  GotFocus="OnUserAgentBoxGotFocus"
                                  LostFocus="OnUserAgentBoxLostFocus"
                                  Text="{Binding AddDialog.UserAgentText, Mode=TwoWay}">
@@ -429,7 +440,7 @@
                                   IsVisible="{Binding AddDialog.IsRemoteFieldsVisible}">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AgeSecretKey}" />
                         <TextBox Classes="dialog-input"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.AgeSecretKeyBox"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.AgeSecretKeyBox"
                                  PasswordChar="•"
                                  PlaceholderText="{loc:Loc Subscriptions.Placeholder.AgeSecretKey}"
                                  Text="{Binding AddDialog.AgeSecretKey, Mode=TwoWay}">
@@ -443,9 +454,9 @@
 
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoDelay}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsAutoTestDelayIntervalErrorVisible}"
                                  x:Name="AddAutoTestDelayIntervalBox"
-                                 AutomationProperties.AutomationId="Subscriptions.Dialog.AutoTestDelayIntervalBox"
+                                 AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoTestDelayIntervalBox"
                                  GotFocus="OnAutoTestDelayIntervalBoxGotFocus"
                                  LostFocus="OnAutoTestDelayIntervalBoxLostFocus"
                                  PlaceholderText="0"
@@ -456,7 +467,8 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
-                        <TextBlock Classes="dialog-error"
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoTestDelayIntervalError"
                                    IsVisible="{Binding AddDialog.IsAutoTestDelayIntervalErrorVisible}"
                                    Text="{Binding AddDialog.AutoTestDelayIntervalMinutesError}" />
                       </StackPanel>
@@ -470,12 +482,12 @@
                                                              VerticalAlignment="Center" />
                             <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.AutoUpdate.Title}" />
                           </StackPanel>
-                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <StackPanel Spacing="6">
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
-                              <TextBox Classes="dialog-input"
+                              <TextBox Classes="dialog-input" Classes.error="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
                                        IsEnabled="{Binding AddDialog.IsAutoUpdateIntervalEnabled}"
-                                       AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateIntervalBox"
+                                       AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoUpdateIntervalBox"
                                        PlaceholderText="{loc:Loc Subscriptions.Placeholder.Interval}"
                                        Text="{Binding AddDialog.AutoUpdateIntervalMinutesText, Mode=TwoWay}">
                                 <TextBox.InnerLeftContent>
@@ -484,7 +496,8 @@
                                                                    Foreground="{DynamicResource AppTextTertiaryBrush}" />
                                 </TextBox.InnerLeftContent>
                               </TextBox>
-                              <TextBlock Classes="dialog-error"
+                              <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                         AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoUpdateIntervalError"
                                          IsVisible="{Binding AddDialog.IsAutoUpdateIntervalErrorVisible}"
                                          Text="{Binding AddDialog.AutoUpdateIntervalMinutesError}" />
                             </StackPanel>
@@ -492,7 +505,7 @@
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateMode}" />
                               <ComboBox Classes="dialog-input"
                                         HorizontalAlignment="Stretch"
-                                        AutomationProperties.AutomationId="Subscriptions.Dialog.AutoUpdateModeBox"
+                                        AutomationProperties.AutomationId="Subscriptions.AddDialog.AutoUpdateModeBox"
                                         ItemsSource="{Binding AddDialog.AutoUpdateModeOptions}"
                                         SelectedItem="{Binding AddDialog.SelectedAutoUpdateModeOption, Mode=TwoWay}">
                                 <ComboBox.ItemTemplate>
@@ -517,7 +530,7 @@
                           </StackPanel>
                           <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                             <ToggleButton Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.DirectButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Proxy.DirectButton"
                                           Command="{Binding AddDialog.SelectDirectProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsDirectProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -526,7 +539,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="1"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.SystemButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Proxy.SystemButton"
                                           Command="{Binding AddDialog.SelectSystemProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsSystemProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -535,7 +548,7 @@
                             </ToggleButton>
                             <ToggleButton Grid.Column="2"
                                           Classes="radio-card"
-                                          AutomationProperties.AutomationId="Subscriptions.Dialog.Proxy.CoreButton"
+                                          AutomationProperties.AutomationId="Subscriptions.AddDialog.Proxy.CoreButton"
                                           Command="{Binding AddDialog.SelectCoreProxyModeCommand}"
                                           IsChecked="{Binding AddDialog.IsCoreProxyModeSelected}">
                               <StackPanel Spacing="2">
@@ -550,12 +563,12 @@
 
                   <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" Margin="24,4,24,24">
                     <Button Classes="dialog-secondary"
-                            AutomationProperties.AutomationId="Subscriptions.Dialog.CancelButton"
+                            AutomationProperties.AutomationId="Subscriptions.AddDialog.CancelButton"
                             Command="{Binding AddDialog.CancelCommand}"
                             IsEnabled="{Binding !AddDialog.IsSubmitting}"
                             Content="{loc:Loc Dialog.Cancel}" />
                     <Button Classes="dialog-primary"
-                            AutomationProperties.AutomationId="Subscriptions.Dialog.ConfirmButton"
+                            AutomationProperties.AutomationId="Subscriptions.AddDialog.SaveButton"
                             Command="{Binding AddDialog.ConfirmCommand}"
                             IsEnabled="{Binding AddDialog.CanSubmit}">
                       <StackPanel Orientation="Horizontal" Spacing="8">
@@ -590,7 +603,7 @@
                     <StackPanel Spacing="16" Margin="24,0,22,0">
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.Name}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsNameErrorVisible}"
                                  AutomationProperties.AutomationId="Subscriptions.EditDialog.NameBox"
                                  PlaceholderText="{loc:Loc Subscriptions.Placeholder.EditName}"
                                  Text="{Binding EditDialog.Name, Mode=TwoWay}">
@@ -600,12 +613,16 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.EditDialog.NameError"
+                                   IsVisible="{Binding EditDialog.IsNameErrorVisible}"
+                                   Text="{Binding EditDialog.NameError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
                         <TextBlock Classes="dialog-label" Text="{Binding EditDialog.SourceLabel}" />
                         <Grid>
-                          <TextBox Classes="dialog-input"
+                          <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsUrlErrorVisible}"
                                    AutomationProperties.AutomationId="Subscriptions.EditDialog.UrlBox"
                                    PlaceholderText="{Binding EditDialog.SourcePlaceholder}"
                                    GotFocus="OnEditSubscriptionUrlBoxGotFocus"
@@ -632,6 +649,10 @@
                                                              Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
                           </Button>
                         </Grid>
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.EditDialog.UrlError"
+                                   IsVisible="{Binding EditDialog.IsUrlErrorVisible}"
+                                   Text="{Binding EditDialog.UrlError}" />
                       </StackPanel>
 
                       <StackPanel Spacing="6" IsVisible="{Binding EditDialog.IsForRemoteSubscription}">
@@ -667,7 +688,7 @@
 
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoDelay}" />
-                        <TextBox Classes="dialog-input"
+                        <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsAutoTestDelayIntervalErrorVisible}"
                                  x:Name="EditAutoTestDelayIntervalBox"
                                  AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoTestDelayIntervalBox"
                                  GotFocus="OnAutoTestDelayIntervalBoxGotFocus"
@@ -680,7 +701,8 @@
                                                              Foreground="{DynamicResource AppTextTertiaryBrush}" />
                           </TextBox.InnerLeftContent>
                         </TextBox>
-                        <TextBlock Classes="dialog-error"
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoTestDelayIntervalError"
                                    IsVisible="{Binding EditDialog.IsAutoTestDelayIntervalErrorVisible}"
                                    Text="{Binding EditDialog.AutoTestDelayIntervalMinutesError}" />
                       </StackPanel>
@@ -694,10 +716,10 @@
                                                              VerticalAlignment="Center" />
                             <TextBlock Classes="dialog-section-title" Text="{loc:Loc Subscriptions.AutoUpdate.Title}" />
                           </StackPanel>
-                          <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                          <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <StackPanel Spacing="6">
                               <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.Field.AutoUpdateInterval}" />
-                              <TextBox Classes="dialog-input"
+                              <TextBox Classes="dialog-input" Classes.error="{Binding EditDialog.IsAutoUpdateIntervalErrorVisible}"
                                        IsEnabled="{Binding EditDialog.IsAutoUpdateIntervalEnabled}"
                                        AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoUpdateIntervalBox"
                                        PlaceholderText="{loc:Loc Subscriptions.Placeholder.Interval}"
@@ -708,7 +730,8 @@
                                                                    Foreground="{DynamicResource AppTextTertiaryBrush}" />
                                 </TextBox.InnerLeftContent>
                               </TextBox>
-                              <TextBlock Classes="dialog-error"
+                              <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                         AutomationProperties.AutomationId="Subscriptions.EditDialog.AutoUpdateIntervalError"
                                          IsVisible="{Binding EditDialog.IsAutoUpdateIntervalErrorVisible}"
                                          Text="{Binding EditDialog.AutoUpdateIntervalMinutesError}" />
                             </StackPanel>
@@ -913,20 +936,15 @@
                                   IsOpen="{Binding ChainProxy.IsDialogVisible}">
               <controls:DialogPanel.DialogContent>
                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="14">
-                  <StackPanel Grid.Row="0" Spacing="10" Margin="24,24,24,0">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                      <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.ChainProxy.Title}" VerticalAlignment="Center" />
-                      <Button Grid.Column="1"
-                              Classes="dialog-close"
-                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.CloseButton"
-                              Command="{Binding ChainProxy.CancelCommand}">
-                        <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
-                      </Button>
-                    </Grid>
-                    <TextBlock Classes="dialog-subtitle"
-                               AutomationProperties.AutomationId="Subscriptions.ChainProxy.TitleText"
-                               Text="{Binding ChainProxy.DialogTitle}" />
-                  </StackPanel>
+                  <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="24,24,24,0">
+                    <TextBlock Classes="dialog-title" Text="{loc:Loc Subscriptions.Dialog.ChainProxy.Title}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1"
+                            Classes="dialog-close"
+                            AutomationProperties.AutomationId="Subscriptions.ChainProxy.CloseButton"
+                            Command="{Binding ChainProxy.CancelCommand}">
+                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
+                    </Button>
+                  </Grid>
 
                   <Panel Grid.Row="1">
                     <StackPanel MinHeight="160" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12"
@@ -955,17 +973,13 @@
                               <DataTemplate x:DataType="vm:SubscriptionChainProxyBuiltinItemViewModel">
                                 <Border Classes="surface-panel list" Margin="0,0,0,8">
                                   <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                    <StackPanel Spacing="3">
-                                      <TextBlock Classes="settings-row-title" Text="{Binding Name}" />
-                                      <TextBlock Classes="settings-row-subtitle" Text="{Binding StatusText}" />
-                                    </StackPanel>
-                                    <ToggleButton Grid.Column="1"
-                                                  Classes="segmented"
+                                    <TextBlock Classes="settings-row-title" VerticalAlignment="Center"
+                                               Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                    <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
                                                   AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                                  IsChecked="{Binding IsEnabled, Mode=OneWay}"
                                                   Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.ToggleBuiltinCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                  CommandParameter="{Binding Name}"
-                                                  IsChecked="{Binding !IsEnabled}"
-                                                  Content="{loc:Loc Common.Disable}" />
+                                                  CommandParameter="{Binding Name}" />
                                   </Grid>
                                 </Border>
                               </DataTemplate>
@@ -980,24 +994,34 @@
                             <ItemsControl.ItemTemplate>
                               <DataTemplate x:DataType="vm:SubscriptionChainProxyCustomItemViewModel">
                                 <Border Classes="surface-panel list" Margin="0,0,0,8">
-                                  <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                  <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                                     <StackPanel Spacing="3">
                                       <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
+                                      <TextBlock Classes="settings-row-subtitle" Text="{Binding ProxyGroupText}" TextTrimming="CharacterEllipsis" />
                                       <TextBlock Classes="settings-row-subtitle" Text="{Binding PathText}" TextWrapping="Wrap" />
                                       <TextBlock Classes="dialog-error" FontSize="11" TextWrapping="Wrap"
-                                                 IsVisible="{Binding HasMissingNodes}"
+                                                 IsVisible="{Binding HasMissingReferences}"
                                                  Text="{Binding MissingText}" />
                                     </StackPanel>
-                                    <Button Grid.Column="1" Classes="dialog-secondary" MinWidth="0" Padding="14,0"
+                                    <Button Grid.Column="1" Classes="toolbar-icon card-toolbar-icon"
+                                            ToolTip.Tip="{loc:Loc Common.Edit}"
                                             AutomationProperties.AutomationId="{Binding EditAutomationId}"
                                             Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.EditCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding Id}"
-                                            Content="{loc:Loc Common.Edit}" />
-                                    <Button Grid.Column="2" Classes="dialog-secondary" MinWidth="0" Padding="14,0"
+                                            CommandParameter="{Binding Id}">
+                                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="EditLine" />
+                                    </Button>
+                                    <Button Grid.Column="2" Classes="toolbar-icon card-toolbar-icon"
+                                            ToolTip.Tip="{loc:Loc Common.Delete}"
                                             AutomationProperties.AutomationId="{Binding DeleteAutomationId}"
                                             Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.RemoveCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                            CommandParameter="{Binding Id}"
-                                            Content="{loc:Loc Common.Delete}" />
+                                            CommandParameter="{Binding Id}">
+                                      <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="DeleteLine" />
+                                    </Button>
+                                    <ToggleSwitch Grid.Column="3" VerticalAlignment="Center"
+                                                  AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                                  IsChecked="{Binding IsEnabled, Mode=OneWay}"
+                                                  Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.ToggleCustomCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                  CommandParameter="{Binding Id}" />
                                   </Grid>
                                 </Border>
                               </DataTemplate>
@@ -1005,15 +1029,6 @@
                           </ItemsControl>
                         </StackPanel>
 
-                        <TextBlock Classes="dialog-subtitle"
-                                   IsVisible="{Binding ChainProxy.IsEmptyVisible}"
-                                   Text="{loc:Loc Subscriptions.ChainProxy.Empty}" />
-
-                        <Button Classes="dialog-secondary" HorizontalAlignment="Left"
-                                AutomationProperties.AutomationId="Subscriptions.ChainProxy.AddCustomButton"
-                                IsEnabled="{Binding ChainProxy.CanAddDraft}"
-                                Command="{Binding ChainProxy.StartAddDraftCommand}"
-                                Content="{loc:Loc Subscriptions.ChainProxy.AddCustom}" />
                       </StackPanel>
                     </ScrollViewer>
 
@@ -1022,43 +1037,80 @@
                                   VerticalScrollBarVisibility="Auto"
                                   IsVisible="{Binding ChainProxy.IsDraftVisible}">
                       <StackPanel Margin="24,0,22,0" Spacing="14">
-                        <StackPanel Spacing="6">
-                          <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
-                          <TextBox Classes="dialog-input"
-                                   AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameBox"
-                                   PlaceholderText="{loc:Loc Subscriptions.ChainProxy.Placeholder.Name}"
-                                   Text="{Binding ChainProxy.DraftName, Mode=TwoWay}" />
-                        </StackPanel>
+                        <Grid ColumnDefinitions="*,260" ColumnSpacing="10">
+                          <StackPanel Spacing="6">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.CustomName}" />
+                            <TextBox Classes="dialog-input" Classes.error="{Binding ChainProxy.IsDraftNameErrorVisible}"
+                                     AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameBox"
+                                     PlaceholderText="{loc:Loc Subscriptions.ChainProxy.Placeholder.Name}"
+                                     Text="{Binding ChainProxy.DraftName, Mode=TwoWay}" />
+                            <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Subscriptions.ChainProxy.NameError"
+                                       IsVisible="{Binding ChainProxy.IsDraftNameErrorVisible}"
+                                       Text="{Binding ChainProxy.DraftNameError}" />
+                          </StackPanel>
+                          <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.ProxyGroup}" />
+                            <ComboBox Classes="dialog-input platform-popup"
+                                      AutomationProperties.AutomationId="Subscriptions.ChainProxy.ProxyGroupBox"
+                                      ItemsSource="{Binding ChainProxy.ProxyGroups}"
+                                      SelectedItem="{Binding ChainProxy.DraftProxyGroup, Mode=TwoWay}"
+                                      DisplayMemberBinding="{Binding Name}"
+                                      Width="260"
+                                      HorizontalContentAlignment="Left" />
+                            <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="Subscriptions.ChainProxy.ProxyGroupError"
+                                       IsVisible="{Binding ChainProxy.IsDraftProxyGroupErrorVisible}"
+                                       Text="{Binding ChainProxy.DraftProxyGroupError}" />
+                          </StackPanel>
+                        </Grid>
 
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.SelectedPath}" />
-                          <TextBlock Classes="dialog-subtitle"
-                                     IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
-                                     Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
-                          <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
-                                        ItemsSource="{Binding ChainProxy.Slots}">
-                            <ItemsControl.ItemsPanel>
-                              <ItemsPanelTemplate>
-                                <WrapPanel />
-                              </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                              <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
-                                <Border Classes="chain-slot" Margin="0,0,8,8"
-                                        AutomationProperties.AutomationId="{Binding AutomationId}">
-                                  <StackPanel Spacing="3">
-                                    <TextBlock Classes="settings-row-subtitle" Text="{Binding PositionLabel}" />
-                                    <TextBlock Classes="settings-row-title" Text="{Binding DisplayName}" />
+                          <!-- Panel 叠放：占位提示与链路 chips 互斥；保留校验聚焦目标 -->
+                          <Panel MinHeight="30"
+                                 Focusable="True"
+                                 AutomationProperties.AutomationId="Subscriptions.ChainProxy.SelectedNodesRegion">
+                            <TextBlock Classes="chain-placeholder"
+                                       IsVisible="{Binding !ChainProxy.HasSelectedNodes}"
+                                       Text="{loc:Loc Subscriptions.ChainProxy.SlotEmpty}" />
+                            <ItemsControl x:Name="ChainProxySlotList"
+                                          AutomationProperties.AutomationId="Subscriptions.ChainProxy.SlotList"
+                                          ItemsSource="{Binding ChainProxy.Slots}">
+                              <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                  <WrapPanel />
+                                </ItemsPanelTemplate>
+                              </ItemsControl.ItemsPanel>
+                              <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SubscriptionChainProxySlotViewModel">
+                                  <!-- 首个跳点不带箭头；只有卡片参与拖拽命中 -->
+                                  <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <TextBlock Classes="chain-hop-arrow" IsVisible="{Binding !IsFirst}" Text="→" />
+                                    <Border Classes="chain-hop"
+                                            AutomationProperties.AutomationId="{Binding AutomationId}"
+                                            ToolTip.Tip="{Binding DisplayName}">
+                                      <StackPanel Orientation="Horizontal" Spacing="7">
+                                        <Border Classes="chain-hop-index">
+                                          <TextBlock Text="{Binding PositionNumber}" />
+                                        </Border>
+                                        <TextBlock Classes="chain-hop-name" Text="{Binding DisplayName}" />
+                                      </StackPanel>
+                                    </Border>
                                   </StackPanel>
-                                </Border>
-                              </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                          </ItemsControl>
+                                </DataTemplate>
+                              </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                          </Panel>
+                          <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                     AutomationProperties.AutomationId="Subscriptions.ChainProxy.NodesError"
+                                     IsVisible="{Binding ChainProxy.IsDraftNodesErrorVisible}"
+                                     Text="{Binding ChainProxy.DraftNodesError}" />
                         </StackPanel>
 
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Subscriptions.ChainProxy.Candidates}" />
-                          <TextBlock Classes="dialog-subtitle"
+                          <TextBlock Classes="chain-placeholder" MinHeight="30"
                                      IsVisible="{Binding !ChainProxy.HasCandidates}"
                                      Text="{loc:Loc Subscriptions.ChainProxy.NoCandidates}" />
                           <ItemsControl AutomationProperties.AutomationId="Subscriptions.ChainProxy.CandidateList"
@@ -1074,33 +1126,40 @@
                                               AutomationProperties.AutomationId="{Binding AutomationId}"
                                               IsChecked="{Binding IsSelected, Mode=OneWay}"
                                               Command="{Binding ((vm:SubscriptionPageViewModel)DataContext).ChainProxy.SelectCandidateCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                              CommandParameter="{Binding Name}"
-                                              Content="{Binding Name}" />
+                                              CommandParameter="{Binding Key}">
+                                  <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <TextBlock Text="{loc:Loc Subscriptions.ChainProxy.ProxyGroupType}" FontSize="10.5" Opacity="0.68" IsVisible="{Binding IsProxyGroup}" />
+                                  </StackPanel>
+                                </ToggleButton>
                               </DataTemplate>
                             </ItemsControl.ItemTemplate>
                           </ItemsControl>
                         </StackPanel>
 
-                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                   AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftErrorText"
-                                   IsVisible="{Binding ChainProxy.IsDraftErrorVisible}"
-                                   Text="{Binding ChainProxy.DraftError}" />
                       </StackPanel>
                     </ScrollViewer>
                   </Panel>
 
+                  <!-- 页脚按列表/草稿互斥显隐；列表态左下角为新增入口，右侧为主操作 -->
                   <Panel Grid.Row="2" Margin="24,0,24,24">
-                    <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
-                                IsVisible="{Binding ChainProxy.IsListVisible}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding ChainProxy.IsListVisible}">
                       <Button Classes="dialog-secondary"
-                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.CancelButton"
-                              Command="{Binding ChainProxy.CancelCommand}"
-                              Content="{loc:Loc Dialog.Cancel}" />
-                      <Button Classes="dialog-primary"
-                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.SaveButton"
-                              Command="{Binding ChainProxy.SaveCommand}"
-                              Content="{loc:Loc Common.Save}" />
-                    </StackPanel>
+                              AutomationProperties.AutomationId="Subscriptions.ChainProxy.AddCustomButton"
+                              IsEnabled="{Binding ChainProxy.CanAddDraft}"
+                              Command="{Binding ChainProxy.StartAddDraftCommand}"
+                              Content="{loc:Loc Common.Add}" />
+                      <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                        <Button Classes="dialog-secondary"
+                                AutomationProperties.AutomationId="Subscriptions.ChainProxy.CancelButton"
+                                Command="{Binding ChainProxy.CancelCommand}"
+                                Content="{loc:Loc Dialog.Cancel}" />
+                        <Button Classes="dialog-primary"
+                                AutomationProperties.AutomationId="Subscriptions.ChainProxy.SaveButton"
+                                Command="{Binding ChainProxy.SaveCommand}"
+                                Content="{loc:Loc Common.Save}" />
+                      </StackPanel>
+                    </Grid>
                     <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right"
                                 IsVisible="{Binding ChainProxy.IsDraftVisible}">
                       <Button Classes="dialog-secondary"
@@ -1109,6 +1168,7 @@
                               Content="{loc:Loc Subscriptions.ChainProxy.Back}" />
                       <Button Classes="dialog-primary"
                               AutomationProperties.AutomationId="Subscriptions.ChainProxy.DraftSaveButton"
+                              IsEnabled="{Binding ChainProxy.CanSaveDraft}"
                               Command="{Binding ChainProxy.SaveDraftCommand}"
                               Content="{loc:Loc Subscriptions.ChainProxy.SaveChain}" />
                     </StackPanel>
@@ -1131,9 +1191,6 @@
                       <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="CloseFill" />
                     </Button>
                   </Grid>
-                  <TextBlock Classes="dialog-subtitle"
-                             AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.TitleText"
-                             Text="{Binding RuntimeConfigDialog.Title}" />
                   <controls:CodeEditor AutomationProperties.AutomationId="Subscriptions.RuntimeConfigDialog.ContentBox"
                                        Text="{Binding RuntimeConfigDialog.Content}"
                                        SyntaxLanguage="yaml"

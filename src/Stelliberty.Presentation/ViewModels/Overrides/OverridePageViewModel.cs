@@ -54,7 +54,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         AddDialog.RemoteRequested += OnAddRemoteRequested;
         AddDialog.LocalRequested += OnAddLocalRequested;
         AddDialog.CreateBlankRequested += OnAddCreateBlankRequested;
-        AddDialog.ValidationFailed += OnAddDialogValidationFailed;
         AddDialog.DialogStateChanged += OnAddDialogStateChanged;
         SelectOverrideCommand = new RelayCommand<string>(SelectOverride);
         UpdateOverrideCommand = new RelayCommand<string>(overrideId => _ = UpdateOverrideAsync(overrideId));
@@ -67,8 +66,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
         CancelDeleteDialogCommand = new RelayCommand(CancelDeleteDialog);
         DeleteOverrideCommand = new RelayCommand<string>(DeleteOverride);
         MoveOverrideCommand = new RelayCommand<OverrideMoveRequest>(MoveOverride);
-        MoveOverrideUpCommand = new RelayCommand<string>(MoveOverrideUp);
-        MoveOverrideDownCommand = new RelayCommand<string>(MoveOverrideDown);
         RowMenuActionCommand = new RelayCommand<OverrideRowMenuSelection>(selection =>
         {
             if (selection is not null)
@@ -141,8 +138,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
     public ICommand CancelDeleteDialogCommand { get; }
     public ICommand DeleteOverrideCommand { get; }
     public ICommand MoveOverrideCommand { get; }
-    public ICommand MoveOverrideUpCommand { get; }
-    public ICommand MoveOverrideDownCommand { get; }
     public ICommand RowMenuActionCommand { get; }
 
     public void AddOverride(OverrideItemViewModel item)
@@ -233,11 +228,6 @@ public sealed class OverridePageViewModel : ViewModelBase, IDisposable
     private void ShowErrorToast(string localizationKey)
     {
         ShowToast(Localize(localizationKey));
-    }
-
-    private void OnAddDialogValidationFailed(object? sender, string message)
-    {
-        ShowToast(message);
     }
 
     private void OnAddDialogStateChanged(object? sender, EventArgs args)

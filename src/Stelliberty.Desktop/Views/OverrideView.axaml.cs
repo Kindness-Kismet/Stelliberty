@@ -1,6 +1,9 @@
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Desktop.Controls;
 using Stelliberty.Desktop.Localization;
@@ -12,6 +15,7 @@ public sealed partial class OverrideView : UserControl
 {
     private readonly GridReorderController _reorder;
     private OverrideAddDialogViewModel? _subscribedAddDialog;
+    private OverrideEditDialogViewModel? _subscribedEditDialog;
 
     public OverrideView()
     {
@@ -20,6 +24,7 @@ public sealed partial class OverrideView : UserControl
         _reorder = new GridReorderController(
             OverrideList,
             dataContext => (dataContext as OverrideItemViewModel)?.Id,
+            container => container,
             (id, targetIndex) => (DataContext as OverridePageViewModel)?.MoveOverrideCommand
                 .Execute(new OverrideMoveRequest(id, targetIndex)));
     }
@@ -29,11 +34,13 @@ public sealed partial class OverrideView : UserControl
         base.OnAttachedToVisualTree(e);
         _reorder.Attach();
         SubscribeAddDialog();
+        SubscribeEditDialog();
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         UnsubscribeAddDialog();
+        UnsubscribeEditDialog();
         _reorder.Detach();
         base.OnDetachedFromVisualTree(e);
     }
@@ -49,6 +56,7 @@ public sealed partial class OverrideView : UserControl
         UnsubscribeAddDialog();
         _subscribedAddDialog = viewModel.AddDialog;
         _subscribedAddDialog.DialogStateChanged += OnAddDialogStateChanged;
+        _subscribedAddDialog.InputFocusRequested += OnInputFocusRequested;
     }
 
     private void UnsubscribeAddDialog()
@@ -59,12 +67,57 @@ public sealed partial class OverrideView : UserControl
         }
 
         _subscribedAddDialog.DialogStateChanged -= OnAddDialogStateChanged;
+        _subscribedAddDialog.InputFocusRequested -= OnInputFocusRequested;
         _subscribedAddDialog = null;
+    }
+
+    private void SubscribeEditDialog()
+    {
+        if (OverridePageRoot.DataContext is not OverridePageViewModel viewModel
+            || ReferenceEquals(_subscribedEditDialog, viewModel.EditDialog))
+        {
+            return;
+        }
+
+        UnsubscribeEditDialog();
+        _subscribedEditDialog = viewModel.EditDialog;
+        _subscribedEditDialog.InputFocusRequested += OnInputFocusRequested;
+    }
+
+    private void UnsubscribeEditDialog()
+    {
+        if (_subscribedEditDialog is null)
+        {
+            return;
+        }
+
+        _subscribedEditDialog.InputFocusRequested -= OnInputFocusRequested;
+        _subscribedEditDialog = null;
     }
 
     private async void OnAddDialogStateChanged(object? sender, EventArgs args)
     {
         await RefreshOverrideUrlPasteAvailabilityAsync();
+    }
+
+    private void OnInputFocusRequested(object? sender, DialogInputField field)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            var prefix = sender is OverrideEditDialogViewModel ? "Overrides.EditDialog" : "Overrides.Dialog";
+            var automationId = field switch
+            {
+                DialogInputField.Name => $"{prefix}.NameBox",
+                DialogInputField.Source => $"{prefix}.PathBox",
+                DialogInputField.LocalFile => "Overrides.Dialog.ChooseLocalFileButton",
+                _ => string.Empty,
+            };
+            var target = this.GetVisualDescendants()
+                .OfType<Control>()
+                .FirstOrDefault(control => AutomationProperties.GetAutomationId(control) == automationId);
+            target?.BringIntoView();
+            target?.Focus();
+        }, DispatcherPriority.Input);
     }
 
     private async void OnOverrideUrlBoxGotFocus(object? sender, Avalonia.Interactivity.RoutedEventArgs args)

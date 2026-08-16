@@ -1,6 +1,6 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:Stelliberty.Desktop.Controls"
+             xmlns:controls="using:Stelliberty.Desktop.Controls"
              xmlns:loc="using:Stelliberty.Desktop.Localization"
              xmlns:vm="using:Stelliberty.Presentation.ViewModels"
              xmlns:iconPacks="https://github.com/MahApps/IconPacks.Avalonia"
@@ -128,7 +128,6 @@
 
     <Grid Grid.Row="1">
       <Border Classes="list-empty"
-              AutomationProperties.AutomationId="Connections.EmptyText"
               IsVisible="{Binding IsEmptyVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
@@ -136,7 +135,7 @@
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="TransferHorizontalLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="Connections.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Connections.Empty.Hint}" />
           </StackPanel>
         </StackPanel>

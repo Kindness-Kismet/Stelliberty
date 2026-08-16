@@ -16,6 +16,12 @@ internal static partial class DebugCommands
             return Task.FromResult<string?>(RuleState(page));
         }
 
+        if (string.Equals(spec, "reset-order", StringComparison.OrdinalIgnoreCase))
+        {
+            page.ResetRuleOrderCommand.Execute(null);
+            return Task.FromResult<string?>(RuleOrder(page));
+        }
+
         if (spec.StartsWith("filter ", StringComparison.OrdinalIgnoreCase))
         {
             page.SetTypeBucket(ParseRuleTypeBucket(spec["filter ".Length..].Trim()));
@@ -26,6 +32,18 @@ internal static partial class DebugCommands
         {
             page.SearchKeyword = NormalizeInputValue(spec["search ".Length..].Trim());
             return Task.FromResult<string?>(RuleState(page));
+        }
+
+        if (spec.StartsWith("move up ", StringComparison.OrdinalIgnoreCase))
+        {
+            MoveRule(page, spec["move up ".Length..].Trim(), -1);
+            return Task.FromResult<string?>(RuleOrder(page));
+        }
+
+        if (spec.StartsWith("move down ", StringComparison.OrdinalIgnoreCase))
+        {
+            MoveRule(page, spec["move down ".Length..].Trim(), 1);
+            return Task.FromResult<string?>(RuleOrder(page));
         }
 
         if (string.Equals(spec, "list", StringComparison.OrdinalIgnoreCase))
@@ -50,9 +68,30 @@ internal static partial class DebugCommands
             $"bucket={page.TypeBucket}",
             $"search={page.SearchKeyword}",
             $"running={page.IsCoreRunning.ToString().ToLowerInvariant()}",
-            $"refresh={page.HasRequestedRefresh.ToString().ToLowerInvariant()}"
+            $"refresh={page.HasRequestedRefresh.ToString().ToLowerInvariant()}",
+            $"can-reset-order={page.CanResetRuleOrder.ToString().ToLowerInvariant()}"
         ]);
     }
+
+    private static void MoveRule(RulePageViewModel page, string ruleId, int offset)
+    {
+        if (!string.IsNullOrWhiteSpace(page.SearchKeyword) || page.TypeBucket != RuleTypeBucket.All)
+        {
+            throw new InvalidOperationException("rules.move up/down requires the all-rules view without search");
+        }
+
+        var row = page.VisibleRules.FirstOrDefault(item => item.Id == ruleId || item.OrderId == ruleId);
+        if (row is null)
+        {
+            return;
+        }
+
+        var sourceIndex = page.VisibleRules.IndexOf(row);
+        page.MoveRuleCommand.Execute(new RuleMoveRequest(row.OrderId, sourceIndex + offset));
+    }
+
+    private static string RuleOrder(RulePageViewModel page)
+        => $"order={string.Join(',', page.VisibleRules.Select(row => row.Id))}";
 
     private static RuleTypeBucket ParseRuleTypeBucket(string value)
     {
@@ -60,7 +99,7 @@ internal static partial class DebugCommands
         {
             "domain" => RuleTypeBucket.Domain,
             "ip" => RuleTypeBucket.Ip,
-            "rule-set" or "ruleset" => RuleTypeBucket.RuleSet,
+            "rule-set" => RuleTypeBucket.RuleSet,
             "other" => RuleTypeBucket.Other,
             _ => RuleTypeBucket.All
         };

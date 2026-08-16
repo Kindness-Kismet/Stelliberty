@@ -180,10 +180,6 @@ public sealed class SubscriptionItemViewModel : ViewModelBase
 
     public string NameAutomationId => $"Subscriptions.Row.{Id}.NameText";
 
-    public string MoveUpAutomationId => $"Subscriptions.Row.{Id}.MoveUpButton";
-
-    public string MoveDownAutomationId => $"Subscriptions.Row.{Id}.MoveDownButton";
-
     public string UpdateAutomationId => $"Subscriptions.Row.{Id}.UpdateButton";
 
     public bool IsUpdateVisible => !IsLocalFile;

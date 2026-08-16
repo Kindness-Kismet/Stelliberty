@@ -177,6 +177,9 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     public string? LoadedSubscriptionId => _loadedSubscriptionId;
 
+    public ProxyRuntimeSnapshot? LastRuntimeSnapshot
+        => (_primaryConfigProvider as IProxyRuntimeSnapshotSource)?.LastSnapshot;
+
     public string EmptyText => _emptyText;
 
     public string EmptySubtitle => _emptySubtitle;

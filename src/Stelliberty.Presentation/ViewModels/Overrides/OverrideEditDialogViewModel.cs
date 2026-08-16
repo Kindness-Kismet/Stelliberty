@@ -39,7 +39,9 @@ public sealed class OverrideEditDialogViewModel : OverrideDialogBase
 
     public string SourcePlaceholder => Localize(_isLocalFile ? "Overrides.Placeholder.LocalPath" : "Overrides.Placeholder.Url");
 
-    public override bool CanSubmit => _overrideId is not null && !string.IsNullOrWhiteSpace(_name);
+    public override bool CanSubmit => _overrideId is not null;
+
+    protected override bool IsRemoteSource => IsForRemoteOverride;
 
     public void Open(OverrideItemViewModel item)
     {
@@ -51,6 +53,7 @@ public sealed class OverrideEditDialogViewModel : OverrideDialogBase
         _sourceLocation = item.SourceLocation;
         _format = item.Format;
         _proxyMode = item.UpdateProxyMode;
+        ResetValidation();
         RaiseStateChanged();
     }
 
@@ -71,6 +74,12 @@ public sealed class OverrideEditDialogViewModel : OverrideDialogBase
     {
         if (!CanSubmit)
         {
+            return;
+        }
+
+        if (!ValidateInputs())
+        {
+            RequestInputFocus(IsNameErrorVisible ? DialogInputField.Name : DialogInputField.Source);
             return;
         }
 
@@ -100,6 +109,7 @@ public sealed class OverrideEditDialogViewModel : OverrideDialogBase
         _sourceLocation = string.Empty;
         _format = OverrideFormat.Yaml;
         _proxyMode = OverrideUpdateProxyMode.Direct;
+        ResetValidation();
         RaiseStateChanged();
     }
 
@@ -128,6 +138,7 @@ public sealed class OverrideEditDialogViewModel : OverrideDialogBase
         RaiseFormatStateChanged();
         RaiseProxyModeStateChanged();
         OnPropertyChanged(nameof(CanSubmit));
+        RaiseValidationStateChanged();
         NotifyDialogStateChanged();
     }
 }

@@ -78,7 +78,7 @@ public static class HubBootstrap
 
             try
             {
-                using FfiBootstrapResult ffi = Interop.hub_stop_core();
+                using FfiBootstrapResult ffi = Interop.hub_bootstrap_stop_core();
                 var message = ffi.message.String;
                 return ffi.ok.Is
                     ? BootstrapResult.Success(message)
@@ -124,7 +124,7 @@ public static class HubBootstrap
     {
         try
         {
-            using FfiBootstrapResult ffi = Interop.hub_start_core();
+            using FfiBootstrapResult ffi = Interop.hub_bootstrap_start_core();
             var message = ffi.message.String;
             return ffi.ok.Is
                 ? BootstrapResult.Success(message)

@@ -76,6 +76,12 @@
                     Command="{Binding OpenTemplateCommand}" ToolTip.Tip="{loc:Loc Rules.Action.SelectTemplate}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="FolderOpenLine" />
             </Button>
+            <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.ResetOrderButton"
+                    Command="{Binding ResetRuleOrderCommand}"
+                    IsEnabled="{Binding CanResetRuleOrder}"
+                    ToolTip.Tip="{loc:Loc Rules.Action.ResetOrder}">
+              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="EraserAiLine" />
+            </Button>
             <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.RefreshButton"
                     Command="{Binding RefreshRulesCommand}" ToolTip.Tip="{loc:Loc Rules.Action.Refresh}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="Refresh1Line" />
@@ -86,14 +92,14 @@
     </Border>
 
     <Grid Grid.Row="1">
-      <Border Classes="list-empty" IsVisible="{Binding IsEmptyVisible}" AutomationProperties.AutomationId="Rules.EmptyText">
+      <Border Classes="list-empty" IsVisible="{Binding IsEmptyVisible}">
         <StackPanel Spacing="18" HorizontalAlignment="Center" VerticalAlignment="Center">
           <Panel HorizontalAlignment="Center">
             <Border Classes="list-empty-halo" />
             <iconPacks:PackIconMingCuteIcons Classes="list-empty-icon" Kind="PencilRulerLine" />
           </Panel>
           <StackPanel Spacing="7">
-            <TextBlock Classes="list-empty-text" Text="{Binding EmptyText}" />
+            <TextBlock Classes="list-empty-text" AutomationProperties.AutomationId="Rules.EmptyText" Text="{Binding EmptyText}" />
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Rules.Empty.Hint}" />
           </StackPanel>
         </StackPanel>
@@ -129,9 +135,10 @@
                       <TextBlock Text="{Binding DuplicateText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AppWarningBrush}" />
                     </StackPanel>
                   </Grid>
-                  <StackPanel Grid.Column="1" Spacing="8" VerticalAlignment="Center">
-                    <ToggleSwitch Classes="rule-toggle" AutomationProperties.AutomationId="{Binding ToggleAutomationId}" ToolTip.Tip="{loc:Loc Rules.Tooltip.ToggleRule}" IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
-                  </StackPanel>
+                  <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
+                                ToolTip.Tip="{loc:Loc Rules.Tooltip.ToggleRule}"
+                                IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
                 </Grid>
               </Border>
             </DataTemplate>
@@ -152,16 +159,19 @@
                   <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <!-- 字段结构对齐订阅对话框：外层 16、标题与输入框 6 -->
                     <StackPanel Spacing="16" Margin="24,0,22,0">
-                      <TextBlock Classes="dialog-error" Text="{Binding ErrorText}" IsVisible="{Binding HasError}" />
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Type}" />
                         <ComboBox Classes="dialog-input" Width="260" HorizontalAlignment="Left" HorizontalContentAlignment="Left" AutomationProperties.AutomationId="Rules.EditorDialog.TypeBox" ItemsSource="{Binding RuleTypes}" SelectedItem="{Binding SelectedRuleType, Mode=TwoWay}" DisplayMemberBinding="{Binding Name}" />
                       </StackPanel>
                       <!-- 左输入框仅在右侧下拉选中自定义代理组时可编辑，其余选项直接取下拉值 -->
-                      <Grid ColumnDefinitions="*,260" ColumnSpacing="12">
+                      <Grid ColumnDefinitions="*,260" ColumnSpacing="10">
                         <StackPanel Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.CustomProxyName}" />
-                          <TextBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.ProxyBox" Text="{Binding Proxy, Mode=TwoWay}" IsEnabled="{Binding IsCustomOutboundTarget}" PlaceholderText="{loc:Loc Rules.Field.CustomProxyHint}" />
+                          <TextBox Classes="dialog-input" Classes.error="{Binding IsProxyErrorVisible}" AutomationProperties.AutomationId="Rules.EditorDialog.ProxyBox" Text="{Binding Proxy, Mode=TwoWay}" IsEnabled="{Binding IsCustomOutboundTarget}" PlaceholderText="{loc:Loc Rules.Field.CustomProxyHint}" />
+                          <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                     AutomationProperties.AutomationId="Rules.EditorDialog.ProxyError"
+                                     IsVisible="{Binding IsProxyErrorVisible}"
+                                     Text="{Binding ProxyError}" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Proxy}" />
@@ -170,7 +180,14 @@
                       </Grid>
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Payload}" />
-                        <TextBox Classes="dialog-input" AutomationProperties.AutomationId="Rules.EditorDialog.PayloadBox" Text="{Binding Payload, Mode=TwoWay}" />
+                        <TextBox Classes="dialog-input" Classes.error="{Binding IsPayloadErrorVisible}"
+                                 AutomationProperties.AutomationId="Rules.EditorDialog.PayloadBox"
+                                 IsEnabled="{Binding IsPayloadEnabled}"
+                                 Text="{Binding Payload, Mode=TwoWay}" />
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Rules.EditorDialog.PayloadError"
+                                   IsVisible="{Binding IsPayloadErrorVisible}"
+                                   Text="{Binding PayloadError}" />
                       </StackPanel>
                     </StackPanel>
                   </ScrollViewer>
@@ -225,7 +242,11 @@
                     <StackPanel Spacing="16" Margin="24,0,22,0">
                       <StackPanel Spacing="6">
                         <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.TemplateName}" />
-                        <TextBox Classes="dialog-input" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="Rules.TemplateDialog.NameBox" Text="{Binding TemplateName, Mode=TwoWay}" />
+                        <TextBox Classes="dialog-input" Classes.error="{Binding IsTemplateNameErrorVisible}" HorizontalAlignment="Stretch" AutomationProperties.AutomationId="Rules.TemplateDialog.NameBox" Text="{Binding TemplateName, Mode=TwoWay}" />
+                        <TextBlock Classes="dialog-error" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="Rules.TemplateDialog.NameError"
+                                   IsVisible="{Binding IsTemplateNameErrorVisible}"
+                                   Text="{Binding TemplateNameError}" />
                       </StackPanel>
                     </StackPanel>
                   </ScrollViewer>

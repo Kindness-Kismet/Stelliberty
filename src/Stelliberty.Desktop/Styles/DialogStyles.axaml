@@ -72,15 +72,34 @@
   </Style>
   <Style Selector="TextBox.dialog-input:focus /template/ Border#PART_BorderElement">
     <Setter Property="Background" Value="{DynamicResource AppInputHoverBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBorderBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppInputFocusBrush}" />
   </Style>
   <Style Selector="TextBox.dialog-input:focus /template/ Border#PART_ContentPresenterBorder">
     <Setter Property="Background" Value="{DynamicResource AppInputHoverBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBorderBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppInputFocusBrush}" />
   </Style>
 
   <Style Selector="TextBox.dialog-input:disabled">
     <Setter Property="Opacity" Value="0.45" />
+  </Style>
+
+  <Style Selector="TextBox.dialog-input.error /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error /template/ Border#PART_ContentPresenterBorder">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:pointerover /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:pointerover /template/ Border#PART_ContentPresenterBorder">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
+  </Style>
+  <Style Selector="TextBox.dialog-input.error:focus /template/ Border#PART_ContentPresenterBorder">
+    <Setter Property="BorderBrush" Value="{DynamicResource AppDangerBrush}" />
   </Style>
 
   <Style Selector="Button.input-inline-icon">
@@ -169,62 +188,6 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
     <Setter Property="CornerRadius" Value="10" />
-  </Style>
-
-  <Style Selector="ToggleButton.segmented">
-    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
-    <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="12,8" />
-    <Setter Property="MinHeight" Value="38" />
-    <Setter Property="FontSize" Value="13" />
-    <Setter Property="HorizontalAlignment" Value="Stretch" />
-    <Setter Property="HorizontalContentAlignment" Value="Center" />
-    <Setter Property="VerticalContentAlignment" Value="Center" />
-    <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
-    <Setter Property="Cursor" Value="Hand" />
-    <Setter Property="Template">
-      <ControlTemplate>
-        <Border x:Name="SegRoot"
-                Background="{TemplateBinding Background}"
-                BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="{TemplateBinding BorderThickness}"
-                CornerRadius="{TemplateBinding CornerRadius}"
-                Padding="{TemplateBinding Padding}">
-          <ContentPresenter HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Foreground="{TemplateBinding Foreground}"
-                            Content="{TemplateBinding Content}" />
-        </Border>
-      </ControlTemplate>
-    </Setter>
-  </Style>
-  <Style Selector="ToggleButton.segmented /template/ Border#SegRoot">
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.15" />
-        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-      </Transitions>
-    </Setter>
-  </Style>
-  <Style Selector="ToggleButton.segmented:pointerover">
-    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:pointerover /template/ Border#SegRoot">
-    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:checked">
-    <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
-    <Setter Property="FontWeight" Value="SemiBold" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:checked /template/ Border#SegRoot">
-    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
-  </Style>
-  <Style Selector="ToggleButton.segmented:checked:pointerover /template/ Border#SegRoot">
-    <Setter Property="Background" Value="{DynamicResource AppAccentBrush}" />
-    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBrush}" />
   </Style>
 
   <Style Selector="Button.dialog-primary">
@@ -434,11 +397,11 @@
   </Style>
 
   <Style Selector="ToggleButton.chain-chip">
-    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="9" />
-    <Setter Property="Padding" Value="12,7" />
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="10,5" />
     <Setter Property="FontSize" Value="12.5" />
     <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
     <Setter Property="Cursor" Value="Hand" />
@@ -466,7 +429,8 @@
     </Setter>
   </Style>
   <Style Selector="ToggleButton.chain-chip:pointerover /template/ Border#ChipRoot">
-    <Setter Property="Background" Value="{DynamicResource AppOverlayBrush}" />
+    <Setter Property="Background" Value="{DynamicResource AppOverlaySubtleBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AppAccentBorderBrush}" />
   </Style>
   <Style Selector="ToggleButton.chain-chip:checked">
     <Setter Property="Foreground" Value="{DynamicResource AppOnAccentBrush}" />
@@ -480,19 +444,46 @@
     <Setter Property="Opacity" Value="0.4" />
   </Style>
 
-  <Style Selector="Border.chain-slot">
-    <Setter Property="Background" Value="{DynamicResource AppInputBrush}" />
+  <Style Selector="TextBlock.chain-placeholder">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+
+  <Style Selector="TextBlock.chain-hop-arrow">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextTertiaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="Margin" Value="8,0" />
+  </Style>
+
+  <Style Selector="Border.chain-hop">
+    <Setter Property="Background" Value="{DynamicResource AppSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
     <Setter Property="BorderThickness" Value="1" />
-    <Setter Property="CornerRadius" Value="10" />
-    <Setter Property="Padding" Value="12,8" />
-    <Setter Property="MinWidth" Value="150" />
-    <Setter Property="Transitions">
-      <Transitions>
-        <BrushTransition Property="Background" Duration="0:0:0.15" />
-        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
-      </Transitions>
-    </Setter>
+    <Setter Property="CornerRadius" Value="8" />
+    <Setter Property="Padding" Value="8,5" />
+    <Setter Property="Cursor" Value="Hand" />
+  </Style>
+  <Style Selector="Border.chain-hop-index">
+    <Setter Property="Width" Value="18" />
+    <Setter Property="Height" Value="18" />
+    <Setter Property="CornerRadius" Value="5" />
+    <Setter Property="Background" Value="{DynamicResource AppAccentTintBrush}" />
+  </Style>
+  <Style Selector="Border.chain-hop-index > TextBlock">
+    <Setter Property="FontSize" Value="10.5" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource AppAccentBrush}" />
+    <Setter Property="HorizontalAlignment" Value="Center" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="TextBlock.chain-hop-name">
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{DynamicResource AppTextPrimaryBrush}" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+    <Setter Property="MaxWidth" Value="180" />
+    <Setter Property="TextTrimming" Value="CharacterEllipsis" />
   </Style>
 
   <!-- 连接详情行 -->

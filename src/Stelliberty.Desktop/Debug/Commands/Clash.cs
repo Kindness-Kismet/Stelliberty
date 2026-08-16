@@ -10,7 +10,7 @@ internal static partial class DebugCommands
     {
         var viewModel = RequireViewModel(window);
         var spec = command["clash.".Length..].Trim();
-        if (string.Equals(spec, "keys", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(spec, "list keys", StringComparison.OrdinalIgnoreCase))
         {
             return string.Join("|", ClashSettingKeys().Select(key => $"{key}\teffect={ClashSettingEffect(key)}"));
         }
