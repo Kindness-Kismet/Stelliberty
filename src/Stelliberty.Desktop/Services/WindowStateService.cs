@@ -73,14 +73,14 @@ internal sealed class WindowStateService : IDisposable
 
     private void RestoreWindowState()
     {
-        if (_window is null || _settings is null)
+        if (_window is null)
         {
             return;
         }
 
-        var width = _settings.WindowWidth;
-        var height = _settings.WindowHeight;
-        var isMaximized = _settings.IsWindowMaximized;
+        var width = _settings?.WindowWidth;
+        var height = _settings?.WindowHeight;
+        var isMaximized = _settings?.IsWindowMaximized == true;
         if (width is > 0 && height is > 0)
         {
             _window.Width = width.Value;
@@ -89,11 +89,62 @@ internal sealed class WindowStateService : IDisposable
             AppLogger.Debug($"Restored window size: {width.Value}x{height.Value}");
         }
 
+        FitToWorkingArea();
         if (isMaximized)
         {
             _window.WindowState = WindowState.Maximized;
             AppLogger.Debug("Restored maximized window state");
         }
+    }
+
+    // 构造时已能读到工作区；先收进可用区域，再按工作区居中，避免整屏居中把标题栏顶出屏幕。
+    private void FitToWorkingArea()
+    {
+        if (_window is null)
+        {
+            return;
+        }
+
+        var screens = _window.Screens;
+        var screen = screens?.ScreenFromWindow(_window) ?? screens?.Primary;
+        if (screen is null || screen.WorkingArea.Width <= 0 || screen.WorkingArea.Height <= 0)
+        {
+            return;
+        }
+
+        var scale = _window.RenderScaling <= 0 ? 1 : _window.RenderScaling;
+        var maxWidth = screen.WorkingArea.Width / scale;
+        var maxHeight = screen.WorkingArea.Height / scale;
+        var requestedWidth = FirstPositive(_window.Width, _window.Bounds.Width) ?? maxWidth;
+        var requestedHeight = FirstPositive(_window.Height, _window.Bounds.Height) ?? maxHeight;
+        var (width, height) = WindowPlacement.FitSize(
+            requestedWidth,
+            requestedHeight,
+            _window.MinWidth,
+            _window.MinHeight,
+            maxWidth,
+            maxHeight);
+
+        _window.Width = width;
+        _window.Height = height;
+        _lastNormalSize = new Size(width, height);
+
+        if (_window.WindowState != WindowState.Normal)
+        {
+            return;
+        }
+
+        var (x, y) = WindowPlacement.CenterInPixels(
+            width,
+            height,
+            screen.WorkingArea.X,
+            screen.WorkingArea.Y,
+            screen.WorkingArea.Width,
+            screen.WorkingArea.Height,
+            scale);
+        _window.WindowStartupLocation = WindowStartupLocation.Manual;
+        _window.Position = new PixelPoint(x, y);
+        AppLogger.Debug($"Fitted window to working area: {width}x{height} at {x},{y}");
     }
 
     private void OnWindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs args)
