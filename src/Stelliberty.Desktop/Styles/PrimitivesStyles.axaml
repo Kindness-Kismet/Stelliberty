@@ -323,11 +323,11 @@
   <Style Selector="Border.list-pill[Tag=remote] > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource AppSuccessBrush}" />
   </Style>
-  <Style Selector="Border.list-pill[Tag=local]">
+  <Style Selector="Border.list-pill[Tag=local], Border.list-pill[Tag=custom]">
     <Setter Property="Background" Value="{DynamicResource AppSubtleFillBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource AppBorderBrush}" />
   </Style>
-  <Style Selector="Border.list-pill[Tag=local] > TextBlock">
+  <Style Selector="Border.list-pill[Tag=local] > TextBlock, Border.list-pill[Tag=custom] > TextBlock">
     <Setter Property="Foreground" Value="{DynamicResource AppTextSecondaryBrush}" />
   </Style>
 

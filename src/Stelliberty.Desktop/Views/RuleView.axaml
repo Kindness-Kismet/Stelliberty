@@ -120,14 +120,14 @@
           <ItemsControl.ItemTemplate>
             <DataTemplate x:DataType="vm:RuleEditorRowViewModel">
               <Border Classes="surface-card rule" AutomationProperties.AutomationId="{Binding AutomationId}" DoubleTapped="OnRuleTapped">
-                <Grid Margin="14,10" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Grid Margin="14,10" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                   <Grid RowDefinitions="Auto,*,Auto" RowSpacing="5">
                     <StackPanel Orientation="Horizontal" Spacing="7">
                       <Border MinWidth="28" Height="24" Padding="6,0" CornerRadius="8" Background="{DynamicResource AppOverlaySubtleBrush}">
                         <TextBlock Text="{Binding SequenceNumber}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AppTextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                       </Border>
                       <Border Classes="list-pill" Tag="{Binding SourceTag}"><TextBlock Text="{Binding Type}" /></Border>
-                      <Border Classes="list-pill" Tag="local" IsVisible="{Binding !IsBuiltIn}"><TextBlock Text="{loc:Loc Rules.Row.Custom}" /></Border>
+                      <Border Classes="list-pill" Tag="custom" IsVisible="{Binding !IsBuiltIn}"><TextBlock Text="{loc:Loc Rules.Row.Custom}" /></Border>
                     </StackPanel>
                     <TextBlock Grid.Row="1" Text="{Binding Payload}" Foreground="{DynamicResource AppTextPrimaryBrush}" FontWeight="SemiBold" FontSize="13.5" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                     <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="7">
@@ -135,7 +135,23 @@
                       <TextBlock Text="{Binding DuplicateText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AppWarningBrush}" />
                     </StackPanel>
                   </Grid>
-                  <ToggleSwitch Grid.Column="1" VerticalAlignment="Center"
+                  <Button Grid.Column="1" Classes="toolbar-icon card-toolbar-icon"
+                          IsVisible="{Binding !IsBuiltIn}"
+                          ToolTip.Tip="{loc:Loc Common.Edit}"
+                          AutomationProperties.AutomationId="{Binding EditAutomationId}"
+                          Command="{Binding #RulePageRoot.((vm:RulePageViewModel)DataContext).EditRuleCommand}"
+                          CommandParameter="{Binding}">
+                    <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="EditLine" />
+                  </Button>
+                  <Button Grid.Column="2" Classes="toolbar-icon card-toolbar-icon"
+                          IsVisible="{Binding !IsBuiltIn}"
+                          ToolTip.Tip="{loc:Loc Common.Delete}"
+                          AutomationProperties.AutomationId="{Binding DeleteAutomationId}"
+                          Command="{Binding #RulePageRoot.((vm:RulePageViewModel)DataContext).DeleteRuleCommand}"
+                          CommandParameter="{Binding}">
+                    <iconPacks:PackIconMingCuteIcons Width="16" Height="16" Kind="DeleteLine" />
+                  </Button>
+                  <ToggleSwitch Grid.Column="3" VerticalAlignment="Center"
                                 AutomationProperties.AutomationId="{Binding ToggleAutomationId}"
                                 ToolTip.Tip="{loc:Loc Rules.Tooltip.ToggleRule}"
                                 IsChecked="{Binding IsEnabled, Mode=TwoWay}" />
@@ -159,19 +175,10 @@
                   <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <!-- 字段结构对齐订阅对话框：外层 16、标题与输入框 6 -->
                     <StackPanel Spacing="16" Margin="24,0,22,0">
-                      <StackPanel Spacing="6">
-                        <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Type}" />
-                        <ComboBox Classes="dialog-input" Width="260" HorizontalAlignment="Left" HorizontalContentAlignment="Left" AutomationProperties.AutomationId="Rules.EditorDialog.TypeBox" ItemsSource="{Binding RuleTypes}" SelectedItem="{Binding SelectedRuleType, Mode=TwoWay}" DisplayMemberBinding="{Binding Name}" />
-                      </StackPanel>
-                      <!-- 左输入框仅在右侧下拉选中自定义代理组时可编辑，其余选项直接取下拉值 -->
                       <Grid ColumnDefinitions="*,260" ColumnSpacing="10">
                         <StackPanel Spacing="6">
-                          <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.CustomProxyName}" />
-                          <TextBox Classes="dialog-input" Classes.error="{Binding IsProxyErrorVisible}" AutomationProperties.AutomationId="Rules.EditorDialog.ProxyBox" Text="{Binding Proxy, Mode=TwoWay}" IsEnabled="{Binding IsCustomOutboundTarget}" PlaceholderText="{loc:Loc Rules.Field.CustomProxyHint}" />
-                          <TextBlock Classes="dialog-error" TextWrapping="Wrap"
-                                     AutomationProperties.AutomationId="Rules.EditorDialog.ProxyError"
-                                     IsVisible="{Binding IsProxyErrorVisible}"
-                                     Text="{Binding ProxyError}" />
+                          <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Type}" />
+                          <ComboBox Classes="dialog-input" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" AutomationProperties.AutomationId="Rules.EditorDialog.TypeBox" ItemsSource="{Binding RuleTypes}" SelectedItem="{Binding SelectedRuleType, Mode=TwoWay}" DisplayMemberBinding="{Binding Name}" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Spacing="6">
                           <TextBlock Classes="dialog-label" Text="{loc:Loc Rules.Field.Proxy}" />

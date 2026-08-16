@@ -80,7 +80,6 @@ public sealed partial class RuleView : UserControl
         {
             var automationId = field switch
             {
-                DialogInputField.Proxy => "Rules.EditorDialog.ProxyBox",
                 DialogInputField.Payload => "Rules.EditorDialog.PayloadBox",
                 DialogInputField.TemplateName => "Rules.TemplateDialog.NameBox",
                 _ => string.Empty,
