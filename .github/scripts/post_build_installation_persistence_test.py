@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Simulate installer replacement while preserving portable data")
+    parser = argparse.ArgumentParser(description="Test installer replacement while preserving portable data")
     parser.add_argument("--os-family", required=True, choices=["linux", "macos"])
     parser.add_argument("--app-output", required=True, type=Path)
     args = parser.parse_args()
@@ -19,11 +19,11 @@ def main() -> None:
         root = Path(temporary_directory)
         if args.os_family == "macos":
             verify_macos_layout_policy()
-            simulate_macos_replacement(root, args.app_output)
+            test_macos_replacement(root, args.app_output)
         else:
             verify_linux_installer_policy()
-            simulate_linux_package_replacement(root, args.app_output)
-            simulate_appimage_replacement(root, args.app_output)
+            test_linux_package_replacement(root, args.app_output)
+            test_appimage_replacement(root, args.app_output)
 
 
 def verify_macos_layout_policy() -> None:
@@ -45,8 +45,8 @@ def verify_linux_installer_policy() -> None:
         require_fragments(read_repository_file(relative_path), ["mkdir -p /opt/@APP_PACKAGE@.data"])
 
 
-def simulate_macos_replacement(root: Path, app_output: Path) -> None:
-    print("Simulating macOS app bundle replacement")
+def test_macos_replacement(root: Path, app_output: Path) -> None:
+    print("Testing macOS app bundle replacement")
     applications_directory = root / "Applications"
     app_directory = applications_directory / "Stelliberty.app"
     data_directory = applications_directory / "Stelliberty.data"
@@ -57,8 +57,8 @@ def simulate_macos_replacement(root: Path, app_output: Path) -> None:
     require_preserved(data_directory, app_directory / "Contents" / "MacOS")
 
 
-def simulate_linux_package_replacement(root: Path, app_output: Path) -> None:
-    print("Simulating Linux package replacement")
+def test_linux_package_replacement(root: Path, app_output: Path) -> None:
+    print("Testing Linux package replacement")
     install_directory = root / "opt" / "stelliberty"
     data_directory = root / "opt" / "stelliberty.data"
 
@@ -68,8 +68,8 @@ def simulate_linux_package_replacement(root: Path, app_output: Path) -> None:
     require_preserved(data_directory, install_directory)
 
 
-def simulate_appimage_replacement(root: Path, app_output: Path) -> None:
-    print("Simulating AppImage version replacement")
+def test_appimage_replacement(root: Path, app_output: Path) -> None:
+    print("Testing AppImage version replacement")
     extraction_root = root / "home" / "runner" / ".local" / "share" / "stelliberty" / "appimage"
     first_installation = extraction_root / "1"
     second_installation = extraction_root / "2"
@@ -89,7 +89,7 @@ def replace_installation(app_output: Path, installation_root: Path, payload_dire
 
 def install_version(app_output: Path, install_directory: Path, version: str) -> None:
     shutil.copytree(app_output, install_directory)
-    (install_directory / ".simulation-version").write_text(version, encoding="utf-8")
+    (install_directory / ".test-version").write_text(version, encoding="utf-8")
 
 
 def save_user_state(data_directory: Path) -> None:
@@ -99,7 +99,7 @@ def save_user_state(data_directory: Path) -> None:
 
 def require_preserved(data_directory: Path, install_directory: Path) -> None:
     settings = (data_directory / "settings.json").read_text(encoding="utf-8")
-    version = (install_directory / ".simulation-version").read_text(encoding="utf-8")
+    version = (install_directory / ".test-version").read_text(encoding="utf-8")
     if settings != "saved" or version != "2":
         raise RuntimeError("Installer replacement did not preserve portable data")
 

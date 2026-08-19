@@ -110,7 +110,7 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
             }
 
             var content = await response.Content.ReadAsStringAsync(timeout.Token);
-            return new ConnectionParser().Parse(content);
+            return new ConnectionParser().Parse(content, DateTimeOffset.Now);
         }
         catch (Exception exception) when (exception is HttpRequestException or JsonException or IOException
             || exception is TaskCanceledException && !cancellationToken.IsCancellationRequested)

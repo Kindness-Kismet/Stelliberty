@@ -444,7 +444,7 @@ internal sealed class CorePipeLogStreamer : IDisposable
             return 0;
         }
 
-        var messages = _parser.Parse(line);
+        var messages = _parser.Parse(line, DateTimeOffset.Now);
         foreach (var message in messages)
         {
             MessageReceived?.Invoke(this, message);

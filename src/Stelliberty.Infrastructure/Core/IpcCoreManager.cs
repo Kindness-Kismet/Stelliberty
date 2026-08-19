@@ -255,7 +255,7 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
             return;
         }
 
-        foreach (var message in _coreLogParser.Parse(line))
+        foreach (var message in _coreLogParser.Parse(line, DateTimeOffset.Now))
         {
             CoreLogReceived?.Invoke(this, message);
         }

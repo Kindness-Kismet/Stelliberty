@@ -30,8 +30,6 @@ Stelliberty is a cross-platform desktop proxy client for Windows, Linux, and mac
 
 Import Clash-standard and Base64 subscriptions. It starts quickly and uses little resources. On Windows and macOS, platform-level frosted window effects are available, with a simple native look.
 
-It also ships with a large set of simulation and prewritten test flows that walk through real user actions, so ongoing maintenance stays easier.
-
 <br>
 
 ---
@@ -247,7 +245,7 @@ python scripts/prebuild.py
 | `--platform <rid>` | `current` · `win-x64` · `win-arm64` · `linux-x64` · `linux-arm64` · `macos-x64` · `macos-arm64` |
 | `--clean` | Clean `build/` and `bin/obj/` before fetching |
 
-#### 2. Test
+#### 2. Pre-build Tests
 
 ```bash
 python scripts/test.py --all
@@ -257,36 +255,11 @@ python scripts/test.py --all
 |---|---|
 | `<name>` | Run a specific test by name |
 | `--all` | Run every pre-build test |
-| `--rust` | Run only Rust scenario integration tests |
-| `--csharp` | Run only C# business tests |
-
-**Rust scenario tests:**
 
 | Name | Description |
 |---|---|
-| `empty-start` | Hub IPC starts the core with an empty config |
-| `hub-ipc-contract` | IPC contract: methods, fields, error codes, lifecycle |
-| `yaml-override` | YAML override output verification |
-| `js-override` | JS override output verification |
-| `combo` | Combined YAML + JS override chain |
-| `config-switch` | `apply_config` switches config while core is running |
-
-**C# business tests:**
-
-| Name | Description |
-|---|---|
-| `proxy-selection` | Default nodes, fixed groups, persistence, sync, outbound mode |
-| `proxy-page` | Groups, node switching, search, sorting, delay tests |
-| `home-state` | System proxy, virtual network, outbound mode, runtime refresh, service mode |
-| `shell-navigation` | Page visibility, settings navigation, localization refresh |
-| `runtime-config` | Ports, DNS overrides, virtual network, LAN, external controller, transforms |
-| `core-ipc-contract` | C# wrapper methods, parameters, response parsing, error codes |
-| `chain-proxy` | Detection, disabling, custom chain generation, naming conflicts |
-| `monitoring-pages` | Connection/log/rule parsing, pause, filtering, closing, refresh |
-| `subscription-page` | Add, edit, override selection, chain proxy, update, scheduling |
-| `override-page` | Validation, import, save, reference cleanup, ordering, metadata |
-| `settings-page` | Core config, permissions, data management, language, theme |
-| `webdav` | Connection validation, folder creation, upload, list, download, delete |
+| `monitoring-rules` | Connection and log parsing and reduction; rule parsing and classification |
+| `settings-rules` | TUN permission correction, system proxy requests, update release selection |
 
 #### 3. Build
 
@@ -310,7 +283,7 @@ python scripts/prebuild.py
 python scripts/build.py --pack all
 ```
 
-#### Formatting
+#### 4. Formatting
 
 ```bash
 dotnet format
@@ -335,7 +308,7 @@ Pull Requests must target `beta`. Direct Pull Requests to `stable` are prohibite
 |---|---|
 | Debug commands | New or modified business logic must be wrapped as debug commands under `src/Stelliberty.Desktop/Debug` |
 | Control IDs | New interactive controls must have `AutomationProperties.AutomationId` set |
-| Pre-merge tests | Must include pre-tests or simulation tests to ensure independent verification before merge |
+| Test coverage | Pure business logic uses `Pre-build Tests`; packaged app behavior uses `Post-build Tests` |
 | Formatting | C#: `dotnet format`, Rust: `cargo fmt` |
 
 ### Debug Command Requirements

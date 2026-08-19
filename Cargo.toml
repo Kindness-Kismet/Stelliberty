@@ -2,7 +2,6 @@
 members = [
     "native/hub",
     "native/service",
-    "native/features_test",
     "native/xtask",
 ]
 resolver = "3"

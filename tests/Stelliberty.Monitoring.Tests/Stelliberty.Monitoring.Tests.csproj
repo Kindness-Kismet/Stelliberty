@@ -13,6 +13,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Stelliberty.Presentation\Stelliberty.Presentation.csproj" />
+    <ProjectReference Include="..\..\src\Stelliberty.Application\Stelliberty.Application.csproj" />
   </ItemGroup>
 </Project>

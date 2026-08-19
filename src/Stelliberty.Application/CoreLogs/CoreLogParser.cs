@@ -5,16 +5,14 @@ using System.Text.Json.Serialization;
 
 namespace Stelliberty.Application.CoreLogs;
 
-public sealed class CoreLogParser(Func<DateTimeOffset>? now = null)
+public sealed class CoreLogParser
 {
-    private readonly Func<DateTimeOffset> _now = now ?? (() => DateTimeOffset.Now);
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public IReadOnlyList<CoreLogMessage> Parse(string content)
+    public IReadOnlyList<CoreLogMessage> Parse(string content, DateTimeOffset fallbackTimestamp)
     {
         var text = content.Trim();
         if (text.Length == 0)
@@ -24,28 +22,31 @@ public sealed class CoreLogParser(Func<DateTimeOffset>? now = null)
 
         if (text[0] is '{' or '[')
         {
-            return ParseJson(text);
+            return ParseJson(text, fallbackTimestamp);
         }
 
-        return [ParseTextLine(text)];
+        return [ParseTextLine(text, fallbackTimestamp)];
     }
 
-    private IReadOnlyList<CoreLogMessage> ParseJson(string content)
+    private static IReadOnlyList<CoreLogMessage> ParseJson(string content, DateTimeOffset fallbackTimestamp)
     {
         try
         {
             using var document = JsonDocument.Parse(content);
             return document.RootElement.ValueKind == JsonValueKind.Array
-                ? document.RootElement.EnumerateArray().Select(TryParseJsonMessage).OfType<CoreLogMessage>().ToList()
-                : TryParseJsonMessage(document.RootElement) is { } message ? [message] : [];
+                ? document.RootElement.EnumerateArray()
+                    .Select(element => TryParseJsonMessage(element, fallbackTimestamp))
+                    .OfType<CoreLogMessage>()
+                    .ToList()
+                : TryParseJsonMessage(document.RootElement, fallbackTimestamp) is { } message ? [message] : [];
         }
         catch (JsonException)
         {
-            return [ParseTextLine(content)];
+            return [ParseTextLine(content, fallbackTimestamp)];
         }
     }
 
-    private CoreLogMessage ParseTextLine(string line)
+    private static CoreLogMessage ParseTextLine(string line, DateTimeOffset fallbackTimestamp)
     {
         var values = ParseKeyValues(line);
         var type = values.GetValueOrDefault("level")?.ToUpperInvariant() ?? "INFO";
@@ -53,11 +54,11 @@ public sealed class CoreLogParser(Func<DateTimeOffset>? now = null)
         var timestamp = values.TryGetValue("time", out var time)
             && DateTimeOffset.TryParse(time, out var parsed)
                 ? parsed
-                : _now();
+                : fallbackTimestamp;
         return new CoreLogMessage(type, payload, timestamp);
     }
 
-    private CoreLogMessage? TryParseJsonMessage(JsonElement element)
+    private static CoreLogMessage? TryParseJsonMessage(JsonElement element, DateTimeOffset fallbackTimestamp)
     {
         if (element.ValueKind != JsonValueKind.Object)
         {
@@ -67,7 +68,7 @@ public sealed class CoreLogParser(Func<DateTimeOffset>? now = null)
         try
         {
             var payload = element.Deserialize<CoreLogPayload>(JsonOptions) ?? new CoreLogPayload();
-            var timestamp = payload.Timestamp == default ? _now() : payload.Timestamp;
+            var timestamp = payload.Timestamp == default ? fallbackTimestamp : payload.Timestamp;
             return new CoreLogMessage(payload.TypeText, payload.PayloadText, timestamp);
         }
         catch (JsonException)
