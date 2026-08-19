@@ -35,11 +35,9 @@ public sealed class RemoteSubscriptionImporter(
             AgeSecretKey: ageSecretKey);
 
         var downloadResult = await downloader.DownloadAsync(new RemoteSubscriptionDownloadRequest(
-            subscription.Id,
             subscription.SourceLocation,
             subscription.UserAgent,
-            subscription.UpdateProxyMode,
-            subscription.AgeSecretKey), cancellationToken);
+            subscription.UpdateProxyMode), cancellationToken);
         var content = _contentDecryptor.DecryptIfNeeded(downloadResult.Content, subscription.AgeSecretKey);
         var sourceFormat = _contentNormalizer.DetectSourceFormat(content);
         var normalizedContent = _contentNormalizer.Normalize(content);

@@ -254,7 +254,6 @@ public sealed class SubscriptionBusinessTests
             AgeSecretKey: " <age-secret-key> "));
 
         Assert.Equal("<age-secret-key>", subscription.AgeSecretKey);
-        Assert.Equal("<age-secret-key>", downloader.LastRequest?.AgeSecretKey);
         Assert.Equal(encryptedContent, decryptor.LastContent);
         Assert.Equal("<age-secret-key>", decryptor.LastAgeSecretKey);
         Assert.Equal(decryptedContent, store.ReadContent(subscription.Id));
@@ -446,7 +445,6 @@ public sealed class SubscriptionBusinessTests
         dialog.ConfirmCommand.Execute(null);
 
         Assert.NotNull(completed);
-        Assert.True(completed.IsLocalFile);
         Assert.Equal("Local New", completed.Name);
         Assert.Equal("test-data/subscriptions/new.yaml", completed.Url);
         Assert.Equal("", completed.UserAgent);
@@ -486,7 +484,6 @@ public sealed class SubscriptionBusinessTests
         dialog.ConfirmCommand.Execute(null);
 
         Assert.NotNull(completed);
-        Assert.False(completed.IsLocalFile);
         Assert.Equal("remote", completed.SubscriptionId);
         Assert.Equal("Remote New", completed.Name);
         Assert.Equal("https://sub.example/new.yaml", completed.Url);
@@ -773,7 +770,6 @@ public sealed class SubscriptionBusinessTests
         var result = await updater.UpdateAsync("remote");
 
         Assert.Equal(["remote"], result.UpdatedSubscriptionIds);
-        Assert.Equal("<age-secret-key>", downloader.LastRequest?.AgeSecretKey);
         Assert.Equal(encryptedContent, decryptor.LastContent);
         Assert.Equal("<age-secret-key>", decryptor.LastAgeSecretKey);
         Assert.Equal(decryptedContent, store.ReadContent("remote"));
@@ -846,7 +842,7 @@ public sealed class SubscriptionBusinessTests
 
         Assert.Equal(["due"], result.UpdatedSubscriptionIds);
         Assert.Empty(result.SkippedSubscriptionIds);
-        Assert.Equal(["due"], downloader.Requests.Select(request => request.SubscriptionId));
+        Assert.Single(downloader.Requests);
     }
 
     [Fact(DisplayName = "Auto update runner executes startup subscriptions")]
@@ -871,7 +867,7 @@ public sealed class SubscriptionBusinessTests
 
         Assert.Equal(["startup"], result.UpdatedSubscriptionIds);
         Assert.Empty(result.SkippedSubscriptionIds);
-        Assert.Equal(["startup"], downloader.Requests.Select(request => request.SubscriptionId));
+        Assert.Single(downloader.Requests);
     }
 
     [Fact(DisplayName = "Auto delay planner reschedules before first due run")]

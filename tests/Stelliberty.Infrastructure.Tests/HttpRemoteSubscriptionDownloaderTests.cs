@@ -18,7 +18,6 @@ public sealed class HttpRemoteSubscriptionDownloaderTests
         var downloader = new HttpRemoteSubscriptionDownloader();
 
         var result = await downloader.DownloadAsync(new RemoteSubscriptionDownloadRequest(
-            "sub-1",
             server.Url,
             string.Empty,
             SubscriptionUpdateProxyMode.Direct));
@@ -36,7 +35,6 @@ public sealed class HttpRemoteSubscriptionDownloaderTests
         coreProxyPort = proxy.Port;
 
         var result = await downloader.DownloadAsync(new RemoteSubscriptionDownloadRequest(
-            "sub-1",
             "http://subscription.example/config.yaml",
             string.Empty,
             SubscriptionUpdateProxyMode.Core));
@@ -53,7 +51,6 @@ public sealed class HttpRemoteSubscriptionDownloaderTests
         var downloader = new HttpRemoteSubscriptionDownloader();
 
         var result = await downloader.DownloadAsync(new RemoteSubscriptionDownloadRequest(
-            "sub-1",
             server.Url,
             string.Empty,
             SubscriptionUpdateProxyMode.Direct));
@@ -68,7 +65,6 @@ public sealed class HttpRemoteSubscriptionDownloaderTests
         var downloader = new HttpRemoteSubscriptionDownloader();
 
         await Assert.ThrowsAsync<ArgumentException>(() => downloader.DownloadAsync(new RemoteSubscriptionDownloadRequest(
-            "sub-1",
             server.Url,
             string.Empty,
             SubscriptionUpdateProxyMode.Direct)));
