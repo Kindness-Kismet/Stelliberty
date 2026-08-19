@@ -15,6 +15,7 @@ public sealed class FpsCounter : Control
 
     private readonly Stopwatch _stopwatch = new();
     private int _frames;
+    private int _runGeneration;
     private bool _running;
     private string _text = "-- FPS";
 
@@ -33,16 +34,24 @@ public sealed class FpsCounter : Control
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        _running = true;
-        _frames = 0;
-        _stopwatch.Restart();
-        RequestNextFrame();
+        SetRunning(IsVisible);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        _running = false;
+        SetRunning(false);
         base.OnDetachedFromVisualTree(e);
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (change.Property != IsVisibleProperty || VisualRoot is null)
+        {
+            return;
+        }
+
+        SetRunning(IsVisible);
     }
 
     protected override Size MeasureOverride(Size availableSize)
@@ -59,9 +68,9 @@ public sealed class FpsCounter : Control
     }
 
     // 每次合成器回调都重新注册，以对齐 vsync。
-    private void RequestNextFrame()
+    private void RequestNextFrame(int generation)
     {
-        if (!_running)
+        if (!_running || generation != _runGeneration)
         {
             return;
         }
@@ -70,16 +79,16 @@ public sealed class FpsCounter : Control
         if (compositor is null)
         {
             // 合成视觉还没就绪；下一帧重试。
-            Dispatcher.UIThread.Post(RequestNextFrame, DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() => RequestNextFrame(generation), DispatcherPriority.Background);
             return;
         }
 
-        compositor.RequestCompositionUpdate(OnComposed);
+        compositor.RequestCompositionUpdate(() => OnComposed(generation));
     }
 
-    private void OnComposed()
+    private void OnComposed(int generation)
     {
-        if (!_running)
+        if (!_running || generation != _runGeneration)
         {
             return;
         }
@@ -99,7 +108,27 @@ public sealed class FpsCounter : Control
             }
         }
 
-        RequestNextFrame();
+        RequestNextFrame(generation);
+    }
+
+    private void SetRunning(bool isRunning)
+    {
+        if (_running == isRunning)
+        {
+            return;
+        }
+
+        _running = isRunning;
+        _runGeneration++;
+        if (!isRunning)
+        {
+            _stopwatch.Reset();
+            return;
+        }
+
+        _frames = 0;
+        _stopwatch.Restart();
+        RequestNextFrame(_runGeneration);
     }
 
     private FormattedText BuildText() => new(

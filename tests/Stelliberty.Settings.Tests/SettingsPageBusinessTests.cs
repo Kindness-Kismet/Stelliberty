@@ -55,12 +55,13 @@ public sealed class SettingsPageBusinessTests
         var service = new FakeAppBehaviorService();
         var viewModel = new SettingsAppBehaviorViewModel(settings, store, new FakeLocalizationService(), service, new FakeGlobalHotkeyService());
 
+        viewModel.IsSilentStartEnabled = true;
         viewModel.IsLazyModeEnabled = true;
         viewModel.SetAutoStartEnabled(true);
 
-        Assert.Equal(2, store.SaveCount);
+        Assert.Equal(3, store.SaveCount);
         Assert.Equal(1, service.ApplyCount);
-        Assert.True(service.LastRequest?.IsLazyModeEnabled);
+        Assert.True(service.LastRequest?.IsSilentStartEnabled);
         Assert.True(service.LastRequest?.IsAutoStartEnabled);
     }
 

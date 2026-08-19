@@ -270,8 +270,6 @@ public sealed class SettingsAppBehaviorViewModel : ViewModelBase, IDisposable
 
     private AppBehaviorApplicationRequest BuildRequest(bool isAutoStartEnabled) => new(
         _settings.IsSilentStartEnabled,
-        _settings.IsMinimizeToTrayEnabled,
-        _settings.IsLazyModeEnabled,
         isAutoStartEnabled);
 
     private string HotkeyErrorText(GlobalHotkeyApplyError error)
