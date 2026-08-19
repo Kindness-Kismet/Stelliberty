@@ -23,6 +23,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PRE_BUILD_TESTS: list[tuple[str, Path, str]] = [
     ("monitoring-rules", ROOT / "tests" / "Stelliberty.Monitoring.Tests" / "Stelliberty.Monitoring.Tests.csproj", "Monitoring rules: connection and log parsing and reduction, plus rule parsing and classification"),
     ("settings-rules", ROOT / "tests" / "Stelliberty.Settings.Tests" / "Stelliberty.Settings.Tests.csproj", "Settings rules: TUN permission correction, system proxy requests, and update release selection"),
+    ("subscription-rules", ROOT / "tests" / "Stelliberty.Subscription.Tests" / "Stelliberty.Subscription.Tests.csproj", "Subscription rules: update planning, provider parsing, and content normalization"),
+    ("proxy-selection-rules", ROOT / "tests" / "Stelliberty.ProxySelection.Tests" / "Stelliberty.ProxySelection.Tests.csproj", "Proxy selection rules: group semantics, normalization, selection, and visibility"),
+    ("runtime-config-rules", ROOT / "tests" / "Stelliberty.RuntimeConfig.Tests" / "Stelliberty.RuntimeConfig.Tests.csproj", "Runtime config rules: settings normalization and deterministic YAML generation"),
+    ("chain-proxy-rules", ROOT / "tests" / "Stelliberty.ChainProxy.Tests" / "Stelliberty.ChainProxy.Tests.csproj", "Chain proxy rules: analysis and deterministic runtime config transformation"),
 ]
 CSHARP_TEST_ATTRIBUTE_PREFIXES = ("[Fact", "[Theory")
 CSHARP_TEST_DISPLAY_NAME_PATTERN = re.compile(r'DisplayName\s*=\s*"([^"]+)"')

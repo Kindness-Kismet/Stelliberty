@@ -260,6 +260,10 @@ python scripts/test.py --all
 |---|---|
 | `monitoring-rules` | Connection and log parsing and reduction; rule parsing and classification |
 | `settings-rules` | TUN permission correction, system proxy requests, update release selection |
+| `subscription-rules` | Update planning, provider parsing, content normalization |
+| `proxy-selection-rules` | Group semantics, normalization, selection, visibility |
+| `runtime-config-rules` | Settings normalization and deterministic YAML generation |
+| `chain-proxy-rules` | Analysis and deterministic runtime config transformation |
 
 #### 3. Build
 

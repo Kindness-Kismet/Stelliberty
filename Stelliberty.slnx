@@ -6,15 +6,9 @@
   <Project Path="src/Stelliberty.Presentation/Stelliberty.Presentation.csproj" />
   <Project Path="src/Stelliberty.Desktop/Stelliberty.Desktop.csproj" />
   <Project Path="tests/Stelliberty.ProxySelection.Tests/Stelliberty.ProxySelection.Tests.csproj" />
-  <Project Path="tests/Stelliberty.ProxyPage.Tests/Stelliberty.ProxyPage.Tests.csproj" />
-  <Project Path="tests/Stelliberty.Home.Tests/Stelliberty.Home.Tests.csproj" />
-  <Project Path="tests/Stelliberty.Shell.Tests/Stelliberty.Shell.Tests.csproj" />
   <Project Path="tests/Stelliberty.RuntimeConfig.Tests/Stelliberty.RuntimeConfig.Tests.csproj" />
   <Project Path="tests/Stelliberty.ChainProxy.Tests/Stelliberty.ChainProxy.Tests.csproj" />
   <Project Path="tests/Stelliberty.Monitoring.Tests/Stelliberty.Monitoring.Tests.csproj" />
   <Project Path="tests/Stelliberty.Subscription.Tests/Stelliberty.Subscription.Tests.csproj" />
-  <Project Path="tests/Stelliberty.Override.Tests/Stelliberty.Override.Tests.csproj" />
   <Project Path="tests/Stelliberty.Settings.Tests/Stelliberty.Settings.Tests.csproj" />
-  <Project Path="tests/Stelliberty.Infrastructure.Tests/Stelliberty.Infrastructure.Tests.csproj" />
-  <Project Path="tests/Stelliberty.WebDav.Tests/Stelliberty.WebDav.Tests.csproj" />
 </Solution>

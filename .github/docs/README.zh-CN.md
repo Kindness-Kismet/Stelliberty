@@ -245,7 +245,7 @@ python scripts/prebuild.py
 | `--platform <rid>` | 目标平台：`current` · `win-x64` · `win-arm64` · `linux-x64` · `linux-arm64` · `macos-x64` · `macos-arm64` |
 | `--clean` | 准备前清理 `build/` 与项目 `bin/obj/` 目录 |
 
-#### 2. Pre-build Tests
+#### 2. 编译前测试
 
 ```bash
 python scripts/test.py --all
@@ -254,7 +254,7 @@ python scripts/test.py <测试名>
 
 | 参数 | 作用 |
 |---|---|
-| `--all` | 运行所有 `Pre-build Tests` |
+| `--all` | 运行所有编译前测试 |
 | `<测试名>` | 运行指定测试（见下表） |
 
 <details>
@@ -264,6 +264,10 @@ python scripts/test.py <测试名>
 |---|---|
 | `monitoring-rules` | 监控规则：连接与日志解析和归约、规则解析与分类 |
 | `settings-rules` | 设置规则：TUN 权限修正、系统代理请求、更新版本选择 |
+| `subscription-rules` | 订阅规则：更新计划、提供器解析、内容规范化 |
+| `proxy-selection-rules` | 节点选择规则：组语义、规范化、选择、可见性 |
+| `runtime-config-rules` | 运行时配置规则：设置规范化、确定性 YAML 生成 |
+| `chain-proxy-rules` | 链式代理规则：分析、确定性运行时配置转换 |
 
 </details>
 
@@ -314,7 +318,7 @@ Pull Request 必须以 `beta` 为目标分支，禁止直接向 `stable` 发起�
 |---|---|
 | 调试指令 | 新增或修改业务逻辑时，必须在 `src/Stelliberty.Desktop/Debug` 封装对应的调试指令 |
 | 控件 ID | 引入新的可交互控件时，必须设置 `AutomationProperties.AutomationId` |
-| 测试覆盖 | 纯业务逻辑使用 `Pre-build Tests`，安装包应用行为使用 `Post-build Tests` |
+| 测试覆盖 | 纯业务逻辑使用编译前测试，安装包应用行为使用编译后测试 |
 | 格式化 | C# 运行 `dotnet format`，Rust 运行 `cargo fmt` |
 
 ### 调试指令要求
