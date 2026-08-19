@@ -25,7 +25,7 @@ public sealed class RuleEditorRowViewModel : ViewModelBase
     public string Options => Item.Options;
     public string Source => Item.Source;
     public bool IsBuiltIn => Item.IsBuiltIn;
-    public string SourceTag => IsBuiltIn ? "subscription" : "local";
+    public string SourceTag => IsBuiltIn ? "subscription" : "custom";
     public string RuleText => Item.ToEditableRule().Render();
     public string AutomationId => $"Rules.Editor.{(IsBuiltIn ? "Builtin" : "Custom")}.{Id}";
     public string ToggleAutomationId => $"{AutomationId}.Toggle";

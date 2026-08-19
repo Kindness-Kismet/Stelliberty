@@ -97,7 +97,7 @@ public sealed class RuleOverrideService(
             .ToList();
         var customItems = set.CustomRules
                 .Where(rule => seenCustomKeys.Add(rule.Key))
-                .Select(rule => new RuleEditorItem(rule.Id, rule.Type, rule.Payload, rule.Proxy, rule.Options, "local", false, rule.IsEnabled))
+                .Select(rule => new RuleEditorItem(rule.Id, rule.Type, rule.Payload, rule.Proxy, rule.Options, "custom", false, rule.IsEnabled))
                 .ToList();
         var items = MergeRuleOrder(builtinItems, customItems, set.RuleOrder);
 
@@ -164,7 +164,7 @@ public sealed class RuleOverrideService(
         return writer.ToString();
     }
 
-    // 编辑器候选只含内置动作与订阅代理组，其它目标走自定义输入。
+    // 编辑器候选只含内置动作与订阅代理组。
     private static IReadOnlyList<string> BuildProxyOptions(string configContent)
     {
         var options = new List<string> { "DIRECT", "REJECT", "REJECT-DROP" };

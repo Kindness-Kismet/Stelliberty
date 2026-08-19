@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
@@ -40,10 +38,6 @@ public sealed class GridReorderController
     private bool _canDrag;
     private bool _isDragging;
 
-    private OverlayLayer? _overlay;
-    private Image? _ghost;
-    private RenderTargetBitmap? _ghostBitmap;
-    private Point _ghostOrigin;
     private ScrollViewer? _scrollViewer;
     private bool _isAttached;
 
@@ -213,22 +207,8 @@ public sealed class GridReorderController
             return;
         }
 
-        _overlay = OverlayLayer.GetOverlayLayer(_list);
-        if (_overlay is not null
-            && CreateGhost(_pressControl) is { } ghost
-            && _pressControl.TranslatePoint(default, _overlay) is { } origin)
-        {
-            _ghost = ghost;
-            _ghostOrigin = origin;
-            Canvas.SetLeft(ghost, origin.X);
-            Canvas.SetTop(ghost, origin.Y);
-            _overlay.Children.Add(ghost);
-            _pressControl.Opacity = 0d;
-            return;
-        }
-
         _pressControl.ZIndex = 1000;
-        _pressControl.Opacity = 0.85;
+        _pressControl.Opacity = 0.92;
     }
 
     private void ApplyDragVisual(Point point)
@@ -236,14 +216,10 @@ public sealed class GridReorderController
         _lastListPoint = point;
         var dx = point.X - _pressPoint.X;
         var dy = point.Y - _pressPoint.Y;
-        if (_ghost is not null)
+        if (_pressControl is not null)
         {
-            Canvas.SetLeft(_ghost, _ghostOrigin.X + dx);
-            Canvas.SetTop(_ghost, _ghostOrigin.Y + dy);
-        }
-        else if (_pressControl is not null)
-        {
-            _pressControl.RenderTransform = new TranslateTransform(dx, dy);
+            var translation = SnapToDevicePixels(_pressControl, dx, dy);
+            _pressControl.RenderTransform = new TranslateTransform(translation.X, translation.Y);
         }
 
         _targetIndex = ResolveTargetIndex(point);
@@ -350,28 +326,6 @@ public sealed class GridReorderController
         _autoScrollTimer.Stop();
     }
 
-    private Image? CreateGhost(Control source)
-    {
-        var size = source.Bounds.Size;
-        if (size.Width < 1 || size.Height < 1)
-        {
-            return null;
-        }
-
-        _ghostBitmap = new RenderTargetBitmap(new PixelSize(
-            (int)Math.Ceiling(size.Width),
-            (int)Math.Ceiling(size.Height)));
-        _ghostBitmap.Render(source);
-        return new Image
-        {
-            Source = _ghostBitmap,
-            Width = size.Width,
-            Height = size.Height,
-            Opacity = 0.92,
-            IsHitTestVisible = false
-        };
-    }
-
     private void SnapshotSlots()
     {
         _slots.Clear();
@@ -443,10 +397,17 @@ public sealed class GridReorderController
             var destination = SlotDragOrigin(finalIndex);
             var dx = destination.X - slot.DragOrigin.X;
             var dy = destination.Y - slot.DragOrigin.Y;
-            slot.DragControl.RenderTransform = Math.Abs(dx) < 0.1 && Math.Abs(dy) < 0.1
+            var translation = SnapToDevicePixels(slot.DragControl, dx, dy);
+            slot.DragControl.RenderTransform = Math.Abs(translation.X) < 0.1 && Math.Abs(translation.Y) < 0.1
                 ? null
-                : new TranslateTransform(dx, dy);
+                : new TranslateTransform(translation.X, translation.Y);
         }
+    }
+
+    private static Vector SnapToDevicePixels(Control control, double x, double y)
+    {
+        var scale = TopLevel.GetTopLevel(control)?.RenderScaling ?? 1d;
+        return new Vector(Math.Round(x * scale) / scale, Math.Round(y * scale) / scale);
     }
 
     // 先移除再插入；目标索引必须按缩短后的列表修正。
@@ -501,15 +462,6 @@ public sealed class GridReorderController
             _pressControl.ZIndex = 0;
         }
 
-        if (_ghost is not null)
-        {
-            _overlay?.Children.Remove(_ghost);
-        }
-
-        _ghost = null;
-        _overlay = null;
-        _ghostBitmap?.Dispose();
-        _ghostBitmap = null;
     }
 
     private void ClearState()

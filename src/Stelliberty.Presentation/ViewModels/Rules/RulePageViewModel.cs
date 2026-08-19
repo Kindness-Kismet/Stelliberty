@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Net;
 using System.Windows.Input;
 using Stelliberty.Application.Localization;
 using Stelliberty.Application.Rules;
@@ -40,13 +41,11 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     private bool _isTemplateSelectMode;
     private RuleTypeOptionViewModel _selectedRuleType = RuleTypeOptions[1];
     private string _payload = string.Empty;
-    private string _proxy = string.Empty;
     private IReadOnlyList<OutboundTargetOptionViewModel> _outboundTargets = [];
     private OutboundTargetOptionViewModel? _selectedOutboundTarget;
     private string _templateName = string.Empty;
     private bool _hasAttemptedEditorSubmit;
     private bool _hasAttemptedTemplateSubmit;
-    private string _proxyErrorKey = string.Empty;
     private string _payloadErrorKey = string.Empty;
     private string _templateNameErrorKey = string.Empty;
     private RuleTemplateOptionViewModel? _selectedTemplate;
@@ -198,38 +197,12 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
             }
         }
     }
-    public string Proxy
-    {
-        get => _proxy;
-        set
-        {
-            if (SetProperty(ref _proxy, value) && _hasAttemptedEditorSubmit)
-            {
-                ValidateProxy();
-            }
-        }
-    }
     public OutboundTargetOptionViewModel? SelectedOutboundTarget
     {
         get => _selectedOutboundTarget;
-        set
-        {
-            if (!SetProperty(ref _selectedOutboundTarget, value))
-            {
-                return;
-            }
-
-            OnPropertyChanged(nameof(IsCustomOutboundTarget));
-            if (_hasAttemptedEditorSubmit)
-            {
-                ValidateProxy();
-            }
-        }
+        set => SetProperty(ref _selectedOutboundTarget, value);
     }
-    public bool IsCustomOutboundTarget => _selectedOutboundTarget?.IsCustom == true;
     public bool IsPayloadEnabled => !string.Equals(SelectedRuleType.Type, "MATCH", StringComparison.OrdinalIgnoreCase);
-    public string ProxyError => LocalizeError(_proxyErrorKey);
-    public bool IsProxyErrorVisible => !string.IsNullOrEmpty(_proxyErrorKey);
     public string PayloadError => LocalizeError(_payloadErrorKey);
     public bool IsPayloadErrorVisible => !string.IsNullOrEmpty(_payloadErrorKey);
     public string TemplateNameError => LocalizeError(_templateNameErrorKey);
@@ -432,9 +405,8 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var id = _editingRule?.Id ?? $"local-{Guid.NewGuid():N}";
-        var target = IsCustomOutboundTarget ? Proxy.Trim() : SelectedOutboundTarget?.Value ?? string.Empty;
-        var rule = new EditableRule(id, SelectedRuleType.Type, Payload, target, SelectedRuleType.Options);
+        var id = _editingRule?.Id ?? $"custom-{Guid.NewGuid():N}";
+        var rule = new EditableRule(id, SelectedRuleType.Type, Payload, SelectedOutboundTarget?.Value ?? string.Empty, SelectedRuleType.Options);
         var custom = CustomRules.Select(row => row.ToEditableRule()).ToList();
         if (_editingRule is not null)
         {
@@ -591,7 +563,6 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     private void ResetEditorValidation()
     {
         _hasAttemptedEditorSubmit = false;
-        _proxyErrorKey = string.Empty;
         _payloadErrorKey = string.Empty;
         RaiseEditorValidationChanged();
     }
@@ -607,39 +578,16 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     private bool ValidateEditorInputs()
     {
         _hasAttemptedEditorSubmit = true;
-        ValidateProxy();
         ValidatePayload();
-        return !IsProxyErrorVisible && !IsPayloadErrorVisible;
+        return !IsPayloadErrorVisible;
     }
 
     private void FocusFirstInvalidEditorInput()
     {
-        if (IsProxyErrorVisible)
-        {
-            InputFocusRequested?.Invoke(this, DialogInputField.Proxy);
-            return;
-        }
-
         if (IsPayloadErrorVisible)
         {
             InputFocusRequested?.Invoke(this, DialogInputField.Payload);
         }
-    }
-
-    private void ValidateProxy()
-    {
-        _proxyErrorKey = string.Empty;
-        if (IsCustomOutboundTarget && string.IsNullOrWhiteSpace(Proxy))
-        {
-            _proxyErrorKey = "Rules.Error.ProxyRequired";
-        }
-        else if (IsCustomOutboundTarget && Proxy.Contains(',', StringComparison.Ordinal))
-        {
-            _proxyErrorKey = "Rules.Error.ProxyDelimiter";
-        }
-
-        OnPropertyChanged(nameof(ProxyError));
-        OnPropertyChanged(nameof(IsProxyErrorVisible));
     }
 
     private void ValidatePayload()
@@ -652,6 +600,10 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         else if (IsPayloadEnabled && Payload.Contains(',', StringComparison.Ordinal))
         {
             _payloadErrorKey = "Rules.Error.PayloadDelimiter";
+        }
+        else if (RequiresCidrPayload(SelectedRuleType.Type) && !IsValidCidr(Payload, SelectedRuleType.Type))
+        {
+            _payloadErrorKey = "Rules.Error.Cidr";
         }
         else if (IsPayloadEnabled)
         {
@@ -670,6 +622,28 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
         OnPropertyChanged(nameof(PayloadError));
         OnPropertyChanged(nameof(IsPayloadErrorVisible));
+    }
+
+    private static bool RequiresCidrPayload(string type)
+        => type.Equals("IP-CIDR", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("IP-CIDR6", StringComparison.OrdinalIgnoreCase)
+            || type.Equals("SRC-IP-CIDR", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsValidCidr(string value, string type)
+    {
+        var parts = value.Trim().Split('/', StringSplitOptions.TrimEntries);
+        if (parts.Length != 2
+            || !IPAddress.TryParse(parts[0], out var address)
+            || !int.TryParse(parts[1], out var prefixLength))
+        {
+            return false;
+        }
+
+        var requiresIpv6 = type.Equals("IP-CIDR6", StringComparison.OrdinalIgnoreCase);
+        var maximumPrefixLength = requiresIpv6 ? 128 : 32;
+        return (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetworkV6) == requiresIpv6
+            && prefixLength >= 0
+            && prefixLength <= maximumPrefixLength;
     }
 
     private void ValidateTemplateName()
@@ -703,8 +677,6 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
     private void RaiseEditorValidationChanged()
     {
-        OnPropertyChanged(nameof(ProxyError));
-        OnPropertyChanged(nameof(IsProxyErrorVisible));
         OnPropertyChanged(nameof(PayloadError));
         OnPropertyChanged(nameof(IsPayloadErrorVisible));
     }
@@ -713,27 +685,22 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         => RuleTypeOptions.FirstOrDefault(option => string.Equals(option.Type, type, StringComparison.OrdinalIgnoreCase)
             && string.Equals(option.Options, options, StringComparison.OrdinalIgnoreCase)) ?? RuleTypeOptions[1];
 
-    // 自定义选项固定首位且 Value 为空，实际出站目标取左侧输入框文本。
     private void RebuildOutboundTargets()
     {
-        var wasCustom = IsCustomOutboundTarget;
         var previousValue = _selectedOutboundTarget?.Value;
         var names = _snapshot.ProxyOptions.Count > 0 ? _snapshot.ProxyOptions : BuiltinOutboundActions;
-        var options = new List<OutboundTargetOptionViewModel> { new(Localize("Rules.Outbound.Custom"), string.Empty, true) };
-        options.AddRange(names.Select(name => new OutboundTargetOptionViewModel(name, name)));
-        _outboundTargets = options;
+        _outboundTargets = names.Select(name => new OutboundTargetOptionViewModel(name, name)).ToList();
         OnPropertyChanged(nameof(OutboundTargets));
         if (_selectedOutboundTarget is not null)
         {
-            SelectOutboundTarget(wasCustom ? Proxy : previousValue ?? string.Empty);
+            SelectOutboundTarget(previousValue ?? string.Empty);
         }
     }
 
     private void SelectOutboundTarget(string target)
     {
-        var option = _outboundTargets.FirstOrDefault(item => !item.IsCustom && string.Equals(item.Value, target, StringComparison.Ordinal));
-        SelectedOutboundTarget = option ?? _outboundTargets[0];
-        Proxy = option is null ? target : string.Empty;
+        SelectedOutboundTarget = _outboundTargets.FirstOrDefault(item => string.Equals(item.Value, target, StringComparison.Ordinal))
+            ?? _outboundTargets.FirstOrDefault();
     }
 
     private string Localize(string key) => _localization?.GetString(key) ?? key;

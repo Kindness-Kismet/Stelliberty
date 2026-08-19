@@ -12,11 +12,11 @@
 
 ## Checklist
 
-- [ yes/no ] Wrapped new or changed business logic in `src/Stelliberty.Desktop/Debug`
-- [ yes/no ] Added `AutomationId` for new interactive controls
-- [ yes/no ] Wrote pre-tests or simulation tests
-- [ yes/no ] Passed `python scripts/test.py --all`
-- [ yes/no ] Ran formatter (`dotnet format` / `cargo fmt`)
+- [ ] Wrapped new or changed business logic in `src/Stelliberty.Desktop/Debug`
+- [ ] Added `AutomationId` for new interactive controls
+- [ ] Wrote pre-tests or simulation tests
+- [ ] Passed `python scripts/test.py --all`
+- [ ] Ran formatter (`dotnet format` / `cargo fmt`)
 
 ## Testing
 
