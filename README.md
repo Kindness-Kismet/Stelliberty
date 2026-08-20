@@ -363,4 +363,3 @@ Third-party components remain subject to their original licenses. See the [WTF L
 <sub>[↑ Back to Navigation](#navigation)</sub>
 
 - [Telegram Updates](https://t.me/MaterialDesign3) — Project updates and release notices.
-- [LINUX DO](https://linux.do/) — A friendly community for technology enthusiasts.

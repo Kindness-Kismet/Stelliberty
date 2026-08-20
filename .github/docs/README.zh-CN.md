@@ -369,4 +369,3 @@ Pull Request 必须以 `beta` 为目标分支，禁止直接向 `stable` 发起�
 <sub>[↑ 回到导航](#导航)</sub>
 
 - [Telegram 通知频道](https://t.me/MaterialDesign3) —— 接收项目更新与发布通知。
-- [LINUX DO](https://linux.do/) —— 技术爱好者的友好社区。
