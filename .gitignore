@@ -5,6 +5,7 @@
 !/README.md
 !/LICENSE
 !/Cargo.toml
+!/Cargo.lock
 !/Directory.Build.props
 !/Directory.Build.targets
 !/*.sln
@@ -52,7 +53,6 @@
 **/target/
 **/bin/
 **/obj/
-/Cargo.lock
 /src/Stelliberty.Native/Generated/
 **/__pycache__/
 **/*.user
