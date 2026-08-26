@@ -22,7 +22,6 @@
   <Style Selector="TextBlock.dialog-error">
     <Setter Property="FontSize" Value="12" />
     <Setter Property="Foreground" Value="{DynamicResource AppDangerBrush}" />
-    <Setter Property="Margin" Value="2,0,0,0" />
   </Style>
 
   <Style Selector="TextBox.dialog-input">

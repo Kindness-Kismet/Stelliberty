@@ -24,18 +24,18 @@ COMMAND_TIMEOUT_SECONDS = 180
 MAX_STEPS = 50
 
 
-class SimulationTestError(RuntimeError):
+class PostBuildTestError(RuntimeError):
     pass
 
 
-class CommandFailure(SimulationTestError):
+class CommandFailure(PostBuildTestError):
     def __init__(self, command: str, response: str):
         super().__init__(f"{command} failed: {response}")
         self.command = command
         self.response = response
 
 
-class SimulationTests:
+class PostBuildTests:
     def __init__(self, app_exec: Path, app_output: Path, os_family: str, shortcut_only: bool = False) -> None:
         self.app_exec = app_exec
         self.app_output = app_output
@@ -45,10 +45,10 @@ class SimulationTests:
         self.env["PYTHONUTF8"] = "1"
         self.env["PYTHONDONTWRITEBYTECODE"] = "1"
         self.env.setdefault("STELLIBERTY_DEBUG_SERVICE_CI", "1")
-        self.log_dir = Path(self.env.get("RUNNER_TEMP", ROOT / "build" / "simulation-tests"))
+        self.log_dir = Path(self.env.get("RUNNER_TEMP", ROOT / "build" / "post-build-tests"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.app_log_path = self.log_dir / "stelliberty-simulation-app.log"
-        self.xvfb_log_path = self.log_dir / "stelliberty-simulation-xvfb.log"
+        self.app_log_path = self.log_dir / "stelliberty-post-build-app.log"
+        self.xvfb_log_path = self.log_dir / "stelliberty-post-build-xvfb.log"
         self.app_running_log_path = self.app_output / "data" / "applogs" / "running.logs"
         self.app_process: subprocess.Popen | None = None
         self.xvfb_process: subprocess.Popen | None = None
@@ -64,7 +64,7 @@ class SimulationTests:
             self.env["XDG_RUNTIME_DIR"] = str(xdg_runtime_dir)
 
     def run(self) -> None:
-        print(header(f"simulation tests / {self.os_family}"), flush=True)
+        print(header(f"Post-build Tests / {self.os_family}"), flush=True)
         print(f"  App     {self.app_exec}", flush=True)
         print(f"  Output  {self.app_output}", flush=True)
         print()
@@ -132,7 +132,7 @@ class SimulationTests:
         for item in state.split(";"):
             if item.startswith(prefix):
                 return item[len(prefix):]
-        raise SimulationTestError(f"State does not contain {key!r}: {state!r}")
+        raise PostBuildTestError(f"State does not contain {key!r}: {state!r}")
 
     def run_steps(self) -> None:
         self.step("Start app and verify window", lambda: (
@@ -289,7 +289,7 @@ class SimulationTests:
         self.command("app.quit", allow_disconnect=True)
         self.wait_for_app_exit(timeout=15)
         if self.is_app_running():
-            raise SimulationTestError("App process is still running after the quit command returned")
+            raise PostBuildTestError("App process is still running after the quit command returned")
 
     def open_page(self, page: str, ready_control: str) -> None:
         self.require(f"page.open {page}")
@@ -303,7 +303,7 @@ class SimulationTests:
     def step(self, label: str, action) -> None:
         self.step_index += 1
         if self.step_index > MAX_STEPS:
-            raise SimulationTestError(f"simulation tests exceeded {MAX_STEPS} steps")
+            raise PostBuildTestError(f"Post-build Tests exceeded {MAX_STEPS} steps")
 
         print(f"  [{self.step_index:02}] {label}", flush=True)
         started_at = time.perf_counter()
@@ -328,22 +328,22 @@ class SimulationTests:
     ) -> str:
         response = self.command(command)
         if equals is not None and response != equals:
-            raise SimulationTestError(f"{command} expected {equals!r}, actual {response!r}")
+            raise PostBuildTestError(f"{command} expected {equals!r}, actual {response!r}")
 
         for expected in contains or []:
             if expected not in response:
-                raise SimulationTestError(f"{command} missing expected fragment {expected!r}, actual {response!r}")
+                raise PostBuildTestError(f"{command} missing expected fragment {expected!r}, actual {response!r}")
 
         return response
 
     def require_error(self, command: str, *, contains: list[str]) -> str:
         response = self.raw_command(command)
         if not response.startswith("ERR "):
-            raise SimulationTestError(f"{command} expected an error, actual {response!r}")
+            raise PostBuildTestError(f"{command} expected an error, actual {response!r}")
 
         for expected in contains:
             if expected not in response:
-                raise SimulationTestError(f"{command} missing expected fragment {expected!r}, actual {response!r}")
+                raise PostBuildTestError(f"{command} missing expected fragment {expected!r}, actual {response!r}")
 
         self.print_command(command, response)
         return response
@@ -364,8 +364,8 @@ class SimulationTests:
             time.sleep(interval)
 
         if last_error is not None:
-            raise SimulationTestError(f"{command} wait failed: {last_error}") from last_error
-        raise SimulationTestError(f"{command} did not contain {contains!r} within {timeout:.0f}s, last response {last_response!r}")
+            raise PostBuildTestError(f"{command} wait failed: {last_error}") from last_error
+        raise PostBuildTestError(f"{command} did not contain {contains!r} within {timeout:.0f}s, last response {last_response!r}")
 
     def command(self, command: str, *, visible: bool = True, allow_disconnect: bool = False) -> str:
         try:
@@ -406,7 +406,7 @@ class SimulationTests:
 
         xvfb = shutil.which("Xvfb")
         if xvfb is None:
-            raise SimulationTestError("Linux simulation tests require Xvfb, but it was not found in the current environment")
+            raise PostBuildTestError("Linux Post-build Tests require Xvfb, but it was not found in the current environment")
 
         display = self.next_xvfb_display()
         with self.xvfb_log_path.open("w", encoding="utf-8") as log:
@@ -419,23 +419,23 @@ class SimulationTests:
         self.env["DISPLAY"] = display
         time.sleep(0.5)
         if self.xvfb_process.poll() is not None:
-            raise SimulationTestError("Xvfb failed to start")
+            raise PostBuildTestError("Xvfb failed to start")
 
     def next_xvfb_display(self) -> str:
         for number in range(99, 110):
             if not Path(f"/tmp/.X11-unix/X{number}").exists():
                 return f":{number}"
-        raise SimulationTestError("No available Xvfb display number")
+        raise PostBuildTestError("No available Xvfb display number")
 
     def start_app(self) -> None:
         if self.is_app_running():
             return
 
         if not self.app_exec.exists():
-            raise SimulationTestError(f"App entry point does not exist: {self.app_exec}")
+            raise PostBuildTestError(f"App entry point does not exist: {self.app_exec}")
 
         if self.try_probe_port():
-            raise SimulationTestError(f"Debug port {PORT} is already in use; refusing to reuse an unknown app")
+            raise PostBuildTestError(f"Debug port {PORT} is already in use; refusing to reuse an unknown app")
 
         with self.app_log_path.open("w", encoding="utf-8") as log:
             kwargs: dict = {
@@ -483,11 +483,11 @@ class SimulationTests:
         deadline = time.time() + 60
         while time.time() < deadline:
             if self.app_process is not None and self.app_process.poll() is not None:
-                raise SimulationTestError(f"App exited during startup with code {self.app_process.returncode}")
+                raise PostBuildTestError(f"App exited during startup with code {self.app_process.returncode}")
             if self.try_probe_port():
                 return
             time.sleep(0.5)
-        raise SimulationTestError("Debug port was not ready within 60s")
+        raise PostBuildTestError("Debug port was not ready within 60s")
 
     def try_probe_port(self) -> bool:
         try:
@@ -551,11 +551,11 @@ def format_log_excerpt(title: str, path: Path, lines: int = 80) -> str:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run post-build simulation tests against a packaged Debug app")
+    parser = argparse.ArgumentParser(description="Run Post-build Tests against a packaged Debug app")
     parser.add_argument("--app-exec", type=Path, required=True, help="Built Debug app executable path")
     parser.add_argument("--app-output", type=Path, help="Built Debug app output directory")
     parser.add_argument("--os-family", choices=["windows", "linux", "macos"], default=detect_os_family())
-    parser.add_argument("--shortcut-only", action="store_true", help="Run only shortcut trigger simulations")
+    parser.add_argument("--shortcut-only", action="store_true", help="Run only shortcut trigger tests")
     return parser.parse_args()
 
 
@@ -571,13 +571,13 @@ def main() -> int:
     args = parse_args()
     app_exec = args.app_exec.resolve()
     app_output = (args.app_output or app_exec.parent).resolve()
-    runner = SimulationTests(app_exec, app_output, args.os_family, shortcut_only=args.shortcut_only)
+    runner = PostBuildTests(app_exec, app_output, args.os_family, shortcut_only=args.shortcut_only)
     try:
         runner.run()
         return 0
     except Exception as exception:
         print()
-        print(fail(f"simulation tests failed: {exception}"), flush=True)
+        print(fail(f"Post-build Tests failed: {exception}"), flush=True)
         diagnostics = runner.diagnostics()
         if diagnostics:
             print(diagnostics, flush=True)

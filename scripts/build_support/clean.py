@@ -1,4 +1,6 @@
+import os
 import shutil
+import stat
 from pathlib import Path
 
 from build_support.paths import BUILD_DIR, ROOT
@@ -21,9 +23,18 @@ def remove_path(path: Path) -> None:
         raise ValueError(f"Refusing to clean a path outside the project boundary: {resolved}")
 
     if path.is_dir():
-        shutil.rmtree(path)
+        shutil.rmtree(path, onexc=clear_readonly)
         print(f"  Removed {path}", flush=True)
         return
 
     path.unlink()
     print(f"  Removed {path}", flush=True)
+
+
+def clear_readonly(function, path: str, exception: BaseException) -> None:
+    if os.name != "nt" or not isinstance(exception, PermissionError):
+        raise exception
+
+    # Windows 上 Git 对象可能带只读属性，清理时解除后重试。
+    os.chmod(path, stat.S_IWRITE)
+    function(path)

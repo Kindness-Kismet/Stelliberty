@@ -30,8 +30,6 @@ Stelliberty 是跨平台桌面代理客户端，覆盖 Windows、Linux 与 macOS
 
 支持 Clash 标准订阅和 Base64 订阅导入，启动快、占用低。Windows 和 macOS 上还做了平台级的模糊窗口效果，界面偏简约原生风格。
 
-项目内置大量模拟与事前测试流，按真实操作顺序自动验收，后期维护更轻松。
-
 <br>
 
 ---
@@ -247,7 +245,7 @@ python scripts/prebuild.py
 | `--platform <rid>` | 目标平台：`current` · `win-x64` · `win-arm64` · `linux-x64` · `linux-arm64` · `macos-x64` · `macos-arm64` |
 | `--clean` | 准备前清理 `build/` 与项目 `bin/obj/` 目录 |
 
-#### 2. 测试
+#### 2. 编译前测试
 
 ```bash
 python scripts/test.py --all
@@ -256,41 +254,20 @@ python scripts/test.py <测试名>
 
 | 参数 | 作用 |
 |---|---|
-| `--all` | 运行所有事前测试 |
-| `--rust` | 仅运行 Rust 场景集成测试 |
-| `--csharp` | 仅运行 C# 业务测试 |
+| `--all` | 运行所有编译前测试 |
 | `<测试名>` | 运行指定测试（见下表） |
 
 <details>
 <summary>可用测试列表</summary>
 
-**Rust 场景测试**
-
 | 名称 | 说明 |
 |---|---|
-| `empty-start` | hub IPC 以空配置启动内核 |
-| `hub-ipc-contract` | IPC 协议契约：方法、字段、错误码、生命周期 |
-| `yaml-override` | YAML 覆写输出验证 |
-| `js-override` | JS 覆写输出验证 |
-| `combo` | YAML + JS 组合覆写验证 |
-| `config-switch` | 内核运行中切换配置 |
-
-**C# 业务测试**
-
-| 名称 | 说明 |
-|---|---|
-| `proxy-selection` | 节点选择语义：默认节点、固定组、本地持久化、外部同步、出站模式 |
-| `proxy-page` | 节点页交互：可见分组、切换、搜索、排序、延迟测试、控制器同步 |
-| `home-state` | 主页状态：系统代理、虚拟网卡权限、出站模式、运行时刷新、服务模式 |
-| `shell-navigation` | 窗口导航：页面可见性、设置返回、语言刷新 |
-| `runtime-config` | 运行时配置：端口、DNS 覆写、虚拟网卡、LAN、外部控制器、最终变换 |
-| `core-ipc-contract` | IPC 契约：C# 包装方法、参数、响应解析、错误码传播 |
-| `chain-proxy` | 链式代理：内置检测、禁用、自定义生成、命名冲突、无效 YAML 回退 |
-| `monitoring-pages` | 监控页：连接、日志、规则解析、暂停、过滤、关闭、刷新 |
-| `subscription-page` | 订阅页：添加、编辑、覆写选择、链式代理、更新失败、定时任务 |
-| `override-page` | 覆写页：添加校验、导入、保存、引用清理、排序、元数据、跳过更新 |
-| `settings-page` | 设置页：内核配置、权限修正、数据管理、语言、更新、系统代理、主题 |
-| `webdav` | WebDAV：连接校验、文件夹创建、上传、列表、下载、删除 |
+| `monitoring-rules` | 监控规则：连接与日志解析和归约、规则解析与分类 |
+| `settings-rules` | 设置规则：TUN 权限修正、系统代理请求、更新版本选择 |
+| `subscription-rules` | 订阅规则：更新计划、提供器解析、内容规范化 |
+| `proxy-selection-rules` | 节点选择规则：组语义、规范化、选择、可见性 |
+| `runtime-config-rules` | 运行时配置规则：设置规范化、确定性 YAML 生成 |
+| `chain-proxy-rules` | 链式代理规则：分析、确定性运行时配置转换 |
 
 </details>
 
@@ -341,7 +318,7 @@ Pull Request 必须以 `beta` 为目标分支，禁止直接向 `stable` 发起�
 |---|---|
 | 调试指令 | 新增或修改业务逻辑时，必须在 `src/Stelliberty.Desktop/Debug` 封装对应的调试指令 |
 | 控件 ID | 引入新的可交互控件时，必须设置 `AutomationProperties.AutomationId` |
-| 事前测试 | 必须编写事前测试或模拟测试，确保功能在合并前可独立验证 |
+| 测试覆盖 | 纯业务逻辑使用编译前测试，安装包应用行为使用编译后测试 |
 | 格式化 | C# 运行 `dotnet format`，Rust 运行 `cargo fmt` |
 
 ### 调试指令要求
@@ -392,4 +369,3 @@ Pull Request 必须以 `beta` 为目标分支，禁止直接向 `stable` 发起�
 <sub>[↑ 回到导航](#导航)</sub>
 
 - [Telegram 通知频道](https://t.me/MaterialDesign3) —— 接收项目更新与发布通知。
-- [LINUX DO](https://linux.do/) —— 技术爱好者的友好社区。

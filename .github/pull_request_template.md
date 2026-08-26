@@ -14,7 +14,7 @@
 
 - [ ] Wrapped new or changed business logic in `src/Stelliberty.Desktop/Debug`
 - [ ] Added `AutomationId` for new interactive controls
-- [ ] Wrote pre-tests or simulation tests
+- [ ] Added or updated Pre-build Tests or Post-build Tests
 - [ ] Passed `python scripts/test.py --all`
 - [ ] Ran formatter (`dotnet format` / `cargo fmt`)
 

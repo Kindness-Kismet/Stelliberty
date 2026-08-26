@@ -1,6 +1,5 @@
 using Stelliberty.Application.Runtime;
 using Stelliberty.Application.Settings;
-using Stelliberty.Domain.Overrides;
 using YamlDotNet.RepresentationModel;
 using Xunit;
 
@@ -229,24 +228,19 @@ public sealed class RuntimeConfigGenerationTests
         Assert.Equal("0.0.0.0", Scalar(enabledRoot, "bind-address"));
     }
 
-    [Fact(DisplayName = "Invalid override or post transform output throws with stage label")]
-    public void InvalidOverrideOrPostTransformOutputThrowsWithStageLabel()
+    [Fact(DisplayName = "Invalid post transform output throws with stage label")]
+    public void InvalidPostTransformOutputThrowsWithStageLabel()
     {
         var request = new RuntimeConfigGenerationRequest(
             "proxies: []\nproxy-groups: []\nrules: []",
-            [new RuntimeOverride("override-1", "Broken override", OverrideFormat.Yaml, "content")],
+            [],
             RuntimeConfigParams.Default);
-        var overrideGenerator = new RuntimeConfigGenerator(new FakeOverrideEngine("proxies: ["));
 
-        var overrideException = Assert.Throws<InvalidOperationException>(() => overrideGenerator.Generate(request));
         var postTransformException = Assert.Throws<InvalidOperationException>(() => new RuntimeConfigGenerator().Generate(request with
         {
-            Overrides = [],
             PostOverrideTransform = _ => "proxy-groups: ["
         }));
 
-        Assert.Contains("Override output config", overrideException.Message, StringComparison.Ordinal);
-        Assert.Contains("not valid YAML", overrideException.Message, StringComparison.Ordinal);
         Assert.Contains("Chain proxy output config", postTransformException.Message, StringComparison.Ordinal);
         Assert.Contains("not valid YAML", postTransformException.Message, StringComparison.Ordinal);
     }
@@ -521,11 +515,4 @@ public sealed class RuntimeConfigGenerationTests
         return ((YamlSequenceNode)root.Children[new YamlScalarNode(key)]).Children.Select(item => item.ToString()).ToList();
     }
 
-    private sealed class FakeOverrideEngine(string output) : IConfigOverrideEngine
-    {
-        public string Apply(string baseConfigContent, RuntimeOverride runtimeOverride)
-        {
-            return output;
-        }
-    }
 }

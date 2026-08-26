@@ -20,12 +20,12 @@ def main() -> int:
         raise SystemExit("A command and at least one attempt are required")
 
     for attempt in range(1, args.attempts + 1):
-        print(f"Simulation attempt {attempt}/{args.attempts}", flush=True)
+        print(f"Attempt {attempt}/{args.attempts}", flush=True)
         exit_code = subprocess.run(command, check=False).returncode
         if exit_code == 0:
             return 0
         if attempt < args.attempts:
-            print(f"Simulation failed with exit code {exit_code}; retrying...", flush=True)
+            print(f"Command failed with exit code {exit_code}; retrying...", flush=True)
             time.sleep(args.delay_seconds)
 
     return exit_code

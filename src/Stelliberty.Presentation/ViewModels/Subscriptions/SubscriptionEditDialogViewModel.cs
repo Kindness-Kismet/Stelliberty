@@ -5,7 +5,6 @@ namespace Stelliberty.Presentation.ViewModels;
 
 public sealed record SubscriptionEditCompletedEventArgs(
     string SubscriptionId,
-    bool IsLocalFile,
     string Name,
     string Url,
     string UserAgent,
@@ -92,7 +91,6 @@ public sealed class SubscriptionEditDialogViewModel : SubscriptionDialogBase
 
         var args = new SubscriptionEditCompletedEventArgs(
             _subscriptionId!,
-            _isLocalFile,
             _name.Trim(),
             _url.Trim(),
             _isLocalFile ? string.Empty : NormalizeUserAgent(),

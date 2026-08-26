@@ -5,16 +5,14 @@ using System.Text.Json.Serialization;
 
 namespace Stelliberty.Application.Connections;
 
-public sealed class ConnectionParser(Func<DateTimeOffset>? now = null)
+public sealed class ConnectionParser
 {
-    private readonly Func<DateTimeOffset> _now = now ?? (() => DateTimeOffset.Now);
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public IReadOnlyList<ConnectionInfo> Parse(string content)
+    public IReadOnlyList<ConnectionInfo> Parse(string content, DateTimeOffset fallbackStart)
     {
         if (string.IsNullOrWhiteSpace(content))
         {
@@ -34,7 +32,7 @@ public sealed class ConnectionParser(Func<DateTimeOffset>? now = null)
             var connections = new List<ConnectionInfo>();
             foreach (var connectionElement in connectionsElement.EnumerateArray())
             {
-                var connection = TryParseConnection(connectionElement);
+                var connection = TryParseConnection(connectionElement, fallbackStart);
                 if (connection is not null)
                 {
                     connections.Add(connection);
@@ -49,12 +47,12 @@ public sealed class ConnectionParser(Func<DateTimeOffset>? now = null)
         }
     }
 
-    private ConnectionInfo? TryParseConnection(JsonElement element)
+    private static ConnectionInfo? TryParseConnection(JsonElement element, DateTimeOffset fallbackStart)
     {
         try
         {
             var payload = element.Deserialize<ConnectionPayload>(JsonOptions);
-            return payload is null ? null : ToConnection(payload);
+            return payload is null ? null : ToConnection(payload, fallbackStart);
         }
         catch (JsonException)
         {
@@ -62,7 +60,7 @@ public sealed class ConnectionParser(Func<DateTimeOffset>? now = null)
         }
     }
 
-    private ConnectionInfo ToConnection(ConnectionPayload payload)
+    private static ConnectionInfo ToConnection(ConnectionPayload payload, DateTimeOffset fallbackStart)
     {
         return new ConnectionInfo(
             Id: payload.Id,
@@ -70,7 +68,7 @@ public sealed class ConnectionParser(Func<DateTimeOffset>? now = null)
             Download: payload.Download,
             UploadSpeed: payload.UploadSpeed,
             DownloadSpeed: payload.DownloadSpeed,
-            Start: payload.Start ?? _now(),
+            Start: payload.Start ?? fallbackStart,
             Metadata: ToMetadata(payload.Metadata),
             Chains: payload.Chains,
             Rule: payload.Rule,

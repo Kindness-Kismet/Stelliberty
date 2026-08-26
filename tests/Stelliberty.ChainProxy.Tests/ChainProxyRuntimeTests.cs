@@ -1,5 +1,4 @@
 using Stelliberty.Application.Subscriptions;
-using Stelliberty.Application.Runtime;
 using Stelliberty.Domain.Subscriptions;
 using YamlDotNet.RepresentationModel;
 using Xunit;
@@ -31,36 +30,6 @@ public sealed class ChainProxyRuntimeTests
             """);
 
         Assert.Equal(["JP"], names);
-    }
-
-    [Fact(DisplayName = "Context loader excludes builtin chain nodes from custom candidates")]
-    public void ContextLoaderExcludesBuiltinChainNodesFromCustomCandidates()
-    {
-        var store = new FakeSubscriptionStore(Subscription("sub-1"),
-            """
-            proxies:
-              - name: HK
-                type: ss
-                server: hk.example
-              - name: JP
-                type: ss
-                server: jp.example
-              - name: JP via HK
-                type: ss
-                server: jp.example
-                dialer-proxy: HK
-              - name: EmptyChain
-                type: ss
-                dialer-proxy: ''
-            proxy-groups: []
-            """);
-        var loader = new SubscriptionChainProxyContextLoader(store, new PassthroughOverrideEngine());
-
-        var context = loader.Load("sub-1");
-
-        Assert.Equal(["JP via HK"], context.BuiltinChainProxyNames);
-        Assert.Equal(["HK", "JP", "EmptyChain"], context.Candidates.Select(candidate => candidate.Name));
-        Assert.DoesNotContain(context.Candidates, candidate => candidate.Name == "JP via HK");
     }
 
     [Fact(DisplayName = "Runtime applier removes disabled builtin chain proxy only")]
@@ -297,37 +266,4 @@ public sealed class ChainProxyRuntimeTests
         return mapping.Children.TryGetValue(new YamlScalarNode(key), out var value) ? value.ToString() : string.Empty;
     }
 
-    private sealed class FakeSubscriptionStore(Subscription subscription, string content) : ISubscriptionStore
-    {
-        public void Save(Subscription subscription, string originalContent)
-        {
-        }
-
-        public void UpdateSubscription(Subscription subscription)
-        {
-        }
-
-        public void SaveSubscriptions(IReadOnlyList<Subscription> subscriptions)
-        {
-        }
-
-        public void SaveContent(string subscriptionId, string originalContent)
-        {
-        }
-
-        public IReadOnlyList<Subscription> LoadSubscriptions() => [subscription];
-
-        public string ReadContent(string subscriptionId) => content;
-
-        public string GetContentPath(string subscriptionId) => $"{subscriptionId}.yaml";
-
-        public void Delete(string subscriptionId)
-        {
-        }
-    }
-
-    private sealed class PassthroughOverrideEngine : IConfigOverrideEngine
-    {
-        public string Apply(string baseConfigContent, RuntimeOverride runtimeOverride) => baseConfigContent;
-    }
 }

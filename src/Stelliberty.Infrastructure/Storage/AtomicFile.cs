@@ -1,6 +1,6 @@
 namespace Stelliberty.Infrastructure.Storage;
 
-// 同目录临时文件落盘后原子替换，进程终止或磁盘故障不会留下截断文件
+// 同目录临时文件写完后原子替换，进程终止或磁盘故障不会留下截断文件
 public static class AtomicFile
 {
     public static void WriteAllText(string path, string content)
