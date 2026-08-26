@@ -1,4 +1,5 @@
 using System.Text;
+using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Subscriptions;
 using Stelliberty.Domain.Rules;
 using YamlDotNet.RepresentationModel;
@@ -175,7 +176,59 @@ public sealed class RuleOverrideService(
             .ToList();
     }
 
+    // 出站目标随订阅更新消失后核心会拒绝整份配置，先保存为禁用再应用。
+    public void DisableCustomRulesWithMissingOutbound(string subscriptionId, string configContent)
+    {
+        var set = overrideStore.Load(subscriptionId);
+        var enabledRules = set.CustomRules.Where(rule => rule.IsEnabled).ToList();
+        if (enabledRules.Count == 0)
+        {
+            return;
+        }
+
+        var outboundTargets = BuildOutboundTargets(configContent);
+        var brokenIds = enabledRules
+            .Where(rule => !outboundTargets.Contains(rule.Proxy.Trim()))
+            .Select(rule => rule.Id)
+            .ToHashSet(StringComparer.Ordinal);
+        if (brokenIds.Count == 0)
+        {
+            return;
+        }
+
+        overrideStore.Save(set with
+        {
+            CustomRules = set.CustomRules
+                .Select(rule => brokenIds.Contains(rule.Id) ? rule with { IsEnabled = false } : rule)
+                .ToList()
+        });
+        AppLogger.Warning($"Custom rules disabled for missing outbound: {string.Join(", ", brokenIds)}");
+    }
+
+    // 校验放宽到核心真正接受的目标，避免误禁用手写的合法规则。
+    private static IReadOnlySet<string> BuildOutboundTargets(string configContent)
+    {
+        var targets = new HashSet<string>(
+            ["DIRECT", "REJECT", "REJECT-DROP", "PASS", "COMPATIBLE", "GLOBAL"],
+            StringComparer.Ordinal);
+        var root = LoadRoot(configContent);
+        if (root is null)
+        {
+            return targets;
+        }
+
+        targets.UnionWith(ReadEntryNames(root, "proxies"));
+        targets.UnionWith(ReadEntryNames(root, "proxy-groups"));
+        return targets;
+    }
+
     private static IReadOnlyList<string> ParseProxyGroups(string configContent)
+    {
+        var root = LoadRoot(configContent);
+        return root is null ? [] : ReadEntryNames(root, "proxy-groups");
+    }
+
+    private static YamlMappingNode? LoadRoot(string configContent)
     {
         var stream = new YamlStream();
         try
@@ -184,20 +237,24 @@ public sealed class RuleOverrideService(
         }
         catch (YamlDotNet.Core.YamlException)
         {
-            return [];
+            return null;
         }
 
-        if (stream.Documents.Count == 0
-            || stream.Documents[0].RootNode is not YamlMappingNode root
-            || !root.Children.TryGetValue(new YamlScalarNode("proxy-groups"), out var node)
-            || node is not YamlSequenceNode groups)
+        return stream.Documents.Count == 0 ? null : stream.Documents[0].RootNode as YamlMappingNode;
+    }
+
+    private static IReadOnlyList<string> ReadEntryNames(YamlMappingNode root, string key)
+    {
+        if (!root.Children.TryGetValue(new YamlScalarNode(key), out var node) || node is not YamlSequenceNode entries)
         {
             return [];
         }
 
-        return groups.Children
+        return entries.Children
             .OfType<YamlMappingNode>()
-            .Select(group => group.Children.TryGetValue(new YamlScalarNode("name"), out var nameNode) && nameNode is YamlScalarNode scalar ? scalar.Value ?? string.Empty : string.Empty)
+            .Select(entry => entry.Children.TryGetValue(new YamlScalarNode("name"), out var nameNode) && nameNode is YamlScalarNode scalar
+                ? scalar.Value ?? string.Empty
+                : string.Empty)
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .ToList();
     }

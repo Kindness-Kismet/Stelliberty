@@ -1,4 +1,5 @@
 using Stelliberty.Domain.Subscriptions;
+using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Overrides;
 using Stelliberty.Application.Runtime;
 using Stelliberty.Application.Rules;
@@ -64,9 +65,39 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
 
     private string ApplyRuntimeRuleOverrides(string subscriptionId, string content)
     {
+        var subscription = DisableBrokenChainProxies(subscriptionId, content);
+        var withChainProxies = _chainProxyApplier.Apply(content, subscription);
+        _ruleOverrideService?.DisableCustomRulesWithMissingOutbound(subscriptionId, withChainProxies);
+        return _ruleOverrideService?.Apply(subscriptionId, withChainProxies) ?? withChainProxies;
+    }
+
+    // 失效链式先保存为禁用，再按禁用后的订阅生成配置。
+    private Subscription DisableBrokenChainProxies(string subscriptionId, string content)
+    {
         var subscription = subscriptionStore.LoadSubscriptions().FirstOrDefault(item => item.Id == subscriptionId)
             ?? throw new InvalidOperationException($"Selected subscription not found: {subscriptionId}");
-        var withChainProxies = _chainProxyApplier.Apply(content, subscription);
-        return _ruleOverrideService?.Apply(subscriptionId, withChainProxies) ?? withChainProxies;
+        var inspection = _chainProxyApplier.Inspect(content, subscription);
+        if (!inspection.HasBrokenChains)
+        {
+            return subscription;
+        }
+
+        var invalidIds = inspection.InvalidCustomChainIds.ToHashSet(StringComparer.Ordinal);
+        var updated = subscription with
+        {
+            DisabledBuiltinChainProxyNames = subscription.DisabledBuiltinChainProxyNames
+                .Concat(inspection.BrokenBuiltinChainProxyNames)
+                .Distinct(StringComparer.Ordinal)
+                .ToList(),
+            CustomChainProxies = subscription.CustomChainProxies
+                .Select(item => invalidIds.Contains(item.Id) ? item with { IsEnabled = false } : item)
+                .ToList()
+        };
+        subscriptionStore.UpdateSubscription(updated);
+        AppLogger.Warning(
+            $"Chain proxies disabled for {subscription.Name}: "
+            + $"builtin=[{string.Join(", ", inspection.BrokenBuiltinChainProxyNames)}], "
+            + $"custom=[{string.Join(", ", inspection.InvalidCustomChainIds)}]");
+        return updated;
     }
 }

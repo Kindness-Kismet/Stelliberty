@@ -4,49 +4,128 @@ using YamlDotNet.RepresentationModel;
 
 namespace Stelliberty.Application.Subscriptions;
 
+public sealed record ChainProxyInspection(
+    IReadOnlyList<string> InvalidCustomChainIds,
+    IReadOnlyList<string> BrokenBuiltinChainProxyNames)
+{
+    public static ChainProxyInspection Empty { get; } = new([], []);
+
+    public bool HasBrokenChains => InvalidCustomChainIds.Count > 0 || BrokenBuiltinChainProxyNames.Count > 0;
+}
+
 public sealed class SubscriptionChainProxyRuntimeApplier
 {
+    // dialer-proxy 允许指向内置出站，这些名字不算悬空。
+    private static readonly HashSet<string> BuiltinOutbounds = new(StringComparer.Ordinal)
+    {
+        "DIRECT",
+        "REJECT",
+        "REJECT-DROP",
+        "PASS",
+        "COMPATIBLE"
+    };
+
+    public ChainProxyInspection Inspect(string content, Subscription subscription)
+    {
+        if (!TryLoad(content, out _, out _, out var proxies, out var proxyGroups))
+        {
+            return ChainProxyInspection.Empty;
+        }
+
+        var disabledNames = subscription.DisabledBuiltinChainProxyNames.ToHashSet(StringComparer.Ordinal);
+        var brokenBuiltinNames = FindBrokenBuiltinChainProxies(proxies, proxyGroups, disabledNames);
+        disabledNames.UnionWith(brokenBuiltinNames);
+        return new ChainProxyInspection(
+            FindInvalidCustomChainIds(proxies, proxyGroups, subscription, disabledNames),
+            brokenBuiltinNames);
+    }
+
     public string Apply(string content, Subscription subscription)
     {
-        try
-        {
-            var stream = new YamlStream();
-            stream.Load(new StringReader(content));
-            if (stream.Documents[0].RootNode is not YamlMappingNode root)
-            {
-                return content;
-            }
-
-            var proxies = ReadMappingSequence(root, "proxies");
-            var proxyGroups = ReadMappingSequence(root, "proxy-groups");
-            if (subscription.DisabledBuiltinChainProxyNames.Count == 0
-                && subscription.CustomChainProxies.All(item => !item.IsEnabled)
-                && proxies.All(proxy => string.IsNullOrWhiteSpace(Scalar(proxy, "dialer-proxy"))))
-            {
-                return content;
-            }
-
-            var result = BuildRuntimeConfig(proxies, proxyGroups, subscription);
-            if (subscription.DisabledBuiltinChainProxyNames.Count == 0
-                && subscription.CustomChainProxies.All(item => !item.IsEnabled))
-            {
-                return content;
-            }
-
-            Set(root, "proxies", result.Proxies);
-            if (HasMappingSequence(root, "proxy-groups"))
-            {
-                Set(root, "proxy-groups", result.ProxyGroups);
-            }
-
-            using var writer = new StringWriter();
-            stream.Save(writer, assignAnchors: false);
-            return writer.ToString();
-        }
-        catch (YamlException)
+        if (!TryLoad(content, out var stream, out var root, out var proxies, out var proxyGroups))
         {
             return content;
         }
+
+        var disabledNames = subscription.DisabledBuiltinChainProxyNames.ToHashSet(StringComparer.Ordinal);
+        if (disabledNames.Count == 0 && subscription.CustomChainProxies.All(item => !item.IsEnabled))
+        {
+            return content;
+        }
+
+        var result = BuildRuntimeConfig(proxies, proxyGroups, subscription, disabledNames);
+        Set(root, "proxies", result.Proxies);
+        if (HasMappingSequence(root, "proxy-groups"))
+        {
+            Set(root, "proxy-groups", result.ProxyGroups);
+        }
+
+        using var writer = new StringWriter();
+        stream.Save(writer, assignAnchors: false);
+        return writer.ToString();
+    }
+
+    // 上游随订阅更新消失后核心会拒绝整份配置，这里找出所有连锁失效的内置链式节点。
+    private static IReadOnlyList<string> FindBrokenBuiltinChainProxies(
+        IReadOnlyList<YamlMappingNode> proxies,
+        IReadOnlyList<YamlMappingNode> proxyGroups,
+        IReadOnlySet<string> disabledNames)
+    {
+        var chainProxies = proxies
+            .Select(proxy => (Name: Scalar(proxy, "name"), DialerProxy: Scalar(proxy, "dialer-proxy")))
+            .Where(item => !string.IsNullOrWhiteSpace(item.Name) && !string.IsNullOrWhiteSpace(item.DialerProxy))
+            .ToList();
+        if (chainProxies.Count == 0)
+        {
+            return [];
+        }
+
+        // 已禁用节点不在可达集合内，指向它们的下游会被一并判定失效。
+        var reachableNames = proxies
+            .Select(proxy => Scalar(proxy, "name"))
+            .Where(name => !string.IsNullOrWhiteSpace(name) && !disabledNames.Contains(name))
+            .Concat(proxyGroups.Select(group => Scalar(group, "name")).Where(name => !string.IsNullOrWhiteSpace(name)))
+            .Concat(BuiltinOutbounds)
+            .ToHashSet(StringComparer.Ordinal);
+        var brokenNames = new List<string>();
+        bool hasNewBroken;
+        do
+        {
+            hasNewBroken = false;
+            foreach (var chainProxy in chainProxies)
+            {
+                if (!reachableNames.Contains(chainProxy.Name) || reachableNames.Contains(chainProxy.DialerProxy))
+                {
+                    continue;
+                }
+
+                reachableNames.Remove(chainProxy.Name);
+                brokenNames.Add(chainProxy.Name);
+                hasNewBroken = true;
+            }
+        }
+        while (hasNewBroken);
+
+        return brokenNames;
+    }
+
+    private static IReadOnlyList<string> FindInvalidCustomChainIds(
+        IReadOnlyList<YamlMappingNode> proxies,
+        IReadOnlyList<YamlMappingNode> proxyGroups,
+        Subscription subscription,
+        IReadOnlySet<string> disabledNames)
+    {
+        var index = BuildActiveProxyIndex(proxies, proxyGroups, disabledNames);
+        var invalidIds = new List<string>();
+        foreach (var customProxy in subscription.CustomChainProxies.Where(item => item.IsEnabled))
+        {
+            if (BuildRuntimeDialerProxies(index.ProxyByName, proxyGroups, index.OccupiedNames, customProxy).Count == 0)
+            {
+                invalidIds.Add(customProxy.Id);
+            }
+        }
+
+        return invalidIds;
     }
 
     private sealed record RuntimeConfigBuildResult(
@@ -55,12 +134,16 @@ public sealed class SubscriptionChainProxyRuntimeApplier
 
     private sealed record CustomProxyGroupEntry(string ProxyGroupName, string DisplayName);
 
-    private static RuntimeConfigBuildResult BuildRuntimeConfig(
+    private sealed record ActiveProxyIndex(
+        IReadOnlyList<YamlMappingNode> ActiveProxies,
+        IReadOnlyDictionary<string, YamlMappingNode> ProxyByName,
+        HashSet<string> OccupiedNames);
+
+    private static ActiveProxyIndex BuildActiveProxyIndex(
         IReadOnlyList<YamlMappingNode> proxies,
         IReadOnlyList<YamlMappingNode> proxyGroups,
-        Subscription subscription)
+        IReadOnlySet<string> disabledNames)
     {
-        var disabledNames = subscription.DisabledBuiltinChainProxyNames.ToHashSet(StringComparer.Ordinal);
         // 内置链式代理是带 dialer-proxy 的覆写后节点。
         var activeProxies = proxies
             .Where(proxy => !IsDisabledBuiltinProxy(proxy, disabledNames))
@@ -73,27 +156,34 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             .Concat(proxyGroups.Select(group => Scalar(group, "name")))
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .ToHashSet(StringComparer.Ordinal);
-        var runtimeProxies = activeProxies.Select(Clone).ToList();
+        return new ActiveProxyIndex(activeProxies, proxyByName, occupiedNames);
+    }
+
+    private static RuntimeConfigBuildResult BuildRuntimeConfig(
+        IReadOnlyList<YamlMappingNode> proxies,
+        IReadOnlyList<YamlMappingNode> proxyGroups,
+        Subscription subscription,
+        IReadOnlySet<string> disabledNames)
+    {
+        var index = BuildActiveProxyIndex(proxies, proxyGroups, disabledNames);
+        var runtimeProxies = index.ActiveProxies.Select(Clone).ToList();
         var customGroupEntries = new List<CustomProxyGroupEntry>();
         foreach (var customProxy in subscription.CustomChainProxies.Where(item => item.IsEnabled))
         {
             var runtimeDialerProxies = BuildRuntimeDialerProxies(
-                proxyByName,
+                index.ProxyByName,
                 proxyGroups,
-                occupiedNames,
+                index.OccupiedNames,
                 customProxy);
-
-            if (runtimeDialerProxies.Count > 0)
+            if (runtimeDialerProxies.Count == 0)
             {
-                customGroupEntries.Add(new CustomProxyGroupEntry(
-                    customProxy.ProxyGroupName.Trim(),
-                    customProxy.DisplayName.Trim()));
+                continue;
             }
 
-            foreach (var runtimeProxy in runtimeDialerProxies)
-            {
-                runtimeProxies.Add(runtimeProxy);
-            }
+            customGroupEntries.Add(new CustomProxyGroupEntry(
+                customProxy.ProxyGroupName.Trim(),
+                customProxy.DisplayName.Trim()));
+            runtimeProxies.AddRange(runtimeDialerProxies);
         }
 
         var disabledBuiltinNames = proxies
@@ -238,7 +328,7 @@ public sealed class SubscriptionChainProxyRuntimeApplier
         return new YamlSequenceNode(entries);
     }
 
-    private static bool IsDisabledBuiltinProxy(YamlMappingNode proxy, HashSet<string> disabledNames)
+    private static bool IsDisabledBuiltinProxy(YamlMappingNode proxy, IReadOnlySet<string> disabledNames)
     {
         return disabledNames.Contains(Scalar(proxy, "name"))
             && !string.IsNullOrWhiteSpace(Scalar(proxy, "dialer-proxy"));
@@ -270,6 +360,36 @@ public sealed class SubscriptionChainProxyRuntimeApplier
             .Select(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' ? ch : '_')
             .ToArray();
         return chars.Length == 0 ? "custom" : new string(chars);
+    }
+
+    private static bool TryLoad(
+        string content,
+        out YamlStream stream,
+        out YamlMappingNode root,
+        out IReadOnlyList<YamlMappingNode> proxies,
+        out IReadOnlyList<YamlMappingNode> proxyGroups)
+    {
+        stream = new YamlStream();
+        root = null!;
+        proxies = [];
+        proxyGroups = [];
+        try
+        {
+            stream.Load(new StringReader(content));
+            if (stream.Documents.Count == 0 || stream.Documents[0].RootNode is not YamlMappingNode mapping)
+            {
+                return false;
+            }
+
+            root = mapping;
+            proxies = ReadMappingSequence(mapping, "proxies");
+            proxyGroups = ReadMappingSequence(mapping, "proxy-groups");
+            return true;
+        }
+        catch (YamlException)
+        {
+            return false;
+        }
     }
 
     private static IReadOnlyList<YamlMappingNode> ReadMappingSequence(YamlMappingNode root, string key)
