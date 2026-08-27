@@ -1,3 +1,4 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -90,6 +91,7 @@ public sealed partial class DialogPanel : UserControl
             IsVisible = true;
             IsHitTestVisible = true;
             Opacity = 1;
+            ResetScrollOffsets();
             return;
         }
 
@@ -110,5 +112,14 @@ public sealed partial class DialogPanel : UserControl
                 }
             },
             DialogTiming.ExitDuration);
+    }
+
+    // 关闭只隐藏不销毁面板，滚动位置不会自己复位。
+    private void ResetScrollOffsets()
+    {
+        foreach (var scrollViewer in this.GetVisualDescendants().OfType<ScrollViewer>())
+        {
+            scrollViewer.Offset = default;
+        }
     }
 }
