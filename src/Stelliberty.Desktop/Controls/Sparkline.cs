@@ -274,18 +274,18 @@ public sealed class Sparkline : Control
         _animationTimer.Start();
     }
 
-    // 播放时长跟随实测到达间隔：IPC 往返让真实间隔大于 SampleInterval，按标称值播放会留规律停顿。
+    // 播放时长取实测到达间隔的保守估计：被下一笔打断会丢弃残余进度并跳过对应位移，宁可提前播完留下不可见的短停顿。
     private void MeasureInterval(long now)
     {
         if (_lastSeriesAt > 0 && SampleInterval > TimeSpan.Zero)
         {
-            // 留 5% 余量，宁可被下一笔接续（亚像素快进）也不留停顿。
-            var target = TimeSpan.FromMilliseconds((now - _lastSeriesAt) * 1.05);
+            // 扣 2% 保证先播完；余量再大停顿就会可见。
+            var target = TimeSpan.FromMilliseconds((now - _lastSeriesAt) * 0.98);
             var lower = SampleInterval * 0.5;
             var upper = SampleInterval * 1.25;
             target = target < lower ? lower : target > upper ? upper : target;
-            // 变长立即跟上以消除停顿，变短缓慢收敛以免频繁打断。
-            _measuredInterval = _measuredInterval <= TimeSpan.Zero || target > _measuredInterval
+            // 变短立即跟上以免被打断，变长缓慢收敛以免一次慢帧长期顶高时长。
+            _measuredInterval = _measuredInterval <= TimeSpan.Zero || target < _measuredInterval
                 ? target
                 : _measuredInterval * 0.9 + target * 0.1;
         }
