@@ -105,10 +105,6 @@
         </StackPanel>
       </Border>
 
-      <Border Classes="list-info-strip" IsVisible="{Binding IsNoMatchesVisible}" Margin="8,0,25,20" Padding="14,10" VerticalAlignment="Top">
-        <TextBlock Text="{loc:Loc Rules.Empty.NoMatches}" FontSize="12.5" Foreground="{DynamicResource AppTextSecondaryBrush}" HorizontalAlignment="Center" />
-      </Border>
-
       <ScrollViewer IsVisible="{Binding !IsVisibleRulesEmpty}" AutomationProperties.AutomationId="Rules.EditorScroll"
                     HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
         <ItemsControl x:Name="RuleList" ItemsSource="{Binding VisibleRules}" AutomationProperties.AutomationId="Rules.VisibleList" Margin="8,0,25,15">
