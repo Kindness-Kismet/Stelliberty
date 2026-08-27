@@ -674,7 +674,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     public async Task TestAllDelaysAsync()
     {
         var nodeNames = AllGroupEntryNames();
-        var excludedNodeNames = ActiveSingleDelayTestNames();
+        var excludedNodeNames = _delayTests.ActiveSingleNodeNames;
         await RunBatchDelayTestAsync(
             nodeNames,
             excludedNodeNames,
@@ -705,7 +705,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         }
 
         var nodeNames = group.All;
-        var excludedNodeNames = ActiveSingleDelayTestNames();
+        var excludedNodeNames = _delayTests.ActiveSingleNodeNames;
         await RunBatchDelayTestAsync(
             nodeNames,
             excludedNodeNames,
@@ -1084,11 +1084,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
             _selectedGroup?.IsManualSelectable == true,
             _delayTests.TestingNodeNames.Contains(name));
-        if (_delayTests.BatchResults.TryGetValue(name, out var delay))
-        {
-            row.ApplyDelay(delay);
-        }
-
+        ApplyPendingBatchDelay(row, name);
         return row;
     }
 
@@ -1100,6 +1096,16 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
             group?.IsManualSelectable == true,
             _delayTests.TestingNodeNames.Contains(name));
+        ApplyPendingBatchDelay(row, name);
+    }
+
+    // _entryNodes 仅在 RefreshConfigIndexes 时并入批测结果，滞后期不补写会让已测完的节点显示回退。
+    private void ApplyPendingBatchDelay(ProxyNodeRowViewModel row, string name)
+    {
+        if (_delayTests.BatchResults.TryGetValue(name, out var delay))
+        {
+            row.ApplyDelay(delay);
+        }
     }
 
     private void SyncGroupRows()
@@ -1219,8 +1225,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         RaiseProxyStateChanged();
         return cancellation;
     }
-
-    private IReadOnlyList<string> ActiveSingleDelayTestNames() => _delayTests.ActiveSingleNodeNames;
 
     // 配置换代后旧结果也算过期：延迟对应的是另一份节点表。
     private bool IsStaleSingleDelayResult(
