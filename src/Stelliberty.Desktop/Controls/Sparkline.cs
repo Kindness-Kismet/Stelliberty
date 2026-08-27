@@ -7,13 +7,12 @@ using Avalonia.Threading;
 
 namespace Stelliberty.Desktop.Controls;
 
-// 端点与曲线由同一进度逐帧计算，端点始终落在末段路径上。
+// 曲线按进度逐帧滚动或形变，末段在可视右边界处精确截断。
 public sealed class Sparkline : Control
 {
     private const double CurveTension = 1d / 6d;
     private const double AxisShrinkThreshold = 0.55d;
     private const double AxisFloor = 64 * 1024d;
-    private const double EndPointBorderThickness = 2d;
     private const int AnimationFramesPerSecond = 30;
     // 渲染中断（隐藏到托盘、切页）后序列跳多格，形变追赶代替瞬移；滚动多格会变成飞掠。
     private static readonly TimeSpan MorphDuration = TimeSpan.FromMilliseconds(320);
@@ -30,9 +29,6 @@ public sealed class Sparkline : Control
 
     public static readonly StyledProperty<double> StrokeThicknessProperty =
         AvaloniaProperty.Register<Sparkline, double>(nameof(StrokeThickness), 2d);
-
-    public static readonly StyledProperty<bool> ShowEndPointProperty =
-        AvaloniaProperty.Register<Sparkline, bool>(nameof(ShowEndPoint));
 
     // 标称推送间隔，只作播放时长的基准与上下限；实际时长按实测到达间隔自适应。
     public static readonly StyledProperty<TimeSpan> SampleIntervalProperty =
@@ -52,7 +48,7 @@ public sealed class Sparkline : Control
     private long _animationStartedAt;
     private TimeSpan _measuredInterval;
     private long _lastSeriesAt;
-    private double _lastCurveWidth = double.NaN;
+    private double _lastWidth = double.NaN;
     private double _lastHeight = double.NaN;
     private double _lastBottom = double.NaN;
     private bool _isVisualDirty = true;
@@ -63,7 +59,7 @@ public sealed class Sparkline : Control
 
     static Sparkline()
     {
-        AffectsRender<Sparkline>(ValuesProperty, StrokeProperty, FillProperty, StrokeThicknessProperty, ShowEndPointProperty, SampleIntervalProperty);
+        AffectsRender<Sparkline>(ValuesProperty, StrokeProperty, FillProperty, StrokeThicknessProperty, SampleIntervalProperty);
     }
 
     public Sparkline()
@@ -96,12 +92,6 @@ public sealed class Sparkline : Control
         set => SetValue(StrokeThicknessProperty, value);
     }
 
-    public bool ShowEndPoint
-    {
-        get => GetValue(ShowEndPointProperty);
-        set => SetValue(ShowEndPointProperty, value);
-    }
-
     public TimeSpan SampleInterval
     {
         get => GetValue(SampleIntervalProperty);
@@ -119,8 +109,7 @@ public sealed class Sparkline : Control
 
         if (change.Property == StrokeProperty
             || change.Property == FillProperty
-            || change.Property == StrokeThicknessProperty
-            || change.Property == ShowEndPointProperty)
+            || change.Property == StrokeThicknessProperty)
         {
             _isVisualDirty = true;
         }
@@ -142,36 +131,31 @@ public sealed class Sparkline : Control
         var currentValues = Values;
         var width = Bounds.Width;
         var height = Bounds.Height;
-        var dotRadius = Math.Max(3.5, StrokeThickness * 1.9);
-        var pad = ShowEndPoint
-            ? Math.Max(StrokeThickness, dotRadius + EndPointBorderThickness * 0.5)
-            : StrokeThickness;
-        var rightPad = ShowEndPoint ? dotRadius + EndPointBorderThickness : 0;
-        var curveWidth = width - rightPad;
-        if (currentValues is null || currentValues.Count < 2 || curveWidth <= 0 || height <= pad * 2)
+        var pad = StrokeThickness;
+        if (currentValues is null || currentValues.Count < 2 || width <= 0 || height <= pad * 2)
         {
             return;
         }
 
         var bottom = height - pad;
-        var layoutChanged = Math.Abs(_lastCurveWidth - curveWidth) > 0.01d
+        var layoutChanged = Math.Abs(_lastWidth - width) > 0.01d
             || Math.Abs(_lastHeight - height) > 0.01d
             || Math.Abs(_lastBottom - bottom) > 0.01d;
         var seriesChanged = _drawnRevision != _seriesRevision;
         if (layoutChanged || _isVisualDirty || _drawnValues is null || _previousValues is null)
         {
-            SetStaticSeries(currentValues, curveWidth, height, bottom);
+            SetStaticSeries(currentValues, width, height, bottom);
         }
         else if (seriesChanged)
         {
             // 形变未播完时继续形变，切回滚动会二次跳变。
             if (_morphFrom is null && CanScrollTransition(_previousValues, currentValues))
             {
-                SetScrollSeries(currentValues, curveWidth, height, bottom);
+                SetScrollSeries(currentValues, width, height, bottom);
             }
             else
             {
-                SetMorphSeries(currentValues, curveWidth, height, bottom);
+                SetMorphSeries(currentValues, width, height, bottom);
             }
         }
 
@@ -181,7 +165,7 @@ public sealed class Sparkline : Control
             return;
         }
 
-        var stepX = curveWidth / (currentValues.Count - 1);
+        var stepX = width / (currentValues.Count - 1);
         var isScrolling = values.Count == currentValues.Count + 1;
         var offsetX = isScrolling ? -stepX * _progress : 0;
         if (_morphFrom is { } morphFrom)
@@ -190,26 +174,16 @@ public sealed class Sparkline : Control
         }
 
         var points = BuildPoints(values, stepX, offsetX, bottom, (bottom - pad) / _axisMax);
-        var visibleEnd = ResolveVisibleEnd(points, curveWidth, height);
+        var visibleEnd = ResolveVisibleEnd(points, width, height);
 
-        using (context.PushClip(new Rect(0, 0, curveWidth, height)))
+        using (context.PushClip(new Rect(0, 0, width, height)))
         {
             DrawFill(context, points, bottom, height, visibleEnd);
             DrawLine(context, points, height, visibleEnd);
         }
-
-        if (ShowEndPoint && Stroke is { } stroke)
-        {
-            context.DrawEllipse(
-                stroke,
-                new Pen(Brushes.White, EndPointBorderThickness),
-                visibleEnd.Point,
-                dotRadius,
-                dotRadius);
-        }
     }
 
-    private void SetStaticSeries(IReadOnlyList<double> values, double curveWidth, double height, double bottom)
+    private void SetStaticSeries(IReadOnlyList<double> values, double width, double height, double bottom)
     {
         StopAnimation();
         // 两个字段只读不改写，共享同一份快照。
@@ -218,30 +192,30 @@ public sealed class Sparkline : Control
         _previousValues = snapshot;
         _drawnRevision = _seriesRevision;
         UpdateAxis(_drawnValues);
-        _lastCurveWidth = curveWidth;
+        _lastWidth = width;
         _lastHeight = height;
         _lastBottom = bottom;
         _isVisualDirty = false;
     }
 
-    private void SetScrollSeries(IReadOnlyList<double> currentValues, double curveWidth, double height, double bottom)
+    private void SetScrollSeries(IReadOnlyList<double> currentValues, double width, double height, double bottom)
     {
         _drawnValues = AppendNewValue(_previousValues!, currentValues[^1]);
         _previousValues = CopyValues(currentValues);
         _drawnRevision = _seriesRevision;
         UpdateAxis(_drawnValues);
-        _lastCurveWidth = curveWidth;
+        _lastWidth = width;
         _lastHeight = height;
         _lastBottom = bottom;
         _isVisualDirty = false;
         StartAnimation();
     }
 
-    private void SetMorphSeries(IReadOnlyList<double> currentValues, double curveWidth, double height, double bottom)
+    private void SetMorphSeries(IReadOnlyList<double> currentValues, double width, double height, double bottom)
     {
         if (ResolveMorphOrigin(currentValues.Count) is not { } origin)
         {
-            SetStaticSeries(currentValues, curveWidth, height, bottom);
+            SetStaticSeries(currentValues, width, height, bottom);
             return;
         }
 
@@ -252,7 +226,7 @@ public sealed class Sparkline : Control
         _drawnRevision = _seriesRevision;
         // 轴要同时容纳起点与目标，否则形变途中峰值被裁。
         UpdateAxis(snapshot, Peak(origin));
-        _lastCurveWidth = curveWidth;
+        _lastWidth = width;
         _lastHeight = height;
         _lastBottom = bottom;
         _isVisualDirty = false;
@@ -422,7 +396,7 @@ public sealed class Sparkline : Control
             line);
     }
 
-    // 路径按圆点中心截断，不能依赖裁剪矩形处理最后一段的抗锯齿边缘。
+    // 路径按可视右边界精确截断，不能依赖裁剪矩形处理最后一段的抗锯齿边缘。
     private static VisibleEnd ResolveVisibleEnd(IReadOnlyList<Point> points, double endX, double height)
     {
         for (var i = 0; i < points.Count - 1; i++)
