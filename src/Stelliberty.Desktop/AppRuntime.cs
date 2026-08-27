@@ -2,7 +2,6 @@ using System.Reflection;
 using Avalonia;
 using Avalonia.Media;
 #if DEBUG
-using Avalonia.Logging;
 using HotAvalonia;
 #endif
 using Stelliberty.Application.Diagnostics;
@@ -46,12 +45,7 @@ internal static class AppRuntime
             .UsePlatformDetect()
             .With(CreateFontManagerOptions());
 
-#if DEBUG
-        // HotAvalonia 只写 Avalonia 日志通道，接入应用日志后才能定位监听与重编译失败。
-        builder = builder.LogToDelegate(AppLogger.Debug, LogEventLevel.Information, nameof(HotAvalonia));
-#else
         builder = builder.LogToTrace();
-#endif
 
         if (OperatingSystem.IsLinux())
         {

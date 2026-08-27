@@ -10,6 +10,12 @@ public sealed class ResilientProxyConfigLoader
     private static readonly TimeSpan PrimaryReloadRetryDelay = TimeSpan.FromMilliseconds(250);
     private const int PrimaryReloadMaxAttempts = 20;
 
+    private volatile bool _isDegraded;
+    private int _suppressedFailureCount;
+
+    // 核心实时 API 持续不可用；调用方据此退避轮询。
+    public bool IsDegraded => _isDegraded;
+
     public async Task<ProxyConfig> LoadAsync(
         IProxyConfigProvider primary,
         IProxyConfigProvider? fallback,
@@ -22,19 +28,25 @@ public sealed class ResilientProxyConfigLoader
                 using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 timeout.CancelAfter(PrimaryLoadTimeout);
                 var config = await primary.LoadAsync(timeout.Token);
-                if (HasRuntimeProxyEntries(config) || fallback is null || attempt == PrimaryReloadMaxAttempts)
+                if (HasRuntimeProxyEntries(config))
+                {
+                    ReportRecovered();
+                    return config;
+                }
+
+                if (fallback is null || attempt == PrimaryReloadMaxAttempts)
                 {
                     return config;
                 }
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                AppLogger.Warning("Core proxy list load timed out");
+                ReportDegraded("Core proxy list load timed out");
                 break;
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                AppLogger.Warning($"Core proxy list load failed: {exception.Message}");
+                ReportDegraded($"Core proxy list load failed: {exception.Message}");
                 break;
             }
 
@@ -54,6 +66,32 @@ public sealed class ResilientProxyConfigLoader
         }
 
         return new ProxyConfig([], new Dictionary<string, ProxyNode>());
+    }
+
+    // 核心离线期间同一条消息会按轮询周期无限重复，只记首条并统计抑制量。
+    private void ReportDegraded(string message)
+    {
+        if (_isDegraded)
+        {
+            _suppressedFailureCount++;
+            return;
+        }
+
+        _isDegraded = true;
+        _suppressedFailureCount = 0;
+        AppLogger.Warning(message);
+    }
+
+    private void ReportRecovered()
+    {
+        if (!_isDegraded)
+        {
+            return;
+        }
+
+        _isDegraded = false;
+        AppLogger.Info($"Core proxy list load recovered: suppressed={_suppressedFailureCount}");
+        _suppressedFailureCount = 0;
     }
 
     private static bool HasRuntimeProxyEntries(ProxyConfig config)

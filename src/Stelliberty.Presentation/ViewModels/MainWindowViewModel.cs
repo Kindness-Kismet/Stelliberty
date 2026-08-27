@@ -58,6 +58,8 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private static readonly TimeSpan ToastCloseDuration = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan CoreLogFlushDelay = TimeSpan.FromMilliseconds(700);
     private static readonly TimeSpan ProxySelectionSyncInterval = TimeSpan.FromSeconds(2);
+    // 核心离线时每 2 秒重试只会打满日志与 IO，退到低频探活。
+    private static readonly TimeSpan ProxySelectionSyncDegradedInterval = TimeSpan.FromSeconds(15);
 
     public MainWindowViewModel(
         IAppSettingsStore settingsStore,

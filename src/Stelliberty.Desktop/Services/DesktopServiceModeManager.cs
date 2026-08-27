@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.Versioning;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Win32;
@@ -494,6 +495,9 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             RedirectStandardError = true,
             RedirectStandardInput = command == "start-core",
             CreateNoWindow = true,
+            // 服务端输出 UTF-8；Windows 默认按 ANSI 解码会把中文系统错误变成乱码。
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
         };
         info.ArgumentList.Add(command);
         return Process.Start(info);

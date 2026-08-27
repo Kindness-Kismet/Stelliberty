@@ -66,17 +66,18 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
     private long _downloadTotal;
     private int _activeConnectionCount;
 
-    private double _speedAxisMax;
-
-    private const int SpeedHistoryCapacity = 60;
+    // 30 个采样间隔构成 30 秒可见窗口，故需 31 个点
+    private const int SpeedHistoryCapacity = 31;
     private readonly Queue<double> _uploadSpeedHistory = new();
     private readonly Queue<double> _downloadSpeedHistory = new();
+    private bool _isSpeedChartLive = true;
 
     private readonly TrafficRateTracker _trafficTracker = new();
     private bool _isCoreRestarting;
     private bool _isCoreUpdating;
     private bool _isServiceModeBusy;
     private bool _isRefreshingServiceMode;
+    private long _runtimeRefreshVersion;
     private bool _isDisposed;
     private ServiceModeStatus _serviceModeStatus = ServiceModeStatus.Unavailable(string.Empty);
     private DateTimeOffset? _lastServiceModeProbe;
@@ -205,9 +206,9 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         {
             _uptime = now >= since ? now - since : TimeSpan.Zero;
         }
-        else if (!isRunning)
+        else if (!isRunning && _isCoreRunning)
         {
-            // 核心停止只重置运行统计；系统代理有独立生命周期。
+            // 仅在运行转为停止时清空；初始与重复的停止状态不能打断图表采样。
             _coreRunningSince = null;
             _uptime = TimeSpan.Zero;
 
@@ -218,7 +219,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             _downloadTotal = 0;
             _memoryValueText = null;
             _activeConnectionCount = 0;
-            _speedAxisMax = 0;
             SeedZeroHistory();
         }
 
@@ -353,11 +353,12 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     public string ActiveConnectionsValueText => _activeConnectionCount.ToString();
 
-    public double SpeedAxisMax => _speedAxisMax;
-
     public IReadOnlyList<double> UploadSamples { get; private set; } = Array.Empty<double>();
 
     public IReadOnlyList<double> DownloadSamples { get; private set; } = Array.Empty<double>();
+
+    // 曲线离开视野（窗口隐藏、切页）时冻结采样，回来后从离开位置接着走。
+    public void SetSpeedChartLive(bool isLive) => _isSpeedChartLive = isLive;
 
     public bool IsCoreRestarting => _isCoreRestarting;
 
@@ -397,6 +398,12 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     public void ApplyNetworkConnection(NetworkConnectionInfo info)
     {
+        // Post 投递后可能已销毁，销毁后不得再写状态。
+        if (_isDisposed)
+        {
+            return;
+        }
+
         _networkType = info.Type;
         _networkName = info.Name;
         RaiseHomeStateChanged();
@@ -441,15 +448,22 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
         var cancellationToken = _refreshCancellation.Token;
         var snapshotLoader = new CoreRuntimeSnapshotLoader(_proxyClient);
+        // 快照耗时常超过轮询周期，只应用最后发起的一次，避免总量倒退。
+        var refreshVersion = Interlocked.Increment(ref _runtimeRefreshVersion);
         _ = Task.Run(async () =>
         {
             try
             {
                 var snapshot = await snapshotLoader.LoadAsync(includeVersion: _shouldRefreshCoreVersion, cancellationToken);
-                if (snapshot is not null && !cancellationToken.IsCancellationRequested)
+                if (snapshot is not null
+                    && !cancellationToken.IsCancellationRequested
+                    && refreshVersion == Volatile.Read(ref _runtimeRefreshVersion))
                 {
                     Post(() => ApplyRuntime(snapshot.Stats, snapshot.Mode, snapshot.Version, snapshot.ConnectionCount));
                 }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
             }
             catch (Exception exception)
             {
@@ -527,6 +541,12 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
     private void ApplyRuntime(CoreRuntimeStats? stats, OutboundMode? mode, string? version, int? connectionCount)
     {
+        // 取消检查与 Post 投递之间存在窗口，销毁后不得再写状态。
+        if (_isDisposed)
+        {
+            return;
+        }
+
         if (stats is not null)
         {
             var sample = _trafficTracker.Update(stats.UploadTotal, stats.DownloadTotal, _now());
@@ -535,11 +555,13 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
             _uploadTotal = sample.UploadTotal;
             _downloadTotal = sample.DownloadTotal;
             _memoryValueText = ByteSize.Format(stats.Memory);
-            PushSpeedSample(_uploadSpeedHistory, _uploadSpeed);
-            PushSpeedSample(_downloadSpeedHistory, _downloadSpeed);
-            UploadSamples = _uploadSpeedHistory.ToArray();
-            DownloadSamples = _downloadSpeedHistory.ToArray();
-            _speedAxisMax = ComputeAxisMax(_uploadSpeedHistory, _downloadSpeedHistory);
+            if (_isSpeedChartLive)
+            {
+                PushSpeedSample(_uploadSpeedHistory, _uploadSpeed);
+                PushSpeedSample(_downloadSpeedHistory, _downloadSpeed);
+                UploadSamples = _uploadSpeedHistory.ToArray();
+                DownloadSamples = _downloadSpeedHistory.ToArray();
+            }
         }
 
         if (mode is { } coreMode)
@@ -1088,7 +1110,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         _downloadSpeed = 0;
         _uploadTotal = 0;
         _downloadTotal = 0;
-        _speedAxisMax = 0;
         // 重置回到首次进入时使用的零基线。
         SeedZeroHistory();
         RaiseHomeStateChanged();
@@ -1181,7 +1202,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ActiveConnectionsValueText));
         OnPropertyChanged(nameof(UploadSamples));
         OnPropertyChanged(nameof(DownloadSamples));
-        OnPropertyChanged(nameof(SpeedAxisMax));
         OnPropertyChanged(nameof(IsCoreRestarting));
         OnPropertyChanged(nameof(CanRestartCore));
         OnPropertyChanged(nameof(IsCoreUpdating));
@@ -1227,20 +1247,6 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
 
         UploadSamples = _uploadSpeedHistory.ToArray();
         DownloadSamples = _downloadSpeedHistory.ToArray();
-    }
-
-    private static double ComputeAxisMax(Queue<double> upload, Queue<double> download)
-    {
-        var max = 0d;
-        foreach (var value in upload)
-        {
-            if (value > max) max = value;
-        }
-        foreach (var value in download)
-        {
-            if (value > max) max = value;
-        }
-        return max;
     }
 
     public void Dispose()

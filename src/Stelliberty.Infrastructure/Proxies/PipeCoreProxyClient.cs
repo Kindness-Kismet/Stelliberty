@@ -20,9 +20,15 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
     };
 
     private readonly HttpClient _client;
+    private readonly CancellationTokenSource _streamCancellation = new();
+    private int _isStreamStarted;
 
     // /memory 常从 0 开始；保留最后一个非零值以稳定界面。
     private long _lastMemoryInuse;
+    private long _trafficUpload;
+    private long _trafficDownload;
+    // 0 表示 /traffic 订阅还没拿到数据。
+    private long _trafficStampMs;
 
     public PipeCoreProxyClient(HttpClient client)
     {
@@ -36,6 +42,8 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
 
     public void Dispose()
     {
+        // 只取消不释放：订阅任务可能仍在 token 上等待。
+        _streamCancellation.Cancel();
         _client.Dispose();
     }
 
@@ -312,6 +320,7 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
 
     public async Task<CoreRuntimeStats?> GetRuntimeStatsAsync(CancellationToken cancellationToken = default)
     {
+        EnsureStreamSubscriptions();
         try
         {
             long uploadTotal;
@@ -333,16 +342,7 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
                     : 0;
             }
 
-            var trafficTask = GetTrafficAsync(cancellationToken);
-            var memoryTask = ReadMemoryInuseAsync(cancellationToken);
-            await Task.WhenAll(trafficTask, memoryTask);
-            var traffic = await trafficTask;
-            var memory = await memoryTask;
-            if (memory > 0)
-            {
-                Interlocked.Exchange(ref _lastMemoryInuse, memory);
-            }
-
+            var traffic = ReadCachedTraffic();
             return new CoreRuntimeStats(
                 traffic?.UploadSpeed ?? 0,
                 traffic?.DownloadSpeed ?? 0,
@@ -363,101 +363,106 @@ public sealed class PipeCoreProxyClient : IProxyCoreClient, IDisposable
         }
     }
 
-    public async Task<CoreTrafficRate?> GetTrafficAsync(CancellationToken cancellationToken = default)
+    // 速率取订阅缓存：/traffic 每秒推一行，逐次新建连接会平白等满一个推送周期。
+    public Task<CoreTrafficRate?> GetTrafficAsync(CancellationToken cancellationToken = default)
     {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(3));
-        try
+        EnsureStreamSubscriptions();
+        return Task.FromResult(ReadCachedTraffic());
+    }
+
+    private CoreTrafficRate? ReadCachedTraffic()
+    {
+        var stamp = Interlocked.Read(ref _trafficStampMs);
+        // 超过两个推送周期没有新行即视为失效，交由调用方改用总量差值。
+        if (stamp == 0 || Environment.TickCount64 - stamp > 2500)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "traffic");
-            using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
+            return null;
+        }
 
-            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
-            using var reader = new StreamReader(stream);
-            string? line;
-            while ((line = await reader.ReadLineAsync(timeout.Token)) is not null)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
+        return new CoreTrafficRate(
+            Interlocked.Read(ref _trafficUpload),
+            Interlocked.Read(ref _trafficDownload));
+    }
 
-                try
+    private void EnsureStreamSubscriptions()
+    {
+        if (Interlocked.CompareExchange(ref _isStreamStarted, 1, 0) != 0)
+        {
+            return;
+        }
+
+        var cancellationToken = _streamCancellation.Token;
+        _ = Task.Run(() => SubscribeStreamAsync("traffic", ApplyTrafficLine, cancellationToken), cancellationToken);
+        _ = Task.Run(() => SubscribeStreamAsync("memory", ApplyMemoryLine, cancellationToken), cancellationToken);
+    }
+
+    // 核心停止或重启会断开流；退避重连，不能忙等。
+    private async Task SubscribeStreamAsync(string path, Action<JsonElement> apply, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, path);
+                using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                if (response.IsSuccessStatusCode)
                 {
-                    using var doc = JsonDocument.Parse(line);
-                    var root = doc.RootElement;
-                    if (TryReadLong(root, "up", out var uploadSpeed) && TryReadLong(root, "down", out var downloadSpeed))
+                    await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                    using var reader = new StreamReader(stream);
+                    string? line;
+                    while ((line = await reader.ReadLineAsync(cancellationToken)) is not null)
                     {
-                        return new CoreTrafficRate(uploadSpeed, downloadSpeed);
+                        if (string.IsNullOrWhiteSpace(line))
+                        {
+                            continue;
+                        }
+
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(line);
+                            apply(doc.RootElement);
+                        }
+                        catch (JsonException)
+                        {
+                        }
                     }
                 }
-                catch (JsonException)
-                {
-                }
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or ObjectDisposedException)
+            {
+                AppLogger.Debug($"Core {path} stream ended: {ex.Message}");
             }
 
-            return null;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException or OperationCanceledException)
-        {
-            AppLogger.Warning($"Core traffic read failed: {ex.Message}");
-            return null;
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
     }
 
-    private async Task<long> ReadMemoryInuseAsync(CancellationToken cancellationToken)
+    private void ApplyTrafficLine(JsonElement root)
     {
-        // /memory 按行流式返回；遇到首个非零 inuse 或超时即停止。
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeout.CancelAfter(TimeSpan.FromSeconds(4));
-        try
+        if (TryReadLong(root, "up", out var uploadSpeed) && TryReadLong(root, "down", out var downloadSpeed))
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, "memory");
-            using var response = await _client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            if (!response.IsSuccessStatusCode)
-            {
-                return 0;
-            }
-            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
-            using var reader = new StreamReader(stream);
-            string? line;
-            while ((line = await reader.ReadLineAsync(timeout.Token)) is not null)
-            {
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-                try
-                {
-                    using var doc = JsonDocument.Parse(line);
-                    var inuse = ReadLong(doc.RootElement, "inuse");
-                    if (inuse > 0)
-                    {
-                        return inuse;
-                    }
-                }
-                catch (JsonException)
-                {
-                }
-            }
+            Interlocked.Exchange(ref _trafficUpload, uploadSpeed);
+            Interlocked.Exchange(ref _trafficDownload, downloadSpeed);
+            Interlocked.Exchange(ref _trafficStampMs, Environment.TickCount64);
+        }
+    }
 
-            return 0;
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    private void ApplyMemoryLine(JsonElement root)
+    {
+        if (TryReadLong(root, "inuse", out var inuse) && inuse > 0)
         {
-            throw;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or IOException or OperationCanceledException)
-        {
-            return 0;
+            Interlocked.Exchange(ref _lastMemoryInuse, inuse);
         }
     }
 
