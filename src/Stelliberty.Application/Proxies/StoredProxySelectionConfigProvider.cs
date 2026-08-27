@@ -8,8 +8,7 @@ public sealed class StoredProxySelectionConfigProvider(
     IProxySelectionStore selectionStore,
     ISubscriptionSelectionStore subscriptionSelectionStore,
     ProxySelectionSyncState? syncState = null,
-    bool importCoreSelections = false,
-    bool pruneInvalidSelections = true) : IProxyConfigProvider, IProxyRuntimeSnapshotSource
+    bool importCoreSelections = false) : IProxyConfigProvider, IProxyRuntimeSnapshotSource
 {
     public ProxyRuntimeSnapshot? LastSnapshot => (inner as IProxyRuntimeSnapshotSource)?.LastSnapshot;
 
@@ -25,28 +24,13 @@ public sealed class StoredProxySelectionConfigProvider(
         var selections = new Dictionary<string, string>(
             selectionStore.GetSelections(subscriptionId),
             StringComparer.Ordinal);
-        if (pruneInvalidSelections && config.Groups.Count > 0)
-        {
-            RemoveInvalidStoredSelections(config, selections, subscriptionId);
-        }
-
-        if (importCoreSelections && syncState?.CanImportCoreSelections == true)
+        // 导入会删除核心侧查不到的固定选择，过渡期快照会误删用户实际有效的选择。
+        if (importCoreSelections && syncState?.CanImportCoreSelections == true && config.IsFullyResolved)
         {
             ImportCoreSelections(config, selections, subscriptionId);
         }
 
         return ApplyStoredSelections(config, selections);
-    }
-
-    public ProxyConfig ApplyStoredSelections(ProxyConfig config)
-    {
-        var subscriptionId = subscriptionSelectionStore.GetCurrentSubscriptionId();
-        if (string.IsNullOrWhiteSpace(subscriptionId))
-        {
-            return config;
-        }
-
-        return ApplyStoredSelections(config, subscriptionId);
     }
 
     public ProxyConfig ApplyStoredSelections(ProxyConfig config, string subscriptionId)
@@ -56,20 +40,10 @@ public sealed class StoredProxySelectionConfigProvider(
             selectionStore.GetSelections(subscriptionId));
     }
 
-    public void PruneInvalidStoredSelections(ProxyConfig config)
-    {
-        var subscriptionId = subscriptionSelectionStore.GetCurrentSubscriptionId();
-        if (string.IsNullOrWhiteSpace(subscriptionId) || config.Groups.Count == 0)
-        {
-            return;
-        }
-
-        PruneInvalidStoredSelections(config, subscriptionId);
-    }
-
     public void PruneInvalidStoredSelections(ProxyConfig config, string subscriptionId)
     {
-        if (config.Groups.Count == 0)
+        // 快照不完整时无法区分“节点已删除”和“候选项还没解析出来”。
+        if (!config.IsFullyResolved)
         {
             return;
         }

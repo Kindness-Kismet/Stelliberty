@@ -13,6 +13,28 @@ public sealed record ProxyConfig(
         _ => Groups.Where(g => !g.IsHidden && !IsGlobal(g)).ToList(),
     };
 
+    // 所有可选组的候选项都已解析；核心切换过渡期会返回缺条目的快照，据此才能安全清理已存选择。
+    public bool IsFullyResolved
+    {
+        get
+        {
+            if (Groups.Count == 0)
+            {
+                return false;
+            }
+
+            var entryNames = new HashSet<string>(Nodes.Keys, StringComparer.Ordinal);
+            foreach (var group in Groups)
+            {
+                entryNames.Add(group.Name);
+            }
+
+            return Groups
+                .Where(group => group.IsManualSelectable)
+                .All(group => group.All.Count > 0 && group.All.All(entryNames.Contains));
+        }
+    }
+
     private IReadOnlyList<ProxyGroup> GlobalVisibleGroups()
     {
         var global = Groups.FirstOrDefault(IsGlobal);

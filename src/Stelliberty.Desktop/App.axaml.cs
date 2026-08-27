@@ -247,13 +247,11 @@ public sealed partial class App : Avalonia.Application
                 proxySelectionStore,
                 subscriptionSelectionStore,
                 proxySelectionSyncState,
-                importCoreSelections: true,
-                pruneInvalidSelections: false);
+                importCoreSelections: true);
             var fallbackProxyConfigProvider = new StoredProxySelectionConfigProvider(
                 fileRuntimeProxyConfigProvider,
                 proxySelectionStore,
-                subscriptionSelectionStore,
-                pruneInvalidSelections: false);
+                subscriptionSelectionStore);
             var proxySelectionRestorer = new ProxySelectionRestorer(
                 coreClient: proxyCoreClient,
                 coreConfigProvider: mihomoApiProxyConfigProvider,

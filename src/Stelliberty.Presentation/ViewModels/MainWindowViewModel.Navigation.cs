@@ -116,7 +116,10 @@ public sealed partial class MainWindowViewModel
             await RunProxySelectionSyncOnceAsync(cancellation.Token);
             while (!cancellation.IsCancellationRequested)
             {
-                await Task.Delay(ProxySelectionSyncInterval, cancellation.Token);
+                var interval = ProxyPage.IsRuntimeConfigDegraded
+                    ? ProxySelectionSyncDegradedInterval
+                    : ProxySelectionSyncInterval;
+                await Task.Delay(interval, cancellation.Token);
                 await RunProxySelectionSyncOnceAsync(cancellation.Token);
             }
         }

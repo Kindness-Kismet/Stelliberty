@@ -462,6 +462,9 @@ public sealed class HomePageViewModel : ViewModelBase, IDisposable
                     Post(() => ApplyRuntime(snapshot.Stats, snapshot.Mode, snapshot.Version, snapshot.ConnectionCount));
                 }
             }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
             catch (Exception exception)
             {
                 // 单次刷新失败不能覆盖当前运行状态。

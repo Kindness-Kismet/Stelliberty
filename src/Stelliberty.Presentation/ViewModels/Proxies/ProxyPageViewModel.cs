@@ -446,6 +446,9 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         LoadConfig(await _resilientLoader.LoadAsync(primary, fallback, cancellationToken));
     }
 
+    // 核心实时 API 不可用；外部选择同步循环据此退避。
+    public bool IsRuntimeConfigDegraded => _resilientLoader.IsDegraded;
+
     public async Task SyncExternalSelectionsAsync(CancellationToken cancellationToken = default)
     {
         if (!_isPresentationActive

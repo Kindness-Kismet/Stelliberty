@@ -164,7 +164,7 @@ public sealed class ProxySelectionRestorer(
             var config = await coreConfigProvider.LoadAsync(cancellationToken);
             latest = config;
 
-            if (IsReady(config)
+            if (config.IsFullyResolved
                 && MatchesExpectedConfig(expectedConfig, config)
                 && IsSameGroupSnapshot(previous, config))
             {
@@ -204,24 +204,6 @@ public sealed class ProxySelectionRestorer(
             string.Equals(pair.First.Name, pair.Second.Name, StringComparison.Ordinal)
             && string.Equals(pair.First.Type, pair.Second.Type, StringComparison.Ordinal)
             && pair.First.All.SequenceEqual(pair.Second.All, StringComparer.Ordinal));
-    }
-
-    private static bool IsReady(ProxyConfig config)
-    {
-        if (config.Groups.Count == 0)
-        {
-            return false;
-        }
-
-        var entryNames = new HashSet<string>(config.Nodes.Keys, StringComparer.Ordinal);
-        foreach (var group in config.Groups)
-        {
-            entryNames.Add(group.Name);
-        }
-
-        return config.Groups
-            .Where(group => group.IsManualSelectable)
-            .All(group => group.All.Count > 0 && group.All.All(entryNames.Contains));
     }
 
     private static bool MatchesExpectedConfig(ProxyConfig expected, ProxyConfig actual)

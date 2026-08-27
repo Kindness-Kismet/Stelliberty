@@ -8,6 +8,8 @@ namespace Stelliberty.Infrastructure.Proxies;
 public sealed class FileProxySelectionStore(string rootDirectory) : IProxySelectionStore
 {
     private readonly string _statePath = Path.Combine(rootDirectory, "proxies", "selection_state.json");
+    // 读改写必须串行：并发会丢更新，也会撞同一个原子替换临时文件。
+    private readonly object _syncRoot = new();
 
     public IReadOnlyDictionary<string, string> GetSelections(string subscriptionId)
     {
@@ -16,10 +18,13 @@ public sealed class FileProxySelectionStore(string rootDirectory) : IProxySelect
             return new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
-        var state = ReadState();
-        return state.Subscriptions.TryGetValue(subscriptionId, out var selections)
-            ? new Dictionary<string, string>(selections, StringComparer.Ordinal)
-            : new Dictionary<string, string>(StringComparer.Ordinal);
+        lock (_syncRoot)
+        {
+            var state = ReadState();
+            return state.Subscriptions.TryGetValue(subscriptionId, out var selections)
+                ? new Dictionary<string, string>(selections, StringComparer.Ordinal)
+                : new Dictionary<string, string>(StringComparer.Ordinal);
+        }
     }
 
     public void SetSelection(string subscriptionId, string groupName, string proxyName)
@@ -31,15 +36,19 @@ public sealed class FileProxySelectionStore(string rootDirectory) : IProxySelect
             return;
         }
 
-        var state = ReadState();
-        if (!state.Subscriptions.TryGetValue(subscriptionId, out var selections))
+        lock (_syncRoot)
         {
-            selections = new Dictionary<string, string>(StringComparer.Ordinal);
-            state.Subscriptions[subscriptionId] = selections;
+            var state = ReadState();
+            if (!state.Subscriptions.TryGetValue(subscriptionId, out var selections))
+            {
+                selections = new Dictionary<string, string>(StringComparer.Ordinal);
+                state.Subscriptions[subscriptionId] = selections;
+            }
+
+            selections[groupName] = proxyName;
+            WriteState(state);
         }
 
-        selections[groupName] = proxyName;
-        WriteState(state);
         AppLogger.Info($"Proxy selection saved: subscription={subscriptionId} group={groupName} proxy={proxyName}");
     }
 
@@ -50,19 +59,23 @@ public sealed class FileProxySelectionStore(string rootDirectory) : IProxySelect
             return;
         }
 
-        var state = ReadState();
-        if (!state.Subscriptions.TryGetValue(subscriptionId, out var selections)
-            || !selections.Remove(groupName))
+        lock (_syncRoot)
         {
-            return;
+            var state = ReadState();
+            if (!state.Subscriptions.TryGetValue(subscriptionId, out var selections)
+                || !selections.Remove(groupName))
+            {
+                return;
+            }
+
+            if (selections.Count == 0)
+            {
+                state.Subscriptions.Remove(subscriptionId);
+            }
+
+            WriteState(state);
         }
 
-        if (selections.Count == 0)
-        {
-            state.Subscriptions.Remove(subscriptionId);
-        }
-
-        WriteState(state);
         AppLogger.Info($"Proxy selection deleted: subscription={subscriptionId} group={groupName}");
     }
 
@@ -81,7 +94,7 @@ public sealed class FileProxySelectionStore(string rootDirectory) : IProxySelect
         {
             WriteIndented = true
         });
-        File.WriteAllText(_statePath, json);
+        AtomicFile.WriteAllText(_statePath, json);
     }
 
     private sealed record SelectionState(Dictionary<string, Dictionary<string, string>> Subscriptions);
