@@ -49,8 +49,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     private int _locateNodeRequestId;
     private ProxyChangeRequest? _lastChangeRequest;
     private CancellationTokenSource? _batchDelayTestCancellation;
-    private CancellationTokenSource? _singleDelayTestCancellation;
-    private string? _singleDelayTestingNodeName;
+    // 每个单测节点持有独立令牌，多个节点可同时测试而互不取消。
+    private readonly Dictionary<string, CancellationTokenSource> _singleDelayTests = new(StringComparer.Ordinal);
     private readonly HashSet<string> _batchDelayTargetNodeNames = new(StringComparer.Ordinal);
     private readonly HashSet<string> _batchDelayTestingNodeNames = new(StringComparer.Ordinal);
     private readonly Dictionary<string, int> _batchDelayResults = new(StringComparer.Ordinal);
@@ -849,9 +849,12 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     {
         _batchDelayTestCancellation?.Cancel();
         _batchDelayTestCancellation = null;
-        _singleDelayTestCancellation?.Cancel();
-        _singleDelayTestCancellation = null;
-        _singleDelayTestingNodeName = null;
+        foreach (var cancellation in _singleDelayTests.Values)
+        {
+            cancellation.Cancel();
+        }
+
+        _singleDelayTests.Clear();
         _batchDelayTargetNodeNames.Clear();
         _batchDelayTestingNodeNames.Clear();
         _batchDelayResults.Clear();
@@ -1227,10 +1230,14 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     private CancellationTokenSource BeginSingleDelayTest(string nodeName)
     {
-        _singleDelayTestCancellation?.Cancel();
+        // 只有同一节点被重复点击才取消它上一次的测试。
+        if (_singleDelayTests.Remove(nodeName, out var previous))
+        {
+            previous.Cancel();
+        }
+
         var cancellation = new CancellationTokenSource();
-        _singleDelayTestCancellation = cancellation;
-        _singleDelayTestingNodeName = nodeName;
+        _singleDelayTests[nodeName] = cancellation;
         RefreshDelayTestingState();
         RaiseProxyStateChanged();
         return cancellation;
@@ -1250,12 +1257,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         return cancellation;
     }
 
-    private IReadOnlyList<string> ActiveSingleDelayTestNames()
-    {
-        return _singleDelayTestingNodeName is null
-            ? []
-            : [_singleDelayTestingNodeName];
-    }
+    private IReadOnlyList<string> ActiveSingleDelayTestNames() => [.. _singleDelayTests.Keys];
 
     private bool IsStaleSingleDelayResult(
         string nodeName,
@@ -1263,8 +1265,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         int configVersion)
     {
         return cancellation.IsCancellationRequested
-            || !ReferenceEquals(_singleDelayTestCancellation, cancellation)
-            || !string.Equals(_singleDelayTestingNodeName, nodeName, StringComparison.Ordinal)
+            || !_singleDelayTests.TryGetValue(nodeName, out var current)
+            || !ReferenceEquals(current, cancellation)
             || _configVersion != configVersion;
     }
 
@@ -1277,14 +1279,14 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     private void CompleteSingleDelayTest(string nodeName, CancellationTokenSource cancellation)
     {
-        if (!ReferenceEquals(_singleDelayTestCancellation, cancellation)
-            || !string.Equals(_singleDelayTestingNodeName, nodeName, StringComparison.Ordinal))
+        // 引用不一致说明该节点已被更新的测试接管，不能清掉后来者。
+        if (!_singleDelayTests.TryGetValue(nodeName, out var current)
+            || !ReferenceEquals(current, cancellation))
         {
             return;
         }
 
-        _singleDelayTestCancellation = null;
-        _singleDelayTestingNodeName = null;
+        _singleDelayTests.Remove(nodeName);
         RefreshDelayTestingState();
         RaiseProxyStateChanged();
     }
@@ -1308,13 +1310,10 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     {
         _delayTestingNodeNames.Clear();
         _delayTestingNodeNames.UnionWith(_batchDelayTestingNodeNames);
-        if (_singleDelayTestingNodeName is not null)
-        {
-            _delayTestingNodeNames.Add(_singleDelayTestingNodeName);
-        }
+        _delayTestingNodeNames.UnionWith(_singleDelayTests.Keys);
 
         _isBatchDelayTesting = _batchDelayTestCancellation is not null;
-        _isDelayTesting = _isBatchDelayTesting || _singleDelayTestCancellation is not null;
+        _isDelayTesting = _isBatchDelayTesting || _singleDelayTests.Count > 0;
     }
 
     private void ApplyDelayResult(ProxyDelayResult result)
