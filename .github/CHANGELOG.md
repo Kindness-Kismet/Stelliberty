@@ -1,7 +1,15 @@
-- Fixed an issue with subscription updates that previously caused the selected subscription to be cleared and replaced with an empty config when a chain hop or custom rule outbound no longer existed
-- Improved dialog error alignment, which now matches the text above it
+- Fixed proxy and subscription selections being lost after an abrupt exit, which previously reset the selected nodes and current subscription without warning
+- Fixed delay testing a node cancelling tests already running on other nodes, so each node now keeps its own result
+- Deleting a subscription now also clears the proxy selections it left behind
+- Traffic curves on the home page now scroll and morph smoothly in real time
+- Removed the end point dot from the traffic curves
+- Hovering the tray icon now shows the app name
 
 ---
 
-- 修复了关于订阅更新的错误，该问题曾导致链式跳点或自定义规则出站目标不存在时清空当前订阅并切回空配置
-- 对对话框错误提示的对齐进行了改善，这使得错误文字与上方内容对齐
+- 修复了异常退出后代理和订阅选择丢失的问题，该问题曾导致已选节点和当前订阅被无声重置
+- 修复了测试某个节点延迟会取消其它节点正在进行的测试的问题，现在每个节点都能保留自己的结果
+- 删除订阅时现在会同时清理它遗留的代理选择记录
+- 首页流量曲线现在会实时平滑滚动与过渡
+- 移除了流量曲线末端的圆点
+- 悬停托盘图标现在会显示应用名称
