@@ -162,7 +162,7 @@ public sealed partial class App : Avalonia.Application
                 overrideStore,
                 runtimeStore,
                 ruleOverrideService: ruleOverrideService);
-            var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore, ruleOverrideStore);
+            var subscriptionDeleter = new SubscriptionDeleter(subscriptionStore, subscriptionSelectionStore, runtimeStore, ruleOverrideStore, proxySelectionStore);
             // Provider 同步和状态读取始终走核心管道，保持 Debug 和 Release 路径一致。
             var coreProviderClient = new PipeCoreProviderClient(HubStartupCoordinator.CorePipe);
             var providerCatalogLoader = new SelectedSubscriptionProviderCatalogLoader(

@@ -79,6 +79,27 @@ public sealed class FileProxySelectionStore(string rootDirectory) : IProxySelect
         AppLogger.Info($"Proxy selection deleted: subscription={subscriptionId} group={groupName}");
     }
 
+    public void RemoveSubscription(string subscriptionId)
+    {
+        if (string.IsNullOrWhiteSpace(subscriptionId))
+        {
+            return;
+        }
+
+        lock (_syncRoot)
+        {
+            var state = ReadState();
+            if (!state.Subscriptions.Remove(subscriptionId))
+            {
+                return;
+            }
+
+            WriteState(state);
+        }
+
+        AppLogger.Info($"Proxy selections deleted: subscription={subscriptionId}");
+    }
+
     private SelectionState ReadState()
     {
         var state = JsonFileRecovery.ReadOrRecover<SelectionState>(_statePath);
