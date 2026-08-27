@@ -7,6 +7,7 @@ using Avalonia.Input.Platform;
 using Avalonia.Threading;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Localization;
+using Stelliberty.Application.Platform;
 using Stelliberty.Presentation.ViewModels;
 
 namespace Stelliberty.Desktop.Services;
@@ -122,6 +123,7 @@ internal sealed class DesktopTrayService : IDisposable
         _trayIcon = new TrayIcon
         {
             Icon = _icon,
+            ToolTipText = AppMetadata.DisplayName,
             Menu = new NativeMenu
             {
                 _showItem,
