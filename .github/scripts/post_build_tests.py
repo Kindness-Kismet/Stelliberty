@@ -13,9 +13,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 sys.dont_write_bytecode = True
 os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
-if hasattr(sys.stdout, "reconfigure"):
-    sys.stdout.reconfigure(encoding="utf-8")
-    sys.stderr.reconfigure(encoding="utf-8")
+# 进度输出含 · 与 ✅，cp1252/cp936 控制台会抛 UnicodeEncodeError，故自行接管标准流编码。
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 from build_support.console import fail, header, print_summary, timing, warn
 
@@ -42,8 +42,6 @@ class PostBuildTests:
         self.os_family = os_family
         self.shortcut_only = shortcut_only
         self.env = os.environ.copy()
-        self.env["PYTHONUTF8"] = "1"
-        self.env["PYTHONDONTWRITEBYTECODE"] = "1"
         self.env.setdefault("STELLIBERTY_DEBUG_SERVICE_CI", "1")
         self.log_dir = Path(self.env.get("RUNNER_TEMP", ROOT / "build" / "post-build-tests"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
