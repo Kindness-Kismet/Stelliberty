@@ -71,7 +71,7 @@ def print_environment(request: BuildRequest) -> None:
 
 def get_tool_version(command: list[str]) -> str:
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=5)
+        result = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=5)
         return result.stdout.strip() or "Unknown"
     except Exception:
         return "Unknown"

@@ -70,7 +70,8 @@ def running_process_ids_windows(binary_path: Path) -> list[int]:
         "| Select-Object ProcessId, ExecutablePath; "
         "$items | ConvertTo-Json -Compress",
     ]
-    result = subprocess.run(command, text=True, capture_output=True, check=False)
+    # 进程路径按控制台代码页解码，严格模式遇到非法字节会让 stdout 变 None 并崩在 strip 上。
+    result = subprocess.run(command, text=True, errors="replace", capture_output=True, check=False)
     text = result.stdout.strip()
     if not text:
         return []
@@ -119,7 +120,7 @@ def running_process_ids_procfs(binary_path: Path) -> list[int]:
 
 
 def running_process_ids_ps(binary_path: Path) -> list[int]:
-    result = subprocess.run(["ps", "-axo", "pid=,command="], text=True, capture_output=True, check=False)
+    result = subprocess.run(["ps", "-axo", "pid=,command="], text=True, errors="replace", capture_output=True, check=False)
     expected = normalized_path(binary_path)
     process_ids: list[int] = []
     for line in result.stdout.splitlines():
@@ -173,6 +174,7 @@ def process_exists(process_id: int) -> bool:
         result = subprocess.run(
             ["powershell", "-NoProfile", "-Command", f"Get-Process -Id {process_id} -ErrorAction SilentlyContinue"],
             text=True,
+            errors="replace",
             capture_output=True,
             check=False,
         )

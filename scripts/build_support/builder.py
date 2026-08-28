@@ -94,6 +94,7 @@ def host_rust_target() -> str:
         ["rustc", "-vV"],
         capture_output=True,
         text=True,
+        errors="replace",
         check=True,
     )
     for line in result.stdout.splitlines():
