@@ -41,6 +41,51 @@ public sealed class ProxySelectionService(
         return result;
     }
 
+    // 延迟测试后解除 url-test 固定，让核心按新延迟重新择优；groupNames 为 null 表示全部分组。
+    public async Task<ProxyFixedSelectionReleaseResult> ReleaseFixedSelectionsAsync(
+        ProxyConfig config,
+        IReadOnlyCollection<string>? groupNames,
+        bool applyToCore,
+        CancellationToken cancellationToken = default)
+    {
+        var scope = groupNames?.ToHashSet(StringComparer.Ordinal);
+        var targets = config.Groups
+            .Where(group => group.KeepsFixedSelectionUntilCleared
+                && !string.IsNullOrWhiteSpace(group.Fixed)
+                && (scope is null || scope.Contains(group.Name)))
+            .ToList();
+        if (targets.Count == 0)
+        {
+            return new ProxyFixedSelectionReleaseResult(config, []);
+        }
+
+        var released = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var group in targets)
+        {
+            if (applyToCore && coreClient is not null
+                && !await coreClient.ClearProxySelectionAsync(group.Name, cancellationToken))
+            {
+                AppLogger.Warning($"Fixed proxy selection release failed: group={group.Name} proxy={group.Fixed}");
+                continue;
+            }
+
+            released.Add(group.Name);
+            // 核心与本地存储必须一起清，否则下次启动会被还原。
+            RemovePersistedSelection(group.Name);
+            AppLogger.Info($"Fixed proxy selection released: group={group.Name} proxy={group.Fixed}");
+        }
+
+        if (released.Count == 0)
+        {
+            return new ProxyFixedSelectionReleaseResult(config, []);
+        }
+
+        var groups = config.Groups
+            .Select(group => released.Contains(group.Name) ? group with { Fixed = null } : group)
+            .ToList();
+        return new ProxyFixedSelectionReleaseResult(config with { Groups = groups }, [.. released]);
+    }
+
     private void PersistSelection(string groupName, string nodeName)
     {
         var subscriptionId = subscriptionSelectionStore?.GetCurrentSubscriptionId();
@@ -50,5 +95,16 @@ public sealed class ProxySelectionService(
         }
 
         selectionStore.SetSelection(subscriptionId, groupName, nodeName);
+    }
+
+    private void RemovePersistedSelection(string groupName)
+    {
+        var subscriptionId = subscriptionSelectionStore?.GetCurrentSubscriptionId();
+        if (selectionStore is null || string.IsNullOrWhiteSpace(subscriptionId))
+        {
+            return;
+        }
+
+        selectionStore.RemoveSelection(subscriptionId, groupName);
     }
 }

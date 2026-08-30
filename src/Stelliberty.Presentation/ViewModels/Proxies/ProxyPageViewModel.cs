@@ -678,7 +678,8 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         await RunBatchDelayTestAsync(
             nodeNames,
             excludedNodeNames,
-            (config, progress, token) => _delayService!.TestAllAsync(config, excludedNodeNames, progress, token));
+            (config, progress, token) => _delayService!.TestAllAsync(config, excludedNodeNames, progress, token),
+            releaseGroupNames: null);
     }
 
     public async Task TestCurrentGroupDelaysAsync()
@@ -709,13 +710,16 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         await RunBatchDelayTestAsync(
             nodeNames,
             excludedNodeNames,
-            (config, progress, token) => _delayService!.TestGroupAsync(config, group.Name, excludedNodeNames, progress, token));
+            (config, progress, token) => _delayService!.TestGroupAsync(config, group.Name, excludedNodeNames, progress, token),
+            releaseGroupNames: [group.Name]);
     }
 
+    // releaseGroupNames 为 null 表示解除全部分组的固定选择。
     private async Task RunBatchDelayTestAsync(
         IReadOnlyList<string> nodeNames,
         IReadOnlyList<string> excludedNodeNames,
-        Func<ProxyConfig, IProgress<ProxyDelayProgress>, CancellationToken, Task<ProxyDelayResult>> serviceCall)
+        Func<ProxyConfig, IProgress<ProxyDelayProgress>, CancellationToken, Task<ProxyDelayResult>> serviceCall,
+        IReadOnlyCollection<string>? releaseGroupNames)
     {
         if (nodeNames.Count == 0)
         {
@@ -753,6 +757,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
                 _batchDelayTestedNodeNames.Clear();
                 _batchDelayTestedNodeNames.UnionWith(
                     result.TestedNodeNames.Concat(result.SkippedNodeNames));
+                await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation, configVersion);
                 RaiseProxyStateChanged();
                 return;
             }
@@ -768,6 +773,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             _batchDelayTestedNodeNames.Clear();
             _batchDelayTestedNodeNames.UnionWith(
                 fallbackResult.TestedNodeNames.Concat(nodeNames.Intersect(excludedNodeNames, StringComparer.Ordinal)));
+            await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation, configVersion);
             RaiseProxyStateChanged();
         }
         finally
@@ -775,6 +781,35 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             CompleteBatchDelayTest(cancellation);
             cancellation.Dispose();
         }
+    }
+
+    private async Task ReleaseFixedSelectionsAsync(
+        IReadOnlyCollection<string>? groupNames,
+        CancellationTokenSource cancellation,
+        int configVersion)
+    {
+        ProxyFixedSelectionReleaseResult result;
+        try
+        {
+            result = await _selectionService.ReleaseFixedSelectionsAsync(
+                _config,
+                groupNames,
+                _shouldChangeCoreOnSelection,
+                cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        // 等待核心期间配置可能已被替换，此时结果不可再写回。
+        if (!result.HasChanges || IsStaleBatchDelayResult(cancellation, configVersion))
+        {
+            return;
+        }
+
+        _config = result.Config;
+        RefreshSelectedGroup();
     }
 
     private void OnDelayProgress(ProxyDelayProgress progress, CancellationTokenSource cancellation, int configVersion)
