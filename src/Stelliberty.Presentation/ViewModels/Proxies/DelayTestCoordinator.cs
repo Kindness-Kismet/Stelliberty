@@ -1,7 +1,7 @@
 namespace Stelliberty.Presentation.ViewModels;
 
-// 延迟测试的进行中状态：批测持单一令牌，单测按节点各持一个令牌。
-// 正在测试的节点集合与忙标志一律由内部派生，外部只读，避免新增状态时漏更新派生量。
+// 批测持单一令牌，单测按节点各持一个令牌；派生量内部维护，外部只读。
+// 集合非并发，仅限 UI 线程访问。
 internal sealed class DelayTestCoordinator
 {
     private readonly Dictionary<string, CancellationTokenSource> _singleTests = new(StringComparer.Ordinal);

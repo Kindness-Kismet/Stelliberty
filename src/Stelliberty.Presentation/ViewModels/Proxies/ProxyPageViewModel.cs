@@ -674,11 +674,12 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
     public async Task TestAllDelaysAsync()
     {
         var nodeNames = AllGroupEntryNames();
-        var excludedNodeNames = ActiveSingleDelayTestNames();
+        var excludedNodeNames = _delayTests.ActiveSingleNodeNames;
         await RunBatchDelayTestAsync(
             nodeNames,
             excludedNodeNames,
-            (config, progress, token) => _delayService!.TestAllAsync(config, excludedNodeNames, progress, token));
+            (config, progress, token) => _delayService!.TestAllAsync(config, excludedNodeNames, progress, token),
+            releaseGroupNames: null);
     }
 
     public async Task TestCurrentGroupDelaysAsync()
@@ -705,17 +706,20 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         }
 
         var nodeNames = group.All;
-        var excludedNodeNames = ActiveSingleDelayTestNames();
+        var excludedNodeNames = _delayTests.ActiveSingleNodeNames;
         await RunBatchDelayTestAsync(
             nodeNames,
             excludedNodeNames,
-            (config, progress, token) => _delayService!.TestGroupAsync(config, group.Name, excludedNodeNames, progress, token));
+            (config, progress, token) => _delayService!.TestGroupAsync(config, group.Name, excludedNodeNames, progress, token),
+            releaseGroupNames: [group.Name]);
     }
 
+    // releaseGroupNames 为 null 表示解除全部分组的固定选择。
     private async Task RunBatchDelayTestAsync(
         IReadOnlyList<string> nodeNames,
         IReadOnlyList<string> excludedNodeNames,
-        Func<ProxyConfig, IProgress<ProxyDelayProgress>, CancellationToken, Task<ProxyDelayResult>> serviceCall)
+        Func<ProxyConfig, IProgress<ProxyDelayProgress>, CancellationToken, Task<ProxyDelayResult>> serviceCall,
+        IReadOnlyCollection<string>? releaseGroupNames)
     {
         if (nodeNames.Count == 0)
         {
@@ -753,6 +757,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
                 _batchDelayTestedNodeNames.Clear();
                 _batchDelayTestedNodeNames.UnionWith(
                     result.TestedNodeNames.Concat(result.SkippedNodeNames));
+                await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation);
                 RaiseProxyStateChanged();
                 return;
             }
@@ -768,6 +773,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             _batchDelayTestedNodeNames.Clear();
             _batchDelayTestedNodeNames.UnionWith(
                 fallbackResult.TestedNodeNames.Concat(nodeNames.Intersect(excludedNodeNames, StringComparer.Ordinal)));
+            await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation);
             RaiseProxyStateChanged();
         }
         finally
@@ -775,6 +781,38 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             CompleteBatchDelayTest(cancellation);
             cancellation.Dispose();
         }
+    }
+
+    private async Task ReleaseFixedSelectionsAsync(
+        IReadOnlyCollection<string>? groupNames,
+        CancellationTokenSource cancellation)
+    {
+        ProxyFixedSelectionReleaseResult result;
+        try
+        {
+            result = await _selectionService.ReleaseFixedSelectionsAsync(
+                _config,
+                groupNames,
+                _shouldChangeCoreOnSelection,
+                cancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (!result.HasChanges)
+        {
+            return;
+        }
+
+        // 按分组名改写当前配置：result.Config 是等待核心之前的快照，直接赋值会盖掉期间的改动。
+        var releasedGroupNames = result.ReleasedGroupNames.ToHashSet(StringComparer.Ordinal);
+        var groups = _config.Groups
+            .Select(group => releasedGroupNames.Contains(group.Name) ? group with { Fixed = null } : group)
+            .ToList();
+        _config = _config with { Groups = groups };
+        RefreshSelectedGroup();
     }
 
     private void OnDelayProgress(ProxyDelayProgress progress, CancellationTokenSource cancellation, int configVersion)
@@ -1084,11 +1122,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
             _selectedGroup?.IsManualSelectable == true,
             _delayTests.TestingNodeNames.Contains(name));
-        if (_delayTests.BatchResults.TryGetValue(name, out var delay))
-        {
-            row.ApplyDelay(delay);
-        }
-
+        ApplyPendingBatchDelay(row, name);
         return row;
     }
 
@@ -1100,6 +1134,16 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             string.Equals(name, _locatedNodeName, StringComparison.Ordinal),
             group?.IsManualSelectable == true,
             _delayTests.TestingNodeNames.Contains(name));
+        ApplyPendingBatchDelay(row, name);
+    }
+
+    // _entryNodes 仅在 RefreshConfigIndexes 时并入批测结果，滞后期不补写会让已测完的节点显示回退。
+    private void ApplyPendingBatchDelay(ProxyNodeRowViewModel row, string name)
+    {
+        if (_delayTests.BatchResults.TryGetValue(name, out var delay))
+        {
+            row.ApplyDelay(delay);
+        }
     }
 
     private void SyncGroupRows()
@@ -1219,8 +1263,6 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
         RaiseProxyStateChanged();
         return cancellation;
     }
-
-    private IReadOnlyList<string> ActiveSingleDelayTestNames() => _delayTests.ActiveSingleNodeNames;
 
     // 配置换代后旧结果也算过期：延迟对应的是另一份节点表。
     private bool IsStaleSingleDelayResult(

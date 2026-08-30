@@ -98,9 +98,14 @@ public sealed class StoredProxySelectionConfigProvider(
                 continue;
             }
 
+            // 固定选择不写入存储；存储里若有记录，只可能来自早期版本。
             if (group.UsesFixedSelection)
             {
-                ImportFixedSelection(group, selections, subscriptionId, entryNames);
+                if (selections.Remove(group.Name))
+                {
+                    selectionStore.RemoveSelection(subscriptionId, group.Name);
+                }
+
                 continue;
             }
 
@@ -121,33 +126,6 @@ public sealed class StoredProxySelectionConfigProvider(
         }
     }
 
-    private void ImportFixedSelection(
-        ProxyGroup group,
-        Dictionary<string, string> selections,
-        string subscriptionId,
-        ISet<string> entryNames)
-    {
-        var fixedSelection = ValidSelectionOrNull(group, group.Fixed, entryNames);
-        if (fixedSelection is null)
-        {
-            if (selections.Remove(group.Name))
-            {
-                selectionStore.RemoveSelection(subscriptionId, group.Name);
-            }
-
-            return;
-        }
-
-        if (selections.TryGetValue(group.Name, out var stored)
-            && string.Equals(stored, fixedSelection, StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        selections[group.Name] = fixedSelection;
-        selectionStore.SetSelection(subscriptionId, group.Name, fixedSelection);
-    }
-
     private static ProxyGroup ApplyGroupSelection(
         ProxyGroup group,
         IReadOnlyDictionary<string, string> selections,
@@ -160,9 +138,7 @@ public sealed class StoredProxySelectionConfigProvider(
 
         if (group.UsesFixedSelection)
         {
-            var fixedSelection = ResolveStoredSelection(group, selections, entryNames)
-                ?? ValidSelectionOrNull(group, group.Fixed, entryNames);
-            return group with { Fixed = fixedSelection };
+            return group with { Fixed = ValidSelectionOrNull(group, group.Fixed, entryNames) };
         }
 
         var proxyName = ResolveSelection(group, selections, entryNames);

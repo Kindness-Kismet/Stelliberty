@@ -13,16 +13,40 @@
         DataContext="{Binding RulePage}" x:DataType="vm:RulePageViewModel">
     <Border Classes="surface-header" Margin="8,0,25,0" AutomationProperties.AutomationId="Rules.Toolbar">
       <Grid RowDefinitions="Auto,Auto" RowSpacing="16">
-        <StackPanel Spacing="3" VerticalAlignment="Center">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Border Classes="signal-dot" Tag="{Binding MonitorSignalTag}" />
-            <TextBlock Classes="list-eyebrow" Text="{loc:Loc Rules.Header.Eyebrow}" />
+        <!-- 主要动作留在标题行，第二行才容得下筛选芯片与搜索框，最小窗宽下不重叠 -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+          <StackPanel Spacing="3" VerticalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Border Classes="signal-dot" Tag="{Binding MonitorSignalTag}" />
+              <TextBlock Classes="list-eyebrow" Text="{loc:Loc Rules.Header.Eyebrow}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="7">
+              <TextBlock Classes="list-count" Text="{Binding VisibleRules.Count}" />
+              <TextBlock Classes="list-count-unit" Text="{loc:Loc Rules.Count.Unit}" />
+            </StackPanel>
           </StackPanel>
-          <StackPanel Orientation="Horizontal" Spacing="7">
-            <TextBlock Classes="list-count" Text="{Binding VisibleRules.Count}" />
-            <TextBlock Classes="list-count-unit" Text="{loc:Loc Rules.Count.Unit}" />
+
+          <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+            <Button Classes="soft-action primary"
+                    AutomationProperties.AutomationId="Rules.AddButton"
+                    Command="{Binding AddRuleCommand}"
+                    ToolTip.Tip="{loc:Loc Rules.Action.Add}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <iconPacks:PackIconMingCuteIcons Classes="icon" Width="14" Height="14" Kind="AddLine" />
+                <TextBlock Text="{loc:Loc Rules.Action.Add}" />
+              </StackPanel>
+            </Button>
+            <Button Classes="soft-action"
+                    AutomationProperties.AutomationId="Rules.RefreshButton"
+                    Command="{Binding RefreshRulesCommand}"
+                    ToolTip.Tip="{loc:Loc Rules.Action.Refresh}">
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <iconPacks:PackIconMingCuteIcons Classes="icon" Width="14" Height="14" Kind="Refresh1Fill" />
+                <TextBlock Text="{loc:Loc Rules.Action.Refresh}" />
+              </StackPanel>
+            </Button>
           </StackPanel>
-        </StackPanel>
+        </Grid>
 
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
           <StackPanel Orientation="Horizontal" Spacing="4">
@@ -64,10 +88,6 @@
           </TextBox>
 
           <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
-            <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.AddButton"
-                    Command="{Binding AddRuleCommand}" ToolTip.Tip="{loc:Loc Rules.Action.Add}">
-              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="AddLine" />
-            </Button>
             <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.CreateTemplateButton"
                     Command="{Binding OpenCreateTemplateCommand}" ToolTip.Tip="{loc:Loc Rules.Action.CreateTemplate}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="FileNewLine" />
@@ -81,10 +101,6 @@
                     IsEnabled="{Binding CanResetRuleOrder}"
                     ToolTip.Tip="{loc:Loc Rules.Action.ResetOrder}">
               <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="EraserAiLine" />
-            </Button>
-            <Button Classes="toolbar-icon" AutomationProperties.AutomationId="Rules.RefreshButton"
-                    Command="{Binding RefreshRulesCommand}" ToolTip.Tip="{loc:Loc Rules.Action.Refresh}">
-              <iconPacks:PackIconMingCuteIcons Classes="icon" Width="15" Height="15" Kind="Refresh1Line" />
             </Button>
           </StackPanel>
         </Grid>
@@ -103,10 +119,6 @@
             <TextBlock Classes="list-empty-hint" Text="{loc:Loc Rules.Empty.Hint}" />
           </StackPanel>
         </StackPanel>
-      </Border>
-
-      <Border Classes="list-info-strip" IsVisible="{Binding IsNoMatchesVisible}" Margin="8,0,25,20" Padding="14,10" VerticalAlignment="Top">
-        <TextBlock Text="{loc:Loc Rules.Empty.NoMatches}" FontSize="12.5" Foreground="{DynamicResource AppTextSecondaryBrush}" HorizontalAlignment="Center" />
       </Border>
 
       <ScrollViewer IsVisible="{Binding !IsVisibleRulesEmpty}" AutomationProperties.AutomationId="Rules.EditorScroll"

@@ -132,7 +132,7 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public bool HasRequestedRefresh => _hasRequestedRefresh;
     public bool IsEmptyVisible => _overrideService is null
         ? !_isCoreRunning || _filteredRules.Count == 0
-        : !HasSubscription;
+        : IsVisibleRulesEmpty;
     public bool IsCustomRulesEmpty => CustomRules.Count == 0;
     public bool HasCustomRules => CustomRules.Count > 0;
     public string CurrentSectionHint => Localize("Rules.Section.MixedHint");
@@ -140,19 +140,28 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
     public bool IsTemplateCreateMode => !_isTemplateSelectMode;
     public string TemplateDialogTitle => Localize(IsTemplateSelectMode ? "Rules.Dialog.Template.SelectTitle" : "Rules.Dialog.Template.CreateTitle");
     public bool IsVisibleRulesEmpty => VisibleRules.Count == 0;
-    public bool IsNoMatchesVisible => HasSubscription && IsVisibleRulesEmpty;
     public bool HasSelectedTemplate => SelectedTemplate is not null;
     public bool CanSaveTemplate => HasCustomRules;
     public bool CanResetRuleOrder => HasSubscription && _snapshot.HasCustomOrder;
-    public string EmptyText => _overrideService is null
-        ? !_isCoreRunning
-            ? Localize("Rules.Empty.CoreStopped")
-            : _rules.Count == 0
-                ? Localize("Rules.Empty.NoRules")
-                : Localize("Rules.Empty.NoMatches")
-        : Localize("Rules.Empty.NoSubscription");
+    public string EmptyText => Localize(EmptyTextKey);
     public string MonitorStateText => _isCoreRunning ? Localize("Rules.State.Monitoring") : Localize("Rules.State.CoreStopped");
     public string MonitorSignalTag => _isCoreRunning ? "ok" : "warning";
+
+    // 只读态看运行时规则，编辑态看订阅快照；两者最后都是「无规则」或「无匹配」。
+    private string EmptyTextKey
+    {
+        get
+        {
+            if (_overrideService is null)
+            {
+                if (!_isCoreRunning) return "Rules.Empty.CoreStopped";
+                return _rules.Count == 0 ? "Rules.Empty.NoRules" : "Rules.Empty.NoMatches";
+            }
+
+            if (!HasSubscription) return "Rules.Empty.NoSubscription";
+            return BuiltinRules.Count + CustomRules.Count == 0 ? "Rules.Empty.NoRules" : "Rules.Empty.NoMatches";
+        }
+    }
 
     public bool IsEditorDialogVisible { get => _isEditorDialogVisible; private set { if (SetProperty(ref _isEditorDialogVisible, value)) OnPropertyChanged(nameof(IsDialogOverlayVisible)); } }
     public bool IsTemplateDialogVisible { get => _isTemplateDialogVisible; private set { if (SetProperty(ref _isTemplateDialogVisible, value)) OnPropertyChanged(nameof(IsDialogOverlayVisible)); } }
@@ -327,7 +336,6 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(EmptyText));
         OnPropertyChanged(nameof(IsCustomRulesEmpty));
         OnPropertyChanged(nameof(HasCustomRules));
-        OnPropertyChanged(nameof(IsNoMatchesVisible));
         OnPropertyChanged(nameof(CanSaveTemplate));
         OnPropertyChanged(nameof(CanResetRuleOrder));
         ((RelayCommand)SaveTemplateCommand).RaiseCanExecuteChanged();
@@ -349,7 +357,6 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
             }
             OnPropertyChanged(nameof(IsEmptyVisible));
             OnPropertyChanged(nameof(EmptyText));
-            OnPropertyChanged(nameof(IsNoMatchesVisible));
             OnPropertyChanged(nameof(MonitorStateText));
             OnPropertyChanged(nameof(MonitorSignalTag));
         }
@@ -734,7 +741,6 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         RebuildFilteredRows();
         OnPropertyChanged(nameof(IsEmptyVisible));
         OnPropertyChanged(nameof(EmptyText));
-        OnPropertyChanged(nameof(IsNoMatchesVisible));
     }
 
     private void RebuildFilteredRows()
@@ -748,7 +754,6 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(FilteredRuleRows));
         OnPropertyChanged(nameof(IsEmptyVisible));
         OnPropertyChanged(nameof(EmptyText));
-        OnPropertyChanged(nameof(IsNoMatchesVisible));
     }
 
     private void RebuildVisibleRules()
@@ -780,7 +785,8 @@ public sealed class RulePageViewModel : ViewModelBase, IDisposable
 
         OnPropertyChanged(nameof(CurrentSectionHint));
         OnPropertyChanged(nameof(IsVisibleRulesEmpty));
-        OnPropertyChanged(nameof(IsNoMatchesVisible));
+        OnPropertyChanged(nameof(IsEmptyVisible));
+        OnPropertyChanged(nameof(EmptyText));
     }
 
     private static int OrderIndex(IReadOnlyList<string> order, string orderId)

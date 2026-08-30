@@ -4,7 +4,6 @@ import subprocess
 from pathlib import Path
 
 from build_support.commands import run
-from build_support.console import warn
 from build_support.fonts import ensure_app_fonts
 from build_support.installer import pack_installers
 from build_support.layout import organize_dependency_directory, output_name, service_binary_name, zip_output
@@ -95,6 +94,7 @@ def host_rust_target() -> str:
         ["rustc", "-vV"],
         capture_output=True,
         text=True,
+        errors="replace",
         check=True,
     )
     for line in result.stdout.splitlines():
@@ -215,21 +215,20 @@ def reset_service_directory(service_dir: Path) -> None:
 def copy_core_assets(platform_name: str, output_dir: Path) -> None:
     source = PRE_ASSETS_DIR / platform_name
     target = output_dir / CORE_DIRECTORY
-    if not source.exists():
-        print(f"  {warn('Skipped')} {source} does not exist (run scripts/prebuild.py to fetch it)", flush=True)
-        return
+    expected_names = expected_core_asset_names(platform_name)
+    # 缺核心或 Geo 资源的产物运行时无法启动核心，宁可构建失败也不产出半成品。
+    missing = sorted(name for name in expected_names if not (source / name).is_file())
+    if missing:
+        raise FileNotFoundError(
+            f"Core assets missing from {source}: {', '.join(missing)}. Run scripts/prebuild.py to fetch them."
+        )
 
     target.mkdir(parents=True, exist_ok=True)
-    copied = 0
-    allowed_names = expected_core_asset_names(platform_name)
-    for entry in source.iterdir():
-        if not entry.is_file() or entry.name not in allowed_names:
-            continue
-        shutil.copy2(entry, target / entry.name)
-        copied += 1
+    for name in sorted(expected_names):
+        shutil.copy2(source / name, target / name)
     print(f"  Source {source}", flush=True)
     print(f"  Target {target}", flush=True)
-    print(f"  Files {copied}", flush=True)
+    print(f"  Files {len(expected_names)}", flush=True)
 
 def expected_core_asset_names(platform_name: str) -> set[str]:
     core_binary_name = "clash-mihomo-core.exe" if platform_name.startswith("win") else "clash-mihomo-core"

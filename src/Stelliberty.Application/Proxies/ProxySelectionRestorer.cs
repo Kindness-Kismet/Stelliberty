@@ -78,13 +78,9 @@ public sealed class ProxySelectionRestorer(
                     continue;
                 }
 
-                if (string.IsNullOrWhiteSpace(selection))
+                // 固定选择一律清空：核心自带 store-selected 会从它的缓存恢复固定。
+                if (group.UsesFixedSelection)
                 {
-                    if (!group.UsesFixedSelection)
-                    {
-                        continue;
-                    }
-
                     var cleared = await coreClient.ClearProxySelectionAsync(group.Name, cancellationToken);
                     if (cleared)
                     {
@@ -97,6 +93,11 @@ public sealed class ProxySelectionRestorer(
                         AppLogger.Warning($"Pinned proxy selection clear failed: group={group.Name}");
                     }
 
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(selection))
+                {
                     continue;
                 }
 

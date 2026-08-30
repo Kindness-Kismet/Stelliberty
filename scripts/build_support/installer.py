@@ -401,6 +401,7 @@ def compile_inno_setup(iscc_path: Path, iss_path: Path) -> None:
         cwd=ROOT,
         capture_output=True,
         text=True,
+        errors="replace",
         check=False,
     )
     if result.returncode == 0:
@@ -440,6 +441,7 @@ def iscc_version(path: Path) -> str | None:
             [str(path), "/?"],
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=10,
             check=False,
         )
@@ -849,7 +851,8 @@ def path_env(directory: Path) -> dict[str, str]:
 
 
 def run_checked(command: list[str], env: dict[str, str] | None = None) -> None:
-    result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, check=False)
+    # 打包工具的报错是排查唯一线索，严格解码会让它变 None 而只剩一个退出码。
+    result = subprocess.run(command, cwd=ROOT, env=env, capture_output=True, text=True, errors="replace", check=False)
     if result.returncode == 0:
         return
 

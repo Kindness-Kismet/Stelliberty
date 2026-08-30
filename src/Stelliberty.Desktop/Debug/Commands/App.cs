@@ -20,7 +20,8 @@ internal static partial class DebugCommands
             || string.Equals(command, "window.state", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "window.close", StringComparison.OrdinalIgnoreCase)
             || string.Equals(command, "window.show", StringComparison.OrdinalIgnoreCase)
-            || command.StartsWith("window.move ", StringComparison.OrdinalIgnoreCase);
+            || command.StartsWith("window.move ", StringComparison.OrdinalIgnoreCase)
+            || command.StartsWith("window.resize ", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<string?> ExecuteAppCommandAsync(MainWindow window, string command)
@@ -62,6 +63,12 @@ internal static partial class DebugCommands
         {
             MoveWindow(window, command["window.move ".Length..].Trim());
             return null;
+        }
+
+        if (command.StartsWith("window.resize ", StringComparison.OrdinalIgnoreCase))
+        {
+            ResizeWindow(window, command["window.resize ".Length..].Trim());
+            return WindowStateText(window);
         }
 
         if (string.Equals(command, "window.close", StringComparison.OrdinalIgnoreCase))
@@ -135,6 +142,25 @@ internal static partial class DebugCommands
         }
 
         window.Position = new PixelPoint(x, y);
+    }
+
+    // 目标尺寸小于 MinWidth/MinHeight 时窗口停在下限，用于验证最小宽度下的布局。
+    private static void ResizeWindow(MainWindow window, string spec)
+    {
+        var parts = spec.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length != 2
+            || !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var width)
+            || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var height)
+            || width <= 0
+            || height <= 0)
+        {
+            throw new InvalidOperationException("Window resize arguments must be width height");
+        }
+
+        window.WindowState = WindowState.Normal;
+        window.Width = width;
+        window.Height = height;
+        window.UpdateLayout();
     }
 }
 #endif
