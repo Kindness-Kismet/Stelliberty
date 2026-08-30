@@ -36,12 +36,17 @@ public sealed class ProxySelectionService(
             }
         }
 
-        PersistSelection(groupName, nodeName);
+        // 固定选择不落库：重启后由还原流程清空，回到自动择优。
+        if (!result.Config.Groups.Any(group => group.Name == groupName && group.UsesFixedSelection))
+        {
+            PersistSelection(groupName, nodeName);
+        }
+
         AppLogger.Info($"Proxy selection completed: group={groupName} proxy={nodeName} closeConnections={result.ShouldCloseConnections.ToString().ToLowerInvariant()}");
         return result;
     }
 
-    // 延迟测试后解除 url-test 固定，让核心按新延迟重新择优；groupNames 为 null 表示全部分组。
+    // groupNames 为 null 表示全部分组。
     public async Task<ProxyFixedSelectionReleaseResult> ReleaseFixedSelectionsAsync(
         ProxyConfig config,
         IReadOnlyCollection<string>? groupNames,
@@ -50,7 +55,7 @@ public sealed class ProxySelectionService(
     {
         var scope = groupNames?.ToHashSet(StringComparer.Ordinal);
         var targets = config.Groups
-            .Where(group => group.KeepsFixedSelectionUntilCleared
+            .Where(group => group.UsesFixedSelection
                 && !string.IsNullOrWhiteSpace(group.Fixed)
                 && (scope is null || scope.Contains(group.Name)))
             .ToList();

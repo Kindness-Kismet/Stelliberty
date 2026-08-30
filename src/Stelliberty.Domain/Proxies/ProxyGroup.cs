@@ -17,8 +17,6 @@ public sealed record ProxyGroup(
 
     public bool UsesFixedSelection => ProxyGroupTypes.UsesFixedSelection(Type);
 
-    public bool KeepsFixedSelectionUntilCleared => ProxyGroupTypes.KeepsFixedSelectionUntilCleared(Type);
-
     public string? UserSelectionName => UsesFixedSelection ? Fixed : Now;
 
     public string? DisplaySelectionName => string.IsNullOrWhiteSpace(UserSelectionName)
