@@ -98,7 +98,7 @@ public sealed class StoredProxySelectionConfigProvider(
                 continue;
             }
 
-            // 固定选择不入库，同时清掉旧版本写入的记录。
+            // 固定选择不写入存储；存储里若有记录，只可能来自早期版本。
             if (group.UsesFixedSelection)
             {
                 if (selections.Remove(group.Name))

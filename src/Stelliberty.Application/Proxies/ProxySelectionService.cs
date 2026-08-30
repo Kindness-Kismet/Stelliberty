@@ -36,7 +36,7 @@ public sealed class ProxySelectionService(
             }
         }
 
-        // 固定选择不落库：重启后由还原流程清空，回到自动择优。
+        // 固定选择不写入存储：重启后由还原流程清空，回到自动择优。
         if (!result.Config.Groups.Any(group => group.Name == groupName && group.UsesFixedSelection))
         {
             PersistSelection(groupName, nodeName);
@@ -75,7 +75,7 @@ public sealed class ProxySelectionService(
             }
 
             released.Add(group.Name);
-            // 核心与本地存储必须一起清，否则下次启动会被还原。
+            // 固定选择已不写入存储，此处只清理早期版本留下的记录。
             RemovePersistedSelection(group.Name);
             AppLogger.Info($"Fixed proxy selection released: group={group.Name} proxy={group.Fixed}");
         }

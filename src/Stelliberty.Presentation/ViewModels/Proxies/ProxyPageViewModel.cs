@@ -757,7 +757,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
                 _batchDelayTestedNodeNames.Clear();
                 _batchDelayTestedNodeNames.UnionWith(
                     result.TestedNodeNames.Concat(result.SkippedNodeNames));
-                await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation, configVersion);
+                await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation);
                 RaiseProxyStateChanged();
                 return;
             }
@@ -773,7 +773,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             _batchDelayTestedNodeNames.Clear();
             _batchDelayTestedNodeNames.UnionWith(
                 fallbackResult.TestedNodeNames.Concat(nodeNames.Intersect(excludedNodeNames, StringComparer.Ordinal)));
-            await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation, configVersion);
+            await ReleaseFixedSelectionsAsync(releaseGroupNames, cancellation);
             RaiseProxyStateChanged();
         }
         finally
@@ -785,8 +785,7 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
 
     private async Task ReleaseFixedSelectionsAsync(
         IReadOnlyCollection<string>? groupNames,
-        CancellationTokenSource cancellation,
-        int configVersion)
+        CancellationTokenSource cancellation)
     {
         ProxyFixedSelectionReleaseResult result;
         try
@@ -802,13 +801,17 @@ public sealed class ProxyPageViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        // 等待核心期间配置可能已被替换，此时结果不可再写回。
-        if (!result.HasChanges || IsStaleBatchDelayResult(cancellation, configVersion))
+        if (!result.HasChanges)
         {
             return;
         }
 
-        _config = result.Config;
+        // 按分组名改写当前配置：result.Config 是等待核心之前的快照，直接赋值会盖掉期间的改动。
+        var releasedGroupNames = result.ReleasedGroupNames.ToHashSet(StringComparer.Ordinal);
+        var groups = _config.Groups
+            .Select(group => releasedGroupNames.Contains(group.Name) ? group with { Fixed = null } : group)
+            .ToList();
+        _config = _config with { Groups = groups };
         RefreshSelectedGroup();
     }
 
