@@ -14,9 +14,9 @@ namespace Stelliberty.Desktop.Services;
 
 internal sealed class DesktopServiceModeManager : IServiceModeManager
 {
-    // 管理超时覆盖提权和服务操作；Rust IPC 超时只约束一次本地调用。
+    // 覆盖 status、heartbeat、version 这类非提权只读查询；提权与生命周期操作用 ManageTimeout。
     private static readonly TimeSpan StatusTimeout = TimeSpan.FromSeconds(5);
-    // 远短于 2s 轮询间隔避免请求堆叠
+    // 远短于 2s 轮询间隔，避免请求堆叠。
     private static readonly TimeSpan ObserveTimeout = TimeSpan.FromMilliseconds(800);
     private static readonly TimeSpan ManageTimeout = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan StatusSettleTimeout = TimeSpan.FromSeconds(10);
