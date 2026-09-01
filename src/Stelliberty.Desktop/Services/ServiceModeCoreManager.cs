@@ -13,6 +13,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan ReadyPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan StatePollInterval = TimeSpan.FromSeconds(2);
+    // 覆盖一次观测往返（800ms）留足余量；超时则放弃等待，不阻塞进程退出。
+    private static readonly TimeSpan MonitorExitTimeout = TimeSpan.FromSeconds(3);
 
     private readonly IServiceModeManager _serviceModeManager;
     private readonly HttpClient _coreClient;
@@ -52,7 +54,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
 
         _isDisposed = true;
-        StopStatusMonitor();
+        StopStatusMonitor(waitForExit: true);
         _logStreamer.MessageReceived -= OnLogMessageReceived;
         _logStreamer.Dispose();
         _coreClient.Dispose();
@@ -131,7 +133,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
     }
 
-    private void StopStatusMonitor()
+    // waitForExit 仅用于释放路径：轮询任务持有 _coreClient，必须等它退出后才能释放。
+    private void StopStatusMonitor(bool waitForExit = false)
     {
         CancellationTokenSource? cancellation;
         Task? task;
@@ -149,6 +152,19 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
 
         cancellation.Cancel();
+        if (waitForExit && task is not null)
+        {
+            // 轮询全程 ConfigureAwait(false)，同步等待不会死锁；取消后至多等一个观测往返。
+            try
+            {
+                task.Wait(MonitorExitTimeout);
+            }
+            catch (AggregateException)
+            {
+                // 轮询自身异常在循环内已记录，释放路径无需再处理。
+            }
+        }
+
         DisposeCancellationAfterTask(cancellation, task);
     }
 
@@ -345,7 +361,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
                 ? version.GetString()
                 : null;
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        // 等待轮询退出有超时上限，超时后客户端可能已在释放路径中关闭。
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException or ObjectDisposedException)
         {
             return null;
         }
