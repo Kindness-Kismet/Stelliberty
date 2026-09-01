@@ -8,6 +8,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Platform;
+using Stelliberty.Application.Runtime;
 
 namespace Stelliberty.Desktop.Services;
 
@@ -15,6 +16,8 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
 {
     // 管理超时覆盖提权和服务操作；Rust IPC 超时只约束一次本地调用。
     private static readonly TimeSpan StatusTimeout = TimeSpan.FromSeconds(5);
+    // 远短于 2s 轮询间隔避免请求堆叠
+    private static readonly TimeSpan ObserveTimeout = TimeSpan.FromMilliseconds(800);
     private static readonly TimeSpan ManageTimeout = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan StatusSettleTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan StatusPollInterval = TimeSpan.FromMilliseconds(250);
@@ -24,6 +27,33 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
     private DateTime _serviceVersionFileLastWriteUtc;
     private long _serviceVersionFileLength = -1;
     private string? _cachedServiceVersion;
+
+    public async Task<CoreObservation> ObserveCoreAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = await ServiceCommandPipeClient
+                .RequestStatusAsync(ObserveTimeout, cancellationToken)
+                .ConfigureAwait(false);
+            if (!string.Equals(payload.ServiceName, AppRuntimeNames.ServiceName, StringComparison.Ordinal))
+            {
+                return CoreObservation.Unobserved($"service name does not match: {payload.ServiceName}");
+            }
+
+            return CoreObservation.Observed(
+                ParseCoreState(payload.CoreState),
+                payload.CorePid,
+                payload.CoreLastError);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return CoreObservation.Unobserved(DescribeObserveFailure(exception));
+        }
+    }
 
     public async Task<ServiceModeStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
@@ -303,6 +333,26 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             AppLogger.Error(exception, failure);
             return ServiceModeOperationResult.Failed($"{failure}: {exception.Message}");
         }
+    }
+
+    private static CoreState ParseCoreState(string? value)
+    {
+        return value switch
+        {
+            "running" => CoreState.Running,
+            "stopping" => CoreState.Stopping,
+            "stopped" => CoreState.Stopped,
+            "crashed" => CoreState.Crashed,
+            // 服务报了个本版本不认识的状态，属于观测不到而非核心异常。
+            _ => CoreState.Unavailable,
+        };
+    }
+
+    private static string DescribeObserveFailure(Exception exception)
+    {
+        return exception is OperationCanceledException
+            ? "service pipe request timed out"
+            : $"{exception.GetType().Name}: {exception.Message}";
     }
 
     private static string? InstalledServiceBinaryPath()

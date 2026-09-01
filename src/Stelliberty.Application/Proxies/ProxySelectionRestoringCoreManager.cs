@@ -14,7 +14,6 @@ public sealed class ProxySelectionRestoringCoreManager : ICoreManager, IDisposab
     private bool _hasObservedRunning;
     private bool _isManagedReset;
     private bool _hasPendingObservedReset;
-    private string? _pendingObservedSubscriptionId;
     private int? _lastRunningPid;
     private bool _isDisposed;
 
@@ -173,33 +172,18 @@ public sealed class ProxySelectionRestoringCoreManager : ICoreManager, IDisposab
         var shouldRestore = false;
         lock (_stateGate)
         {
-            if (!_isManagedReset)
+            // 只有核心实例换了才需要重下选择；状态跳变不代表换了核心。
+            var processChanged = !_isManagedReset
+                && _hasObservedRunning
+                && snapshot.State == CoreState.Running
+                && snapshot.Pid is not null
+                && snapshot.Pid != _lastRunningPid;
+            if (processChanged)
             {
-                if (snapshot.State != CoreState.Running && _hasObservedRunning)
-                {
-                    if (!_hasPendingObservedReset)
-                    {
-                        _pendingObservedSubscriptionId = _restorer.SuspendCoreSelectionImport("core-state-change");
-                        _hasPendingObservedReset = true;
-                    }
-                }
-                else if (snapshot.State == CoreState.Running)
-                {
-                    var processChanged = _hasObservedRunning
-                        && snapshot.Pid is not null
-                        && snapshot.Pid != _lastRunningPid;
-                    if (processChanged && !_hasPendingObservedReset)
-                    {
-                        _pendingObservedSubscriptionId = _restorer.SuspendCoreSelectionImport("core-process-change");
-                        _hasPendingObservedReset = true;
-                    }
-
-                    if (_hasPendingObservedReset)
-                    {
-                        subscriptionId = _pendingObservedSubscriptionId;
-                        shouldRestore = true;
-                    }
-                }
+                // 挂起与还原同处一个同步块，新核心的选择来不及被导入。
+                subscriptionId = _restorer.SuspendCoreSelectionImport("core-process-change");
+                _hasPendingObservedReset = true;
+                shouldRestore = true;
             }
 
             if (snapshot.State == CoreState.Running)
@@ -229,10 +213,9 @@ public sealed class ProxySelectionRestoringCoreManager : ICoreManager, IDisposab
                 }
 
                 _hasPendingObservedReset = false;
-                _pendingObservedSubscriptionId = null;
             }
 
-            await TryRestoreIfRunningAsync(subscriptionId, "core-state-recovery");
+            await TryRestoreIfRunningAsync(subscriptionId, "core-process-change");
         }
         finally
         {
@@ -253,7 +236,6 @@ public sealed class ProxySelectionRestoringCoreManager : ICoreManager, IDisposab
             if (isManagedReset)
             {
                 _hasPendingObservedReset = false;
-                _pendingObservedSubscriptionId = null;
             }
         }
     }

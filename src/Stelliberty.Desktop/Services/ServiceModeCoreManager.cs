@@ -20,6 +20,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private readonly Func<string, string> _writeActiveConfig;
     private readonly Action<bool> _setCoreHostActive;
     private readonly object _monitorGate = new();
+    private readonly object _snapshotGate = new();
     private CancellationTokenSource? _monitorCancellation;
     private Task? _monitorTask;
     private CoreSnapshot? _lastSnapshot;
@@ -60,10 +61,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     public async Task<CoreSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
-        var snapshot = ToSnapshot(status);
-        PublishSnapshot(snapshot);
-        return snapshot;
+        var observation = await _serviceModeManager.ObserveCoreAsync(cancellationToken).ConfigureAwait(false);
+        return ApplyObservation(observation);
     }
 
     public async Task EnsureReadyAsync(CancellationToken cancellationToken = default)
@@ -185,17 +184,72 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             try
             {
                 await Task.Delay(StatePollInterval, cancellationToken).ConfigureAwait(false);
-                var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
-                PublishSnapshot(ToSnapshot(status));
+                var observation = await _serviceModeManager.ObserveCoreAsync(cancellationToken).ConfigureAwait(false);
+                ApplyObservation(observation);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 return;
             }
-            catch (Exception exception)
-            {
-                PublishSnapshot(new CoreSnapshot(CoreState.Unavailable, null, HubStartupCoordinator.CorePipe, exception.Message));
-            }
+        }
+    }
+
+    // 观测失败不等于核心停了；只有确认核心进程已消失才降级为不可用。
+    private CoreSnapshot ApplyObservation(CoreObservation observation)
+    {
+        if (observation.IsObserved)
+        {
+            var snapshot = new CoreSnapshot(
+                observation.State!.Value,
+                observation.Pid,
+                HubStartupCoordinator.CorePipe,
+                observation.LastError);
+            PublishSnapshot(snapshot);
+            return snapshot;
+        }
+
+        CoreSnapshot? lastSnapshot;
+        lock (_snapshotGate)
+        {
+            lastSnapshot = _lastSnapshot;
+        }
+
+        if (lastSnapshot is not null && IsCoreProcessAlive(lastSnapshot.Pid))
+        {
+            // 核心进程仍在则保留上次状态，不清日志页也不重下代理选择。
+            AppLogger.Debug($"Service-mode core observation skipped: reason={observation.UnobservedReason} pid={lastSnapshot.Pid}");
+            return lastSnapshot;
+        }
+
+        var unavailable = new CoreSnapshot(
+            CoreState.Unavailable,
+            null,
+            HubStartupCoordinator.CorePipe,
+            observation.UnobservedReason);
+        PublishSnapshot(unavailable);
+        return unavailable;
+    }
+
+    // 核心被服务的 Job 对象绑定，宿主消失核心必消失；进程名兜住 PID 复用。
+    private static bool IsCoreProcessAlive(int? pid)
+    {
+        if (pid is not > 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById(pid.Value);
+            var processName = process.ProcessName;
+            return string.Equals(
+                processName,
+                Path.GetFileNameWithoutExtension(DesktopApplicationLayout.CoreBinaryPath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
         }
     }
 
@@ -204,14 +258,12 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         var stopwatch = Stopwatch.StartNew();
         while (stopwatch.Elapsed < ReadyTimeout)
         {
-            var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+            var observation = await _serviceModeManager.ObserveCoreAsync(cancellationToken).ConfigureAwait(false);
             // 服务上报的进程号用于确认管道响应来自服务核心。
-            if (status.IsRunning
-                && status.CoreState == "running"
-                && status.CorePid is > 0
+            if (observation is { State: CoreState.Running, Pid: > 0 }
                 && !string.IsNullOrWhiteSpace(await ProbeVersionAsync(cancellationToken).ConfigureAwait(false)))
             {
-                return status.CorePid.Value;
+                return observation.Pid.Value;
             }
 
             await Task.Delay(ReadyPollInterval, cancellationToken).ConfigureAwait(false);
@@ -233,9 +285,9 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             return;
         }
 
+        // 日志流可能在快照未变期间断开，故每次发布都重建，不能并入去重分支。
         if (snapshot.State == CoreState.Running)
         {
-            // 状态查询恢复后必须重新建立先前停止的日志流。
             _logStreamer.Start();
         }
         else
@@ -244,13 +296,20 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
 
         _setCoreHostActive(snapshot.State == CoreState.Running);
-        if (_lastSnapshot == snapshot)
+
+        CoreSnapshot? previous;
+        lock (_snapshotGate)
         {
-            return;
+            if (_lastSnapshot == snapshot)
+            {
+                return;
+            }
+
+            previous = _lastSnapshot;
+            _lastSnapshot = snapshot;
         }
 
-        LogStateTransition(_lastSnapshot, snapshot);
-        _lastSnapshot = snapshot;
+        LogStateTransition(previous, snapshot);
         StateChanged?.Invoke(this, snapshot);
     }
 
@@ -297,24 +356,4 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         ObjectDisposedException.ThrowIf(_isDisposed, this);
     }
 
-    private static CoreState ParseCoreState(string? value)
-    {
-        return value switch
-        {
-            "running" => CoreState.Running,
-            "stopping" => CoreState.Stopping,
-            "stopped" => CoreState.Stopped,
-            "crashed" => CoreState.Crashed,
-            _ => CoreState.Unavailable,
-        };
-    }
-
-    private static CoreSnapshot ToSnapshot(ServiceModeStatus status)
-    {
-        return new CoreSnapshot(
-            ParseCoreState(status.CoreState),
-            status.CorePid,
-            HubStartupCoordinator.CorePipe,
-            status.CoreLastError);
-    }
 }
