@@ -80,6 +80,39 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     {
         ThrowIfDisposed();
         var activePath = _writeActiveConfig(await File.ReadAllTextAsync(request.RuntimeYamlPath, cancellationToken).ConfigureAwait(false));
+
+        // 核心未运行时服务侧没有可回填的启动参数，直接走完整启动
+        CoreSnapshot? snapshot;
+        lock (_snapshotGate)
+        {
+            snapshot = _lastSnapshot;
+        }
+
+        if (snapshot is not { State: CoreState.Running })
+        {
+            return await StartCoreHostAsync(activePath, cancellationToken).ConfigureAwait(false);
+        }
+
+        var result = await _serviceModeManager.ApplyCoreConfigAsync(activePath, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            throw new InvalidOperationException(result.Message);
+        }
+
+        if (TryParseReloadOutcome(result.Message, out var reloadPid))
+        {
+            // 重载进程未变，日志流与状态监视器保持运行
+            AppLogger.Info($"Service-mode core config reloaded: pid={reloadPid}");
+            return new CoreApplyConfigResult(CoreApplyMode.Reload, reloadPid);
+        }
+
+        // 回执格式漂移时按重启处理并记录原文，避免静默误判
+        AppLogger.Warning($"Unexpected core apply receipt: {result.Message}");
+        return await WaitCoreHostReadyAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<CoreApplyConfigResult> StartCoreHostAsync(string activePath, CancellationToken cancellationToken)
+    {
         var serviceRequest = new ServiceModeCoreHostRequest(
             DesktopApplicationLayout.CoreBinaryPath,
             DesktopApplicationLayout.CoreDirectory,
@@ -90,11 +123,29 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             throw new InvalidOperationException(result.Message);
         }
 
+        return await WaitCoreHostReadyAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<CoreApplyConfigResult> WaitCoreHostReadyAsync(CancellationToken cancellationToken)
+    {
         var pid = await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
         _logStreamer.Restart();
         StartStatusMonitor();
         PublishState(CoreState.Running, pid, null);
         return new CoreApplyConfigResult(CoreApplyMode.Restart, pid);
+    }
+
+    // 服务侧回执格式固定：mode=reload pid=<n>
+    private static bool TryParseReloadOutcome(string message, out int pid)
+    {
+        const string prefix = "mode=reload pid=";
+        if (!message.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            pid = 0;
+            return false;
+        }
+
+        return int.TryParse(message.AsSpan(prefix.Length), out pid);
     }
 
     public async Task RestartAsync(CancellationToken cancellationToken = default)

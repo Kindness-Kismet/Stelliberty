@@ -16,6 +16,9 @@ public interface IServiceModeManager
 
     Task<ServiceModeOperationResult> StartCoreHostAsync(ServiceModeCoreHostRequest request, CancellationToken cancellationToken = default);
 
+    // 应用新配置；成功回执 message 格式为 mode=<reload|restart> pid=<n>
+    Task<ServiceModeOperationResult> ApplyCoreConfigAsync(string configPath, CancellationToken cancellationToken = default);
+
     Task<ServiceModeOperationResult> StopCoreHostAsync(CancellationToken cancellationToken = default);
 
     Task<ServiceModeOperationResult> RestartCoreHostAsync(CancellationToken cancellationToken = default);

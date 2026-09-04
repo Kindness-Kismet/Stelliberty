@@ -1708,9 +1708,11 @@ name = "stelliberty_service"
 version = "1.0.1"
 dependencies = [
  "anyhow",
+ "hub",
  "libc",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "time",
  "tokio",
  "windows",

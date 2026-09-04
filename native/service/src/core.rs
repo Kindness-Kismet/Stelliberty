@@ -3,6 +3,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result, anyhow};
+use hub::infra::core_api::{ApiError, CoreApiClient};
+use hub::util::yaml_diff;
 use serde::Serialize;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -13,6 +15,15 @@ use crate::logging;
 const CORE_LOCK_SUFFIX: &str = ".lock";
 // 核心停止固定 5 秒；服务退出时锁等待也计入该预算。
 const CORE_STOP_TIMEOUT: Duration = Duration::from_secs(5);
+
+pub const APPLY_MODE_RELOAD: &str = "reload";
+pub const APPLY_MODE_RESTART: &str = "restart";
+
+// mihomo 控制器端点按平台取字段；缺失时不可重载
+#[cfg(windows)]
+const CONTROLLER_FIELD: &str = "external-controller-pipe";
+#[cfg(not(windows))]
+const CONTROLLER_FIELD: &str = "external-controller-unix";
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -40,6 +51,8 @@ struct CoreInner {
     state: CoreState,
     child: Option<ChildHandle>,
     last_request: Option<StartCoreRequest>,
+    // spawn 或重载时应用的配置内容，作为下次 apply 的 diff 基准
+    last_applied_yaml: Option<serde_yaml_ng::Value>,
     last_error: Option<String>,
     restore_after_heartbeat: bool,
     restore_in_progress: bool,
@@ -61,6 +74,7 @@ impl CoreManager {
                 state: CoreState::Stopped,
                 child: None,
                 last_request: None,
+                last_applied_yaml: None,
                 last_error: None,
                 restore_after_heartbeat: false,
                 restore_in_progress: false,
@@ -78,6 +92,8 @@ impl CoreManager {
 
     async fn start_locked(&self, request: StartCoreRequest) -> Result<u32> {
         validate_start_request(&request)?;
+        // 记录 spawn 时刻的配置内容，作为后续重载的 diff 基准
+        let applied_yaml = read_applied_yaml(&request.config_path);
         self.stop_with_restore_flag_locked(false, CORE_STOP_TIMEOUT)
             .await?;
         let killed = self.cleanup_orphan_cores_checked().await?;
@@ -94,6 +110,7 @@ impl CoreManager {
             inner.generation += 1;
             inner.state = CoreState::Running;
             inner.last_request = Some(request);
+            inner.last_applied_yaml = applied_yaml;
             inner.last_error = None;
             inner.restore_after_heartbeat = false;
             inner.restore_in_progress = false;
@@ -142,6 +159,86 @@ impl CoreManager {
         self.start_locked(request).await
     }
 
+    // 应用新配置：启动期字段未变时优先重载，否则回退重启
+    pub async fn apply_config(&self, config_path: String) -> Result<CoreApplyOutcome> {
+        let _guard = self.lifecycle.lock().await;
+        validate_config_path(&config_path)?;
+        let yaml_text = std::fs::read_to_string(&config_path)
+            .with_context(|| format!("Failed to read core config: {config_path}"))?;
+        let new_yaml: serde_yaml_ng::Value =
+            serde_yaml_ng::from_str(&yaml_text).context("Failed to parse core config yaml")?;
+
+        if let Some(pid) = self.reloadable_pid(&new_yaml).await
+            && let Some(pipe) = controller_endpoint(&new_yaml)
+        {
+            match self.reload_core(&pipe, &config_path).await {
+                ReloadOutcome::Applied => {
+                    let mut inner = self.inner.lock().await;
+                    inner.last_applied_yaml = Some(new_yaml);
+                    logging::info(format!("Core config reloaded by service: pid={pid}"));
+                    return Ok(CoreApplyOutcome {
+                        mode: APPLY_MODE_RELOAD,
+                        pid,
+                    });
+                }
+                // mihomo 拒绝候选配置时不能回退重启，否则会保留坏配置
+                ReloadOutcome::Rejected(error) => return Err(error),
+                ReloadOutcome::Failed(error) => {
+                    logging::warn(format!(
+                        "Core reload failed; falling back to restart: {error:#}"
+                    ));
+                }
+            }
+        }
+
+        // 回退重启：复用已记录的启动参数，仅替换配置路径
+        let mut request = {
+            let inner = self.inner.lock().await;
+            inner
+                .last_request
+                .clone()
+                .ok_or_else(|| anyhow!("Core startup parameters are missing"))?
+        };
+        request.config_path = config_path;
+        let pid = self.start_locked(request).await?;
+        Ok(CoreApplyOutcome {
+            mode: APPLY_MODE_RESTART,
+            pid,
+        })
+    }
+
+    // 仅当核心在运行且启动期字段无差异时才可重载
+    async fn reloadable_pid(&self, new_yaml: &serde_yaml_ng::Value) -> Option<u32> {
+        let inner = self.inner.lock().await;
+        let pid = match (&inner.state, inner.child.as_ref()) {
+            (CoreState::Running, Some(child)) => child.pid,
+            _ => return None,
+        };
+        let unchanged = inner
+            .last_applied_yaml
+            .as_ref()
+            .is_some_and(|prev| !yaml_diff::needs_restart(prev, new_yaml));
+        unchanged.then_some(pid)
+    }
+
+    async fn reload_core(&self, pipe: &str, config_path: &str) -> ReloadOutcome {
+        let client = CoreApiClient::new(pipe);
+        match client.put_config_path(Path::new(config_path)).await {
+            Ok(()) => {
+                if let Err(error) = client.close_all_connections().await {
+                    logging::warn(format!(
+                        "Failed to close core connections after reload: {error:#}"
+                    ));
+                }
+                ReloadOutcome::Applied
+            }
+            Err(error) => match error.downcast_ref::<ApiError>() {
+                Some(ApiError::ConfigRejected(_)) => ReloadOutcome::Rejected(error),
+                _ => ReloadOutcome::Failed(error),
+            },
+        }
+    }
+
     pub async fn stop(&self) -> Result<()> {
         let _guard = self.lifecycle.lock().await;
         self.stop_with_restore_flag_locked(false, CORE_STOP_TIMEOUT)
@@ -184,6 +281,7 @@ impl CoreManager {
         let mut inner = self.inner.lock().await;
         if inner.generation == generation {
             inner.state = CoreState::Stopped;
+            inner.last_applied_yaml = None;
             inner.restore_after_heartbeat = restore_after_heartbeat && inner.last_request.is_some();
             inner.restore_in_progress = false;
         }
@@ -258,10 +356,48 @@ impl CoreManager {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct CoreApplyOutcome {
+    pub mode: &'static str,
+    pub pid: u32,
+}
+
+enum ReloadOutcome {
+    Applied,
+    // 4xx 被拒：候选配置有误，调用方不得回退重启
+    Rejected(anyhow::Error),
+    Failed(anyhow::Error),
+}
+
+fn controller_endpoint(yaml: &serde_yaml_ng::Value) -> Option<String> {
+    let key = serde_yaml_ng::Value::String(CONTROLLER_FIELD.to_string());
+    match yaml {
+        serde_yaml_ng::Value::Mapping(map) => map.get(&key)?.as_str().map(str::to_owned),
+        _ => None,
+    }
+}
+
+// 读不到仅降级为下次 apply 走重启，不阻塞启动
+fn read_applied_yaml(config_path: &str) -> Option<serde_yaml_ng::Value> {
+    let text = match std::fs::read_to_string(config_path) {
+        Ok(text) => text,
+        Err(error) => {
+            logging::warn(format!("Failed to read applied core config: {error:#}"));
+            return None;
+        }
+    };
+    match serde_yaml_ng::from_str(&text) {
+        Ok(yaml) => Some(yaml),
+        Err(error) => {
+            logging::warn(format!("Failed to parse applied core config: {error}"));
+            None
+        }
+    }
+}
+
 fn validate_start_request(request: &StartCoreRequest) -> Result<()> {
     let allowed = AllowedCorePaths::resolve()?;
     let mihomo_path = canonical_file(&request.mihomo_path, "core executable")?;
-    let config_path = canonical_file(&request.config_path, "core config")?;
     let data_core_dir = canonical_dir(&request.data_core_dir, "core data directory")?;
 
     if !same_path(&mihomo_path, &allowed.mihomo_path) {
@@ -272,7 +408,16 @@ fn validate_start_request(request: &StartCoreRequest) -> Result<()> {
         return Err(anyhow!("Core data directory is outside the allowed area"));
     }
 
-    if !config_path.starts_with(&allowed.runtime_dir) {
+    validate_config_path(&request.config_path)?;
+
+    Ok(())
+}
+
+fn validate_config_path(config_path: &str) -> Result<()> {
+    let allowed = AllowedCorePaths::resolve()?;
+    let canonical = canonical_file(config_path, "core config")?;
+    // 配置必须位于 mihomo home 内，否则重载会被 mihomo 的 SAFE_PATHS 拒绝
+    if !canonical.starts_with(&allowed.core_dir) {
         return Err(anyhow!("Core config path is outside the allowed area"));
     }
 
@@ -281,7 +426,6 @@ fn validate_start_request(request: &StartCoreRequest) -> Result<()> {
 
 struct AllowedCorePaths {
     core_dir: PathBuf,
-    runtime_dir: PathBuf,
     mihomo_path: PathBuf,
 }
 
@@ -292,17 +436,12 @@ impl AllowedCorePaths {
             .join("core")
             .canonicalize()
             .context("Core directory does not exist")?;
-        let runtime_dir = data_root
-            .join("runtime")
-            .canonicalize()
-            .context("Runtime config directory does not exist")?;
         let mihomo_path = core_dir
             .join(core_binary_name())
             .canonicalize()
             .context("Core executable does not exist")?;
         Ok(Self {
             core_dir,
-            runtime_dir,
             mihomo_path,
         })
     }

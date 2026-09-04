@@ -214,13 +214,23 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
 
     public Task<ServiceModeOperationResult> StartCoreHostAsync(ServiceModeCoreHostRequest request, CancellationToken cancellationToken = default)
     {
-        var payload = JsonSerializer.Serialize(
+        return RunServiceCommandAsync("start-core", false, ManageTimeout, cancellationToken, SerializeStartCorePayload(request));
+    }
+
+    public Task<ServiceModeOperationResult> ApplyCoreConfigAsync(string configPath, CancellationToken cancellationToken = default)
+    {
+        var payload = JsonSerializer.Serialize(new ApplyCoreConfigCommand(new ApplyCoreConfigPayload(configPath)));
+        return RunServiceCommandAsync("apply-core-config", false, ManageTimeout, cancellationToken, payload);
+    }
+
+    private static string SerializeStartCorePayload(ServiceModeCoreHostRequest request)
+    {
+        return JsonSerializer.Serialize(
             new StartCoreCommand(
                 new StartCorePayload(
                     request.CorePath,
                     request.ConfigPath,
                     request.DataCoreDir)));
-        return RunServiceCommandAsync("start-core", false, ManageTimeout, cancellationToken, payload);
     }
 
     public Task<ServiceModeOperationResult> StopCoreHostAsync(CancellationToken cancellationToken = default)
@@ -543,7 +553,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = command == "start-core",
+            RedirectStandardInput = command is "start-core" or "apply-core-config",
             CreateNoWindow = true,
             // 服务端输出 UTF-8；Windows 默认按 ANSI 解码会把中文系统错误变成乱码。
             StandardOutputEncoding = Encoding.UTF8,
@@ -735,6 +745,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         return "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
     }
 
+    // 服务 spawn 核心所需的完整启动参数
     private sealed record StartCoreCommand(
         [property: JsonPropertyName("data")] StartCorePayload Data)
     {
@@ -742,9 +753,18 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         public string Type => "StartCore";
     }
 
-    // 服务协议字段保留 mihomo_path，兼容已安装的旧服务。
     private sealed record StartCorePayload(
         [property: JsonPropertyName("mihomo_path")] string CorePath,
         [property: JsonPropertyName("config_path")] string ConfigPath,
         [property: JsonPropertyName("data_core_dir")] string DataCoreDir);
+
+    private sealed record ApplyCoreConfigCommand(
+        [property: JsonPropertyName("data")] ApplyCoreConfigPayload Data)
+    {
+        [JsonPropertyName("type")]
+        public string Type => "ApplyCoreConfig";
+    }
+
+    private sealed record ApplyCoreConfigPayload(
+        [property: JsonPropertyName("config_path")] string ConfigPath);
 }

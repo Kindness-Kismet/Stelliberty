@@ -10,6 +10,7 @@ use crate::core::{CoreManager, CoreState, StartCoreRequest};
 use crate::logging;
 use crate::protocol::{ServiceCommand, ServiceResponse};
 use crate::service_version;
+use hub::infra::core_api::ApiError;
 
 const MAX_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 1024 * 1024;
@@ -63,6 +64,28 @@ impl ServiceState {
                         code: "core.start_failed".to_string(),
                         message: error.to_string(),
                     },
+                }
+            }
+            ServiceCommand::ApplyCoreConfig { config_path } => {
+                match self.core.apply_config(config_path).await {
+                    Ok(outcome) => ServiceResponse::CoreConfigApplied {
+                        mode: outcome.mode.to_string(),
+                        pid: outcome.pid,
+                    },
+                    Err(error) => {
+                        // 4xx 拒绝不可回退重启；错误码随回执文本透传，便于日志定位
+                        let rejected = error
+                            .downcast_ref::<ApiError>()
+                            .is_some_and(|api| matches!(api, ApiError::ConfigRejected(_)));
+                        ServiceResponse::Error {
+                            code: if rejected {
+                                "core.config_rejected".to_string()
+                            } else {
+                                "core.apply_failed".to_string()
+                            },
+                            message: format!("{error:#}"),
+                        }
+                    }
                 }
             }
             ServiceCommand::StopCore => match self.core.stop().await {
