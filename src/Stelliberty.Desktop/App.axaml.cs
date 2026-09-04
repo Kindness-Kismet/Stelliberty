@@ -403,6 +403,11 @@ public sealed partial class App : Avalonia.Application
             }
             else
             {
+                // --minimized：启动即最小化（调试拉起、开机自启）；静默启动优先级更高。
+                if (IsStartMinimizedRequested(desktop))
+                {
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
                 desktop.MainWindow = mainWindow;
             }
 
@@ -484,6 +489,11 @@ public sealed partial class App : Avalonia.Application
     private static bool ShouldStartHidden(AppSettings settings)
     {
         return settings.IsSilentStartEnabled;
+    }
+
+    private static bool IsStartMinimizedRequested(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        return desktop.Args?.Contains("--minimized", StringComparer.OrdinalIgnoreCase) == true;
     }
 
     private void StopBackgroundServices()
