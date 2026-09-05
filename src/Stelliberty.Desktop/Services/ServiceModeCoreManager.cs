@@ -13,20 +13,23 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private static readonly TimeSpan ReadyTimeout = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan ReadyPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan StatePollInterval = TimeSpan.FromSeconds(2);
+    // 覆盖一次观测往返（800ms）留足余量；超时则放弃等待，不阻塞进程退出。
+    private static readonly TimeSpan MonitorExitTimeout = TimeSpan.FromSeconds(3);
 
-    private readonly IServiceModeManager _serviceModeManager;
+    private readonly DesktopServiceModeManager _serviceModeManager;
     private readonly HttpClient _coreClient;
     private readonly CorePipeLogStreamer _logStreamer;
     private readonly Func<string, string> _writeActiveConfig;
     private readonly Action<bool> _setCoreHostActive;
     private readonly object _monitorGate = new();
+    private readonly object _snapshotGate = new();
     private CancellationTokenSource? _monitorCancellation;
     private Task? _monitorTask;
     private CoreSnapshot? _lastSnapshot;
     private bool _isDisposed;
 
     public ServiceModeCoreManager(
-        IServiceModeManager serviceModeManager,
+        DesktopServiceModeManager serviceModeManager,
         string corePipe,
         Func<string, string> writeActiveConfig,
         Action<bool> setCoreHostActive)
@@ -51,7 +54,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
 
         _isDisposed = true;
-        StopStatusMonitor();
+        StopStatusMonitor(waitForExit: true);
         _logStreamer.MessageReceived -= OnLogMessageReceived;
         _logStreamer.Dispose();
         _coreClient.Dispose();
@@ -60,10 +63,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     public async Task<CoreSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
-        var snapshot = ToSnapshot(status);
-        PublishSnapshot(snapshot);
-        return snapshot;
+        var observation = await _serviceModeManager.ObserveCoreAsync(cancellationToken).ConfigureAwait(false);
+        return ApplyObservation(observation);
     }
 
     public async Task EnsureReadyAsync(CancellationToken cancellationToken = default)
@@ -78,22 +79,73 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     public async Task<CoreApplyConfigResult> ApplyConfigAsync(CoreApplyConfigRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        var activePath = _writeActiveConfig(await File.ReadAllTextAsync(request.RuntimeYamlPath, cancellationToken).ConfigureAwait(false));
+        var activePath = _writeActiveConfig(request.RuntimeYamlContent);
+
+        // 核心未运行时服务侧没有可回填的启动参数，直接走完整启动
+        CoreSnapshot? snapshot;
+        lock (_snapshotGate)
+        {
+            snapshot = _lastSnapshot;
+        }
+
+        if (snapshot is not { State: CoreState.Running })
+        {
+            return await StartCoreHostAsync(activePath, cancellationToken).ConfigureAwait(false);
+        }
+
+        var result = await _serviceModeManager.ApplyCoreConfigAsync(activePath, cancellationToken).ConfigureAwait(false);
+        if (!result.IsSuccess)
+        {
+            throw new InvalidOperationException(result.Message);
+        }
+
+        if (TryParseReloadOutcome(result.Message, out var reloadPid))
+        {
+            // 重载进程未变，日志流与状态监视器保持运行
+            AppLogger.Info($"Service-mode core config reloaded: pid={reloadPid}");
+            return new CoreApplyConfigResult(CoreApplyMode.Reload, reloadPid);
+        }
+
+        // 回执格式漂移时按重启处理并记录原文，避免静默误判
+        AppLogger.Warning($"Unexpected core apply receipt: {result.Message}");
+        return await WaitCoreHostReadyAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<CoreApplyConfigResult> StartCoreHostAsync(string activePath, CancellationToken cancellationToken)
+    {
         var serviceRequest = new ServiceModeCoreHostRequest(
-            DesktopApplicationLayout.CoreBinaryPath,
-            DesktopApplicationLayout.CoreDirectory,
-            activePath);
+            CorePath: DesktopApplicationLayout.CoreBinaryPath,
+            DataCoreDir: DesktopApplicationLayout.CoreDirectory,
+            ConfigPath: activePath);
         var result = await _serviceModeManager.StartCoreHostAsync(serviceRequest, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             throw new InvalidOperationException(result.Message);
         }
 
+        return await WaitCoreHostReadyAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<CoreApplyConfigResult> WaitCoreHostReadyAsync(CancellationToken cancellationToken)
+    {
         var pid = await WaitReadyAsync(cancellationToken).ConfigureAwait(false);
         _logStreamer.Restart();
         StartStatusMonitor();
         PublishState(CoreState.Running, pid, null);
         return new CoreApplyConfigResult(CoreApplyMode.Restart, pid);
+    }
+
+    // 服务侧回执格式固定：mode=reload pid=<n>
+    private static bool TryParseReloadOutcome(string message, out int pid)
+    {
+        const string prefix = "mode=reload pid=";
+        if (!message.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            pid = 0;
+            return false;
+        }
+
+        return int.TryParse(message.AsSpan(prefix.Length), out pid);
     }
 
     public async Task RestartAsync(CancellationToken cancellationToken = default)
@@ -132,7 +184,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
     }
 
-    private void StopStatusMonitor()
+    // waitForExit 仅用于释放路径：轮询任务持有 _coreClient，必须等它退出后才能释放。
+    private void StopStatusMonitor(bool waitForExit = false)
     {
         CancellationTokenSource? cancellation;
         Task? task;
@@ -150,6 +203,19 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
 
         cancellation.Cancel();
+        if (waitForExit && task is not null)
+        {
+            // 轮询全程 ConfigureAwait(false)，同步等待不会死锁；取消后至多等一个观测往返。
+            try
+            {
+                task.Wait(MonitorExitTimeout);
+            }
+            catch (AggregateException)
+            {
+                // 轮询自身异常在循环内已记录，释放路径无需再处理。
+            }
+        }
+
         DisposeCancellationAfterTask(cancellation, task);
     }
 
@@ -185,17 +251,72 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             try
             {
                 await Task.Delay(StatePollInterval, cancellationToken).ConfigureAwait(false);
-                var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
-                PublishSnapshot(ToSnapshot(status));
+                var observation = await _serviceModeManager.ObserveCoreAsync(cancellationToken).ConfigureAwait(false);
+                ApplyObservation(observation);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 return;
             }
-            catch (Exception exception)
-            {
-                PublishSnapshot(new CoreSnapshot(CoreState.Unavailable, null, HubStartupCoordinator.CorePipe, exception.Message));
-            }
+        }
+    }
+
+    // 观测失败不等于核心停了；只有确认核心进程已消失才降级为不可用。
+    private CoreSnapshot ApplyObservation(CoreObservation observation)
+    {
+        if (observation.IsObserved)
+        {
+            var snapshot = new CoreSnapshot(
+                observation.State!.Value,
+                observation.Pid,
+                HubStartupCoordinator.CorePipe,
+                observation.LastError);
+            PublishSnapshot(snapshot);
+            return snapshot;
+        }
+
+        CoreSnapshot? lastSnapshot;
+        lock (_snapshotGate)
+        {
+            lastSnapshot = _lastSnapshot;
+        }
+
+        if (lastSnapshot is not null && IsCoreProcessAlive(lastSnapshot.Pid))
+        {
+            // 核心进程仍在则保留上次状态，不清日志页也不重下代理选择。
+            AppLogger.Debug($"Service-mode core observation skipped: reason={observation.UnobservedReason} pid={lastSnapshot.Pid}");
+            return lastSnapshot;
+        }
+
+        var unavailable = new CoreSnapshot(
+            CoreState.Unavailable,
+            null,
+            HubStartupCoordinator.CorePipe,
+            observation.UnobservedReason);
+        PublishSnapshot(unavailable);
+        return unavailable;
+    }
+
+    // 核心被服务的 Job 对象绑定，宿主消失核心必消失；进程名兜住 PID 复用。
+    private static bool IsCoreProcessAlive(int? pid)
+    {
+        if (pid is not > 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var process = Process.GetProcessById(pid.Value);
+            var processName = process.ProcessName;
+            return string.Equals(
+                processName,
+                Path.GetFileNameWithoutExtension(DesktopApplicationLayout.CoreBinaryPath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            return false;
         }
     }
 
@@ -204,14 +325,12 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         var stopwatch = Stopwatch.StartNew();
         while (stopwatch.Elapsed < ReadyTimeout)
         {
-            var status = await _serviceModeManager.GetStatusAsync(cancellationToken).ConfigureAwait(false);
+            var observation = await _serviceModeManager.ObserveCoreAsync(cancellationToken).ConfigureAwait(false);
             // 服务上报的进程号用于确认管道响应来自服务核心。
-            if (status.IsRunning
-                && status.CoreState == "running"
-                && status.CorePid is > 0
+            if (observation is { State: CoreState.Running, Pid: > 0 }
                 && !string.IsNullOrWhiteSpace(await ProbeVersionAsync(cancellationToken).ConfigureAwait(false)))
             {
-                return status.CorePid.Value;
+                return observation.Pid.Value;
             }
 
             await Task.Delay(ReadyPollInterval, cancellationToken).ConfigureAwait(false);
@@ -233,9 +352,9 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
             return;
         }
 
+        // 日志流可能在快照未变期间断开，故每次发布都重建，不能并入去重分支。
         if (snapshot.State == CoreState.Running)
         {
-            // 状态查询恢复后必须重新建立先前停止的日志流。
             _logStreamer.Start();
         }
         else
@@ -244,13 +363,20 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         }
 
         _setCoreHostActive(snapshot.State == CoreState.Running);
-        if (_lastSnapshot == snapshot)
+
+        CoreSnapshot? previous;
+        lock (_snapshotGate)
         {
-            return;
+            if (_lastSnapshot == snapshot)
+            {
+                return;
+            }
+
+            previous = _lastSnapshot;
+            _lastSnapshot = snapshot;
         }
 
-        LogStateTransition(_lastSnapshot, snapshot);
-        _lastSnapshot = snapshot;
+        LogStateTransition(previous, snapshot);
         StateChanged?.Invoke(this, snapshot);
     }
 
@@ -286,7 +412,8 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
                 ? version.GetString()
                 : null;
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException)
+        // 等待轮询退出有超时上限，超时后客户端可能已在释放路径中关闭。
+        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException or IOException or ObjectDisposedException)
         {
             return null;
         }
@@ -297,24 +424,4 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
         ObjectDisposedException.ThrowIf(_isDisposed, this);
     }
 
-    private static CoreState ParseCoreState(string? value)
-    {
-        return value switch
-        {
-            "running" => CoreState.Running,
-            "stopping" => CoreState.Stopping,
-            "stopped" => CoreState.Stopped,
-            "crashed" => CoreState.Crashed,
-            _ => CoreState.Unavailable,
-        };
-    }
-
-    private static CoreSnapshot ToSnapshot(ServiceModeStatus status)
-    {
-        return new CoreSnapshot(
-            ParseCoreState(status.CoreState),
-            status.CorePid,
-            HubStartupCoordinator.CorePipe,
-            status.CoreLastError);
-    }
 }

@@ -1,15 +1,11 @@
-- Fixed manually picking a node in a url-test or fallback group permanently suspending its automatic selection, which previously could only be undone by deleting the subscription
-- Running a delay test now releases manual picks on url-test and fallback groups, and a restart returns them to automatic selection
-- Fixed batch delay results disappearing from rows that scrolled out of view while the batch was still running
-- Dialogs now open scrolled to the top instead of keeping the position left by the previous session
-- Filtered rule lists now show the same centered empty card as the other list pages
-- Add and refresh moved into the rule page header, so the toolbar no longer overlaps at the narrowest window width
+- Applying config changes in service mode now reloads the core in place, so proxies no longer drop for a few seconds on subscription updates and setting changes
+- Fixed service-mode core status briefly showing as unavailable while the core kept running, which also caused unnecessary proxy selection reloads
+- Fixed a race during app shutdown that could crash the app while disposing the service-mode core client
+- Added a --minimized startup flag that launches the app with the main window minimized
 
 ---
 
-- 修复了在 url-test 或 fallback 分组手动选择节点后自动择优被永久挂起的问题，该问题此前只能通过删除订阅解除
-- 测试延迟现在会解除 url-test 和 fallback 分组的手动选择，重启后这类分组也会回到自动择优
-- 修复了批量测速期间滚出视图的条目丢失延迟结果的问题
-- 弹窗现在每次打开都从顶部开始，不再保留上一次的滚动位置
-- 规则列表被过滤为空时，现在显示与其它列表页一致的居中空状态卡片
-- 规则页的新增和刷新移入页头，最窄窗口宽度下工具栏不再重叠
+- 服务模式下应用配置变更改为原地重载核心，更新订阅或修改设置时代理节点不再短暂丢失
+- 修复了服务模式下核心仍在运行时状态短暂显示为不可用的问题，该问题此前还会引发多余的代理选择重载
+- 修复了应用退出时服务模式核心客户端释放竞态可能导致崩溃的问题
+- 新增了 --minimized 启动参数，现在可以让应用以主窗口最小化的方式启动

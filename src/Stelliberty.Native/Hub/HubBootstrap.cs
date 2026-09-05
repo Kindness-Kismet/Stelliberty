@@ -71,9 +71,10 @@ public static class HubBootstrap
     {
         lock (Gate)
         {
+            // hub 未启动即普通核心必然未运行，停止视为已完成
             if (!_started)
             {
-                return BootstrapResult.Failure("Hub is not initialized.");
+                return BootstrapResult.Success("Normal-mode core is not running.");
             }
 
             try

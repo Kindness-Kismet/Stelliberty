@@ -16,6 +16,11 @@ public static class AppRuntimeNames
 
     public static string ServiceName => $"{PascalIdentifier(AppMetadata.Name)}Service{DevSuffix}";
 
+    // 必须与 Rust native/service channel.rs 的 command_endpoint 逐字一致。
+    public static string ServiceCommandEndpoint => OperatingSystem.IsWindows()
+        ? $@"\\.\pipe\{FileToken(AppMetadata.Name)}_service{FileDevSuffix}"
+        : $"/tmp/{FileToken(AppMetadata.Name)}_service{FileDevSuffix}.sock";
+
     public static string ServiceBinaryName => OperatingSystem.IsWindows()
         ? $"{FileToken(AppMetadata.Name)}_service.exe"
         : $"{FileToken(AppMetadata.Name)}_service";

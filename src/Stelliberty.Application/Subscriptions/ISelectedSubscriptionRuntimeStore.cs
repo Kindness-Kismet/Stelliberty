@@ -3,9 +3,10 @@ namespace Stelliberty.Application.Subscriptions;
 
 public interface ISelectedSubscriptionRuntimeStore
 {
-    SelectedSubscriptionRuntimePaths Save(Subscription subscription, string originalContent, string runtimeConfigContent);
+    // 持久化订阅原文与运行时配置，供调试查看与后续读取；跨层只传内容。
+    void Save(Subscription subscription, string originalContent, string runtimeConfigContent);
 
-    string SaveEmpty(string runtimeConfigContent);
+    void SaveEmpty(string runtimeConfigContent);
 
     string ReadRuntimeConfig(string subscriptionId);
 

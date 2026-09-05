@@ -13,6 +13,9 @@ pub enum ServiceCommand {
         config_path: String,
         data_core_dir: String,
     },
+    ApplyCoreConfig {
+        config_path: String,
+    },
     StopCore,
     RestartCore,
     Shutdown,
@@ -41,4 +44,8 @@ pub enum ServiceResponse {
         lines: Vec<String>,
     },
     HeartbeatAck,
+    CoreConfigApplied {
+        mode: String,
+        pid: u32,
+    },
 }

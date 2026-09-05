@@ -14,24 +14,25 @@ use anyhow::{Result, bail};
 
 const HELP_COMMANDS: &str = "\
 Commands:
-  foreground       Run the service in the foreground
-  install          Install and start the system service
-  uninstall        Stop and uninstall the system service
-  start            Start the system service
-  stop             Stop the system service
-  status           Print service status
-  heartbeat        Send a client heartbeat
-  start-core       Read startup parameters from stdin and start the core
-  stop-core        Stop the core hosted by the service
-  restart-core     Restart the core hosted by the service
-  shutdown         Ask the service to exit
-  logs [lines]     Print service logs
-  version          Print version
-  help             Print help
+  foreground           Run the service in the foreground
+  install              Install and start the system service
+  uninstall            Stop and uninstall the system service
+  start                Start the system service
+  stop                 Stop the system service
+  status               Print service status
+  heartbeat            Send a client heartbeat
+  start-core           Read startup parameters from stdin and start the core
+  apply-core-config    Read the config path from stdin and apply the core config
+  stop-core            Stop the core hosted by the service
+  restart-core         Restart the core hosted by the service
+  shutdown             Ask the service to exit
+  logs [lines]         Print service logs
+  version              Print version
+  help                 Print help
 
 Options:
-  -h, --help       Print help
-  -v, --version    Print version";
+  -h, --help           Print help
+  -v, --version        Print version";
 
 pub fn run() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
@@ -51,6 +52,7 @@ pub fn run() -> Result<()> {
         Some("status") => installer::print_status(),
         Some("heartbeat") => installer::heartbeat(),
         Some("start-core") => installer::start_core_from_stdin(),
+        Some("apply-core-config") => installer::apply_core_config_from_stdin(),
         Some("stop-core") => installer::stop_core(),
         Some("restart-core") => installer::restart_core(),
         Some("shutdown") => installer::shutdown(),

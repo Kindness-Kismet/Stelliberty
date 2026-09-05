@@ -205,6 +205,24 @@ pub fn stop_core() -> Result<()> {
     }
 }
 
+pub fn apply_core_config_from_stdin() -> Result<()> {
+    let mut payload = String::new();
+    std::io::stdin()
+        .read_to_string(&mut payload)
+        .context("Failed to read core config parameters")?;
+    let command: ServiceCommand =
+        serde_json::from_str(&payload).context("Failed to parse core config parameters")?;
+
+    match send_service_command(command, Duration::from_secs(30))? {
+        ServiceResponse::CoreConfigApplied { mode, pid } => {
+            // stdout 格式与应用侧约定：mode=<reload|restart> pid=<n>
+            println!("mode={mode} pid={pid}");
+            Ok(())
+        }
+        other => bail!("Unexpected core apply response: {other:?}"),
+    }
+}
+
 pub fn restart_core() -> Result<()> {
     match send_service_command(ServiceCommand::RestartCore, Duration::from_secs(15))? {
         ServiceResponse::Success { message } => {

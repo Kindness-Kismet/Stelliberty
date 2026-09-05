@@ -8,13 +8,16 @@ using System.Text.Json.Serialization;
 using Microsoft.Win32;
 using Stelliberty.Application.Diagnostics;
 using Stelliberty.Application.Platform;
+using Stelliberty.Application.Runtime;
 
 namespace Stelliberty.Desktop.Services;
 
 internal sealed class DesktopServiceModeManager : IServiceModeManager
 {
-    // 管理超时覆盖提权和服务操作；Rust IPC 超时只约束一次本地调用。
+    // 覆盖 status、heartbeat、version 这类非提权只读查询；提权与生命周期操作用 ManageTimeout。
     private static readonly TimeSpan StatusTimeout = TimeSpan.FromSeconds(5);
+    // 远短于 2s 轮询间隔，避免请求堆叠。
+    private static readonly TimeSpan ObserveTimeout = TimeSpan.FromMilliseconds(800);
     private static readonly TimeSpan ManageTimeout = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan StatusSettleTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan StatusPollInterval = TimeSpan.FromMilliseconds(250);
@@ -24,6 +27,33 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
     private DateTime _serviceVersionFileLastWriteUtc;
     private long _serviceVersionFileLength = -1;
     private string? _cachedServiceVersion;
+
+    public async Task<CoreObservation> ObserveCoreAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var payload = await ServiceCommandPipeClient
+                .RequestStatusAsync(ObserveTimeout, cancellationToken)
+                .ConfigureAwait(false);
+            if (!string.Equals(payload.ServiceName, AppRuntimeNames.ServiceName, StringComparison.Ordinal))
+            {
+                return CoreObservation.Unobserved($"service name does not match: {payload.ServiceName}");
+            }
+
+            return CoreObservation.Observed(
+                ParseCoreState(payload.CoreState),
+                payload.CorePid,
+                payload.CoreLastError);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            return CoreObservation.Unobserved(DescribeObserveFailure(exception));
+        }
+    }
 
     public async Task<ServiceModeStatus> GetStatusAsync(CancellationToken cancellationToken = default)
     {
@@ -184,13 +214,23 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
 
     public Task<ServiceModeOperationResult> StartCoreHostAsync(ServiceModeCoreHostRequest request, CancellationToken cancellationToken = default)
     {
-        var payload = JsonSerializer.Serialize(
+        return RunServiceCommandAsync("start-core", false, ManageTimeout, cancellationToken, SerializeStartCorePayload(request));
+    }
+
+    public Task<ServiceModeOperationResult> ApplyCoreConfigAsync(string configPath, CancellationToken cancellationToken = default)
+    {
+        var payload = JsonSerializer.Serialize(new ApplyCoreConfigCommand(new ApplyCoreConfigPayload(configPath)));
+        return RunServiceCommandAsync("apply-core-config", false, ManageTimeout, cancellationToken, payload);
+    }
+
+    private static string SerializeStartCorePayload(ServiceModeCoreHostRequest request)
+    {
+        return JsonSerializer.Serialize(
             new StartCoreCommand(
                 new StartCorePayload(
                     request.CorePath,
                     request.ConfigPath,
                     request.DataCoreDir)));
-        return RunServiceCommandAsync("start-core", false, ManageTimeout, cancellationToken, payload);
     }
 
     public Task<ServiceModeOperationResult> StopCoreHostAsync(CancellationToken cancellationToken = default)
@@ -303,6 +343,26 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             AppLogger.Error(exception, failure);
             return ServiceModeOperationResult.Failed($"{failure}: {exception.Message}");
         }
+    }
+
+    private static CoreState ParseCoreState(string? value)
+    {
+        return value switch
+        {
+            "running" => CoreState.Running,
+            "stopping" => CoreState.Stopping,
+            "stopped" => CoreState.Stopped,
+            "crashed" => CoreState.Crashed,
+            // 服务报了个本版本不认识的状态，属于观测不到而非核心异常。
+            _ => CoreState.Unavailable,
+        };
+    }
+
+    private static string DescribeObserveFailure(Exception exception)
+    {
+        return exception is OperationCanceledException
+            ? "service pipe request timed out"
+            : $"{exception.GetType().Name}: {exception.Message}";
     }
 
     private static string? InstalledServiceBinaryPath()
@@ -493,7 +553,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
-            RedirectStandardInput = command == "start-core",
+            RedirectStandardInput = command is "start-core" or "apply-core-config",
             CreateNoWindow = true,
             // 服务端输出 UTF-8；Windows 默认按 ANSI 解码会把中文系统错误变成乱码。
             StandardOutputEncoding = Encoding.UTF8,
@@ -685,6 +745,7 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         return "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
     }
 
+    // 服务 spawn 核心所需的完整启动参数
     private sealed record StartCoreCommand(
         [property: JsonPropertyName("data")] StartCorePayload Data)
     {
@@ -692,9 +753,18 @@ internal sealed class DesktopServiceModeManager : IServiceModeManager
         public string Type => "StartCore";
     }
 
-    // 服务协议字段保留 mihomo_path，兼容已安装的旧服务。
     private sealed record StartCorePayload(
         [property: JsonPropertyName("mihomo_path")] string CorePath,
         [property: JsonPropertyName("config_path")] string ConfigPath,
         [property: JsonPropertyName("data_core_dir")] string DataCoreDir);
+
+    private sealed record ApplyCoreConfigCommand(
+        [property: JsonPropertyName("data")] ApplyCoreConfigPayload Data)
+    {
+        [JsonPropertyName("type")]
+        public string Type => "ApplyCoreConfig";
+    }
+
+    private sealed record ApplyCoreConfigPayload(
+        [property: JsonPropertyName("config_path")] string ConfigPath);
 }

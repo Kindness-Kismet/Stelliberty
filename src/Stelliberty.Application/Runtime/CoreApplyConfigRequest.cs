@@ -1,3 +1,1 @@
-namespace Stelliberty.Application.Runtime;
-
-public sealed record CoreApplyConfigRequest(string RuntimeYamlPath, string SubscriptionId);
+public sealed record CoreApplyConfigRequest(string RuntimeYamlContent, string SubscriptionId);

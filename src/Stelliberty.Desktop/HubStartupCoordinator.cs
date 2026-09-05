@@ -74,9 +74,9 @@ internal static class HubStartupCoordinator
     public static ServiceModeCoreHostRequest CreateServiceModeCoreHostRequest()
     {
         return new ServiceModeCoreHostRequest(
-            DesktopApplicationLayout.CoreBinaryPath,
-            DesktopApplicationLayout.CoreDirectory,
-            BuildInitialServiceModeConfigPath());
+            CorePath: DesktopApplicationLayout.CoreBinaryPath,
+            DataCoreDir: DesktopApplicationLayout.CoreDirectory,
+            ConfigPath: BuildInitialServiceModeConfigPath());
     }
 
     public static string BuildInitialServiceModeConfigPath()
@@ -87,8 +87,9 @@ internal static class HubStartupCoordinator
 
     public static string WriteServiceModeActiveConfig(string content)
     {
-        Directory.CreateDirectory(DesktopApplicationLayout.RuntimeDirectory);
-        var path = Path.Combine(DesktopApplicationLayout.RuntimeDirectory, "_service_active.yaml");
+        // active 配置必须位于 mihomo home 内，否则重载会被 mihomo 的 SAFE_PATHS 拒绝
+        Directory.CreateDirectory(DesktopApplicationLayout.CoreDirectory);
+        var path = Path.Combine(DesktopApplicationLayout.CoreDirectory, "_service_active.yaml");
         File.WriteAllText(path, InjectCorePipe(content));
         return path;
     }

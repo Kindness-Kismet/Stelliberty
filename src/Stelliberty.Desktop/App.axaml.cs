@@ -94,7 +94,7 @@ public sealed partial class App : Avalonia.Application
             ISystemProxyService systemProxyService = CreateSystemProxyService(
                 systemProxyPlatform,
                 platformDirectories.AppDataDirectory);
-            IServiceModeManager serviceModeManager = new DesktopServiceModeManager();
+            var serviceModeManager = new DesktopServiceModeManager();
             var coreProcessCleaner = new CoreProcessCleaner();
             var networkConnectionProbe = new SystemNetworkConnectionProbe();
             var processPrivilegeProbe = new SystemProcessPrivilegeProbe();
@@ -403,6 +403,11 @@ public sealed partial class App : Avalonia.Application
             }
             else
             {
+                // --minimized：启动即最小化（调试拉起、开机自启）；静默启动优先级更高。
+                if (IsStartMinimizedRequested(desktop))
+                {
+                    mainWindow.WindowState = WindowState.Minimized;
+                }
                 desktop.MainWindow = mainWindow;
             }
 
@@ -486,6 +491,11 @@ public sealed partial class App : Avalonia.Application
         return settings.IsSilentStartEnabled;
     }
 
+    private static bool IsStartMinimizedRequested(IClassicDesktopStyleApplicationLifetime desktop)
+    {
+        return desktop.Args?.Contains("--minimized", StringComparer.OrdinalIgnoreCase) == true;
+    }
+
     private void StopBackgroundServices()
     {
         StopTimer(ref _appUpdateAutoCheckTimer);
@@ -528,7 +538,7 @@ public sealed partial class App : Avalonia.Application
 
     private async Task StartCoreServicesAsync(
         ServiceModeStatus initialServiceModeStatus,
-        IServiceModeManager serviceModeManager,
+        DesktopServiceModeManager serviceModeManager,
         CoreProcessCleaner coreProcessCleaner,
         SwitchableCoreManager coreManager,
         MainWindowViewModel viewModel,
@@ -598,7 +608,7 @@ public sealed partial class App : Avalonia.Application
 
     private async Task<BootstrapResult> StartCoreHostAsync(
         ServiceModeStatus initialServiceModeStatus,
-        IServiceModeManager serviceModeManager,
+        DesktopServiceModeManager serviceModeManager,
         CoreProcessCleaner coreProcessCleaner,
         CancellationToken cancellationToken)
     {
@@ -711,7 +721,7 @@ public sealed partial class App : Avalonia.Application
     }
 #endif
 
-    private ICoreManager CreateCoreManager(ServiceModeStatus initialServiceModeStatus, IServiceModeManager serviceModeManager)
+    private ICoreManager CreateCoreManager(ServiceModeStatus initialServiceModeStatus, DesktopServiceModeManager serviceModeManager)
     {
         if (initialServiceModeStatus.IsRunning)
         {

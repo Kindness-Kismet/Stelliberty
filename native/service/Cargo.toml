@@ -1,6 +1,6 @@
 [package]
 name = "stelliberty_service"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2024"
 publish = false
 
@@ -14,8 +14,10 @@ path = "src/lib.rs"
 
 [dependencies]
 anyhow = "^1.0.102"
+hub = { path = "../hub" }
 serde = { version = "^1.0.228", features = ["derive"] }
 serde_json = "^1.0.145"
+serde_yaml_ng = "^0.10.0"
 time = { version = "^0.3", features = ["formatting", "local-offset"] }
 tokio = { version = "^1.48", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "signal", "sync", "process"] }
 

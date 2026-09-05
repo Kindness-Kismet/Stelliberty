@@ -82,7 +82,7 @@ public sealed class IpcCoreManager : ICoreManager, IDisposable, IAsyncDisposable
     {
         var paramJson = JsonSerializer.SerializeToElement(new
         {
-            runtime_yaml_path = request.RuntimeYamlPath,
+            runtime_yaml_content = request.RuntimeYamlContent,
             subscription_id = request.SubscriptionId,
         });
         var result = await _client.RequestAsync("core.apply_config", paramJson, cancellationToken).ConfigureAwait(false);

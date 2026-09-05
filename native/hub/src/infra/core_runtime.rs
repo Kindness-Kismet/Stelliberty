@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -167,9 +167,9 @@ impl CoreRuntime {
             inner.desired_yaml.clone()
         };
         // 先写 bootstrap，让活动 YAML 差异基线匹配核心实际配置。
-        std::fs::write(&self.paths.bootstrap_yaml, desired_yaml)
+        std::fs::write(&self.paths.bootstrap_yaml, &desired_yaml)
             .context("Failed to write bootstrap yaml")?;
-        let (initial_yaml, _) = self.rewrite_active_yaml(&self.paths.bootstrap_yaml).await?;
+        let (initial_yaml, _) = self.rewrite_active_yaml(&desired_yaml)?;
         let log_level = read_log_level(&initial_yaml);
         {
             let mut inner = self.state.lock().await;
@@ -324,7 +324,7 @@ impl CoreRuntime {
         self.paths.ensure_dirs()?;
         std::fs::write(&self.paths.bootstrap_yaml, &desired_yaml)
             .context("Failed to write bootstrap yaml")?;
-        let (active_yaml, _) = self.rewrite_active_yaml(&self.paths.bootstrap_yaml).await?;
+        let (active_yaml, _) = self.rewrite_active_yaml(&desired_yaml)?;
         let log_level = read_log_level(&active_yaml);
         self.start_core_process(
             &self.paths.active_yaml,
@@ -337,14 +337,9 @@ impl CoreRuntime {
         .await
     }
 
-    async fn rewrite_active_yaml(
-        &self,
-        source_path: &Path,
-    ) -> Result<(serde_yaml_ng::Value, String)> {
-        let text = std::fs::read_to_string(source_path)
-            .with_context(|| format!("Failed to read runtime yaml: {}", source_path.display()))?;
+    fn rewrite_active_yaml(&self, runtime_yaml: &str) -> Result<(serde_yaml_ng::Value, String)> {
         let mut yaml: serde_yaml_ng::Value =
-            serde_yaml_ng::from_str(&text).context("Failed to parse yaml")?;
+            serde_yaml_ng::from_str(runtime_yaml).context("Failed to parse yaml")?;
         if let serde_yaml_ng::Value::Mapping(map) = &mut yaml {
             // 只保留当前平台控制器端点，避免过期内联通道。
             #[cfg(unix)]
@@ -365,7 +360,7 @@ impl CoreRuntime {
 
     pub async fn apply_config(
         &self,
-        runtime_yaml_path: PathBuf,
+        runtime_yaml: String,
         _subscription_id: String,
     ) -> std::result::Result<serde_json::Value, ErrorBody> {
         let _lifecycle = self.lifecycle.lock().await;
@@ -379,7 +374,7 @@ impl CoreRuntime {
             }
         }
 
-        let (new_yaml, desired_yaml) = match self.rewrite_active_yaml(&runtime_yaml_path).await {
+        let (new_yaml, desired_yaml) = match self.rewrite_active_yaml(&runtime_yaml) {
             Ok(v) => v,
             Err(e) => {
                 return Err(ErrorBody {
@@ -526,19 +521,20 @@ impl MethodHandler for CoreRuntime {
                 Ok(serde_json::json!({ "pid": inner.child.as_ref().map(|c| c.pid) }))
             }
             "core.apply_config" => {
-                let path = params
-                    .get("runtime_yaml_path")
+                let runtime_yaml = params
+                    .get("runtime_yaml_content")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| ErrorBody {
                         code: "hub.internal".into(),
-                        message: "params is missing runtime_yaml_path".into(),
-                    })?;
+                        message: "params is missing runtime_yaml_content".into(),
+                    })?
+                    .to_string();
                 let sub_id = params
                     .get("subscription_id")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
                     .to_string();
-                self.apply_config(PathBuf::from(path), sub_id).await
+                self.apply_config(runtime_yaml, sub_id).await
             }
             other => Err(ErrorBody {
                 code: "hub.internal".into(),

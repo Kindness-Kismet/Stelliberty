@@ -6,7 +6,7 @@ using Stelliberty.Native.Hub;
 namespace Stelliberty.Desktop.Services;
 
 internal sealed class ServiceModeSessionSwitcher(
-    IServiceModeManager serviceModeManager,
+    DesktopServiceModeManager serviceModeManager,
     SwitchableCoreManager coreManager,
     Func<ServiceModeStatus, ICoreManager> createServiceCoreManager,
     Func<ICoreManager> createNormalCoreManager,
