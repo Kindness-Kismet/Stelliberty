@@ -94,7 +94,7 @@ public sealed partial class App : Avalonia.Application
             ISystemProxyService systemProxyService = CreateSystemProxyService(
                 systemProxyPlatform,
                 platformDirectories.AppDataDirectory);
-            IServiceModeManager serviceModeManager = new DesktopServiceModeManager();
+            var serviceModeManager = new DesktopServiceModeManager();
             var coreProcessCleaner = new CoreProcessCleaner();
             var networkConnectionProbe = new SystemNetworkConnectionProbe();
             var processPrivilegeProbe = new SystemProcessPrivilegeProbe();
@@ -538,7 +538,7 @@ public sealed partial class App : Avalonia.Application
 
     private async Task StartCoreServicesAsync(
         ServiceModeStatus initialServiceModeStatus,
-        IServiceModeManager serviceModeManager,
+        DesktopServiceModeManager serviceModeManager,
         CoreProcessCleaner coreProcessCleaner,
         SwitchableCoreManager coreManager,
         MainWindowViewModel viewModel,
@@ -608,7 +608,7 @@ public sealed partial class App : Avalonia.Application
 
     private async Task<BootstrapResult> StartCoreHostAsync(
         ServiceModeStatus initialServiceModeStatus,
-        IServiceModeManager serviceModeManager,
+        DesktopServiceModeManager serviceModeManager,
         CoreProcessCleaner coreProcessCleaner,
         CancellationToken cancellationToken)
     {
@@ -721,7 +721,7 @@ public sealed partial class App : Avalonia.Application
     }
 #endif
 
-    private ICoreManager CreateCoreManager(ServiceModeStatus initialServiceModeStatus, IServiceModeManager serviceModeManager)
+    private ICoreManager CreateCoreManager(ServiceModeStatus initialServiceModeStatus, DesktopServiceModeManager serviceModeManager)
     {
         if (initialServiceModeStatus.IsRunning)
         {

@@ -38,13 +38,11 @@ public sealed class SelectedSubscriptionRuntimeGenerator(
             RuntimeParams: request.RuntimeParams,
             // 自定义规则最后定稿，避免订阅覆写改写用户编辑结果。
             PostOverrideTransform: content => ApplyRuntimeRuleOverrides(subscription.Id, content)));
-        var paths = runtimeStore?.Save(subscription, originalContent, runtimeConfig.RuntimeConfigContent);
+        runtimeStore?.Save(subscription, originalContent, runtimeConfig.RuntimeConfigContent);
 
         return new SelectedSubscriptionRuntimeResult(
             subscription,
-            runtimeConfig.RuntimeConfigContent,
-            paths?.OriginalContentPath,
-            paths?.RuntimeConfigPath);
+            runtimeConfig.RuntimeConfigContent);
     }
 
     private string ReadOriginalContent(Subscription subscription)

@@ -16,7 +16,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     // 覆盖一次观测往返（800ms）留足余量；超时则放弃等待，不阻塞进程退出。
     private static readonly TimeSpan MonitorExitTimeout = TimeSpan.FromSeconds(3);
 
-    private readonly IServiceModeManager _serviceModeManager;
+    private readonly DesktopServiceModeManager _serviceModeManager;
     private readonly HttpClient _coreClient;
     private readonly CorePipeLogStreamer _logStreamer;
     private readonly Func<string, string> _writeActiveConfig;
@@ -29,7 +29,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private bool _isDisposed;
 
     public ServiceModeCoreManager(
-        IServiceModeManager serviceModeManager,
+        DesktopServiceModeManager serviceModeManager,
         string corePipe,
         Func<string, string> writeActiveConfig,
         Action<bool> setCoreHostActive)
@@ -79,7 +79,7 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     public async Task<CoreApplyConfigResult> ApplyConfigAsync(CoreApplyConfigRequest request, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
-        var activePath = _writeActiveConfig(await File.ReadAllTextAsync(request.RuntimeYamlPath, cancellationToken).ConfigureAwait(false));
+        var activePath = _writeActiveConfig(request.RuntimeYamlContent);
 
         // 核心未运行时服务侧没有可回填的启动参数，直接走完整启动
         CoreSnapshot? snapshot;
@@ -114,9 +114,9 @@ internal sealed class ServiceModeCoreManager : ICoreManager, IDisposable
     private async Task<CoreApplyConfigResult> StartCoreHostAsync(string activePath, CancellationToken cancellationToken)
     {
         var serviceRequest = new ServiceModeCoreHostRequest(
-            DesktopApplicationLayout.CoreBinaryPath,
-            DesktopApplicationLayout.CoreDirectory,
-            activePath);
+            CorePath: DesktopApplicationLayout.CoreBinaryPath,
+            DataCoreDir: DesktopApplicationLayout.CoreDirectory,
+            ConfigPath: activePath);
         var result = await _serviceModeManager.StartCoreHostAsync(serviceRequest, cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
         {

@@ -781,12 +781,12 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
             var shouldClearFailureNow = true;
             var wasAppliedToCore = false;
             var result = GenerateSelectedSubscriptionRuntimeWithOverrideFallback(subscriptionId, runtimeFallbackGenerator);
-            if (CoreManager is not null && !string.IsNullOrWhiteSpace(result.RuntimeConfigPath))
+            if (CoreManager is not null)
             {
                 // pending 只覆盖重启路径，重载成功后立即清除。
                 _pendingRuntimeSubscriptionId = subscriptionId;
                 var applyResult = await ApplyRuntimeConfigToCoreAsync(
-                    new CoreApplyConfigRequest(result.RuntimeConfigPath, subscriptionId),
+                    new CoreApplyConfigRequest(result.RuntimeConfigContent, subscriptionId),
                     refreshVersion,
                     endpointChangeVersion);
                 if (applyResult is null)
@@ -932,11 +932,11 @@ public sealed partial class MainWindowViewModel : ViewModelBase, IDisposable
     private async Task ApplyEmptyRuntimeToCoreAsync(int? refreshVersion = null, long endpointChangeVersion = 0)
     {
         var emptyConfig = _runtimeConfigGenerator.GenerateEmpty(CurrentRuntimeConfigParams());
-        var emptyConfigPath = _runtimeStore?.SaveEmpty(emptyConfig.RuntimeConfigContent);
-        if (CoreManager is not null && !string.IsNullOrWhiteSpace(emptyConfigPath))
+        _runtimeStore?.SaveEmpty(emptyConfig.RuntimeConfigContent);
+        if (CoreManager is not null)
         {
             var applyResult = await ApplyRuntimeConfigToCoreAsync(
-                new CoreApplyConfigRequest(emptyConfigPath, string.Empty),
+                new CoreApplyConfigRequest(emptyConfig.RuntimeConfigContent, string.Empty),
                 refreshVersion,
                 endpointChangeVersion);
             if (applyResult is null)

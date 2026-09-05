@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::sync::{Mutex, broadcast, mpsc};
 
-// 单帧上限 1 MiB；超大流会立即停止读取。
-pub const MAX_LINE_BYTES: usize = 1024 * 1024;
+// 单帧上限 4 MiB；配置内容随 payload 传输，预留 JSON 转义膨胀余量。
+pub const MAX_LINE_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]

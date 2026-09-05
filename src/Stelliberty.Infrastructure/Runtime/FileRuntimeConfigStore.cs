@@ -8,29 +8,23 @@ public sealed class FileRuntimeConfigStore(string runtimeDirectory) : ISelectedS
 {
     private readonly string _runtimeDirectory = runtimeDirectory;
 
-    public SelectedSubscriptionRuntimePaths Save(Subscription subscription, string originalContent, string runtimeConfigContent)
+    public void Save(Subscription subscription, string originalContent, string runtimeConfigContent)
     {
         var subscriptionRuntimeDirectory = Path.Combine(_runtimeDirectory, subscription.Id);
         Directory.CreateDirectory(subscriptionRuntimeDirectory);
 
-        var originalContentPath = Path.Combine(subscriptionRuntimeDirectory, "original.yaml");
-        var runtimeConfigPath = Path.Combine(subscriptionRuntimeDirectory, "runtime.yaml");
-        File.WriteAllText(originalContentPath, originalContent);
-        File.WriteAllText(runtimeConfigPath, runtimeConfigContent);
+        File.WriteAllText(Path.Combine(subscriptionRuntimeDirectory, "original.yaml"), originalContent);
+        File.WriteAllText(Path.Combine(subscriptionRuntimeDirectory, "runtime.yaml"), runtimeConfigContent);
         AppLogger.Info($"Runtime config generated: {subscription.Name}");
-
-        return new SelectedSubscriptionRuntimePaths(originalContentPath, runtimeConfigPath);
     }
 
-    public string SaveEmpty(string runtimeConfigContent)
+    public void SaveEmpty(string runtimeConfigContent)
     {
         var emptyRuntimeDirectory = Path.Combine(_runtimeDirectory, "empty");
         Directory.CreateDirectory(emptyRuntimeDirectory);
 
-        var runtimeConfigPath = Path.Combine(emptyRuntimeDirectory, "runtime.yaml");
-        File.WriteAllText(runtimeConfigPath, runtimeConfigContent);
+        File.WriteAllText(Path.Combine(emptyRuntimeDirectory, "runtime.yaml"), runtimeConfigContent);
         AppLogger.Info("Empty runtime config generated");
-        return runtimeConfigPath;
     }
 
     public string ReadRuntimeConfig(string subscriptionId)

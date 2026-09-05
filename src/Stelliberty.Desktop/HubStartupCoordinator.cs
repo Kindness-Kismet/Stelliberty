@@ -74,9 +74,9 @@ internal static class HubStartupCoordinator
     public static ServiceModeCoreHostRequest CreateServiceModeCoreHostRequest()
     {
         return new ServiceModeCoreHostRequest(
-            DesktopApplicationLayout.CoreBinaryPath,
-            DesktopApplicationLayout.CoreDirectory,
-            BuildInitialServiceModeConfigPath());
+            CorePath: DesktopApplicationLayout.CoreBinaryPath,
+            DataCoreDir: DesktopApplicationLayout.CoreDirectory,
+            ConfigPath: BuildInitialServiceModeConfigPath());
     }
 
     public static string BuildInitialServiceModeConfigPath()
