@@ -388,7 +388,14 @@ public sealed partial class App : Avalonia.Application
                 await Task.Run(HubBootstrap.Shutdown);
                 AppLogger.Info($"Normal-mode hub shutdown completed: elapsed={Stopwatch.GetElapsedTime(hubStopStartedAt).TotalMilliseconds:0}ms");
             };
-            mainWindow.OsShutdownDetected = () => Interlocked.Exchange(ref _isOsShutdownRequested, 1);
+            // 关机窗口内服务核心先于应用被系统终止，置位期间不再转发核心状态；关机取消则复位。
+            void ApplyOsShutdownDetected(bool isDetected)
+            {
+                Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0);
+                coreManager.SetShutdownSuspension(isDetected);
+            }
+
+            mainWindow.OsShutdownDetected = () => ApplyOsShutdownDetected(true);
 #if DEBUG
             LogStartupTrace("Main window constructed and bound", startupStartedAt);
 #endif
@@ -439,7 +446,7 @@ public sealed partial class App : Avalonia.Application
             // 兜底系统关机/注销：用户未主动退出时同步清理系统代理，避免残留失效端口。
             _sessionEndCleanup = new SessionEndCleanupService(
                 viewModel.HomePage.DisableSystemProxyOnShutdown,
-                isDetected => Interlocked.Exchange(ref _isOsShutdownRequested, isDetected ? 1 : 0));
+                ApplyOsShutdownDetected);
             _sessionEndCleanup.Start();
             _trayService.Attach(desktop, mainWindow, viewModel, localization);
             foreach (var (action, gesture) in new[]
